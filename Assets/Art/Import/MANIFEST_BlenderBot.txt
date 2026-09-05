@@ -1,0 +1,40 @@
+Asteroids gone rogue — Week 1 assets
+Scale: 1 unit = 1 meter
+Axis (FBX): Forward -Z, Up Y (Unity)
+Ship forward in Blender: -Y (nose)
+Ship parts share world origin (0,0,0) for upgrade swapping
+Approx sizes: ship ~3m long, Asteroid_Large ~5m, Asteroid_Small ~2m, Enemy ~2m, Arena radius ~22m
+
+Files:
+  Ship_Nose.fbx
+  Ship_Body.fbx
+  Ship_Engine.fbx
+  Ship_Complete.fbx
+  Asteroid_Large.fbx
+  Asteroid_Small.fbx
+  Enemy_01.fbx
+  Arena_Blockout.fbx
+  AsteroidsGoneRogue_Week1_All.fbx
+
+Object names: Ship_Nose, Ship_Body, Ship_Engine, Asteroid_Large, Asteroid_Small, Enemy_01, Arena_Blockout
+Materials: Mat_Ship_Hull, Mat_Ship_Accent, Mat_Ship_Glass, Mat_Ship_Glow, Mat_Asteroid, Mat_Enemy, Mat_Arena
+Ship remake v2: nicer low-poly with accents (2026-09-05)
+Project folder: /workspace/asteroids-gone-rogue/assets/
+
+Canonical ship: v4 (Wagge 2026-09-05). v5 discarded. No further ship versions without SpelPM brief.
+
+Upgrades (swap over base, same pivot 0,0,0):
+  Ship_Nose_Upgrade01.fbx
+  Ship_Engine_Upgrade01.fbx
+  Ship_Complete_Upgrade01.fbx  (Body + upgrades)
+Preview: /workspace/asteroids-gone-rogue/assets/preview_ship_upgrades_01.png
+
+Enemy variants:
+  Enemy_Scout.fbx   (~1.2m, fast dart)
+  Enemy_Gunner.fbx  (~3m, heavy gunboat)
+  Enemy_01.fbx      (original mid-size)
+Preview: /workspace/asteroids-gone-rogue/assets/preview_enemies_variants.png
+
+
+Arena_World2_Blockout.fbx — broken-ring cleft arena, warm Mat_Arena_W2_* palette.
+See ../PALETTE_NOTES.md
