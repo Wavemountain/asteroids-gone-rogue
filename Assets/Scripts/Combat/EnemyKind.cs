@@ -177,12 +177,12 @@ namespace AsteroidsGoneRogue
                 return EnemyKind.Drone;
             }
 
-            if (visualName == "Enemy_Bomber")
+            if (visualName == "Enemy_Bomber" || visualName == "Enemy_Bomber_Buffer_v5")
             {
                 return EnemyKind.Bomber;
             }
 
-            if (visualName == "Enemy_Sniper")
+            if (visualName == "Enemy_Sniper" || visualName == "Enemy_Sniper_Buffer_v5")
             {
                 return EnemyKind.Sniper;
             }

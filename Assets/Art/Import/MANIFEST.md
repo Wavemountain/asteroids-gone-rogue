@@ -37,10 +37,12 @@ FBX in this folder are instantiated on Press Play by `ArtImport` / `ContentFacto
 - [x] `Hangar_LightPillar`
 - [x] `Hangar_Console` / `Hangar_PowerBox` / `Hangar_FireExtinguisher` (0.31 hangar-wire)
 - [x] `Hangar_Locker` (0.32 hangar-wire)
+- [x] `Hangar_LaunchSign` (0.34 Start Wave landmark)
 
 ## Present but not Week 1 gameplay
 
 - [x] `Enemy_Scout` / `Enemy_Gunner` (Play waves 2+, Buffer v4 bytes under canonical names)
+- [x] `Enemy_Bomber` / `Enemy_Sniper` (Play waves 7+, Buffer v5 bytes under canonical names)
 - [x] `Enemy_Drone` (loadable if spawned)
 - [x] `Arena_World2_Blockout` / `Arena_World3_Blockout`
 - [x] `Pickup_Score` / `Pickup_Shield` (`CreatePickup` only)

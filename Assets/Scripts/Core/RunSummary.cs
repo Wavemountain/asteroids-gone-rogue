@@ -71,16 +71,36 @@ namespace AsteroidsGoneRogue
             return lastResolvedWave == 1 && phase == GamePhase.WaveClear;
         }
 
+        public static bool ShowContinueHint(int lastResolvedWave, GamePhase phase)
+        {
+            return phase == GamePhase.WaveClear && lastResolvedWave >= 1 && lastResolvedWave <= 3;
+        }
+
         public static string AfterWave1Hint(int credits, LoadoutState loadout)
         {
+            return ContinueHint(1, credits, loadout);
+        }
+
+        public static string ContinueHint(int lastResolvedWave, int credits, LoadoutState loadout)
+        {
             ShopItem next = NextUnlock(credits, loadout);
-            if (next != null)
+            string buy = next != null ? "Buy " + next.Title : "Push for a new best.";
+            return NextUnlockLandmark(lastResolvedWave) + "  ·  " + buy;
+        }
+
+        public static string NextUnlockLandmark(int lastResolvedWave)
+        {
+            if (lastResolvedWave == 2)
             {
-                return "World 2 at wave " + World2StartsAtWave
-                    + "  ·  Buy " + next.Title + " (" + next.Cost + " cr)";
+                return "Gunner at wave 4";
             }
 
-            return "World 2 at wave " + World2StartsAtWave + "  ·  Push for a new best.";
+            if (lastResolvedWave == 3)
+            {
+                return "Gunner next";
+            }
+
+            return "World 2 at wave " + World2StartsAtWave;
         }
 
         public static ShopItem NextUnlock(int credits, LoadoutState loadout)

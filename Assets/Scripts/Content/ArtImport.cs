@@ -61,6 +61,7 @@ namespace AsteroidsGoneRogue
             "Hangar_PowerBox",
             "Hangar_FireExtinguisher",
             "Hangar_Locker",
+            "Hangar_LaunchSign",
             "Ship_Complete",
             "Projectile_Bolt",
             "Projectile_EnemyBolt",
@@ -81,6 +82,34 @@ namespace AsteroidsGoneRogue
             return ImportFolder + "/" + StripExtension(assetName) + ".fbx";
         }
 
+        /// <summary>
+        /// Primary Play Mode name first, then optional GameBot Buffer_* aliases.
+        /// Canonical files live as Enemy_Bomber.fbx / Hangar_LaunchSign.fbx (not Buffer_*).
+        /// </summary>
+        public static string[] CandidateNames(string assetName)
+        {
+            string key = StripExtension(assetName);
+            switch (key)
+            {
+                case "Enemy_Scout":
+                    return new[] { "Enemy_Scout", "Enemy_Scout_Buffer_v4" };
+                case "Enemy_Gunner":
+                    return new[] { "Enemy_Gunner", "Enemy_Gunner_Buffer_v4" };
+                case "Enemy_Bomber":
+                    return new[] { "Enemy_Bomber", "Enemy_Bomber_Buffer_v5" };
+                case "Enemy_Sniper":
+                    return new[] { "Enemy_Sniper", "Enemy_Sniper_Buffer_v5" };
+                case "Hangar_LaunchSign":
+                    return new[] { "Hangar_LaunchSign", "Hangar_LaunchSign_Buffer_v2" };
+                case "Projectile_Bolt":
+                    return new[] { "Projectile_Bolt", "Projectile_Bolt_Buffer_v2" };
+                case "Projectile_EnemyBolt":
+                    return new[] { "Projectile_EnemyBolt", "Projectile_EnemyBolt_Buffer" };
+                default:
+                    return new[] { key };
+            }
+        }
+
         public static GameObject LoadPrefab(string assetName)
         {
             string key = StripExtension(assetName);
@@ -90,12 +119,33 @@ namespace AsteroidsGoneRogue
                 return prefab;
             }
 
-            string path = AssetPath(key);
-            prefab = Resources.Load<GameObject>(ResourcesKeyPrefix + key);
+            string[] names = CandidateNames(key);
+            for (int i = 0; i < names.Length; i++)
+            {
+                prefab = LoadPrefabExact(names[i]);
+                if (prefab != null)
+                {
+                    break;
+                }
+            }
+
+            Cache[key] = prefab;
+            if (prefab == null && MissingLogged.Add(key))
+            {
+                Debug.LogWarning("ArtImport: missing Resources/" + ResourcesKeyPrefix + key
+                    + " and " + AssetPath(key) + " — using primitive fallback.");
+            }
+
+            return prefab;
+        }
+
+        private static GameObject LoadPrefabExact(string key)
+        {
+            GameObject prefab = Resources.Load<GameObject>(ResourcesKeyPrefix + key);
 #if UNITY_EDITOR
             if (prefab == null)
             {
-                prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                prefab = AssetDatabase.LoadAssetAtPath<GameObject>(AssetPath(key));
             }
 
             if (prefab == null)
@@ -104,14 +154,6 @@ namespace AsteroidsGoneRogue
                     "Assets/Resources/Art/Import/" + key + ".fbx");
             }
 #endif
-
-            Cache[key] = prefab;
-            if (prefab == null && MissingLogged.Add(key))
-            {
-                Debug.LogWarning("ArtImport: missing Resources/" + ResourcesKeyPrefix + key
-                    + " and " + path + " — using primitive fallback.");
-            }
-
             return prefab;
         }
 

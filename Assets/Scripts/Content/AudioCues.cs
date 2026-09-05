@@ -22,6 +22,7 @@ namespace AsteroidsGoneRogue
         public const float AbortDuckScale = 0.18f;
         public const float AbortDuckSeconds = 0.55f;
         public const float HitPunchScale = 1.22f;
+        public const float EnemyDeathPunchScale = 0.78f;
 
         public static AudioCues Instance { get; private set; }
 
@@ -36,6 +37,7 @@ namespace AsteroidsGoneRogue
         private AudioClip _hitPunch;
         private AudioClip _asteroidSplit;
         private AudioClip _enemyDeath;
+        private AudioClip _enemyDeathPunch;
         private AudioClip _playerDamage;
         private AudioClip _purchase;
         private AudioClip _uiClick;
@@ -123,6 +125,10 @@ namespace AsteroidsGoneRogue
         public void PlayEnemyDeath()
         {
             Play(_enemyDeath);
+            if (_enemyDeathPunch != null)
+            {
+                Play(_enemyDeathPunch, EnemyDeathPunchScale);
+            }
         }
 
         public void PlayPlayerDamage()
@@ -334,6 +340,7 @@ namespace AsteroidsGoneRogue
             _hitPunch = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_000");
             _asteroidSplit = Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_000");
             _enemyDeath = Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_003");
+            _enemyDeathPunch = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_000");
             _playerDamage = Resources.Load<AudioClip>("Audio/Sfx/forceField_000");
             _purchase = Resources.Load<AudioClip>("Audio/Sfx/confirmation_002");
             _uiClick = Resources.Load<AudioClip>("Audio/Sfx/click_002");

@@ -32,17 +32,42 @@ namespace AsteroidsGoneRogue
 
         public static bool IsBetter(int bestScore, int bestWave, int score, int wave)
         {
-            if (score > bestScore)
+            return IsBetter(bestScore, bestWave, 0, score, wave, 0);
+        }
+
+        public static bool IsBetter(int bestScore, int bestWave, int bestWorld, int score, int wave, int world)
+        {
+            if (score != bestScore)
             {
-                return true;
+                return score > bestScore;
             }
 
-            return score == bestScore && wave > bestWave;
+            if (wave != bestWave)
+            {
+                return wave > bestWave;
+            }
+
+            return world > bestWorld;
+        }
+
+        public string PlayCompare(int score, int wave, int world)
+        {
+            if (!HasRecord)
+            {
+                return string.Empty;
+            }
+
+            if (IsBetter(Score, Wave, World, score, wave, world) || score > Score)
+            {
+                return "  ·  NEW BEST";
+            }
+
+            return " / Best " + Score;
         }
 
         public bool TryRecord(int score, int wave, int world)
         {
-            if (HasRecord && !IsBetter(Score, Wave, score, wave))
+            if (HasRecord && !IsBetter(Score, Wave, World, score, wave, world))
             {
                 return false;
             }

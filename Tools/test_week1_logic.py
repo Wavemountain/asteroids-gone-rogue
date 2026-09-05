@@ -273,6 +273,7 @@ def test_factory_wires_import_fbx() -> None:
     assert "ShieldCell" in catalog
     assert "Projectile_Bolt" in factory
     assert "Projectile_EnemyBolt" in factory
+    assert "Hangar_LaunchSign" in factory
     assert "Arena_Blockout" in factory
     assert "Resources.Load" in art
     assert "AssetDatabase.LoadAssetAtPath" in art
@@ -470,8 +471,9 @@ def test_local_best_audio_and_bolts() -> None:
     assert 'Resources.Load<AudioClip>("Audio/Sfx/minimize_005")' in audio
     assert "HangarMusicScale" in audio and "ArenaMusicScale" in audio
     assert "Projectile_EnemyBolt" in factory
-    assert "Projectile_Bolt_Buffer_v2" in factory
-    assert "Projectile_EnemyBolt_Buffer" in factory
+    assert "Projectile_Bolt_Buffer_v2" in art
+    assert "Projectile_EnemyBolt_Buffer" in art
+    assert art.index('"Projectile_Bolt"') < art.index("Projectile_Bolt_Buffer_v2")
     assert "SpawnEnemyProjectile" in factory
     assert 'PlaceHangarProp("Hangar_Locker"' in factory
     warm = art.split("PlayModeAssets")[1].split("};")[0]
@@ -558,8 +560,8 @@ def test_juice_best_hud() -> None:
     assert "new Vector3(0.48f, 0.48f, 2.05f)" in factory
     assert "new Vector3(1.65f, 1.65f, 0.48f)" in factory
     assert "TryEnemyVisual" in factory
-    assert "Enemy_Scout_Buffer_v4" in factory
-    assert "Enemy_Gunner_Buffer_v4" in factory
+    assert "Enemy_Scout_Buffer_v4" in art
+    assert "Enemy_Gunner_Buffer_v4" in art
     assert 'PlaceHangarProp("Hangar_ShipComplete", "Ship_Complete"' in factory
     warm = art.split("PlayModeAssets")[1].split("};")[0]
     assert "Enemy_Scout" in warm and "Enemy_Gunner" in warm
@@ -601,6 +603,101 @@ def RunSummary_show_after_wave1(last_resolved_wave: int, phase: str) -> bool:
     return last_resolved_wave == 1 and phase == Phase.WAVE_CLEAR
 
 
+def RunSummary_show_continue(last_resolved_wave: int, phase: str) -> bool:
+    return phase == Phase.WAVE_CLEAR and 1 <= last_resolved_wave <= 3
+
+
+def is_better_best_world(
+    best_score: int, best_wave: int, best_world: int, score: int, wave: int, world: int
+) -> bool:
+    if score != best_score:
+        return score > best_score
+    if wave != best_wave:
+        return wave > best_wave
+    return world > best_world
+
+
+def test_enemies_launch_034() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    best_src = (root / "Assets/Scripts/Core/LocalBest.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    art = (root / "Assets/Scripts/Content/ArtImport.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    enemies = (root / "Assets/Scripts/Combat/EnemyKind.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+
+    assert "PlayCompare" in best_src
+    assert "int bestWorld" in best_src
+    assert is_better_best(100, 3, 100, 4)
+    assert not is_better_best(100, 3, 100, 3)
+    assert is_better_best_world(100, 3, 1, 100, 3, 2)
+    assert not is_better_best_world(100, 3, 2, 100, 3, 1)
+    assert "PlayBestCompare" in ui
+    hud = ui.split("private string BuildHud")[1].split("private static Font")[0]
+    assert "PlayBestCompare()" in hud
+    assert '_audioPanel.SetActive(!playing)' in ui
+
+    assert "ShowContinueHint" in summary
+    assert RunSummary_show_continue(1, Phase.WAVE_CLEAR)
+    assert RunSummary_show_continue(2, Phase.WAVE_CLEAR)
+    assert RunSummary_show_continue(3, Phase.WAVE_CLEAR)
+    assert not RunSummary_show_continue(4, Phase.WAVE_CLEAR)
+    assert not RunSummary_show_continue(2, Phase.FAILED)
+    assert "Gunner at wave 4" in summary
+    assert "Gunner next" in summary
+    assert "RunSummary.ContinueHint(" in ui
+    assert "RunSummary.ShowContinueHint(" in ui
+
+    warm = art.split("PlayModeAssets")[1].split("};")[0]
+    assert "Enemy_Bomber" in warm and "Enemy_Sniper" in warm
+    assert "Hangar_LaunchSign" in warm
+    assert "CandidateNames" in art
+    assert "Enemy_Bomber_Buffer_v5" in art
+    assert "Enemy_Sniper_Buffer_v5" in art
+    assert art.index('"Enemy_Bomber"') < art.index("Enemy_Bomber_Buffer_v5")
+    assert art.index('"Enemy_Sniper"') < art.index("Enemy_Sniper_Buffer_v5")
+    assert "Enemy_Scout_Buffer_v4" not in factory
+    assert "Enemy_Gunner_Buffer_v4" not in factory
+    assert "Projectile_Bolt_Buffer_v2" not in factory
+    assert "EnemyKind.Bomber" in waves and "EnemyKind.Sniper" in waves
+    assert "EnemyCatalog.VisualName" in waves
+    assert 'return "Enemy_Bomber"' in enemies
+    assert 'return "Enemy_Sniper"' in enemies
+    assert "Enemy_Bomber_Buffer_v5" in enemies
+    assert "Enemy_Sniper_Buffer_v5" in enemies
+    assert 'PlaceHangarProp("Hangar_LaunchSign"' in factory
+    assert "Hangar_LaunchSign" in factory
+
+    death = audio.split("public void PlayEnemyDeath()")[1].split("public void")[0]
+    split = audio.split("public void PlayAsteroidSplit()")[1].split("public void")[0]
+    assert "Play(_enemyDeath)" in death
+    assert "EnemyDeathPunchScale" in death
+    assert "_enemyDeathPunch" in death
+    assert "Play(_asteroidSplit)" in split
+    assert "_enemyDeathPunch" not in split
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_000")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_003")' in audio
+    assert "DuckMusic" in audio and "AbortDuckScale" in audio
+    assert "HitPunchScale = 1.22f" in audio
+    punch = audio.split("public void PlayHit()")[1].split("public void")[0]
+    assert "HitPunchScale" in punch
+    abort_fn = audio.split("public void PlayAbortWhoosh()")[1].split("public void")[0]
+    assert "DuckMusic" in abort_fn
+
+    lfs_prefix = b"version https://git-lfs.github.com/spec/v1"
+    for name in ("Enemy_Bomber", "Enemy_Sniper", "Hangar_LaunchSign"):
+        art_fbx = root / f"Assets/Art/Import/{name}.fbx"
+        res_fbx = root / f"Assets/Resources/Art/Import/{name}.fbx"
+        assert art_fbx.is_file() and art_fbx.stat().st_size > 1000
+        assert res_fbx.is_file() and res_fbx.stat().st_size > 1000
+        assert not res_fbx.read_bytes()[:64].startswith(lfs_prefix)
+        assert art_fbx.read_bytes() == res_fbx.read_bytes()
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -617,6 +714,7 @@ def main() -> int:
     test_shop_clarity_and_hangar_wire()
     test_local_best_audio_and_bolts()
     test_juice_best_hud()
+    test_enemies_launch_034()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

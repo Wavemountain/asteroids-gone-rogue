@@ -198,6 +198,8 @@ namespace AsteroidsGoneRogue
                 new Vector3(0.22f, 0.55f, 0.22f), 1.1f, Color.clear, 0f);
             PlaceHangarProp("Hangar_Locker", "Hangar_Locker", new Vector3(-4.8f, 0f, 6.6f), _hangarMetal, PrimitiveType.Cube,
                 new Vector3(1.15f, 2.05f, 0.72f), 2.05f, Color.clear, 0f);
+            PlaceHangarProp("Hangar_LaunchSign", "Hangar_LaunchSign", new Vector3(3.5f, 0f, -3.2f), _hangarAmber, PrimitiveType.Cube,
+                new Vector3(1.15f, 1.85f, 0.18f), 1.85f, new Color(1f, 0.62f, 0.16f), 1.45f, 180f);
             PlaceHangarProp("Hangar_ShipComplete", "Ship_Complete", new Vector3(8.2f, 0f, 7.4f), _hull, PrimitiveType.Cube,
                 new Vector3(1.1f, 0.55f, 2.4f), 0.55f, new Color(1f, 0.55f, 0.16f), 0.7f);
 
@@ -218,9 +220,38 @@ namespace AsteroidsGoneRogue
             Color lightColor,
             float lightIntensity)
         {
+            PlaceHangarProp(
+                instanceName,
+                visualName,
+                floorPosition,
+                material,
+                mesh,
+                meshScale,
+                meshHeight,
+                lightColor,
+                lightIntensity,
+                0f);
+        }
+
+        private void PlaceHangarProp(
+            string instanceName,
+            string visualName,
+            Vector3 floorPosition,
+            Material material,
+            PrimitiveType mesh,
+            Vector3 meshScale,
+            float meshHeight,
+            Color lightColor,
+            float lightIntensity,
+            float yawDegrees)
+        {
             GameObject root = new GameObject(instanceName);
             root.transform.SetParent(_hangarDressing.transform, false);
             root.transform.position = floorPosition;
+            if (Mathf.Abs(yawDegrees) > 0.01f)
+            {
+                root.transform.localRotation = Quaternion.Euler(0f, yawDegrees, 0f);
+            }
             PartSlot slot = root.AddComponent<PartSlot>();
             slot.SlotId = visualName;
             if (!TryVisual(visualName, root.transform, material)
@@ -289,6 +320,15 @@ namespace AsteroidsGoneRogue
                     new Vector3(0f, 0.32f, 1.05f), new Vector3(0.4f, 0.28f, 0.7f), Quaternion.identity);
                 CreatePrimitive(PrimitiveType.Cube, "Engine", parent, _glow,
                     new Vector3(0f, 0.3f, -1.05f), new Vector3(0.55f, 0.28f, 0.4f), Quaternion.identity);
+                return true;
+            }
+
+            if (visualName == "Hangar_LaunchSign")
+            {
+                CreatePrimitive(PrimitiveType.Cube, "Post", parent, _hangarMetal,
+                    new Vector3(0f, 0.85f, 0f), new Vector3(0.16f, 1.7f, 0.16f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Cube, "Board", parent, _hangarAmber,
+                    new Vector3(0f, 1.55f, 0.08f), new Vector3(1.2f, 0.72f, 0.08f), Quaternion.identity);
                 return true;
             }
 
@@ -564,10 +604,8 @@ namespace AsteroidsGoneRogue
                 ? _projectileEnemy
                 : (pierce ? _projectilePierce : (spread ? _projectileSpread : _projectile));
             string visual = hostile ? "Projectile_EnemyBolt" : "Projectile_Bolt";
-            string bufferVisual = hostile ? "Projectile_EnemyBolt_Buffer" : "Projectile_Bolt_Buffer_v2";
             GameObject mesh;
-            if (!TryVisual(visual, root.transform, boltMat, out mesh)
-                && !TryVisual(bufferVisual, root.transform, boltMat, out mesh))
+            if (!TryVisual(visual, root.transform, boltMat, out mesh))
             {
                 Vector3 fallbackScale = pierce
                     ? new Vector3(0.1f, 0.1f, 1.25f)
@@ -785,22 +823,7 @@ namespace AsteroidsGoneRogue
 
         private bool TryEnemyVisual(string visualName, Transform parent)
         {
-            if (TryVisual(visualName, parent, _enemy))
-            {
-                return true;
-            }
-
-            if (visualName == "Enemy_Scout")
-            {
-                return TryVisual("Enemy_Scout_Buffer_v4", parent, _enemy);
-            }
-
-            if (visualName == "Enemy_Gunner")
-            {
-                return TryVisual("Enemy_Gunner_Buffer_v4", parent, _enemy);
-            }
-
-            return false;
+            return TryVisual(visualName, parent, _enemy);
         }
 
         private bool TryVisual(string assetName, Transform parent, Material fallback)
@@ -858,7 +881,7 @@ namespace AsteroidsGoneRogue
                 || ContainsIgnoreCase(name, "Crate") || ContainsIgnoreCase(name, "Workbench")
                 || ContainsIgnoreCase(name, "Ammo") || ContainsIgnoreCase(name, "Console")
                 || ContainsIgnoreCase(name, "PowerBox") || ContainsIgnoreCase(name, "Locker")
-                || ContainsIgnoreCase(name, "ShipComplete"))
+                || ContainsIgnoreCase(name, "LaunchSign") || ContainsIgnoreCase(name, "ShipComplete"))
             {
                 if (ContainsIgnoreCase(name, "Glow") || ContainsIgnoreCase(name, "Light")
                     || ContainsIgnoreCase(name, "Fuel"))
@@ -867,7 +890,8 @@ namespace AsteroidsGoneRogue
                 }
 
                 if (ContainsIgnoreCase(name, "Kiosk") || ContainsIgnoreCase(name, "Banner")
-                    || ContainsIgnoreCase(name, "Amber") || ContainsIgnoreCase(name, "Power"))
+                    || ContainsIgnoreCase(name, "Amber") || ContainsIgnoreCase(name, "Power")
+                    || ContainsIgnoreCase(name, "LaunchSign"))
                 {
                     return _hangarAmber;
                 }

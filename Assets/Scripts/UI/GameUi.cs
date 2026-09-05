@@ -30,6 +30,7 @@ namespace AsteroidsGoneRogue
         private Text _muteLabel;
         private Slider _sfxSlider;
         private Slider _musicSlider;
+        private GameObject _audioPanel;
         private GameObject _tutorialRoot;
         private GameObject _summaryRoot;
         private Text _summaryTitle;
@@ -106,6 +107,11 @@ namespace AsteroidsGoneRogue
 
             _hud.gameObject.SetActive(true);
             _hud.text = BuildHud(playing);
+            if (_audioPanel != null)
+            {
+                _audioPanel.SetActive(!playing);
+            }
+
             _hint.text = playing
                 ? "WASD move  ·  Mouse aim  ·  LMB / Space fire  ·  Q / RMB fire mode  ·  Esc abort"
                 : "WASD move  ·  Mouse aim  ·  LMB / Space fire  ·  " + HangarControlsHint;
@@ -432,11 +438,11 @@ namespace AsteroidsGoneRogue
             }
 
             _summaryBody.text = body;
-            bool hint = RunSummary.ShowAfterWave1Hint(_session.LastResolvedWave, _session.Phase);
+            bool hint = RunSummary.ShowContinueHint(_session.LastResolvedWave, _session.Phase);
             _continueHint.gameObject.SetActive(hint);
             if (hint)
             {
-                _continueHint.text = RunSummary.AfterWave1Hint(_session.Credits, loadout);
+                _continueHint.text = RunSummary.ContinueHint(_session.LastResolvedWave, _session.Credits, loadout);
             }
         }
 
@@ -534,8 +540,9 @@ namespace AsteroidsGoneRogue
 
         private void BuildAudioControls(Font font)
         {
-            GameObject panel = CreatePanel("AudioPanel", transform, new Color(0.04f, 0.06f, 0.09f, 0.75f),
+            _audioPanel = CreatePanel("AudioPanel", transform, new Color(0.04f, 0.06f, 0.09f, 0.75f),
                 new Vector2(0.68f, 0.72f), new Vector2(0.98f, 0.86f));
+            GameObject panel = _audioPanel;
 
             _muteButton = CreateButton("Mute", panel.transform, font, new Vector2(0.04f, 0.55f), new Vector2(0.36f, 0.9f));
             _muteLabel = _muteButton.GetComponentInChildren<Text>();
@@ -746,12 +753,31 @@ namespace AsteroidsGoneRogue
                 fireMode = "\nFire " + _ship.Shooter.Mode;
             }
 
-            return "Wave " + _session.WaveIndex
-                + "   ·   Score " + _session.Score
+            string scoreLine = "Wave " + _session.WaveIndex
+                + "   ·   Score " + _session.Score;
+            if (playing)
+            {
+                scoreLine += PlayBestCompare();
+            }
+
+            string hangarBest = playing ? string.Empty : "\n" + BestCardLine();
+            return scoreLine
                 + "\nHull " + hull + "   ·   Shield " + shield
                 + remaining
                 + fireMode
-                + "\n" + BestCardLine();
+                + hangarBest;
+        }
+
+        private string PlayBestCompare()
+        {
+            LocalBest best = _game != null && _game.Best != null ? _game.Best : LocalBest.Load();
+            if (best == null)
+            {
+                return string.Empty;
+            }
+
+            int world = ContentFactory.WorldIndexForWave(_session.WaveIndex);
+            return best.PlayCompare(_session.Score, _session.WaveIndex, world);
         }
 
         private static Font ResolveFont()

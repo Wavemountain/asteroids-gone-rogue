@@ -2,7 +2,7 @@
 
 **Do not merge until Wagge says yes.**
 
-This is the Week 1–2 playable core for **Asteroids gone rogue**. Branch: `0.33-juice-best-hud` (do not merge into older version tags; no 0.34).
+This is the Week 1–2 playable core for **Asteroids gone rogue**. Branch: `0.34-enemies-launch` (do not merge into older version tags; no 0.35).
 
 ## Unity
 
@@ -19,23 +19,23 @@ This is the Week 1–2 playable core for **Asteroids gone rogue**. Branch: `0.33
 
 ## Play verify
 
-**ArtImport: 50/50 Play Mode FBX ready** — `ArtImport.PlayModeAssets` has 50 names; all 50 exist under `Assets/Resources/Art/Import/` and `Assets/Art/Import/`. `Ship_Body_Upgrade02` is imported only (not warmed, not in the shop). 0.33 art-wire adds `Enemy_Scout` / `Enemy_Gunner` v4 (Buffer v4 bytes under the canonical names) and hangar `Ship_Complete` v3. 0.32 bolt/locker wire stays.
+**ArtImport: 51/51 Play Mode FBX ready** — `ArtImport.PlayModeAssets` has 51 names; all 51 exist under `Assets/Resources/Art/Import/` and `Assets/Art/Import/`. `Ship_Body_Upgrade02` is imported only (not warmed, not in the shop). 0.34 art-wire adds Bomber / Sniper v5 (canonical `Enemy_Bomber` / `Enemy_Sniper`) and hangar `Hangar_LaunchSign`. Buffer_* names are aliases only; primary FBX names resolve first.
 
-- Hangar shows BlenderBot ship + crate / terminal / pillar / workbench / kiosk / banner / ammo rack + **Console / PowerBox / FireExtinguisher / Locker** + parked **Ship_Complete**.
+- Hangar shows BlenderBot ship + crate / terminal / pillar / workbench / kiosk / banner / ammo rack + **Console / PowerBox / FireExtinguisher / Locker / LaunchSign** + parked **Ship_Complete**. LaunchSign sits by the pad as the Start Wave landmark.
 - First hangar (wave 1, first session): left **First flight** card — WASD / aim / shoot, **Abort (Esc)**, **Q / RMB** fire modes (discover Spread / Pierce when owned), “Clear a wave to earn credits and upgrades.”, shop + Start Wave. **Got it** or Start Wave dismisses it (PlayerPrefs; no spam later). Hangar status line before Start Wave mirrors the same Abort / Q hint.
 - Top-right badge reads **WORLD 1** on wave 1. After 5 clears it becomes **WORLD 2**, then 3–6, then loops. Arena-swap flashes **WORLD N ONLINE** and plays `maximize_008` (not the hangar purchase cue).
 - Shop is grouped Hull/Nose/Engine | Weapons | Defense below Start / credits (no overlap). Buttons show title + cost; hover writes the long description on the status line. Owned / locked / too-poor plates are **distinct greys** (teal OWNED, charcoal LOCKED).
-- Hangar HUD (upper left) always shows **Best score · Wave · World** with the live wave / score / hull line.
-- Wave clear / fail show a short **Run summary** card: score / wave / world / credits (+ awarded) / upgrades. New record appends **NEW BEST**. After wave 1, one line: **World 2 at wave 6 · Buy [cheapest upgrade]**.
+- Hangar HUD (upper left) always shows **Best score · Wave · World** with the live wave / score / hull line. During play the score line compares against Best (`/ Best N` or `NEW BEST`); audio sliders hide so they do not clash with the World badge. `IsBetter` can tie-break on world after score and wave.
+- Wave clear / fail show a short **Run summary** card: score / wave / world / credits (+ awarded) / upgrades. New record appends **NEW BEST**. After waves 1–3, one short continue line (World 2 / Gunner unlock + next shop buy).
 - First Play audio: SFX audible (0.8), music not blasting (0.28). Hangar bed is denser (layered spacelife, clearer pitch); arena bed is fuller. Abort ducks the bed under the whoosh. Hits layer `impactMetal_000` under `impactMetal_003`. Mute / sliders persist in PlayerPrefs.
-- Distinct SFX: UI click (`click_002`, not purchase), shop buy (`confirmation_002`), abort whoosh (`minimize_005`), spread (`laserRetro_000`) vs pierce (`laserLarge_000`) vs bolt (`laserSmall_000`).
+- Distinct SFX: UI click (`click_002`, not purchase), shop buy (`confirmation_002`), abort whoosh (`minimize_005`), spread (`laserRetro_000`) vs pierce (`laserLarge_000`) vs bolt (`laserSmall_000`). Enemy death is `explosionCrunch_003` + metal punch; asteroid split stays `explosionCrunch_000` (no punch). Abort-duck and hit-punch stay from 0.33.
 - Hit flash + light camera shake on damage / explosion. Player death stays quiet (no extra flash/shake).
 - Spread bolts are amber / fat / short-trail + SpreadCore; pierce bolts are cyan / long / thin + PierceNeedle. Gunner and Sniper fire red `Projectile_EnemyBolt`.
 - Wave 1: `Enemy_01`. Later: Scout / Gunner / Drone. Waves 7+: Bomber / Sniper / SwarmPod if those FBX imported. After wave 10: +1 large asteroid per wave (cap 10).
 - 0.3 loop: asteroids wrap at `ArenaRadius`; stranded threats outside `radius+2` for >3s force-wrap or despawn. Playing HUD has **Abort → Hangar** (Esc). Shop adds Spread Bolt + Pierce (Q / RMB cycle). Gunner 4 HP, Bomber 5 HP. Fail text `Enemy contact (Kind)`.
 - Buy Body Upgrade → `Ship_Body_Upgrade01`. Nose/Engine Upgrade 02 after their prereqs.
 - Shoot → muzzle flash. Kill → explosion. Asteroids mix A/B/C/D visuals; split rules unchanged.
-- Console on Play: `ArtImport: 50/50 Play Mode FBX ready`. Resources FBX must be real binaries, not LFS pointer text.
+- Console on Play: `ArtImport: 51/51 Play Mode FBX ready`. Resources FBX must be real binaries, not LFS pointer text.
 
 Repo checks (no Editor):
 

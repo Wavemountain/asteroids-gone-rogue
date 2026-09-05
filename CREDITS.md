@@ -21,6 +21,7 @@ Mirror used: https://opengameart.org/content/sci-fi-sounds (`sci-fi_sounds.zip`)
 | Hit punch layer | `Assets/Resources/Audio/Sfx/impactMetal_000.ogg` | `Audio/impactMetal_000.ogg` |
 | Asteroid split | `Assets/Resources/Audio/Sfx/explosionCrunch_000.ogg` | `Audio/explosionCrunch_000.ogg` |
 | Enemy death | `Assets/Resources/Audio/Sfx/explosionCrunch_003.ogg` | `Audio/explosionCrunch_003.ogg` |
+| Enemy death punch | `Assets/Resources/Audio/Sfx/impactMetal_000.ogg` | `Audio/impactMetal_000.ogg` (layered; asteroid crunch stays `explosionCrunch_000` only) |
 | Player damage | `Assets/Resources/Audio/Sfx/forceField_000.ogg` | `Audio/forceField_000.ogg` |
 
 Pack: **Kenney Interface Sounds** (CC0)  
