@@ -9,6 +9,7 @@ This is the Week 1–2 playable core for **Asteroids gone rogue**. Branch: `0.37
 - **Unity 6.6** (`6000.6.0f1`, changeset `f7f8ed4d1e24`)
 - Built-in RP, old Input Manager (no Input System / URP / TMP)
 - Product name must stay exactly `Asteroids gone rogue`
+- `Packages/manifest.json` is slim (ugui + IDE + used builtins only). No `modules.vr` / `modules.xr` (Hub must open without Continue).
 
 ## After `git pull`
 

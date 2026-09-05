@@ -6,7 +6,7 @@ Week 1 playable Unity core: one solid wave loop (hangar → fight → clear or f
 
 **Unity 6.6** (`6000.6.0f1`, changeset `f7f8ed4d1e24`)
 
-Built-in render pipeline. Old Input Manager (no Input System package, so first open should not show the Input System dialog).
+Built-in render pipeline. Old Input Manager (no Input System package, so first open should not show the Input System dialog). Package manifest is slim — no VR/XR modules — so Hub should open without Continue.
 
 Hub may offer a newer 6000.6 patch — that is fine.
 

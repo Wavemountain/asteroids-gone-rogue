@@ -268,10 +268,28 @@ def main() -> int:
         err("scripts still use Rigidbody.drag / angularDrag; use linearDamping / angularDamping")
 
     manifest = read(ROOT / "Packages/manifest.json")
+    lock = read(ROOT / "Packages/packages-lock.json")
     if '"com.unity.ugui": "2.0.0"' not in manifest:
         err("Packages/manifest.json should pin com.unity.ugui 2.0.0 for Unity 6")
     if '"com.unity.inputsystem"' in manifest:
         err("do not add the Input System package (keeps first-open clean)")
+    for blocked in (
+        "com.unity.modules.vr",
+        "com.unity.modules.xr",
+        "com.unity.modules.cloth",
+        "com.unity.modules.terrain",
+        "com.unity.modules.vehicles",
+        "com.unity.modules.androidjni",
+        "com.unity.modules.accessibility",
+        "com.unity.modules.umbra",
+        "com.unity.modules.unityanalytics",
+        "com.unity.modules.tilemap",
+        "com.unity.modules.wind",
+    ):
+        if f'"{blocked}"' in manifest:
+            err(f"Packages/manifest.json must not list {blocked} (Hub Continue / unused builtin)")
+        if f'"{blocked}"' in lock:
+            err(f"Packages/packages-lock.json must not list {blocked}")
 
     if ERRORS:
         print("Week 1 validation FAILED:")
