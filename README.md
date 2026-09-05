@@ -87,6 +87,7 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 | Enemy death | Kenney Sci-Fi Sounds | `explosionCrunch_003.ogg` |
 | Player damage | Kenney Sci-Fi Sounds | `forceField_000.ogg` |
 | Hangar purchase | Kenney Interface Sounds | `confirmation_002.ogg` |
+| Arena world swap | Kenney Interface Sounds | `maximize_008.ogg` |
 | Wave clear | Kenney Music Jingles | `jingles_PIZZA07.ogg` |
 | Arena loop | yd — Space Music: Out There | `OutThere.ogg` |
 | Hangar ambience | yd — Spacelife #14 | `spacelifeNo14.ogg` |

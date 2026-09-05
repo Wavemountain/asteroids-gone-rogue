@@ -27,6 +27,7 @@ Mirror used: https://opengameart.org/content/interface-sounds (`kenney_interface
 | Cue | File in repo | Original pack file |
 | --- | --- | --- |
 | Hangar purchase | `Assets/Resources/Audio/Sfx/confirmation_002.ogg` | `Audio/confirmation_002.ogg` |
+| Arena world swap | `Assets/Resources/Audio/Sfx/maximize_008.ogg` | `Audio/maximize_008.ogg` |
 
 Pack: **Kenney Music Jingles** (CC0)  
 Author: Kenney  

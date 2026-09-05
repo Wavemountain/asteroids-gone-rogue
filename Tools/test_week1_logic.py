@@ -205,6 +205,12 @@ def test_factory_wires_import_fbx() -> None:
     assert "DefaultMusicVolume = 0.28f" in audio
     assert "MusicOutputScale = 0.55f" in audio
     assert "PlayerPrefs.GetInt(MuteKey, 0)" in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/maximize_008")' in audio
+    assert "Play(_worldChange)" in audio
+    assert "Play(_purchase)" in audio
+    world_fn = audio.split("public void PlayWorldChange()")[1].split("public void")[0]
+    assert "Play(_purchase)" not in world_fn
+    assert (root / "Assets/Resources/Audio/Sfx/maximize_008.ogg").is_file()
 
 
 def main() -> int:

@@ -24,6 +24,7 @@ namespace AsteroidsGoneRogue
         private AudioClip _enemyDeath;
         private AudioClip _playerDamage;
         private AudioClip _purchase;
+        private AudioClip _worldChange;
         private AudioClip _waveClear;
         private AudioClip _arenaLoop;
         private AudioClip _hangarAmbience;
@@ -101,7 +102,7 @@ namespace AsteroidsGoneRogue
 
         public void PlayWorldChange()
         {
-            Play(_purchase);
+            Play(_worldChange);
         }
 
         public void SyncMusicToPhase(GamePhase phase)
@@ -208,6 +209,7 @@ namespace AsteroidsGoneRogue
             _enemyDeath = Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_003");
             _playerDamage = Resources.Load<AudioClip>("Audio/Sfx/forceField_000");
             _purchase = Resources.Load<AudioClip>("Audio/Sfx/confirmation_002");
+            _worldChange = Resources.Load<AudioClip>("Audio/Sfx/maximize_008");
             _waveClear = Resources.Load<AudioClip>("Audio/Sfx/jingles_PIZZA07");
             _arenaLoop = Resources.Load<AudioClip>("Audio/Music/OutThere");
             _hangarAmbience = Resources.Load<AudioClip>("Audio/Music/spacelifeNo14");
