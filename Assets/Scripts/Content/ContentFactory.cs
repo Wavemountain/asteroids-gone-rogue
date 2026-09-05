@@ -83,10 +83,14 @@ namespace AsteroidsGoneRogue
             "Arena_World6_Blockout",
         };
 
+        public static int WorldIndexForWave(int waveIndex)
+        {
+            return ((Mathf.Max(1, waveIndex) - 1) / 5 % ArenaWorlds.Length) + 1;
+        }
+
         public static string ArenaVisualForWave(int waveIndex)
         {
-            int world = (Mathf.Max(1, waveIndex) - 1) / 5 % ArenaWorlds.Length;
-            return ArenaWorlds[world];
+            return ArenaWorlds[WorldIndexForWave(waveIndex) - 1];
         }
 
         public void ApplyArenaForWave(int waveIndex)

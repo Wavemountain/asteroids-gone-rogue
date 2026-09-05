@@ -40,6 +40,12 @@ def main() -> int:
     require(ROOT / "Assets/Art/Import/IMPORT.md")
     require(ROOT / "Assets/Art/Import/MANIFEST.md")
     require(ROOT / "README.md")
+    require(ROOT / "MERGE_CHECKLIST.md")
+    checklist = read(ROOT / "MERGE_CHECKLIST.md")
+    if "Do not merge until Wagge" not in checklist and "until Wagge says yes" not in checklist:
+        err("MERGE_CHECKLIST.md must say not to merge until Wagge says yes")
+    if "2022.3.21f1" not in checklist:
+        err("MERGE_CHECKLIST.md must name Unity 2022.3.21f1")
     require(ROOT / "CREDITS.md")
     require(ROOT / "Assets/Resources/Audio/Sfx/laserSmall_000.ogg")
     require(ROOT / "Assets/Resources/Audio/Music/OutThere.ogg")

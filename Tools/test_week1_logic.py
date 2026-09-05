@@ -145,6 +145,7 @@ def test_wave_ladder_rises() -> None:
     )
     assert "VariantC" in factory and "VariantD" in factory
     assert "ArenaVisualForWave" in factory
+    assert "WorldIndexForWave" in factory
     assert "Arena_World2_Blockout" in factory
     assert "Vfx_MuzzleFlash" in (
         Path(__file__).resolve().parents[1] / "Assets/Scripts/Player/ShipShooter.cs"

@@ -13,6 +13,7 @@ namespace AsteroidsGoneRogue
         private WaveManager _waves;
 
         private Text _title;
+        private Text _world;
         private Text _hud;
         private Text _status;
         private Text _credits;
@@ -72,6 +73,7 @@ namespace AsteroidsGoneRogue
             _menuRoot.SetActive(!playing);
             _hud.gameObject.SetActive(true);
             _hud.text = BuildHud(playing);
+            RefreshWorldBadge();
 
             if (playing)
             {
@@ -90,7 +92,8 @@ namespace AsteroidsGoneRogue
                     _primaryLabel.text = "Retry Wave";
                     break;
                 default:
-                    _status.text = "Hangar  ·  Wave " + _session.WaveIndex + " ready";
+                    _status.text = "Hangar  ·  Wave " + _session.WaveIndex
+                        + "  ·  World " + ContentFactory.WorldIndexForWave(_session.WaveIndex) + " ready";
                     _primaryLabel.text = "Start Wave";
                     break;
             }
@@ -109,12 +112,16 @@ namespace AsteroidsGoneRogue
             CreateFill("Scrim", transform, new Color(0.02f, 0.03f, 0.05f, 0.18f), new Vector2(0f, 0f), new Vector2(1f, 1f));
 
             _title = CreateText("Title", transform, font, 54, TextAnchor.UpperCenter, FontStyle.Bold);
-            Stretch(_title.rectTransform, new Vector2(0.1f, 0.86f), new Vector2(0.9f, 0.98f));
+            Stretch(_title.rectTransform, new Vector2(0.18f, 0.86f), new Vector2(0.82f, 0.98f));
             _title.text = productTitle;
             _title.color = new Color(1f, 0.78f, 0.32f);
 
+            _world = CreateText("WorldBadge", transform, font, 34, TextAnchor.UpperRight, FontStyle.Bold);
+            Stretch(_world.rectTransform, new Vector2(0.62f, 0.86f), new Vector2(0.97f, 0.98f));
+            _world.color = new Color(1f, 0.82f, 0.28f);
+
             _hud = CreateText("Hud", transform, font, 26, TextAnchor.UpperLeft, FontStyle.Normal);
-            Stretch(_hud.rectTransform, new Vector2(0.03f, 0.72f), new Vector2(0.4f, 0.86f));
+            Stretch(_hud.rectTransform, new Vector2(0.03f, 0.72f), new Vector2(0.42f, 0.86f));
             _hud.color = Color.white;
 
             _hint = CreateText("Hint", transform, font, 20, TextAnchor.LowerCenter, FontStyle.Normal);
@@ -241,13 +248,56 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        private void RefreshWorldBadge()
+        {
+            if (_world == null || _session == null)
+            {
+                return;
+            }
+
+            int world = ContentFactory.WorldIndexForWave(_session.WaveIndex);
+            _world.text = "WORLD " + world;
+            _world.color = new Color(1f, 0.82f, 0.28f);
+        }
+
         private void RefreshBuyButton(int index, ShopItem item)
         {
             bool owned = _loadout.State.Owns(item.Id);
-            bool canBuy = _session.ShopOpen && _loadout.State.CanApply(item.Id) && _session.Credits >= item.Cost;
+            bool canApply = _loadout.State.CanApply(item.Id);
+            bool tooPoor = !owned && _session.Credits < item.Cost;
+            bool canBuy = _session.ShopOpen && canApply && !tooPoor;
             _buyButtons[index].interactable = canBuy;
-            string suffix = owned ? "  [owned]" : "  —  " + item.Cost + " cr";
+
+            Image plate = _buyButtons[index].targetGraphic as Image;
+            if (plate != null)
+            {
+                plate.color = canBuy
+                    ? new Color(0.18f, 0.22f, 0.28f, 0.95f)
+                    : new Color(0.1f, 0.11f, 0.12f, 0.78f);
+            }
+
+            string suffix;
+            if (owned)
+            {
+                suffix = "  [owned]";
+            }
+            else if (!canApply)
+            {
+                suffix = "  [locked]";
+            }
+            else if (tooPoor)
+            {
+                suffix = "  —  need " + item.Cost + " cr";
+            }
+            else
+            {
+                suffix = "  —  " + item.Cost + " cr";
+            }
+
             _buyLabels[index].text = item.Title + suffix + "\n" + item.Description;
+            _buyLabels[index].color = canBuy
+                ? Color.white
+                : new Color(0.55f, 0.56f, 0.58f, 0.95f);
         }
 
         private string BuildHud(bool playing)
@@ -257,18 +307,7 @@ namespace AsteroidsGoneRogue
             string remaining = playing && _waves != null
                 ? "   ·   Remaining " + _waves.RemainingThreats
                 : string.Empty;
-            int world = 1;
-            for (int i = 0; i < ContentFactory.ArenaWorlds.Length; i++)
-            {
-                if (ContentFactory.ArenaVisualForWave(_session.WaveIndex) == ContentFactory.ArenaWorlds[i])
-                {
-                    world = i + 1;
-                    break;
-                }
-            }
-
             return "Wave " + _session.WaveIndex
-                + "   ·   World " + world
                 + "   ·   Score " + _session.Score
                 + "\nHull " + hull + "   ·   Shield " + shield
                 + remaining;

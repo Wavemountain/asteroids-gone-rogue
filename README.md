@@ -110,6 +110,10 @@ python3 Tools/test_week1_logic.py
 
 `Tools/generate_unity_assets.py` recreates `.meta` GUIDs, stub materials/prefabs, and `Play.unity`. Re-run it only if you intentionally change that generator.
 
+## Merge to `main`
+
+See **[MERGE_CHECKLIST.md](MERGE_CHECKLIST.md)**. Do **not** merge PR #1 until Wagge says yes.
+
 ## Success check
 
 Press Play → hangar FBX (crate/terminal/pillar + workbench/kiosk/banner). Wave 1 `Enemy_01` → later Scout/Gunner/Drone/Bomber/Sniper/SwarmPod. Shop Body + Nose/Engine 02. Pickups and muzzle/explosion VFX.
