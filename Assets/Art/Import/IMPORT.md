@@ -45,10 +45,10 @@ These filenames are instantiated by `ContentFactory` / `ArtImport` when the file
 - `Asteroid_Large.fbx` / `Asteroid_Small.fbx` — type A visual (Week 1 split rules)
 - `Asteroid_VariantB_Large.fbx` / `Asteroid_VariantB_Small.fbx` — type B visual only (~45% mix)
 - `Enemy_01.fbx` — wave 1 Mid mesh (Buffer v8 bytes; also accepts `Enemy_01_Buffer_v8`)
-- `Enemy_Scout.fbx` / `Enemy_Gunner.fbx` (Buffer v6 bytes under the canonical names) — Play waves 2+ via `CreateEnemy` / `EnemyCatalog.VisualName` (primary name first; also accepts `Enemy_*_Buffer_v6` then `Enemy_*_Buffer_v5` / `Enemy_*_Buffer_v4`)
-- `Enemy_Bomber.fbx` / `Enemy_Sniper.fbx` — Play waves 7+ via `CreateEnemy` / `EnemyCatalog.VisualName` (Bomber Buffer v6 then v5; Sniper Buffer v5)
+- `Enemy_Scout.fbx` / `Enemy_Gunner.fbx` (Buffer v7 bytes under the canonical names) — Play waves 2+ via `CreateEnemy` / `EnemyCatalog.VisualName` (primary name first; also accepts `Enemy_*_Buffer_v7` then `Enemy_*_Buffer_v6` / `Enemy_*_Buffer_v5` / `Enemy_*_Buffer_v4`)
+- `Enemy_Bomber.fbx` / `Enemy_Sniper.fbx` — Play waves 7+ via `CreateEnemy` / `EnemyCatalog.VisualName` (Bomber Buffer v6 then v5; Sniper Buffer v8 then v5). Sniper gets the same spawn-fallback + palette remap as Scout/Gunner, plus a cyan emission dress on the v8 mesh.
 - `Enemy_SwarmPod.fbx` (Buffer v6 bytes under the canonical name) — Play waves 9+ (also accepts `Enemy_SwarmPod_Buffer_v6`)
-- `Enemy_Drone.fbx` (Buffer v5 bytes under the canonical name) — waves 5+ via `CreateEnemy` / `EnemyCatalog.VisualName` (also accepts `Enemy_Drone_Buffer_v5` then `Enemy_Drone_Buffer_v4`)
+- `Enemy_Drone.fbx` (Buffer v6 bytes under the canonical name) — waves 5+ via `CreateEnemy` / `EnemyCatalog.VisualName` (also accepts `Enemy_Drone_Buffer_v6` then `Enemy_Drone_Buffer_v5` / `Enemy_Drone_Buffer_v4`)
 - `Arena_Blockout.fbx` — World 1 hangar / arena
 - `Projectile_Bolt.fbx` — player shot visual (GameBot Bolt Buffer v2; also accepted as `Projectile_Bolt_Buffer_v2`)
 - `Projectile_EnemyBolt.fbx` — Gunner / Sniper shot visual (also accepted as `Projectile_EnemyBolt_Buffer`)

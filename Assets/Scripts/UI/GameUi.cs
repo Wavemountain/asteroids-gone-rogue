@@ -216,7 +216,7 @@ namespace AsteroidsGoneRogue
             _hud.color = Color.white;
 
             _badgeRow = CreateText("BadgeRow", transform, font, 18, TextAnchor.UpperLeft, FontStyle.Bold);
-            Stretch(_badgeRow.rectTransform, new Vector2(0.03f, 0.80f), new Vector2(0.66f, 0.86f));
+            Stretch(_badgeRow.rectTransform, new Vector2(0.03f, 0.80f), new Vector2(0.72f, 0.86f));
             _badgeRow.color = new Color(1f, 0.84f, 0.38f);
 
             _hint = CreateText("Hint", transform, font, 20, TextAnchor.LowerCenter, FontStyle.Normal);
@@ -721,12 +721,16 @@ namespace AsteroidsGoneRogue
             }
 
             HangarPersist persist = _game != null && _game.Persist != null ? _game.Persist : HangarPersist.Load();
-            string row = persist != null ? persist.BadgeRow() : string.Empty;
-            bool show = !playing && !string.IsNullOrEmpty(row);
+            string row = persist != null ? persist.LadderLine() : MedalCatalog.LadderLine(0);
+            bool show = !string.IsNullOrEmpty(row);
             _badgeRow.gameObject.SetActive(show);
             if (show)
             {
                 _badgeRow.text = row;
+                _badgeRow.fontSize = playing ? 16 : 18;
+                _badgeRow.color = playing
+                    ? new Color(1f, 0.84f, 0.38f, 0.88f)
+                    : new Color(1f, 0.84f, 0.38f);
             }
         }
 

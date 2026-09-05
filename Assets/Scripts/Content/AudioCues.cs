@@ -23,10 +23,11 @@ namespace AsteroidsGoneRogue
         public const float AbortDuckSeconds = 0.55f;
         public const float HitPunchScale = 1.22f;
         public const float EnemyDeathPunchScale = 0.78f;
-        public const float SwarmPodSpawnScale = 0.72f;
-        public const float SwarmPodDuckSeconds = 0.28f;
-        public const float SwarmPodDuckScale = 0.45f;
-        public const float SwarmPodSpawnGapSeconds = 0.4f;
+        public const float SwarmPodSpawnScale = 0.86f;
+        public const float SwarmPodDuckSeconds = 0.36f;
+        public const float SwarmPodDuckScale = 0.38f;
+        public const float SwarmPodSpawnGapSeconds = 0.62f;
+        public const float FarDriftAwardScale = 0.94f;
 
         public static AudioCues Instance { get; private set; }
 
@@ -50,6 +51,7 @@ namespace AsteroidsGoneRogue
         private AudioClip _abort;
         private AudioClip _worldChange;
         private AudioClip _waveClear;
+        private AudioClip _farDriftAward;
         private AudioClip _swarmPodSpawn;
         private AudioClip _arenaLoop;
         private AudioClip _hangarAmbience;
@@ -198,6 +200,11 @@ namespace AsteroidsGoneRogue
         public void PlayWaveClear()
         {
             Play(_waveClear);
+        }
+
+        public void PlayFarDriftAward()
+        {
+            Play(_farDriftAward != null ? _farDriftAward : _waveClear, FarDriftAwardScale);
         }
 
         public void PlayWorldChange()
@@ -396,6 +403,7 @@ namespace AsteroidsGoneRogue
             _abort = Resources.Load<AudioClip>("Audio/Sfx/minimize_005");
             _worldChange = Resources.Load<AudioClip>("Audio/Sfx/maximize_008");
             _waveClear = Resources.Load<AudioClip>("Audio/Sfx/jingles_PIZZA07");
+            _farDriftAward = Resources.Load<AudioClip>("Audio/Sfx/jingles_PIZZA16");
             _swarmPodSpawn = Resources.Load<AudioClip>("Audio/Sfx/phaserUp5");
             _arenaLoop = Resources.Load<AudioClip>("Audio/Music/OutThere");
             _hangarAmbience = Resources.Load<AudioClip>("Audio/Music/spacelifeNo14");

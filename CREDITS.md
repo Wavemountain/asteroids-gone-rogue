@@ -54,6 +54,7 @@ Mirror used: https://opengameart.org/content/85-short-music-jingles (`jingleSoun
 | Cue | File in repo | Original pack file |
 | --- | --- | --- |
 | Wave clear | `Assets/Resources/Audio/Sfx/jingles_PIZZA07.ogg` | `OGG/jingles_PIZZA/jingles_PIZZA07.ogg` |
+| Far Drift award | `Assets/Resources/Audio/Sfx/jingles_PIZZA16.ogg` | `Audio/Pizzicato jingles/jingles_PIZZI16.ogg` |
 
 Kenney license text (from the Sci-Fi Sounds pack) is kept at `Assets/Audio/Kenney_License.txt`.
 
@@ -64,7 +65,7 @@ Kenney license text (from the Sci-Fi Sounds pack) is kept at `Assets/Audio/Kenne
 | Arena loop | `Assets/Resources/Audio/Music/OutThere.ogg` | Space Music: Out There | yd | CC0 | https://opengameart.org/content/space-music-out-there |
 | Hangar ambience | `Assets/Resources/Audio/Music/spacelifeNo14.ogg` | Spacelife #14 | yd | CC0 | https://opengameart.org/content/spacelife-14 |
 
-Hangar plays `spacelifeNo14` as a denser two-layer bed (pitch 0.94 + 1.02). Arena plays `OutThere` louder at concert pitch so the two beds stay distinct. Abort ducks the current bed under the whoosh. SwarmPod spawn ducks the bed briefly so `phaserUp5` cuts clutter.
+Hangar plays `spacelifeNo14` as a denser two-layer bed (pitch 0.94 + 1.02). Arena plays `OutThere` louder at concert pitch so the two beds stay distinct. Abort ducks the current bed under the whoosh. SwarmPod spawn ducks the bed briefly (0.62s gap / 0.86 scale) so `phaserUp5` cuts clutter. Wave 10 Far Drift plays `jingles_PIZZA16` instead of the wave-clear sting.
 
 ## Engine wiring
 

@@ -70,6 +70,7 @@ def main() -> int:
     require(ROOT / "Assets/Resources/Audio/Sfx/impactMetal_001.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/explosionCrunch_001.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/phaserUp5.ogg")
+    require(ROOT / "Assets/Resources/Audio/Sfx/jingles_PIZZA16.ogg")
     require(ROOT / "Assets/Resources/Audio/Music/OutThere.ogg")
     require(ROOT / "Assets/Resources/Audio/Music/spacelifeNo14.ogg")
 

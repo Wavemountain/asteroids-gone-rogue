@@ -163,6 +163,7 @@ namespace AsteroidsGoneRogue
         public static EnemyKind FromVisual(string visualName)
         {
             if (visualName == "Enemy_Scout"
+                || visualName == "Enemy_Scout_Buffer_v7"
                 || visualName == "Enemy_Scout_Buffer_v6"
                 || visualName == "Enemy_Scout_Buffer_v5"
                 || visualName == "Enemy_Scout_Buffer_v4")
@@ -171,6 +172,7 @@ namespace AsteroidsGoneRogue
             }
 
             if (visualName == "Enemy_Gunner"
+                || visualName == "Enemy_Gunner_Buffer_v7"
                 || visualName == "Enemy_Gunner_Buffer_v6"
                 || visualName == "Enemy_Gunner_Buffer_v5"
                 || visualName == "Enemy_Gunner_Buffer_v4")
@@ -179,6 +181,7 @@ namespace AsteroidsGoneRogue
             }
 
             if (visualName == "Enemy_Drone"
+                || visualName == "Enemy_Drone_Buffer_v6"
                 || visualName == "Enemy_Drone_Buffer_v5"
                 || visualName == "Enemy_Drone_Buffer_v4")
             {
@@ -192,7 +195,9 @@ namespace AsteroidsGoneRogue
                 return EnemyKind.Bomber;
             }
 
-            if (visualName == "Enemy_Sniper" || visualName == "Enemy_Sniper_Buffer_v5")
+            if (visualName == "Enemy_Sniper"
+                || visualName == "Enemy_Sniper_Buffer_v8"
+                || visualName == "Enemy_Sniper_Buffer_v5")
             {
                 return EnemyKind.Sniper;
             }
@@ -213,7 +218,6 @@ namespace AsteroidsGoneRogue
         public static bool RequiresImportedMesh(EnemyKind kind)
         {
             return kind == EnemyKind.Bomber
-                || kind == EnemyKind.Sniper
                 || kind == EnemyKind.SwarmPod;
         }
 

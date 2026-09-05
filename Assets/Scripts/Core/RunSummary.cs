@@ -76,7 +76,7 @@ namespace AsteroidsGoneRogue
 
         public static bool ShowContinueHint(int lastResolvedWave, GamePhase phase)
         {
-            return phase == GamePhase.WaveClear && lastResolvedWave >= 1 && lastResolvedWave <= 5;
+            return phase == GamePhase.WaveClear && lastResolvedWave >= 1 && lastResolvedWave <= 9;
         }
 
         public static string AfterWave1Hint(int credits, LoadoutState loadout)
@@ -100,6 +100,12 @@ namespace AsteroidsGoneRogue
                 return next != null ? tease + "  ·  Buy " + next.Title : tease;
             }
 
+            if (lastResolvedWave >= 7 && lastResolvedWave <= 9)
+            {
+                string tease = FarDriftTeaser(lastResolvedWave);
+                return next != null ? tease + "  ·  Buy " + next.Title : tease;
+            }
+
             string buy = next != null ? "Buy " + next.Title : "Push for a new best.";
             return NextUnlockLandmark(lastResolvedWave) + "  ·  " + buy;
         }
@@ -112,6 +118,16 @@ namespace AsteroidsGoneRogue
             }
 
             return "★ " + MedalCatalog.DeepOrbitTitle + " at wave " + World2StartsAtWave;
+        }
+
+        public static string FarDriftTeaser(int lastResolvedWave)
+        {
+            if (lastResolvedWave == 9)
+            {
+                return "Clear wave 10  ·  ★ " + MedalCatalog.FarDriftTitle;
+            }
+
+            return "★ " + MedalCatalog.FarDriftTitle + " at wave " + MedalCatalog.FarDriftClearsAtWave;
         }
 
         public static bool ShowWaveMedal(int lastResolvedWave, GamePhase phase)
@@ -150,7 +166,8 @@ namespace AsteroidsGoneRogue
 
             if (lastResolvedWave == MedalCatalog.FarDriftClearsAtWave)
             {
-                return MedalCatalog.AwardLine(MedalId.FarDrift) + "  ·  World 3";
+                return MedalCatalog.AwardLine(MedalId.FarDrift)
+                    + "  ·  World 3 at wave " + World3StartsAtWave;
             }
 
             return string.Empty;
@@ -171,6 +188,17 @@ namespace AsteroidsGoneRogue
             if (lastResolvedWave == 4 || lastResolvedWave == 5)
             {
                 return DeepOrbitTeaser(lastResolvedWave);
+            }
+
+            if (lastResolvedWave >= 7 && lastResolvedWave <= 9)
+            {
+                return FarDriftTeaser(lastResolvedWave);
+            }
+
+            if (lastResolvedWave == 1)
+            {
+                return "★ " + MedalCatalog.ScoutWingTitle + " at wave "
+                    + MedalCatalog.ScoutWingClearsAtWave;
             }
 
             return "World 2 at wave " + World2StartsAtWave;

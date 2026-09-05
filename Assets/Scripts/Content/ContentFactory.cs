@@ -627,10 +627,19 @@ namespace AsteroidsGoneRogue
                     Vector3.zero, new Vector3(0.7f, 0.7f, 0.7f), Quaternion.Euler(90f, 0f, 0f));
                 CreatePrimitive(PrimitiveType.Cube, "Canard", root.transform, _accent,
                     new Vector3(0f, 0.15f, -0.35f), new Vector3(1.4f, 0.08f, 0.35f), Quaternion.identity);
+                if (kind == EnemyKind.Sniper)
+                {
+                    CreatePrimitive(PrimitiveType.Cylinder, "Scope", root.transform, _accentHot,
+                        new Vector3(0f, 0.22f, 0.42f), new Vector3(0.16f, 0.28f, 0.16f), Quaternion.identity);
+                }
             }
             else if (kind == EnemyKind.Mid01)
             {
                 DressMidMesh(root.transform);
+            }
+            else if (kind == EnemyKind.Sniper)
+            {
+                DressSniperMesh(root.transform);
             }
 
             EnemySeeker seeker = root.AddComponent<EnemySeeker>();
@@ -931,6 +940,16 @@ namespace AsteroidsGoneRogue
 
         private void DressMidMesh(Transform root)
         {
+            DressEnemyEmission(root, new Color(0.82f, 0.1f, 0.12f));
+        }
+
+        private void DressSniperMesh(Transform root)
+        {
+            DressEnemyEmission(root, new Color(0.18f, 0.72f, 1f));
+        }
+
+        private static void DressEnemyEmission(Transform root, Color emission)
+        {
             if (root == null)
             {
                 return;
@@ -938,7 +957,7 @@ namespace AsteroidsGoneRogue
 
             Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
             MaterialPropertyBlock block = new MaterialPropertyBlock();
-            block.SetColor("_EmissionColor", new Color(0.82f, 0.1f, 0.12f));
+            block.SetColor("_EmissionColor", emission);
             for (int i = 0; i < renderers.Length; i++)
             {
                 if (renderers[i] != null)
@@ -970,7 +989,9 @@ namespace AsteroidsGoneRogue
             }
 
             if (ContainsIgnoreCase(name, "Enemy") || ContainsIgnoreCase(name, "Mid")
-                || ContainsIgnoreCase(name, "Swarm") || ContainsIgnoreCase(name, "Bomber"))
+                || ContainsIgnoreCase(name, "Swarm") || ContainsIgnoreCase(name, "Bomber")
+                || ContainsIgnoreCase(name, "Scout") || ContainsIgnoreCase(name, "Gunner")
+                || ContainsIgnoreCase(name, "Drone") || ContainsIgnoreCase(name, "Sniper"))
             {
                 if (ContainsIgnoreCase(name, "Accent") || ContainsIgnoreCase(name, "Canopy")
                     || ContainsIgnoreCase(name, "Eye") || ContainsIgnoreCase(name, "Stripe")

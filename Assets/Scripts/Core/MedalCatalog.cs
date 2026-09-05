@@ -48,6 +48,11 @@ namespace AsteroidsGoneRogue
             return "★ " + Title(id);
         }
 
+        public static string LockedLine(MedalId id)
+        {
+            return "○ " + Title(id);
+        }
+
         public static bool TryForClearedWave(int clearedWave, out MedalId medal)
         {
             if (clearedWave == ScoutWingClearsAtWave)
@@ -71,12 +76,6 @@ namespace AsteroidsGoneRogue
             if (world == World2EntryWorld)
             {
                 medal = MedalId.DeepOrbit;
-                return true;
-            }
-
-            if (world == World3EntryWorld)
-            {
-                medal = MedalId.FarDrift;
                 return true;
             }
 
@@ -113,6 +112,29 @@ namespace AsteroidsGoneRogue
                 }
 
                 line += AwardLine(id);
+                shown++;
+            }
+
+            return line;
+        }
+
+        /// <summary>
+        /// Always-visible three-rung ladder (earned ★ / locked ○) so the next medal is obvious.
+        /// World 3 entry is a world swap only — Far Drift awards on wave 10 clear.
+        /// </summary>
+        public static string LadderLine(int mask)
+        {
+            string line = string.Empty;
+            int shown = 0;
+            for (int i = 0; i < All.Length && shown < BadgeCapacity; i++)
+            {
+                MedalId id = All[i];
+                if (line.Length > 0)
+                {
+                    line += "  ·  ";
+                }
+
+                line += Owns(mask, id) ? AwardLine(id) : LockedLine(id);
                 shown++;
             }
 

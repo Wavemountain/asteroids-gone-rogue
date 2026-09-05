@@ -936,7 +936,7 @@ def test_scout_gunner_medals_036() -> None:
 
     assert "DeepOrbitTeaser" in summary
     assert "World3StartsAtWave" in summary
-    assert "lastResolvedWave <= 5" in summary
+    assert "lastResolvedWave <= 9" in summary
     assert "DeepOrbitTitle" in summary
     assert wave_medal(3, Phase.WAVE_CLEAR) == "★ Scout Wing  ·  World 2 at wave 6"
     assert "ShowWaveMedal" in summary
@@ -945,7 +945,7 @@ def test_scout_gunner_medals_036() -> None:
     assert "World 3" in summary
     assert "RunSummary.ShowWaveMedal(" in ui
     assert "RunSummary.WaveMedal(" in ui
-    assert "0.66f" in ui
+    assert "0.72f" in ui
     assert "AnnounceMedalBeat" in manager
     assert "TryAwardWaveMedal" in manager
     assert "TryAwardWorldMedal" in manager
@@ -1000,6 +1000,123 @@ def test_scout_gunner_medals_036() -> None:
         assert art_fbx.read_bytes() == res_fbx.read_bytes()
 
 
+def medal_ladder_line(mask: int) -> str:
+    parts: list[str] = []
+    for bit, title in ((1, "Scout Wing"), (2, "Deep Orbit"), (4, "Far Drift")):
+        parts.append(("★ " if mask & bit else "○ ") + title)
+    return "  ·  ".join(parts)
+
+
+def far_drift_teaser(last_resolved_wave: int) -> str:
+    if last_resolved_wave == 9:
+        return "Clear wave 10  ·  ★ Far Drift"
+    return "★ Far Drift at wave 10"
+
+
+def test_sniper_fardrift_037() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    medals = (root / "Assets/Scripts/Core/MedalCatalog.cs").read_text(encoding="utf-8")
+    persist = (root / "Assets/Scripts/Core/HangarPersist.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    art = (root / "Assets/Scripts/Content/ArtImport.cs").read_text(encoding="utf-8")
+    enemies = (root / "Assets/Scripts/Combat/EnemyKind.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+
+    world_entry = medals.split("public static bool TryForWorldEntry")[1].split("public static")[0]
+    assert "MedalId.DeepOrbit" in world_entry
+    assert "MedalId.FarDrift" not in world_entry
+    assert "LadderLine" in medals
+    assert 'LockedLine' in medals
+    assert medal_ladder_line(0) == "○ Scout Wing  ·  ○ Deep Orbit  ·  ○ Far Drift"
+    assert medal_ladder_line(1) == "★ Scout Wing  ·  ○ Deep Orbit  ·  ○ Far Drift"
+    assert medal_ladder_line(7) == "★ Scout Wing  ·  ★ Deep Orbit  ·  ★ Far Drift"
+    assert "LadderLine" in persist
+    assert persist.count("LadderLine") >= 1
+
+    assert "FarDriftTeaser" in summary
+    assert "lastResolvedWave <= 9" in summary
+    assert far_drift_teaser(8) == "★ Far Drift at wave 10"
+    assert far_drift_teaser(9) == "Clear wave 10  ·  ★ Far Drift"
+    assert "World 3 at wave" in summary
+    assert 'AwardLine(MedalId.FarDrift) + "  ·  World 3"' not in summary
+    assert "ScoutWingTitle" in summary
+    assert "RunSummary.ShowContinueHint(" in ui
+    assert "persist.LadderLine()" in ui
+    assert "playing ? 16 : 18" in ui
+    complete = manager.split("private void CompleteWave()")[1].split("private bool TryAwardWorldMedal")[0]
+    assert "PlayFarDriftAward" in complete
+    assert "PlayWaveClear" in complete
+    assert "MedalId.FarDrift" in complete
+
+    assert "Enemy_Scout_Buffer_v7" in art
+    assert "Enemy_Gunner_Buffer_v7" in art
+    assert "Enemy_Drone_Buffer_v6" in art
+    assert "Enemy_Sniper_Buffer_v8" in art
+    assert art.index('"Enemy_Scout"') < art.index("Enemy_Scout_Buffer_v7")
+    assert art.index("Enemy_Scout_Buffer_v7") < art.index("Enemy_Scout_Buffer_v6")
+    assert art.index('"Enemy_Gunner"') < art.index("Enemy_Gunner_Buffer_v7")
+    assert art.index("Enemy_Gunner_Buffer_v7") < art.index("Enemy_Gunner_Buffer_v6")
+    assert art.index('"Enemy_Drone"') < art.index("Enemy_Drone_Buffer_v6")
+    assert art.index("Enemy_Drone_Buffer_v6") < art.index("Enemy_Drone_Buffer_v5")
+    assert art.index('"Enemy_Sniper"') < art.index("Enemy_Sniper_Buffer_v8")
+    assert art.index("Enemy_Sniper_Buffer_v8") < art.index("Enemy_Sniper_Buffer_v5")
+    assert "Enemy_Scout_Buffer_v7" in enemies
+    assert "Enemy_Gunner_Buffer_v7" in enemies
+    assert "Enemy_Drone_Buffer_v6" in enemies
+    assert "Enemy_Sniper_Buffer_v8" in enemies
+    require_mesh = enemies.split("public static bool RequiresImportedMesh")[1].split("public static")[0]
+    assert "EnemyKind.Sniper" not in require_mesh
+    assert "EnemyKind.Bomber" in require_mesh
+    assert "EnemyKind.SwarmPod" in require_mesh
+    assert "Enemy_Scout_Buffer_v7" not in factory
+    assert "Enemy_Sniper_Buffer_v8" not in factory
+    assert "DressSniperMesh" in factory
+    assert 'ContainsIgnoreCase(name, "Sniper")' in factory
+    assert 'ContainsIgnoreCase(name, "Scout")' in factory
+    assert 'EnemyCatalog.VisualName' in waves
+    assert "EnemyKind.Sniper" in waves
+
+    assert "PlayFarDriftAward" in audio
+    assert "FarDriftAwardScale = 0.94f" in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/jingles_PIZZA16")' in audio
+    assert "SwarmPodSpawnScale = 0.86f" in audio
+    assert "SwarmPodDuckSeconds = 0.36f" in audio
+    assert "SwarmPodDuckScale = 0.38f" in audio
+    assert "SwarmPodSpawnGapSeconds = 0.62f" in audio
+    spawn = audio.split("public void PlaySwarmPodSpawn()")[1].split("public void")[0]
+    assert "SwarmPodSpawnScale" in spawn
+    assert "DuckMusic" in spawn
+    assert "SwarmPodSpawnGapSeconds" in spawn
+    far = audio.split("public void PlayFarDriftAward()")[1].split("public void")[0]
+    assert "_farDriftAward" in far
+    assert "FarDriftAwardScale" in far
+
+    lfs_prefix = b"version https://git-lfs.github.com/spec/v1"
+    for name, min_size in (
+        ("Enemy_Scout", 140000),
+        ("Enemy_Gunner", 170000),
+        ("Enemy_Drone", 200000),
+        ("Enemy_Sniper", 140000),
+    ):
+        art_fbx = root / f"Assets/Art/Import/{name}.fbx"
+        res_fbx = root / f"Assets/Resources/Art/Import/{name}.fbx"
+        assert art_fbx.is_file() and art_fbx.stat().st_size > min_size
+        assert res_fbx.is_file() and res_fbx.stat().st_size > min_size
+        assert not art_fbx.read_bytes()[:64].startswith(lfs_prefix)
+        assert not res_fbx.read_bytes()[:64].startswith(lfs_prefix)
+        assert art_fbx.read_bytes() == res_fbx.read_bytes()
+
+    jingle = root / "Assets/Resources/Audio/Sfx/jingles_PIZZA16.ogg"
+    assert jingle.is_file() and jingle.stat().st_size > 1000
+    assert jingle.read_bytes()[:4] == b"OggS"
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -1020,6 +1137,7 @@ def main() -> int:
     test_scout_drone_polish_0341()
     test_medals_swarm_035()
     test_scout_gunner_medals_036()
+    test_sniper_fardrift_037()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

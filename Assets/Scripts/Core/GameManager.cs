@@ -198,13 +198,22 @@ namespace AsteroidsGoneRogue
             _ship.SetInputEnabled(false);
             _waves.DespawnAll();
             _session.CompleteWave(ScoreValues.WaveClearBonus, ScoreValues.WaveClearCredits);
+            RecordBest(clearedWave);
+            MedalId waveMedal;
+            bool awardedMedal = MedalCatalog.TryForClearedWave(clearedWave, out waveMedal)
+                && TryAwardMedal(waveMedal);
             if (AudioCues.Instance != null)
             {
-                AudioCues.Instance.PlayWaveClear();
+                if (awardedMedal && waveMedal == MedalId.FarDrift)
+                {
+                    AudioCues.Instance.PlayFarDriftAward();
+                }
+                else
+                {
+                    AudioCues.Instance.PlayWaveClear();
+                }
             }
 
-            RecordBest(clearedWave);
-            TryAwardWaveMedal(clearedWave);
             RaiseStateChanged();
         }
 

@@ -46,6 +46,11 @@ namespace AsteroidsGoneRogue
             return MedalCatalog.BadgeRow(MedalMask);
         }
 
+        public string LadderLine()
+        {
+            return MedalCatalog.LadderLine(MedalMask);
+        }
+
         public static HangarPersist Load()
         {
             return new HangarPersist(UnityEngine.PlayerPrefs.GetInt(MedalsKey, 0));

@@ -92,11 +92,11 @@ namespace AsteroidsGoneRogue
             switch (key)
             {
                 case "Enemy_Scout":
-                    return new[] { "Enemy_Scout", "Enemy_Scout_Buffer_v6", "Enemy_Scout_Buffer_v5", "Enemy_Scout_Buffer_v4" };
+                    return new[] { "Enemy_Scout", "Enemy_Scout_Buffer_v7", "Enemy_Scout_Buffer_v6", "Enemy_Scout_Buffer_v5", "Enemy_Scout_Buffer_v4" };
                 case "Enemy_Gunner":
-                    return new[] { "Enemy_Gunner", "Enemy_Gunner_Buffer_v6", "Enemy_Gunner_Buffer_v5", "Enemy_Gunner_Buffer_v4" };
+                    return new[] { "Enemy_Gunner", "Enemy_Gunner_Buffer_v7", "Enemy_Gunner_Buffer_v6", "Enemy_Gunner_Buffer_v5", "Enemy_Gunner_Buffer_v4" };
                 case "Enemy_Drone":
-                    return new[] { "Enemy_Drone", "Enemy_Drone_Buffer_v5", "Enemy_Drone_Buffer_v4" };
+                    return new[] { "Enemy_Drone", "Enemy_Drone_Buffer_v6", "Enemy_Drone_Buffer_v5", "Enemy_Drone_Buffer_v4" };
                 case "Enemy_01":
                     return new[] { "Enemy_01", "Enemy_01_Buffer_v8" };
                 case "Enemy_Bomber":
@@ -106,7 +106,7 @@ namespace AsteroidsGoneRogue
                 case "Ship_Complete":
                     return new[] { "Ship_Complete", "Ship_Complete_Buffer_v4" };
                 case "Enemy_Sniper":
-                    return new[] { "Enemy_Sniper", "Enemy_Sniper_Buffer_v5" };
+                    return new[] { "Enemy_Sniper", "Enemy_Sniper_Buffer_v8", "Enemy_Sniper_Buffer_v5" };
                 case "Hangar_LaunchSign":
                     return new[] { "Hangar_LaunchSign", "Hangar_LaunchSign_Buffer_v2" };
                 case "Projectile_Bolt":
