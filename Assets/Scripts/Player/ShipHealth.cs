@@ -4,12 +4,16 @@ namespace AsteroidsGoneRogue
 {
     public sealed class ShipHealth : MonoBehaviour, IDamageable
     {
+        public const float HitInvulnerabilitySeconds = 1.15f;
+
         private GameManager _game;
         private ShipVisuals _visuals;
         private int _hull = LoadoutState.HullHitPoints;
         private int _maxHull = LoadoutState.HullHitPoints;
         private int _shield;
         private bool _dead;
+        private float _invulnerableUntil;
+        private DamageCause _lastCause = DamageCause.Unknown;
 
         public int Hull
         {
@@ -19,6 +23,16 @@ namespace AsteroidsGoneRogue
         public int Shield
         {
             get { return _shield; }
+        }
+
+        public bool IsInvulnerable
+        {
+            get { return !_dead && Time.time < _invulnerableUntil; }
+        }
+
+        public DamageCause LastDamageCause
+        {
+            get { return _lastCause; }
         }
 
         public void Bind(GameManager game, ShipVisuals visuals)
@@ -33,6 +47,8 @@ namespace AsteroidsGoneRogue
             _maxHull = loadout != null ? loadout.CurrentHullHitPoints : LoadoutState.HullHitPoints;
             _hull = _maxHull;
             _shield = loadout != null ? loadout.ShieldCharges : 0;
+            _lastCause = DamageCause.Unknown;
+            ClearInvulnerability();
             if (_visuals != null)
             {
                 _visuals.SetShieldVisible(_shield > 0);
@@ -78,11 +94,17 @@ namespace AsteroidsGoneRogue
 
         public void ApplyDamage(int amount)
         {
-            if (_dead || amount <= 0)
+            ApplyDamage(amount, DamageCause.Unknown);
+        }
+
+        public void ApplyDamage(int amount, DamageCause cause)
+        {
+            if (_dead || amount <= 0 || IsInvulnerable)
             {
                 return;
             }
 
+            _lastCause = cause;
             int remaining = amount;
             if (_shield > 0)
             {
@@ -110,28 +132,67 @@ namespace AsteroidsGoneRogue
             {
                 _hull = 0;
                 _dead = true;
+                ClearInvulnerability();
                 if (_game != null)
                 {
-                    _game.NotifyPlayerDestroyed();
+                    _game.NotifyPlayerDestroyed(DamageCauseText.FailReason(cause));
                 }
             }
-            else if (_game != null)
+            else
             {
-                _game.RefreshHud();
+                BeginInvulnerability();
+                if (_game != null)
+                {
+                    _game.RefreshHud();
+                }
             }
         }
 
         private void OnCollisionEnter(Collision collision)
         {
-            Collider other = collision.collider;
-            if (other.CompareTag(GameTags.Asteroid) || other.CompareTag(GameTags.Enemy))
+            if (_dead || IsInvulnerable)
             {
-                ApplyDamage(1);
-                IDamageable damageable = other.GetComponentInParent<IDamageable>();
-                if (damageable != null && !ReferenceEquals(damageable, this))
-                {
-                    damageable.ApplyDamage(1);
-                }
+                return;
+            }
+
+            Collider other = collision.collider;
+            DamageCause cause;
+            if (other.CompareTag(GameTags.Asteroid))
+            {
+                cause = DamageCause.AsteroidCollision;
+            }
+            else if (other.CompareTag(GameTags.Enemy))
+            {
+                cause = DamageCause.EnemyContact;
+            }
+            else
+            {
+                return;
+            }
+
+            ApplyDamage(1, cause);
+            IDamageable damageable = other.GetComponentInParent<IDamageable>();
+            if (damageable != null && !ReferenceEquals(damageable, this))
+            {
+                damageable.ApplyDamage(1);
+            }
+        }
+
+        private void BeginInvulnerability()
+        {
+            _invulnerableUntil = Time.time + HitInvulnerabilitySeconds;
+            if (_visuals != null)
+            {
+                _visuals.PlayHitBlink(HitInvulnerabilitySeconds);
+            }
+        }
+
+        private void ClearInvulnerability()
+        {
+            _invulnerableUntil = 0f;
+            if (_visuals != null)
+            {
+                _visuals.StopHitBlink();
             }
         }
     }

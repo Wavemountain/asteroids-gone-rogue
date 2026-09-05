@@ -98,7 +98,8 @@ namespace AsteroidsGoneRogue
                     _primaryLabel.text = "Next Wave";
                     break;
                 case GamePhase.Failed:
-                    _status.text = "Ship lost  ·  Score " + _session.Score + "  ·  Retry the wave";
+                    _status.text = "Ship lost  ·  " + FailReasonText() + "  ·  Score " + _session.Score
+                        + "  ·  Retry the wave";
                     _primaryLabel.text = "Retry Wave";
                     break;
                 default:
@@ -402,6 +403,16 @@ namespace AsteroidsGoneRogue
             _buyLabels[index].color = canBuy
                 ? Color.white
                 : new Color(0.55f, 0.56f, 0.58f, 0.95f);
+        }
+
+        private string FailReasonText()
+        {
+            if (_session == null || string.IsNullOrEmpty(_session.FailReason))
+            {
+                return "Unknown cause";
+            }
+
+            return _session.FailReason;
         }
 
         private string BuildHud(bool playing)

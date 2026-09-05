@@ -19,6 +19,7 @@ class Session:
         self.wave = 1
         self.score = 0
         self.credits = 0
+        self.fail_reason = ""
 
     @property
     def can_start(self) -> bool:
@@ -26,6 +27,7 @@ class Session:
 
     def begin(self) -> None:
         assert self.can_start
+        self.fail_reason = ""
         self.phase = Phase.PLAYING
 
     def add_score(self, amount: int) -> None:
@@ -38,8 +40,9 @@ class Session:
         self.wave += 1
         self.phase = Phase.WAVE_CLEAR
 
-    def fail(self) -> None:
+    def fail(self, reason: str | None = None) -> None:
         assert self.phase == Phase.PLAYING
+        self.fail_reason = reason or "Unknown cause"
         self.phase = Phase.FAILED
 
     def hangar(self) -> None:
@@ -96,11 +99,25 @@ def test_fail_keeps_wave_and_upgrades() -> None:
     s.begin()
     s.fail()
     assert s.phase == Phase.FAILED
+    assert s.fail_reason == "Unknown cause"
     assert s.wave == 1
     assert s.credits == 0
     s.hangar()
     s.begin()
     assert s.wave == 1
+    assert s.fail_reason == ""
+
+
+def test_fail_stores_death_cause() -> None:
+    s = Session()
+    s.begin()
+    s.fail("Asteroid collision")
+    assert s.phase == Phase.FAILED
+    assert s.fail_reason == "Asteroid collision"
+    s.hangar()
+    s.begin()
+    s.fail("Enemy contact")
+    assert s.fail_reason == "Enemy contact"
 
 
 def test_shop_cannot_overspend() -> None:
@@ -220,14 +237,45 @@ def test_factory_wires_import_fbx() -> None:
     assert (root / "Assets/Resources/Audio/Sfx/maximize_008.ogg").is_file()
 
 
+def test_hit_iframes_and_fail_cause_ui() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    health = (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
+    visuals = (root / "Assets/Scripts/Player/ShipVisuals.cs").read_text(encoding="utf-8")
+    session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    cause = (root / "Assets/Scripts/Core/DamageCause.cs").read_text(encoding="utf-8")
+    assert "HitInvulnerabilitySeconds" in health
+    assert "IsInvulnerable" in health
+    assert "BeginInvulnerability" in health
+    assert "DamageCause.AsteroidCollision" in health
+    assert "DamageCause.EnemyContact" in health
+    assert "PlayHitBlink" in health
+    assert "PlayHitBlink" in visuals
+    assert "GetComponentsInChildren<Renderer>" in visuals
+    assert "renderer].enabled" in visuals or "_blinkRenderers[i].enabled" in visuals
+    assert "Fx_HitFlash" not in visuals and "DeathBurst" not in visuals and "DeathRing" not in visuals
+    assert "assets/buffer" not in visuals.lower()
+    assert "FailReason" in session
+    assert 'FailWave(string reason)' in session
+    assert "NotifyPlayerDestroyed(string cause)" in manager
+    assert "FailReasonText" in ui
+    assert "Asteroid collision" in cause
+    assert "Enemy contact" in cause
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
+    test_fail_stores_death_cause()
     test_shop_cannot_overspend()
     test_nose_changes_damage()
     test_body_upgrade_adds_hull()
     test_wave_ladder_rises()
     test_factory_wires_import_fbx()
+    test_hit_iframes_and_fail_cause_ui()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

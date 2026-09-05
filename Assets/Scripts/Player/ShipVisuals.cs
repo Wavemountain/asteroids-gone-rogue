@@ -20,6 +20,42 @@ namespace AsteroidsGoneRogue
         public GameObject UpgradedEngine02;
         public GameObject ShieldBubble;
 
+        public const float BlinkIntervalSeconds = 0.09f;
+
+        private float _blinkUntil;
+        private float _nextToggle;
+        private bool _blinkHidden;
+        private Renderer[] _blinkRenderers;
+
+        public bool IsBlinking
+        {
+            get { return _blinkUntil > 0f && Time.time < _blinkUntil; }
+        }
+
+        public void PlayHitBlink(float duration)
+        {
+            StopHitBlink();
+            if (duration <= 0f)
+            {
+                return;
+            }
+
+            _blinkRenderers = GetComponentsInChildren<Renderer>(false);
+            _blinkUntil = Time.time + duration;
+            _nextToggle = Time.time;
+            _blinkHidden = false;
+            ToggleBlink();
+        }
+
+        public void StopHitBlink()
+        {
+            _blinkUntil = 0f;
+            _nextToggle = 0f;
+            _blinkHidden = false;
+            SetBlinkRenderersVisible(true);
+            _blinkRenderers = null;
+        }
+
         public void ApplyLoadout(LoadoutState loadout)
         {
             bool bodyUpgrade = loadout != null && loadout.BodyUpgrade01;
@@ -82,6 +118,53 @@ namespace AsteroidsGoneRogue
             {
                 ShieldBubble.SetActive(visible);
             }
+        }
+
+        private void Update()
+        {
+            if (_blinkUntil <= 0f)
+            {
+                return;
+            }
+
+            if (Time.time >= _blinkUntil)
+            {
+                StopHitBlink();
+                return;
+            }
+
+            if (Time.time >= _nextToggle)
+            {
+                ToggleBlink();
+            }
+        }
+
+        private void ToggleBlink()
+        {
+            _blinkHidden = !_blinkHidden;
+            SetBlinkRenderersVisible(!_blinkHidden);
+            _nextToggle = Time.time + BlinkIntervalSeconds;
+        }
+
+        private void SetBlinkRenderersVisible(bool visible)
+        {
+            if (_blinkRenderers == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _blinkRenderers.Length; i++)
+            {
+                if (_blinkRenderers[i] != null)
+                {
+                    _blinkRenderers[i].enabled = visible;
+                }
+            }
+        }
+
+        private void OnDisable()
+        {
+            StopHitBlink();
         }
     }
 }

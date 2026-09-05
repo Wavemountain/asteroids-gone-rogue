@@ -105,6 +105,11 @@ namespace AsteroidsGoneRogue
 
         public void NotifyPlayerDestroyed()
         {
+            NotifyPlayerDestroyed("Unknown cause");
+        }
+
+        public void NotifyPlayerDestroyed(string cause)
+        {
             if (_session.Phase != GamePhase.Playing)
             {
                 return;
@@ -112,7 +117,7 @@ namespace AsteroidsGoneRogue
 
             _ship.SetInputEnabled(false);
             _waves.DespawnAll();
-            _session.FailWave();
+            _session.FailWave(cause);
             RaiseStateChanged();
         }
 

@@ -12,6 +12,7 @@ namespace AsteroidsGoneRogue
         public int WaveIndex { get; private set; } = 1;
         public int Score { get; private set; }
         public int Credits { get; private set; }
+        public string FailReason { get; private set; } = string.Empty;
 
         public bool CanStartWave
         {
@@ -35,6 +36,7 @@ namespace AsteroidsGoneRogue
                 throw new InvalidOperationException("Wave can only start from hangar, wave-clear, or fail.");
             }
 
+            FailReason = string.Empty;
             Phase = GamePhase.Playing;
         }
 
@@ -63,11 +65,17 @@ namespace AsteroidsGoneRogue
 
         public void FailWave()
         {
+            FailWave(null);
+        }
+
+        public void FailWave(string reason)
+        {
             if (Phase != GamePhase.Playing)
             {
                 return;
             }
 
+            FailReason = string.IsNullOrEmpty(reason) ? "Unknown cause" : reason;
             Phase = GamePhase.Failed;
         }
 
