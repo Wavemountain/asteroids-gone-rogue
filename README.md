@@ -1,2 +1,93 @@
-# asteroids-gone-rogue
-1st Grok bot project
+# Asteroids gone rogue
+
+Week 1 playable Unity core: one solid wave loop (hangar → fight → clear or fail → score → hangar shop). Not a ten-system vertical slice.
+
+## Unity version
+
+**Unity 2022.3.21f1 LTS** (changeset `bf09ca542b87`)
+
+Built-in render pipeline. Old Input Manager (no Input System package, so first open should not show the Input System dialog).
+
+Hub may offer a newer 2022.3 LTS patch — that is fine.
+
+## Open the project
+
+1. Install **Unity 2022.3 LTS** via Unity Hub.
+2. **Add** this repository folder (the folder that contains `Assets/`, `Packages/`, and `ProjectSettings/`).
+3. Open the project and wait for the first import (`Library/` is generated locally and is gitignored).
+4. Open `Assets/Scenes/Play.unity` if it is not already loaded (it is in **File → Build Settings**).
+5. Press **Play**.
+
+Product name in Player Settings is exactly **Asteroids gone rogue**.
+
+Editor helpers: menu **Asteroids gone rogue → Open Play Scene** / **Validate Week 1 Setup**.
+
+## Controls
+
+| Action | Input |
+| --- | --- |
+| Thrust / strafe | **WASD** or arrow keys |
+| Aim | Mouse (on the play plane) |
+| Fire | **Left mouse** or **Space** |
+| Start / next / retry wave | Hangar **Start Wave** / **Next Wave** / **Retry Wave** |
+| Buy upgrade | Hangar shop buttons |
+
+## Week 1 loop
+
+`GameSession` / `GameManager` / `WaveManager` states:
+
+1. **Hangar** — title, start button, shop (if you have credits).
+2. **Playing** — fly the 3D ship, shoot one projectile type, split asteroids, one seeking enemy.
+3. **Wave Clear** — score (including clear bonus) and **150 credits**, then shop.
+4. **Fail** — ship destroyed; retry the same wave. Bought upgrades stay.
+
+Wave 1: 4 large asteroids + 1 `Enemy_01`. Later waves add a few more large rocks (capped), still one enemy type.
+
+## Shop (2–3 purchases that matter)
+
+Upgrades persist into the next wave.
+
+| Item | Cost | Effect |
+| --- | --- | --- |
+| Rapid Fire | 100 | Cannon cooldown 0.38s → 0.16s |
+| Shield Cell | 80 | +1 visible shield hit before hull (max 2) |
+| Nose Hardpoint | 120 | Swaps the **nose part slot** to dual barrels; faster, 2-damage shots |
+
+Hull is 3 hits. Large asteroids take 2 hits then split into 3 small shards. Small shards and the enemy are destroyable.
+
+## Project layout
+
+```
+Assets/Scenes/Play.unity          Play scene (camera, light, EventSystem, GameBootstrap)
+Assets/Scripts/Core/              GameSession, GameManager, WaveManager
+Assets/Scripts/Player/            Ship fly / aim / shoot / health
+Assets/Scripts/Combat/            Asteroid split, enemy seeker
+Assets/Scripts/Hangar/            Shop
+Assets/Scripts/UI/                Code-built hangar + HUD
+Assets/Scripts/Content/           Runtime primitive factory + part slots
+Assets/Art/Materials/             Mat_Ship_Hull, Mat_Ship_Accent, Mat_Asteroid, Mat_Enemy, Mat_Arena
+Assets/Art/Prefabs/               Swap-friendly visual stubs (same names as future FBX)
+Assets/Art/Import/                Drop FBX here — see IMPORT.md
+```
+
+## What is stubbed
+
+- **Meshes** are primitives. Real FBX (`Ship_Nose` / `Body` / `Engine` / `Complete`, `Asteroid_Large` / `Small`, `Enemy_01`, `Arena_Blockout`, `AsteroidsGoneRogue_Week1_All`) is expected later at `Assets/Art/Import/`. Read `Assets/Art/Import/IMPORT.md` and `MANIFEST.md`.
+- **Ship_*** may be refreshed — part slots share origin `0,0,0` so they can be replaced in place.
+- No extra ships, no 30-wave campaign, no extra worlds, no large shop, no polish pass, no multiplayer.
+- No audio, particles, or Input System / URP / TextMeshPro (avoids extra first-open prompts).
+
+`ContentFactory` builds the live ship / rocks / enemy at runtime so Play Mode does not depend on prefab field wiring. Prefabs in `Assets/Art/Prefabs/` are named templates for the FBX swap.
+
+## Repo checks (no Editor required)
+
+```
+python3 Tools/validate_week1_project.py
+python3 Tools/test_week1_logic.py
+```
+
+`Tools/generate_unity_assets.py` recreates `.meta` GUIDs, stub materials/prefabs, and `Play.unity`. Re-run it only if you intentionally change that generator.
+
+## Success check
+
+Press Play → hangar → start a wave → fly, shoot, split a large asteroid, kill the chaser → clear (or die) → see score → buy an upgrade → next wave uses it (faster gun, shield bubble, or new nose).
