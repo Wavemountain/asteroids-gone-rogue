@@ -10,6 +10,7 @@ namespace AsteroidsGoneRogue
         private GameSession _session;
         private PlayerLoadout _loadout;
         private ShipController _ship;
+        private WaveManager _waves;
 
         private Text _title;
         private Text _hud;
@@ -52,6 +53,7 @@ namespace AsteroidsGoneRogue
             _session = session;
             _loadout = loadout;
             _ship = ship;
+            _waves = game.GetComponent<WaveManager>();
             Refresh();
         }
 
@@ -174,19 +176,13 @@ namespace AsteroidsGoneRogue
         {
             int hull = _ship != null && _ship.Health != null ? _ship.Health.Hull : LoadoutState.HullHitPoints;
             int shield = _ship != null && _ship.Health != null ? _ship.Health.Shield : _loadout.State.ShieldCharges;
-            string remaining = playing && _game != null
-                ? "   ·   Remaining " + FindRemaining()
+            string remaining = playing && _waves != null
+                ? "   ·   Remaining " + _waves.RemainingThreats
                 : string.Empty;
             return "Wave " + _session.WaveIndex
                 + "   ·   Score " + _session.Score
                 + "\nHull " + hull + "   ·   Shield " + shield
                 + remaining;
-        }
-
-        private int FindRemaining()
-        {
-            WaveManager waves = _game.GetComponent<WaveManager>();
-            return waves != null ? waves.RemainingThreats : 0;
         }
 
         private static Font ResolveFont()

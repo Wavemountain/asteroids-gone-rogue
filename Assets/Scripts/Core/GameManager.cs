@@ -130,6 +130,7 @@ namespace AsteroidsGoneRogue
         private void CompleteWave()
         {
             _ship.SetInputEnabled(false);
+            _waves.DespawnAll();
             _session.CompleteWave(ScoreValues.WaveClearBonus, ScoreValues.WaveClearCredits);
             RaiseStateChanged();
         }
