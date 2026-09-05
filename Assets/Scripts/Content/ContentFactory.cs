@@ -196,8 +196,8 @@ namespace AsteroidsGoneRogue
 
             Rigidbody body = root.AddComponent<Rigidbody>();
             body.useGravity = false;
-            body.drag = 1.4f;
-            body.angularDrag = 4f;
+            body.linearDamping = 1.4f;
+            body.angularDamping = 4f;
             body.constraints = RigidbodyConstraints.FreezePositionY
                 | RigidbodyConstraints.FreezeRotationX
                 | RigidbodyConstraints.FreezeRotationZ;
@@ -378,8 +378,8 @@ namespace AsteroidsGoneRogue
 
             Rigidbody body = root.AddComponent<Rigidbody>();
             body.useGravity = false;
-            body.drag = 1f;
-            body.angularDrag = 2f;
+            body.linearDamping = 1f;
+            body.angularDamping = 2f;
             body.constraints = RigidbodyConstraints.FreezePositionY
                 | RigidbodyConstraints.FreezeRotationX
                 | RigidbodyConstraints.FreezeRotationZ;
@@ -456,8 +456,8 @@ namespace AsteroidsGoneRogue
 
             Rigidbody body = root.AddComponent<Rigidbody>();
             body.useGravity = false;
-            body.drag = 0.05f;
-            body.angularDrag = 0.05f;
+            body.linearDamping = 0.05f;
+            body.angularDamping = 0.05f;
             body.constraints = RigidbodyConstraints.FreezePositionY;
             body.mass = size == AsteroidSize.Large ? 4f : 1.2f;
 
