@@ -19,13 +19,15 @@ This is the Week 1–2 playable core for **Asteroids gone rogue**. Branch: `curs
 
 ## Play verify
 
+**ArtImport: 44/44 Play Mode FBX ready** — `ArtImport.PlayModeAssets` has 44 names; all 44 exist under `Assets/Resources/Art/Import/` and `Assets/Art/Import/`. `Ship_Body_Upgrade02` is imported only (not warmed, not in the shop).
+
 - Hangar shows BlenderBot ship + crate / terminal / pillar / workbench / kiosk / banner / ammo rack.
-- Top-right badge reads **WORLD 1** on wave 1. After 5 clears it becomes **WORLD 2**, then 3–6, then loops.
-- Shop buttons you cannot afford (or that are locked / owned) are **greyed and disabled**.
+- Top-right badge reads **WORLD 1** on wave 1. After 5 clears it becomes **WORLD 2**, then 3–6, then loops. Arena-swap flashes **WORLD N ONLINE** and plays the purchase SFX.
+- Shop is a 2-column grid below Start / credits (no overlap). Buttons you cannot afford (or that are locked / owned) are **greyed and disabled**.
 - Wave 1: `Enemy_01`. Later: Scout / Gunner / Drone. Waves 7+: Bomber / Sniper / SwarmPod if those FBX imported.
 - Buy Body Upgrade → `Ship_Body_Upgrade01`. Nose/Engine Upgrade 02 after their prereqs.
 - Shoot → muzzle flash. Kill → explosion. Asteroids mix A/B/C/D visuals; split rules unchanged.
-- Console: `ArtImport: N/N Play Mode FBX ready`.
+- Console on Play: `ArtImport: 44/44 Play Mode FBX ready`.
 
 Repo checks (no Editor):
 
