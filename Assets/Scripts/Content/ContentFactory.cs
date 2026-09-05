@@ -19,6 +19,8 @@ namespace AsteroidsGoneRogue
         private Transform _projectileRoot;
         private Transform _pickupRoot;
         private GameObject _hangarDressing;
+        private GameObject _arenaRoot;
+        private string _arenaVisualName;
         private Material _hull;
         private Material _accent;
         private Material _glass;
@@ -61,31 +63,59 @@ namespace AsteroidsGoneRogue
 
         public void BuildArena()
         {
-            GameObject root = new GameObject("Arena_Blockout");
-            root.AddComponent<ArenaBounds>().Radius = WaveManager.ArenaRadius;
-
-            if (!TryVisual("Arena_Blockout", root.transform, _arena))
-            {
-                GameObject floor = CreatePrimitive(PrimitiveType.Cylinder, "Arena_Floor", root.transform, _arena);
-                floor.transform.localScale = new Vector3(WaveManager.ArenaRadius * 2f, 0.04f, WaveManager.ArenaRadius * 2f);
-                floor.transform.position = new Vector3(0f, -0.08f, 0f);
-
-                int pads = 16;
-                for (int i = 0; i < pads; i++)
-                {
-                    float angle = (Mathf.PI * 2f * i) / pads;
-                    Vector3 pos = WaveManager.RingPoint(angle, WaveManager.ArenaRadius);
-                    GameObject block = CreatePrimitive(PrimitiveType.Cube, "Arena_Pad_" + i, root.transform, _arena);
-                    block.transform.position = pos + Vector3.up * 0.35f;
-                    block.transform.localScale = new Vector3(1.6f, 0.7f, 1.6f);
-                    block.transform.LookAt(Vector3.zero);
-                }
-            }
+            _arenaRoot = new GameObject("Arena_Blockout");
+            _arenaRoot.AddComponent<ArenaBounds>().Radius = WaveManager.ArenaRadius;
+            ApplyArenaForWave(1);
 
             _threatRoot = new GameObject("Threats").transform;
             _projectileRoot = new GameObject("Projectiles").transform;
             _pickupRoot = new GameObject("Pickups").transform;
             BuildHangarDressing();
+        }
+
+        public static readonly string[] ArenaWorlds =
+        {
+            "Arena_Blockout",
+            "Arena_World2_Blockout",
+            "Arena_World3_Blockout",
+            "Arena_World4_Blockout",
+            "Arena_World5_Blockout",
+            "Arena_World6_Blockout",
+        };
+
+        public static string ArenaVisualForWave(int waveIndex)
+        {
+            int world = (Mathf.Max(1, waveIndex) - 1) / 5 % ArenaWorlds.Length;
+            return ArenaWorlds[world];
+        }
+
+        public void ApplyArenaForWave(int waveIndex)
+        {
+            if (_arenaRoot == null)
+            {
+                return;
+            }
+
+            string visualName = ArenaVisualForWave(waveIndex);
+            if (visualName == _arenaVisualName)
+            {
+                return;
+            }
+
+            for (int i = _arenaRoot.transform.childCount - 1; i >= 0; i--)
+            {
+                Destroy(_arenaRoot.transform.GetChild(i).gameObject);
+            }
+
+            _arenaRoot.name = visualName;
+            if (!TryVisual(visualName, _arenaRoot.transform, _arena))
+            {
+                GameObject floor = CreatePrimitive(PrimitiveType.Cylinder, "Arena_Floor", _arenaRoot.transform, _arena);
+                floor.transform.localScale = new Vector3(WaveManager.ArenaRadius * 2f, 0.04f, WaveManager.ArenaRadius * 2f);
+                floor.transform.position = new Vector3(0f, -0.08f, 0f);
+            }
+
+            _arenaVisualName = visualName;
         }
 
         public void SetHangarDressingVisible(bool visible)

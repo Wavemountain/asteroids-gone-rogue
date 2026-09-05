@@ -144,6 +144,8 @@ def test_wave_ladder_rises() -> None:
         encoding="utf-8"
     )
     assert "VariantC" in factory and "VariantD" in factory
+    assert "ArenaVisualForWave" in factory
+    assert "Arena_World2_Blockout" in factory
     assert "Vfx_MuzzleFlash" in (
         Path(__file__).resolve().parents[1] / "Assets/Scripts/Player/ShipShooter.cs"
     ).read_text(encoding="utf-8")

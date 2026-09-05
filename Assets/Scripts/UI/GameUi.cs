@@ -257,7 +257,18 @@ namespace AsteroidsGoneRogue
             string remaining = playing && _waves != null
                 ? "   ·   Remaining " + _waves.RemainingThreats
                 : string.Empty;
+            int world = 1;
+            for (int i = 0; i < ContentFactory.ArenaWorlds.Length; i++)
+            {
+                if (ContentFactory.ArenaVisualForWave(_session.WaveIndex) == ContentFactory.ArenaWorlds[i])
+                {
+                    world = i + 1;
+                    break;
+                }
+            }
+
             return "Wave " + _session.WaveIndex
+                + "   ·   World " + world
                 + "   ·   Score " + _session.Score
                 + "\nHull " + hull + "   ·   Shield " + shield
                 + remaining;

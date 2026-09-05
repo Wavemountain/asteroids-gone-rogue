@@ -30,6 +30,7 @@ namespace AsteroidsGoneRogue
         public void SpawnWave(int waveIndex)
         {
             DespawnAll();
+            _factory.ApplyArenaForWave(waveIndex);
 
             int largeCount = LargeAsteroidCount(waveIndex);
             for (int i = 0; i < largeCount; i++)

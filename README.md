@@ -41,7 +41,7 @@ Editor helpers: menu **Asteroids gone rogue → Open Play Scene** / **Validate W
 3. **Wave Clear** — score (including clear bonus) and **150 credits**, then shop.
 4. **Fail** — ship destroyed; retry the same wave. Bought upgrades stay.
 
-Wave 1: 4 large asteroids + 1 `Enemy_01`. Waves 2–10 add Scout / Gunner / Drone, then Bomber / Sniper / SwarmPod when those FBX are present. World 2–6 arenas stay unused.
+Wave 1: 4 large asteroids + 1 `Enemy_01`. Waves 2–10 add Scout / Gunner / Drone, then Bomber / Sniper / SwarmPod when those FBX are present. After every 5 cleared waves the arena mesh swaps World 1→6 (loop). Same radius and rules.
 
 ## Shop
 
