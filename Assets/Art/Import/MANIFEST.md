@@ -18,9 +18,9 @@ Artist pack checklist for **Asteroids gone rogue** Week 1.
 
 ## Combat / arena meshes
 
-- [ ] `Asteroid_Large` (~4.8 m) — Week 1 split type
+- [ ] `Asteroid_Large` (~4.8 m) — type A visual, Week 1 split rules
 - [ ] `Asteroid_Small` (~1.8 m)
-- [ ] `Asteroid_VariantB_Large` / `Asteroid_VariantB_Small` (optional visual mix, later)
+- [ ] `Asteroid_VariantB_Large` / `Asteroid_VariantB_Small` — type B visual only (same split)
 - [ ] `Enemy_01` (~2 m) — Week 1 playable enemy
 - [ ] `Arena_Blockout` (play radius ~22 m)
 

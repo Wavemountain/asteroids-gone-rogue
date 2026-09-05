@@ -867,6 +867,8 @@ def main() -> None:
         ("Ship_Complete", "capsule", "Mat_Ship_Hull", (1.0, 1.0, 1.0)),
         ("Asteroid_Large", "sphere", "Mat_Asteroid", (4.8, 4.8, 4.8)),
         ("Asteroid_Small", "sphere", "Mat_Asteroid", (1.8, 1.8, 1.8)),
+        ("Asteroid_VariantB_Large", "cube", "Mat_Asteroid", (4.8, 3.4, 4.8)),
+        ("Asteroid_VariantB_Small", "cube", "Mat_Asteroid", (1.8, 1.25, 1.8)),
         ("Enemy_01", "capsule", "Mat_Enemy", (0.7, 0.7, 0.7)),
         ("Arena_Blockout", "cylinder", "Mat_Arena", (44.0, 0.04, 44.0)),
         ("Hangar_Crate", "cube", "Mat_Arena", (1.3, 1.1, 1.3)),

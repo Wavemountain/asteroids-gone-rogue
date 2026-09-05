@@ -136,6 +136,8 @@ def main() -> int:
         "Ship_Complete",
         "Asteroid_Large",
         "Asteroid_Small",
+        "Asteroid_VariantB_Large",
+        "Asteroid_VariantB_Small",
         "Enemy_01",
         "Arena_Blockout",
         "Hangar_Crate",

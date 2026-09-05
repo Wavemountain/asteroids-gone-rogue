@@ -38,9 +38,11 @@ All `Ship_*` parts, including upgrades, share origin `0,0,0` with the base slots
 
 ### Combat / arena (unchanged)
 
-- `Asteroid_Large.fbx` — Week 1 split type (A)
-- `Asteroid_Small.fbx` — shards from a large hit
-- `Asteroid_VariantB_Large.fbx` / `Asteroid_VariantB_Small.fbx` — optional visual mix later; Week 1 gameplay stays one split type
+- `Asteroid_Large.fbx` — type A visual (Week 1 split rules)
+- `Asteroid_Small.fbx` — type A shards from a large hit
+- `Asteroid_VariantB_Large.fbx` / `Asteroid_VariantB_Small.fbx` — type B visual only
+
+Week 1 keeps **one asteroid type** for gameplay (large → 3 small shards, same HP/score). Spawns already mix A/B **visually** (sphere vs faceted stub). Same `Asteroid` component either way — drop the VariantB FBX onto `Asteroid_VariantB_*` roots later.
 - `Enemy_01.fbx` — **Week 1 uses this one enemy type only**
 - `Arena_Blockout.fbx`
 - `AsteroidsGoneRogue_Week1_All.fbx` (optional combined pack)

@@ -303,7 +303,11 @@ namespace AsteroidsGoneRogue
         private Asteroid CreateAsteroid(AsteroidSize size, Vector3 position, Vector3 drift, WaveManager waves)
         {
             float meters = size == AsteroidSize.Large ? LargeAsteroidMeters : SmallAsteroidMeters;
-            GameObject root = new GameObject(size == AsteroidSize.Large ? "Asteroid_Large" : "Asteroid_Small");
+            bool variantB = Random.value < 0.45f;
+            string propName = size == AsteroidSize.Large
+                ? (variantB ? "Asteroid_VariantB_Large" : "Asteroid_Large")
+                : (variantB ? "Asteroid_VariantB_Small" : "Asteroid_Small");
+            GameObject root = new GameObject(propName);
             root.tag = GameTags.Asteroid;
             root.transform.SetParent(_threatRoot, false);
             root.transform.position = position;
@@ -321,9 +325,9 @@ namespace AsteroidsGoneRogue
             float wobble = size == AsteroidSize.Large ? 0.18f : 0.12f;
             Vector3 scale = new Vector3(
                 meters * (1f + Random.Range(-wobble, wobble)),
-                meters * 0.82f,
+                meters * (variantB ? 0.7f : 0.82f),
                 meters * (1f + Random.Range(-wobble, wobble)));
-            CreatePrimitive(PrimitiveType.Sphere, "Mesh", root.transform, _asteroid,
+            CreatePrimitive(variantB ? PrimitiveType.Cube : PrimitiveType.Sphere, "Mesh", root.transform, _asteroid,
                 Vector3.zero, scale, Quaternion.identity);
 
             Asteroid asteroid = root.AddComponent<Asteroid>();
