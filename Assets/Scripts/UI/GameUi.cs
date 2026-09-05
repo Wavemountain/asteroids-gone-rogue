@@ -22,6 +22,10 @@ namespace AsteroidsGoneRogue
         private Text _primaryLabel;
         private readonly Button[] _buyButtons = new Button[3];
         private readonly Text[] _buyLabels = new Text[3];
+        private Button _muteButton;
+        private Text _muteLabel;
+        private Slider _sfxSlider;
+        private Slider _musicSlider;
 
         public static GameUi Build(string productTitle)
         {
@@ -95,6 +99,8 @@ namespace AsteroidsGoneRogue
             {
                 RefreshBuyButton(i, ShopCatalog.Items[i]);
             }
+
+            RefreshAudioControls();
         }
 
         private void Construct(string productTitle)
@@ -143,6 +149,8 @@ namespace AsteroidsGoneRogue
                 _buyLabels[i] = button.GetComponentInChildren<Text>();
                 y -= 0.15f;
             }
+
+            BuildAudioControls(font);
         }
 
         private void OnPrimary()
@@ -160,6 +168,72 @@ namespace AsteroidsGoneRogue
             if (_shop != null)
             {
                 _shop.TryBuy(id);
+            }
+        }
+
+        private void BuildAudioControls(Font font)
+        {
+            GameObject panel = CreatePanel("AudioPanel", transform, new Color(0.04f, 0.06f, 0.09f, 0.75f),
+                new Vector2(0.68f, 0.72f), new Vector2(0.98f, 0.86f));
+
+            _muteButton = CreateButton("Mute", panel.transform, font, new Vector2(0.04f, 0.55f), new Vector2(0.36f, 0.9f));
+            _muteLabel = _muteButton.GetComponentInChildren<Text>();
+            _muteButton.onClick.AddListener(OnMute);
+
+            CreateText("SfxLabel", panel.transform, font, 16, TextAnchor.MiddleLeft, FontStyle.Normal).text = "SFX";
+            Stretch(panel.transform.Find("SfxLabel").GetComponent<RectTransform>(), new Vector2(0.4f, 0.55f), new Vector2(0.55f, 0.9f));
+            _sfxSlider = CreateSlider("SfxSlider", panel.transform, new Vector2(0.56f, 0.58f), new Vector2(0.96f, 0.88f),
+                AudioCues.Instance != null ? AudioCues.Instance.SfxVolume : 0.8f, OnSfxVolume);
+
+            CreateText("MusicLabel", panel.transform, font, 16, TextAnchor.MiddleLeft, FontStyle.Normal).text = "Music";
+            Stretch(panel.transform.Find("MusicLabel").GetComponent<RectTransform>(), new Vector2(0.04f, 0.08f), new Vector2(0.28f, 0.48f));
+            _musicSlider = CreateSlider("MusicSlider", panel.transform, new Vector2(0.3f, 0.1f), new Vector2(0.96f, 0.46f),
+                AudioCues.Instance != null ? AudioCues.Instance.MusicVolume : 0.42f, OnMusicVolume);
+
+            RefreshAudioControls();
+        }
+
+        private void OnMute()
+        {
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.ToggleMute();
+                RefreshAudioControls();
+            }
+        }
+
+        private void OnSfxVolume(float value)
+        {
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.SetSfxVolume(value);
+            }
+        }
+
+        private void OnMusicVolume(float value)
+        {
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.SetMusicVolume(value);
+            }
+        }
+
+        private void RefreshAudioControls()
+        {
+            if (_muteLabel == null || AudioCues.Instance == null)
+            {
+                return;
+            }
+
+            _muteLabel.text = AudioCues.Instance.Muted ? "Unmute" : "Mute";
+            if (_sfxSlider != null)
+            {
+                _sfxSlider.SetValueWithoutNotify(AudioCues.Instance.SfxVolume);
+            }
+
+            if (_musicSlider != null)
+            {
+                _musicSlider.SetValueWithoutNotify(AudioCues.Instance.MusicVolume);
             }
         }
 
@@ -247,6 +321,56 @@ namespace AsteroidsGoneRogue
             Stretch(label.rectTransform, Vector2.zero, Vector2.one);
             label.raycastTarget = false;
             return button;
+        }
+
+        private static Slider CreateSlider(
+            string name,
+            Transform parent,
+            Vector2 min,
+            Vector2 max,
+            float value,
+            UnityEngine.Events.UnityAction<float> onChanged)
+        {
+            GameObject root = new GameObject(name);
+            root.transform.SetParent(parent, false);
+            Image background = root.AddComponent<Image>();
+            background.color = new Color(0.1f, 0.12f, 0.16f, 0.95f);
+            Stretch(root.GetComponent<RectTransform>(), min, max);
+
+            GameObject fillArea = new GameObject("Fill Area");
+            fillArea.transform.SetParent(root.transform, false);
+            RectTransform fillAreaRect = fillArea.AddComponent<RectTransform>();
+            Stretch(fillAreaRect, Vector2.zero, Vector2.one);
+            fillAreaRect.offsetMin = new Vector2(8f, 6f);
+            fillAreaRect.offsetMax = new Vector2(-8f, -6f);
+
+            GameObject fill = new GameObject("Fill");
+            fill.transform.SetParent(fillArea.transform, false);
+            Image fillImage = fill.AddComponent<Image>();
+            fillImage.color = new Color(0.9f, 0.65f, 0.2f, 1f);
+            RectTransform fillRect = fill.GetComponent<RectTransform>();
+            Stretch(fillRect, Vector2.zero, Vector2.one);
+
+            GameObject handleArea = new GameObject("Handle Slide Area");
+            handleArea.transform.SetParent(root.transform, false);
+            Stretch(handleArea.AddComponent<RectTransform>(), Vector2.zero, Vector2.one);
+
+            GameObject handle = new GameObject("Handle");
+            handle.transform.SetParent(handleArea.transform, false);
+            Image handleImage = handle.AddComponent<Image>();
+            handleImage.color = Color.white;
+            RectTransform handleRect = handle.GetComponent<RectTransform>();
+            handleRect.sizeDelta = new Vector2(16f, 22f);
+
+            Slider slider = root.AddComponent<Slider>();
+            slider.fillRect = fillRect;
+            slider.handleRect = handleRect;
+            slider.targetGraphic = handleImage;
+            slider.minValue = 0f;
+            slider.maxValue = 1f;
+            slider.value = value;
+            slider.onValueChanged.AddListener(onChanged);
+            return slider;
         }
 
         private static void Stretch(RectTransform rect, Vector2 min, Vector2 max)

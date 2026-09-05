@@ -40,6 +40,10 @@ def main() -> int:
     require(ROOT / "Assets/Art/Import/IMPORT.md")
     require(ROOT / "Assets/Art/Import/MANIFEST.md")
     require(ROOT / "README.md")
+    require(ROOT / "CREDITS.md")
+    require(ROOT / "Assets/Resources/Audio/Sfx/laserSmall_000.ogg")
+    require(ROOT / "Assets/Resources/Audio/Music/OutThere.ogg")
+    require(ROOT / "Assets/Resources/Audio/Music/spacelifeNo14.ogg")
 
     version = read(ROOT / "ProjectSettings/ProjectVersion.txt")
     if "2022.3.21f1" not in version:

@@ -94,7 +94,14 @@ namespace AsteroidsGoneRogue
 
             if (AudioCues.Instance != null)
             {
-                AudioCues.Instance.PlayExplosion();
+                if (_size == AsteroidSize.Large)
+                {
+                    AudioCues.Instance.PlayAsteroidSplit();
+                }
+                else
+                {
+                    AudioCues.Instance.PlayHit();
+                }
             }
 
             Destroy(gameObject);

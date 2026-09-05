@@ -68,13 +68,29 @@ Assets/Scripts/Content/           Runtime primitive factory + part slots
 Assets/Art/Materials/             Mat_Ship_Hull, Mat_Ship_Accent, Mat_Asteroid, Mat_Enemy, Mat_Arena
 Assets/Art/Prefabs/               Swap-friendly visual stubs (same names as future FBX)
 Assets/Art/Import/                Drop FBX here — see IMPORT.md
+Assets/Resources/Audio/           CC0 SFX + music (see CREDITS.md)
 ```
+
+## Audio (CC0)
+
+Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music controls sit in the top-right of the HUD (PlayerPrefs).
+
+| Cue | Pack | File |
+| --- | --- | --- |
+| Shoot | Kenney Sci-Fi Sounds | `laserSmall_000.ogg` |
+| Hit | Kenney Sci-Fi Sounds | `impactMetal_000.ogg` |
+| Asteroid split | Kenney Sci-Fi Sounds | `explosionCrunch_000.ogg` |
+| Enemy death | Kenney Sci-Fi Sounds | `explosionCrunch_003.ogg` |
+| Player damage | Kenney Sci-Fi Sounds | `forceField_000.ogg` |
+| Hangar purchase | Kenney Interface Sounds | `confirmation_002.ogg` |
+| Wave clear | Kenney Music Jingles | `jingles_PIZZA07.ogg` |
+| Arena loop | yd — Space Music: Out There | `OutThere.ogg` |
+| Hangar ambience | yd — Spacelife #14 | `spacelifeNo14.ogg` |
 
 ## What is stubbed
 
 - **Meshes** are primitives. Real FBX is expected later at `Assets/Art/Import/` (`Ship_Nose` / `Body` / `Engine` / `Complete` / `Nose_Upgrade01` / `Engine_Upgrade01`, `Asteroid_Large` / `Small`, `Enemy_01`, `Arena_Blockout`, `AsteroidsGoneRogue_Week1_All`). Read `IMPORT.md` and `MANIFEST.md`.
 - **Ship_*** may be refreshed — part slots share origin `0,0,0` so they can be replaced in place.
-- **SFX**: `AudioCues` has shoot / hit / explosion hooks and an `AudioSource`. Clips are unset (no audio pack).
 - **Later enemies** `Enemy_Scout` / `Enemy_Gunner` are named in IMPORT.md only. Week 1 still has one enemy type.
 - No extra ships, no 30-wave campaign, no extra worlds, no large shop, no polish pass, no multiplayer.
 - No Input System / URP / TextMeshPro (avoids extra first-open prompts).

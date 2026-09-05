@@ -49,7 +49,7 @@ namespace AsteroidsGoneRogue
 
             if (AudioCues.Instance != null)
             {
-                AudioCues.Instance.PlayExplosion();
+                AudioCues.Instance.PlayEnemyDeath();
             }
 
             Destroy(gameObject);

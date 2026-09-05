@@ -56,6 +56,35 @@ DefaultImporter:
 """
 
 
+def audio_meta(guid: str, streaming: bool) -> str:
+    load_type = 2 if streaming else 0
+    preload = 0 if streaming else 1
+    return f"""fileFormatVersion: 2
+guid: {guid}
+AudioImporter:
+  externalObjects: {{}}
+  serializedVersion: 7
+  defaultSettings:
+    serializedVersion: 2
+    loadType: {load_type}
+    sampleRateSetting: 0
+    sampleRateOverride: 44100
+    compressionFormat: 1
+    quality: 1
+    conversionMode: 0
+  platformSettingOverrides: {{}}
+  forceToMono: 0
+  normalize: 1
+  preloadAudioData: {preload}
+  loadInBackground: 0
+  ambisonic: 0
+  3D: 1
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+"""
+
+
 def markdown_meta(guid: str) -> str:
     return f"""fileFormatVersion: 2
 guid: {guid}
@@ -786,6 +815,11 @@ def main() -> None:
         "Assets/Scripts/Hangar",
         "Assets/Scripts/UI",
         "Assets/Editor",
+        "Assets/Audio",
+        "Assets/Resources",
+        "Assets/Resources/Audio",
+        "Assets/Resources/Audio/Sfx",
+        "Assets/Resources/Audio/Music",
     ]
     for folder in folders:
         write(ROOT / f"{folder}.meta", folder_meta(guid_for(folder + "/")))
@@ -797,6 +831,14 @@ def main() -> None:
     for md in ROOT.joinpath("Assets").rglob("*.md"):
         rel = md.relative_to(ROOT).as_posix()
         write(md.with_suffix(".md.meta"), markdown_meta(guid_for(rel)))
+
+    for txt in ROOT.joinpath("Assets").rglob("*.txt"):
+        rel = txt.relative_to(ROOT).as_posix()
+        write(txt.with_suffix(".txt.meta"), markdown_meta(guid_for(rel)))
+
+    for ogg in ROOT.joinpath("Assets").rglob("*.ogg"):
+        rel = ogg.relative_to(ROOT).as_posix()
+        write(ogg.with_suffix(".ogg.meta"), audio_meta(guid_for(rel), streaming="Music" in rel))
 
     materials = {
         "Mat_Ship_Hull": ((0.45, 0.52, 0.58, 1.0), 0.45, 0.35, None),

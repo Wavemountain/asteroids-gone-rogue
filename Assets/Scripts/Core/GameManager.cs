@@ -132,6 +132,11 @@ namespace AsteroidsGoneRogue
             _ship.SetInputEnabled(false);
             _waves.DespawnAll();
             _session.CompleteWave(ScoreValues.WaveClearBonus, ScoreValues.WaveClearCredits);
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayWaveClear();
+            }
+
             RaiseStateChanged();
         }
 
@@ -145,6 +150,11 @@ namespace AsteroidsGoneRogue
             if (_ui != null)
             {
                 _ui.Refresh();
+            }
+
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.SyncMusicToPhase(_session.Phase);
             }
         }
     }

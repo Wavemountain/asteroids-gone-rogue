@@ -32,6 +32,11 @@ namespace AsteroidsGoneRogue
             }
 
             _loadout.State.Apply(id);
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayHangarPurchase();
+            }
+
             _game.NotifyLoadoutChanged();
             return true;
         }

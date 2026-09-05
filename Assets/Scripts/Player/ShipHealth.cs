@@ -57,6 +57,11 @@ namespace AsteroidsGoneRogue
                 _hull -= remaining;
             }
 
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayPlayerDamage();
+            }
+
             if (_visuals != null)
             {
                 _visuals.SetShieldVisible(_shield > 0);
