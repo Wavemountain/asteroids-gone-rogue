@@ -204,6 +204,7 @@ def test_factory_wires_import_fbx() -> None:
     assert "FirstHangarHintKey" in ui
     assert "agr.ui.firstHangarHint" in ui
     assert "First flight" in ui
+    assert "Clear a wave to earn credits and upgrades." in ui
     assert "Got it" in ui
     assert "DismissFirstHangarHint" in ui
     audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")

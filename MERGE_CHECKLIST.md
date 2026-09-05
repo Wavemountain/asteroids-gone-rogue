@@ -22,7 +22,7 @@ This is the Week 1–2 playable core for **Asteroids gone rogue**. Branch: `curs
 **ArtImport: 44/44 Play Mode FBX ready** — `ArtImport.PlayModeAssets` has 44 names; all 44 exist under `Assets/Resources/Art/Import/` and `Assets/Art/Import/`. `Ship_Body_Upgrade02` is imported only (not warmed, not in the shop).
 
 - Hangar shows BlenderBot ship + crate / terminal / pillar / workbench / kiosk / banner / ammo rack.
-- First hangar (wave 1, first session): left **First flight** card — WASD / shop / Start Wave. **Got it** or Start Wave dismisses it (PlayerPrefs; no spam later).
+- First hangar (wave 1, first session): left **First flight** card — WASD / aim / shoot, “Clear a wave to earn credits and upgrades.”, shop + Start Wave. **Got it** or Start Wave dismisses it (PlayerPrefs; no spam later).
 - Top-right badge reads **WORLD 1** on wave 1. After 5 clears it becomes **WORLD 2**, then 3–6, then loops. Arena-swap flashes **WORLD N ONLINE** and plays `maximize_008` (not the hangar purchase cue).
 - Shop is a 2-column grid below Start / credits (no overlap). Buttons you cannot afford (or that are locked / owned) are **greyed and disabled**.
 - First Play audio: SFX audible (0.8), music not blasting (0.28, mixed down). Mute / sliders persist in PlayerPrefs.

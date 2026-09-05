@@ -102,8 +102,10 @@ namespace AsteroidsGoneRogue
                     _primaryLabel.text = "Retry Wave";
                     break;
                 default:
-                    _status.text = "Hangar  ·  Wave " + _session.WaveIndex
-                        + "  ·  World " + ContentFactory.WorldIndexForWave(_session.WaveIndex) + " ready";
+                    _status.text = !_tutorialDismissed && _session.WaveIndex == 1
+                        ? "Hangar  ·  Clear a wave to earn credits and upgrades."
+                        : "Hangar  ·  Wave " + _session.WaveIndex
+                            + "  ·  World " + ContentFactory.WorldIndexForWave(_session.WaveIndex) + " ready";
                     _primaryLabel.text = "Start Wave";
                     break;
             }
@@ -213,8 +215,8 @@ namespace AsteroidsGoneRogue
             Stretch(body.rectTransform, new Vector2(0.07f, 0.22f), new Vector2(0.93f, 0.85f));
             body.color = new Color(0.86f, 0.9f, 0.94f);
             body.text = "WASD move · mouse aim\nLMB / Space shoot\n\n"
-                + "Grey shop = need credits.\nClear a wave, then buy.\n\n"
-                + "Start Wave to fly.\nSurvive → shop → next.\nFail retries this wave.";
+                + "Clear a wave to earn credits and upgrades.\n\n"
+                + "Shop buys upgrades with those credits.\nStart Wave to fly.";
 
             Button gotIt = CreateButton("DismissHint", _tutorialRoot.transform, font,
                 new Vector2(0.12f, 0.04f), new Vector2(0.88f, 0.18f));
