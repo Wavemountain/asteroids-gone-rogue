@@ -654,6 +654,7 @@ namespace AsteroidsGoneRogue
             }
 
             _worldFlashUntil = Mathf.Max(_worldFlashUntil, Time.unscaledTime + 1.55f);
+            Stretch(_world.rectTransform, new Vector2(0.52f, 0.76f), new Vector2(0.97f, 0.98f));
             RefreshWorldBadge();
         }
 
@@ -695,6 +696,7 @@ namespace AsteroidsGoneRogue
             {
                 _world.fontSize = 34;
                 _medalBeat = string.Empty;
+                Stretch(_world.rectTransform, new Vector2(0.62f, 0.86f), new Vector2(0.97f, 0.98f));
                 RefreshWorldBadge();
             }
         }
