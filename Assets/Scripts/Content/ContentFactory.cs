@@ -406,6 +406,11 @@ namespace AsteroidsGoneRogue
 
         public Projectile SpawnProjectile(Vector3 origin, Vector3 direction, float speed, int damage)
         {
+            return SpawnProjectile(origin, direction, speed, damage, false);
+        }
+
+        public Projectile SpawnProjectile(Vector3 origin, Vector3 direction, float speed, int damage, bool pierce)
+        {
             GameObject root = new GameObject("Projectile");
             root.tag = GameTags.Projectile;
             root.transform.SetParent(_projectileRoot, false);
@@ -427,7 +432,7 @@ namespace AsteroidsGoneRogue
             }
 
             Projectile projectile = root.AddComponent<Projectile>();
-            projectile.Launch(direction, speed, damage);
+            projectile.Launch(direction, speed, damage, pierce);
             _projectiles.Add(projectile);
             return projectile;
         }

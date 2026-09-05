@@ -24,5 +24,15 @@ namespace AsteroidsGoneRogue
                     return "Unknown cause";
             }
         }
+
+        public static string FailReason(DamageCause cause, EnemyKind kind)
+        {
+            if (cause == DamageCause.EnemyContact)
+            {
+                return "Enemy contact (" + kind + ")";
+            }
+
+            return FailReason(cause);
+        }
     }
 }

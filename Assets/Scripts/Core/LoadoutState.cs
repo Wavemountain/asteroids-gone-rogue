@@ -27,6 +27,8 @@ namespace AsteroidsGoneRogue
         public bool BodyUpgrade01 { get; private set; }
         public bool NoseUpgrade02 { get; private set; }
         public bool EngineUpgrade02 { get; private set; }
+        public bool SpreadBolt { get; private set; }
+        public bool Pierce { get; private set; }
 
         public int CurrentHullHitPoints
         {
@@ -72,6 +74,11 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        public int SpreadPelletDamage
+        {
+            get { return Math.Max(1, ProjectileDamage / 2); }
+        }
+
         public bool Owns(UpgradeId id)
         {
             switch (id)
@@ -88,6 +95,10 @@ namespace AsteroidsGoneRogue
                     return NoseUpgrade02;
                 case UpgradeId.EngineUpgrade02:
                     return EngineUpgrade02;
+                case UpgradeId.SpreadBolt:
+                    return SpreadBolt;
+                case UpgradeId.Pierce:
+                    return Pierce;
                 default:
                     return false;
             }
@@ -131,6 +142,12 @@ namespace AsteroidsGoneRogue
                     break;
                 case UpgradeId.EngineUpgrade02:
                     EngineUpgrade02 = true;
+                    break;
+                case UpgradeId.SpreadBolt:
+                    SpreadBolt = true;
+                    break;
+                case UpgradeId.Pierce:
+                    Pierce = true;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException("id");

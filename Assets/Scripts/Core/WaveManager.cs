@@ -13,6 +13,7 @@ namespace AsteroidsGoneRogue
         private const int PlateauAsteroidCap = 10;
 
         private readonly HashSet<IThreat> _live = new HashSet<IThreat>();
+        private readonly Dictionary<IThreat, float> _outsideSeconds = new Dictionary<IThreat, float>();
         private ContentFactory _factory;
         private GameManager _game;
         private Transform _player;
@@ -148,6 +149,7 @@ namespace AsteroidsGoneRogue
         {
             var snapshot = new List<IThreat>(_live);
             _live.Clear();
+            _outsideSeconds.Clear();
             for (int i = 0; i < snapshot.Count; i++)
             {
                 snapshot[i].Despawn();
@@ -155,6 +157,107 @@ namespace AsteroidsGoneRogue
 
             _factory.ClearProjectiles();
             _factory.ClearPickups();
+        }
+
+        private void Update()
+        {
+            RescueStrandedThreats();
+        }
+
+        private void RescueStrandedThreats()
+        {
+            if (_live.Count == 0)
+            {
+                return;
+            }
+
+            bool removed = false;
+            var snapshot = new List<IThreat>(_live);
+            for (int i = 0; i < snapshot.Count; i++)
+            {
+                IThreat threat = snapshot[i];
+                Component component = threat as Component;
+                if (component == null)
+                {
+                    _live.Remove(threat);
+                    _outsideSeconds.Remove(threat);
+                    removed = true;
+                    continue;
+                }
+
+                Vector3 pos = component.transform.position;
+                if (ArenaWrap.IsInvalidXz(pos.x, pos.z))
+                {
+                    _live.Remove(threat);
+                    _outsideSeconds.Remove(threat);
+                    threat.Despawn();
+                    removed = true;
+                    continue;
+                }
+
+                if (!ArenaWrap.IsBeyondSoftLock(pos.x, pos.z, ArenaRadius))
+                {
+                    _outsideSeconds.Remove(threat);
+                    continue;
+                }
+
+                float elapsed;
+                _outsideSeconds.TryGetValue(threat, out elapsed);
+                elapsed += Time.deltaTime;
+                _outsideSeconds[threat] = elapsed;
+                if (elapsed <= ArenaWrap.SoftLockSeconds)
+                {
+                    continue;
+                }
+
+                ForceWrapOrDespawn(threat, component);
+                _outsideSeconds.Remove(threat);
+                if (!_live.Contains(threat))
+                {
+                    removed = true;
+                }
+            }
+
+            if (removed && _live.Count == 0 && _game != null)
+            {
+                _game.NotifyThreatDestroyed(0);
+            }
+        }
+
+        private void ForceWrapOrDespawn(IThreat threat, Component component)
+        {
+            Vector3 pos = component.transform.position;
+            float ox;
+            float oz;
+            ArenaWrap.WrapXz(pos.x, pos.z, ArenaRadius, out ox, out oz);
+            Vector3 wrapped = new Vector3(ox, 0f, oz);
+
+            Asteroid asteroid = component.GetComponent<Asteroid>();
+            if (asteroid != null)
+            {
+                asteroid.WrapIfOutsideArena();
+                pos = component.transform.position;
+                if (!ArenaWrap.IsBeyondSoftLock(pos.x, pos.z, ArenaRadius)
+                    && !ArenaWrap.IsInvalidXz(pos.x, pos.z))
+                {
+                    return;
+                }
+            }
+
+            Rigidbody body = component.GetComponent<Rigidbody>();
+            if (body != null)
+            {
+                body.position = wrapped;
+            }
+
+            component.transform.position = wrapped;
+            pos = component.transform.position;
+            if (ArenaWrap.IsBeyondSoftLock(pos.x, pos.z, ArenaRadius)
+                || ArenaWrap.IsInvalidXz(pos.x, pos.z))
+            {
+                _live.Remove(threat);
+                threat.Despawn();
+            }
         }
 
         public static Vector3 RingPoint(float angle, float radius)

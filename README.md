@@ -29,6 +29,8 @@ Editor helpers: menu **Asteroids gone rogue → Open Play Scene** / **Validate W
 | Thrust / strafe | **WASD** or arrow keys |
 | Aim | Mouse (on the play plane) |
 | Fire | **Left mouse** or **Space** |
+| Cycle fire mode | **Q** or **right mouse** (after buying Spread Bolt / Pierce) |
+| Abort wave | **Abort → Hangar** or **Esc** (Playing only; keeps loadout, no clear bonus) |
 | Start / next / retry wave | Hangar **Start Wave** / **Next Wave** / **Retry Wave** |
 | Buy upgrade | Hangar shop buttons |
 
@@ -37,7 +39,7 @@ Editor helpers: menu **Asteroids gone rogue → Open Play Scene** / **Validate W
 `GameSession` / `GameManager` / `WaveManager` states:
 
 1. **Hangar** — title, start button, shop (if you have credits). First session shows a dismissable **First flight** card (WASD / shop / Start Wave; PlayerPrefs).
-2. **Playing** — fly the 3D ship, shoot one projectile type, split asteroids, one seeking enemy.
+2. **Playing** — fly the 3D ship, shoot bolt / spread / pierce (if bought), split asteroids. Asteroids **wrap** at the arena edge so waves cannot soft-lock. **Abort → Hangar** leaves the wave without the clear bonus.
 3. **Wave Clear** — score (including clear bonus) and **150 credits**, then shop.
 4. **Fail** — ship destroyed; retry the same wave. Bought upgrades stay.
 
@@ -55,8 +57,10 @@ Upgrades persist into the next wave.
 | Body Upgrade | 90 | Swaps **Ship_Body** → `Ship_Body_Upgrade01`; +1 hull |
 | Nose Upgrade 02 | 150 | Requires Nose Hardpoint; `Ship_Nose_Upgrade02`; 3 damage |
 | Engine Upgrade 02 | 140 | Requires Rapid Fire; `Ship_Engine_Upgrade02`; faster gun |
+| Spread Bolt | 110 | Second shot mode: 3 lower-damage pellets; same `Projectile_Bolt` visual. Q / RMB to switch |
+| Pierce | 130 | Second shot mode: bolt passes through targets until it expires. Q / RMB to switch |
 
-Hull is 3 hits. Large asteroids take 2 hits then split into 3 small shards. Small shards and the enemy are destroyable.
+Hull is 3 hits. Large asteroids take 2 hits then split into 3 small shards. Small shards and enemies are destroyable. Gunner is 4 HP, Bomber is 5 HP. Fail screen names the enemy kind (`Enemy contact (Scout)`).
 
 ## Project layout
 

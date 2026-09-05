@@ -19,6 +19,7 @@ namespace AsteroidsGoneRogue
         private WaveManager _waves;
         private ContentFactory _factory;
         private bool _dead;
+        private Rigidbody _body;
 
         public AsteroidSize Size
         {
@@ -33,11 +34,44 @@ namespace AsteroidsGoneRogue
             _hits = size == AsteroidSize.Large ? LargeHits : SmallHits;
             _dead = false;
 
-            Rigidbody body = GetComponent<Rigidbody>();
-            if (body != null)
+            _body = GetComponent<Rigidbody>();
+            if (_body != null)
             {
-                body.linearVelocity = drift;
-                body.angularVelocity = Random.insideUnitSphere * 1.6f;
+                _body.linearVelocity = drift;
+                _body.angularVelocity = Random.insideUnitSphere * 1.6f;
+            }
+        }
+
+        private void FixedUpdate()
+        {
+            if (_dead)
+            {
+                return;
+            }
+
+            WrapIfOutsideArena();
+        }
+
+        public void WrapIfOutsideArena()
+        {
+            Vector3 pos = _body != null ? _body.position : transform.position;
+            if (!ArenaWrap.ShouldWrap(pos.x, pos.z, WaveManager.ArenaRadius)
+                && !ArenaWrap.IsInvalidXz(pos.x, pos.z))
+            {
+                return;
+            }
+
+            float ox;
+            float oz;
+            ArenaWrap.WrapXz(pos.x, pos.z, WaveManager.ArenaRadius, out ox, out oz);
+            Vector3 wrapped = new Vector3(ox, 0f, oz);
+            if (_body != null)
+            {
+                _body.position = wrapped;
+            }
+            else
+            {
+                transform.position = wrapped;
             }
         }
 

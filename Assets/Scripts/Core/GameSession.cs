@@ -84,6 +84,20 @@ namespace AsteroidsGoneRogue
             Phase = GamePhase.Hangar;
         }
 
+        /// <summary>
+        /// Leave a live wave without the clear bonus or wave increment. Loadout is untouched.
+        /// </summary>
+        public void AbortToHangar()
+        {
+            if (Phase != GamePhase.Playing)
+            {
+                return;
+            }
+
+            FailReason = string.Empty;
+            Phase = GamePhase.Hangar;
+        }
+
         public bool TrySpend(int cost)
         {
             if (cost < 0 || Credits < cost)
