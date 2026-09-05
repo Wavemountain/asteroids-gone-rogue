@@ -23,7 +23,7 @@ namespace AsteroidsGoneRogue
             new ShopItem(
                 UpgradeId.RapidFire,
                 "Rapid Fire",
-                "Cuts cannon cooldown nearly in half.",
+                "Cuts cannon cooldown nearly in half and swaps the engine slot.",
                 100),
             new ShopItem(
                 UpgradeId.ShieldCell,

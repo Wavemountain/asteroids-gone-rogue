@@ -19,6 +19,8 @@ namespace AsteroidsGoneRogue
         private Transform _projectileRoot;
         private Material _hull;
         private Material _accent;
+        private Material _glass;
+        private Material _glow;
         private Material _asteroid;
         private Material _enemy;
         private Material _arena;
@@ -39,19 +41,13 @@ namespace AsteroidsGoneRogue
         {
             _hull = MakeMaterial("Mat_Ship_Hull", new Color(0.45f, 0.52f, 0.58f), 0.45f, 0.35f);
             _accent = MakeMaterial("Mat_Ship_Accent", new Color(1f, 0.55f, 0.14f), 0.2f, 0.55f, new Color(1f, 0.4f, 0.05f) * 1.4f);
+            _glass = MakeTransparent("Mat_Ship_Glass", new Color(0.35f, 0.7f, 0.95f, 0.28f), new Color(0.2f, 0.5f, 0.8f) * 0.4f);
+            _glow = MakeMaterial("Mat_Ship_Glow", new Color(1f, 0.55f, 0.15f), 0f, 0.15f, new Color(1f, 0.45f, 0.05f) * 2.2f);
             _asteroid = MakeMaterial("Mat_Asteroid", new Color(0.38f, 0.32f, 0.28f), 0.05f, 0.18f);
             _enemy = MakeMaterial("Mat_Enemy", new Color(0.72f, 0.16f, 0.18f), 0.25f, 0.4f, new Color(0.6f, 0.05f, 0.08f));
             _arena = MakeMaterial("Mat_Arena", new Color(0.07f, 0.11f, 0.14f), 0.1f, 0.12f);
             _projectile = MakeMaterial("Mat_Projectile", new Color(1f, 0.85f, 0.25f), 0f, 0.2f, new Color(1f, 0.7f, 0.1f) * 2f);
-            _shield = MakeMaterial("Mat_Shield", new Color(0.25f, 0.85f, 1f, 0.22f), 0f, 0.1f, new Color(0.2f, 0.7f, 1f) * 0.6f);
-            _shield.SetFloat("_Mode", 3f);
-            _shield.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            _shield.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            _shield.SetInt("_ZWrite", 0);
-            _shield.DisableKeyword("_ALPHATEST_ON");
-            _shield.EnableKeyword("_ALPHABLEND_ON");
-            _shield.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-            _shield.renderQueue = 3000;
+            _shield = MakeTransparent("Mat_Shield", new Color(0.25f, 0.85f, 1f, 0.22f), new Color(0.2f, 0.7f, 1f) * 0.6f);
         }
 
         public void BuildArena()
@@ -107,25 +103,40 @@ namespace AsteroidsGoneRogue
             Transform bodySlot = CreateSlot("Ship_Body", slots);
             CreatePrimitive(PrimitiveType.Cube, "Mesh", bodySlot, _hull,
                 Vector3.zero, new Vector3(1.1f, 0.6f, 1.5f), Quaternion.identity);
+            CreatePrimitive(PrimitiveType.Cube, "Canopy", bodySlot, _glass,
+                new Vector3(0f, 0.28f, 0.15f), new Vector3(0.55f, 0.22f, 0.7f), Quaternion.identity);
 
             Transform noseSlot = CreateSlot("Ship_Nose", slots);
             GameObject defaultNose = CreatePrimitive(PrimitiveType.Cube, "Mesh_Default", noseSlot, _accent,
                 new Vector3(0f, 0f, 1.1f), new Vector3(0.45f, 0.35f, 0.7f), Quaternion.identity);
 
-            GameObject upgraded = new GameObject("Mesh_Upgraded");
-            upgraded.transform.SetParent(noseSlot, false);
-            upgraded.transform.localPosition = Vector3.zero;
-            upgraded.SetActive(false);
-            CreatePrimitive(PrimitiveType.Cube, "Barrel_L", upgraded.transform, _accent,
+            GameObject upgradedNose = new GameObject("Ship_Nose_Upgrade01");
+            upgradedNose.transform.SetParent(noseSlot, false);
+            upgradedNose.transform.localPosition = Vector3.zero;
+            upgradedNose.SetActive(false);
+            CreatePrimitive(PrimitiveType.Cube, "Barrel_L", upgradedNose.transform, _accent,
                 new Vector3(-0.28f, 0f, 1.2f), new Vector3(0.2f, 0.2f, 1.05f), Quaternion.identity);
-            CreatePrimitive(PrimitiveType.Cube, "Barrel_R", upgraded.transform, _accent,
+            CreatePrimitive(PrimitiveType.Cube, "Barrel_R", upgradedNose.transform, _accent,
                 new Vector3(0.28f, 0f, 1.2f), new Vector3(0.2f, 0.2f, 1.05f), Quaternion.identity);
 
             Transform engineSlot = CreateSlot("Ship_Engine", slots);
-            CreatePrimitive(PrimitiveType.Cube, "Mesh", engineSlot, _hull,
+            GameObject defaultEngine = new GameObject("Mesh_Default");
+            defaultEngine.transform.SetParent(engineSlot, false);
+            CreatePrimitive(PrimitiveType.Cube, "Mesh", defaultEngine.transform, _hull,
                 new Vector3(0f, 0f, -1.05f), new Vector3(0.8f, 0.45f, 0.55f), Quaternion.identity);
-            CreatePrimitive(PrimitiveType.Cube, "Glow", engineSlot, _accent,
+            CreatePrimitive(PrimitiveType.Cube, "Glow", defaultEngine.transform, _glow,
                 new Vector3(0f, 0f, -1.38f), new Vector3(0.45f, 0.28f, 0.18f), Quaternion.identity);
+
+            GameObject upgradedEngine = new GameObject("Ship_Engine_Upgrade01");
+            upgradedEngine.transform.SetParent(engineSlot, false);
+            upgradedEngine.transform.localPosition = Vector3.zero;
+            upgradedEngine.SetActive(false);
+            CreatePrimitive(PrimitiveType.Cube, "Mesh", upgradedEngine.transform, _hull,
+                new Vector3(0f, 0f, -1.1f), new Vector3(0.95f, 0.5f, 0.7f), Quaternion.identity);
+            CreatePrimitive(PrimitiveType.Cube, "Glow_L", upgradedEngine.transform, _glow,
+                new Vector3(-0.28f, 0f, -1.5f), new Vector3(0.32f, 0.24f, 0.28f), Quaternion.identity);
+            CreatePrimitive(PrimitiveType.Cube, "Glow_R", upgradedEngine.transform, _glow,
+                new Vector3(0.28f, 0f, -1.5f), new Vector3(0.32f, 0.24f, 0.28f), Quaternion.identity);
 
             GameObject shield = CreatePrimitive(PrimitiveType.Sphere, "ShieldBubble", slots, _shield,
                 Vector3.zero, new Vector3(2.4f, 2.4f, 2.4f), Quaternion.identity);
@@ -140,7 +151,9 @@ namespace AsteroidsGoneRogue
             visuals.NoseSlot = noseSlot;
             visuals.EngineSlot = engineSlot;
             visuals.DefaultNose = defaultNose;
-            visuals.UpgradedNose = upgraded;
+            visuals.UpgradedNose = upgradedNose;
+            visuals.DefaultEngine = defaultEngine;
+            visuals.UpgradedEngine = upgradedEngine;
             visuals.ShieldBubble = shield;
 
             ShipHealth health = root.AddComponent<ShipHealth>();
@@ -349,6 +362,20 @@ namespace AsteroidsGoneRogue
                 material.SetColor("_EmissionColor", emission);
             }
 
+            return material;
+        }
+
+        private static Material MakeTransparent(string materialName, Color color, Color emission)
+        {
+            Material material = MakeMaterial(materialName, color, 0f, 0.7f, emission);
+            material.SetFloat("_Mode", 3f);
+            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            material.SetInt("_ZWrite", 0);
+            material.DisableKeyword("_ALPHATEST_ON");
+            material.EnableKeyword("_ALPHABLEND_ON");
+            material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            material.renderQueue = 3000;
             return material;
         }
     }

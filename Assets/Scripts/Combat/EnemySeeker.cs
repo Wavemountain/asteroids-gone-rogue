@@ -33,6 +33,11 @@ namespace AsteroidsGoneRogue
             _hp -= amount;
             if (_hp > 0)
             {
+                if (AudioCues.Instance != null)
+                {
+                    AudioCues.Instance.PlayHit();
+                }
+
                 return;
             }
 
@@ -40,6 +45,11 @@ namespace AsteroidsGoneRogue
             if (_waves != null)
             {
                 _waves.NotifyDestroyed(this, ScoreValues.Enemy);
+            }
+
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayExplosion();
             }
 
             Destroy(gameObject);

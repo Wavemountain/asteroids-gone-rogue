@@ -112,13 +112,23 @@ def main() -> int:
     if "EventSystem" not in scene:
         err("Play.unity missing EventSystem")
 
-    for mat in ("Mat_Ship_Hull", "Mat_Ship_Accent", "Mat_Asteroid", "Mat_Enemy", "Mat_Arena"):
+    for mat in (
+        "Mat_Ship_Hull",
+        "Mat_Ship_Accent",
+        "Mat_Ship_Glass",
+        "Mat_Ship_Glow",
+        "Mat_Asteroid",
+        "Mat_Enemy",
+        "Mat_Arena",
+    ):
         require(ROOT / f"Assets/Art/Materials/{mat}.mat")
 
     for prefab in (
         "Ship_Nose",
         "Ship_Body",
         "Ship_Engine",
+        "Ship_Nose_Upgrade01",
+        "Ship_Engine_Upgrade01",
         "Ship_Complete",
         "Asteroid_Large",
         "Asteroid_Small",

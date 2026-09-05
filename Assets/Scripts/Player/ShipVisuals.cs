@@ -12,6 +12,8 @@ namespace AsteroidsGoneRogue
         public Transform EngineSlot;
         public GameObject DefaultNose;
         public GameObject UpgradedNose;
+        public GameObject DefaultEngine;
+        public GameObject UpgradedEngine;
         public GameObject ShieldBubble;
 
         public void ApplyLoadout(LoadoutState loadout)
@@ -25,6 +27,17 @@ namespace AsteroidsGoneRogue
             if (UpgradedNose != null)
             {
                 UpgradedNose.SetActive(hardpoint);
+            }
+
+            bool engineUpgrade = loadout != null && loadout.RapidFire;
+            if (DefaultEngine != null)
+            {
+                DefaultEngine.SetActive(!engineUpgrade);
+            }
+
+            if (UpgradedEngine != null)
+            {
+                UpgradedEngine.SetActive(engineUpgrade);
             }
         }
 

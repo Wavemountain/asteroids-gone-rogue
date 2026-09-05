@@ -801,6 +801,8 @@ def main() -> None:
     materials = {
         "Mat_Ship_Hull": ((0.45, 0.52, 0.58, 1.0), 0.45, 0.35, None),
         "Mat_Ship_Accent": ((1.0, 0.55, 0.14, 1.0), 0.2, 0.55, (1.0, 0.4, 0.05)),
+        "Mat_Ship_Glass": ((0.35, 0.7, 0.95, 0.28), 0.0, 0.7, (0.2, 0.5, 0.8)),
+        "Mat_Ship_Glow": ((1.0, 0.55, 0.15, 1.0), 0.0, 0.15, (1.0, 0.45, 0.05)),
         "Mat_Asteroid": ((0.38, 0.32, 0.28, 1.0), 0.05, 0.18, None),
         "Mat_Enemy": ((0.72, 0.16, 0.18, 1.0), 0.25, 0.4, (0.6, 0.05, 0.08)),
         "Mat_Arena": ((0.07, 0.11, 0.14, 1.0), 0.1, 0.12, None),
@@ -818,6 +820,8 @@ def main() -> None:
         ("Ship_Body", "cube", "Mat_Ship_Hull", (1.1, 0.6, 1.5)),
         ("Ship_Nose", "cube", "Mat_Ship_Accent", (0.45, 0.35, 0.7)),
         ("Ship_Engine", "cube", "Mat_Ship_Hull", (0.8, 0.45, 0.55)),
+        ("Ship_Nose_Upgrade01", "cube", "Mat_Ship_Accent", (0.7, 0.25, 1.05)),
+        ("Ship_Engine_Upgrade01", "cube", "Mat_Ship_Glow", (0.95, 0.5, 0.7)),
         ("Ship_Complete", "capsule", "Mat_Ship_Hull", (1.0, 1.0, 1.0)),
         ("Asteroid_Large", "sphere", "Mat_Asteroid", (4.8, 4.8, 4.8)),
         ("Asteroid_Small", "sphere", "Mat_Asteroid", (1.8, 1.8, 1.8)),

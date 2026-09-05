@@ -39,6 +39,8 @@ namespace AsteroidsGoneRogue
             GameSession session = new GameSession();
             LoadoutState loadoutState = new LoadoutState();
 
+            gameObject.AddComponent<AudioCues>();
+
             ContentFactory factory = gameObject.AddComponent<ContentFactory>();
             factory.BuildPalette();
             factory.BuildArena();

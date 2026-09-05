@@ -27,6 +27,10 @@ namespace AsteroidsGoneRogue
             _nextFireTime = Time.time + loadout.FireCooldown;
             Vector3 origin = _muzzle != null ? _muzzle.position : transform.position + transform.forward * 1.6f;
             _factory.SpawnProjectile(origin, transform.forward, loadout.ProjectileSpeed, loadout.ProjectileDamage);
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayShoot();
+            }
         }
     }
 }

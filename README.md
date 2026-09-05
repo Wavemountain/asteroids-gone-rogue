@@ -49,9 +49,9 @@ Upgrades persist into the next wave.
 
 | Item | Cost | Effect |
 | --- | --- | --- |
-| Rapid Fire | 100 | Cannon cooldown 0.38s → 0.16s |
+| Rapid Fire | 100 | Cannon cooldown 0.38s → 0.16s; swaps **Ship_Engine** → `Ship_Engine_Upgrade01` |
 | Shield Cell | 80 | +1 visible shield hit before hull (max 2) |
-| Nose Hardpoint | 120 | Swaps the **nose part slot** to dual barrels; faster, 2-damage shots |
+| Nose Hardpoint | 120 | Swaps **Ship_Nose** → `Ship_Nose_Upgrade01`; faster, 2-damage shots |
 
 Hull is 3 hits. Large asteroids take 2 hits then split into 3 small shards. Small shards and the enemy are destroyable.
 
@@ -72,10 +72,12 @@ Assets/Art/Import/                Drop FBX here — see IMPORT.md
 
 ## What is stubbed
 
-- **Meshes** are primitives. Real FBX (`Ship_Nose` / `Body` / `Engine` / `Complete`, `Asteroid_Large` / `Small`, `Enemy_01`, `Arena_Blockout`, `AsteroidsGoneRogue_Week1_All`) is expected later at `Assets/Art/Import/`. Read `Assets/Art/Import/IMPORT.md` and `MANIFEST.md`.
+- **Meshes** are primitives. Real FBX is expected later at `Assets/Art/Import/` (`Ship_Nose` / `Body` / `Engine` / `Complete` / `Nose_Upgrade01` / `Engine_Upgrade01`, `Asteroid_Large` / `Small`, `Enemy_01`, `Arena_Blockout`, `AsteroidsGoneRogue_Week1_All`). Read `IMPORT.md` and `MANIFEST.md`.
 - **Ship_*** may be refreshed — part slots share origin `0,0,0` so they can be replaced in place.
+- **SFX**: `AudioCues` has shoot / hit / explosion hooks and an `AudioSource`. Clips are unset (no audio pack).
+- **Later enemies** `Enemy_Scout` / `Enemy_Gunner` are named in IMPORT.md only. Week 1 still has one enemy type.
 - No extra ships, no 30-wave campaign, no extra worlds, no large shop, no polish pass, no multiplayer.
-- No audio, particles, or Input System / URP / TextMeshPro (avoids extra first-open prompts).
+- No Input System / URP / TextMeshPro (avoids extra first-open prompts).
 
 `ContentFactory` builds the live ship / rocks / enemy at runtime so Play Mode does not depend on prefab field wiring. Prefabs in `Assets/Art/Prefabs/` are named templates for the FBX swap.
 
