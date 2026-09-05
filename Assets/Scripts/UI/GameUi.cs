@@ -27,8 +27,12 @@ namespace AsteroidsGoneRogue
         private Text _muteLabel;
         private Slider _sfxSlider;
         private Slider _musicSlider;
+        private GameObject _tutorialRoot;
+        private bool _tutorialDismissed;
         private float _worldFlashUntil;
         private int _flashedWorld = 1;
+
+        public const string FirstHangarHintKey = "agr.ui.firstHangarHint";
 
         public static GameUi Instance { get; private set; }
 
@@ -79,6 +83,7 @@ namespace AsteroidsGoneRogue
             _hud.gameObject.SetActive(true);
             _hud.text = BuildHud(playing);
             RefreshWorldBadge();
+            RefreshFirstHangarHint();
 
             if (playing)
             {
@@ -171,6 +176,7 @@ namespace AsteroidsGoneRogue
             }
 
             BuildAudioControls(font);
+            BuildFirstHangarHint(font);
         }
 
         private void OnPrimary()
@@ -180,6 +186,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            DismissFirstHangarHint();
             _game.StartWave();
         }
 
@@ -188,6 +195,62 @@ namespace AsteroidsGoneRogue
             if (_shop != null)
             {
                 _shop.TryBuy(id);
+            }
+        }
+
+        private void BuildFirstHangarHint(Font font)
+        {
+            _tutorialDismissed = PlayerPrefs.GetInt(FirstHangarHintKey, 0) == 1;
+            _tutorialRoot = CreatePanel("FirstHangarHint", transform, new Color(0.05f, 0.07f, 0.1f, 0.92f),
+                new Vector2(0.015f, 0.16f), new Vector2(0.195f, 0.7f));
+
+            Text title = CreateText("HintTitle", _tutorialRoot.transform, font, 20, TextAnchor.UpperCenter, FontStyle.Bold);
+            Stretch(title.rectTransform, new Vector2(0.06f, 0.86f), new Vector2(0.94f, 0.97f));
+            title.color = new Color(1f, 0.82f, 0.4f);
+            title.text = "First flight";
+
+            Text body = CreateText("HintBody", _tutorialRoot.transform, font, 16, TextAnchor.UpperLeft, FontStyle.Normal);
+            Stretch(body.rectTransform, new Vector2(0.07f, 0.22f), new Vector2(0.93f, 0.85f));
+            body.color = new Color(0.86f, 0.9f, 0.94f);
+            body.text = "WASD move · mouse aim\nLMB / Space shoot\n\n"
+                + "Grey shop = need credits.\nClear a wave, then buy.\n\n"
+                + "Start Wave to fly.\nSurvive → shop → next.\nFail retries this wave.";
+
+            Button gotIt = CreateButton("DismissHint", _tutorialRoot.transform, font,
+                new Vector2(0.12f, 0.04f), new Vector2(0.88f, 0.18f));
+            gotIt.GetComponentInChildren<Text>().text = "Got it";
+            gotIt.GetComponentInChildren<Text>().fontSize = 16;
+            gotIt.onClick.AddListener(DismissFirstHangarHint);
+            _tutorialRoot.SetActive(false);
+        }
+
+        private void RefreshFirstHangarHint()
+        {
+            if (_tutorialRoot == null)
+            {
+                return;
+            }
+
+            bool firstHangar = _session != null
+                && !_tutorialDismissed
+                && _session.Phase == GamePhase.Hangar
+                && _session.WaveIndex == 1;
+            _tutorialRoot.SetActive(firstHangar);
+        }
+
+        private void DismissFirstHangarHint()
+        {
+            if (_tutorialDismissed)
+            {
+                return;
+            }
+
+            _tutorialDismissed = true;
+            PlayerPrefs.SetInt(FirstHangarHintKey, 1);
+            PlayerPrefs.Save();
+            if (_tutorialRoot != null)
+            {
+                _tutorialRoot.SetActive(false);
             }
         }
 

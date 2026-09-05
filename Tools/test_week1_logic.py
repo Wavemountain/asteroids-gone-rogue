@@ -200,6 +200,12 @@ def test_factory_wires_import_fbx() -> None:
     assert "AssetDatabase.LoadAssetAtPath" in art
     assert "Enemy_01" in factory
     assert "CreateEnemy(" in factory
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    assert "FirstHangarHintKey" in ui
+    assert "agr.ui.firstHangarHint" in ui
+    assert "First flight" in ui
+    assert "Got it" in ui
+    assert "DismissFirstHangarHint" in ui
     audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
     assert "DefaultSfxVolume = 0.8f" in audio
     assert "DefaultMusicVolume = 0.28f" in audio

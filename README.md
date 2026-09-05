@@ -36,7 +36,7 @@ Editor helpers: menu **Asteroids gone rogue → Open Play Scene** / **Validate W
 
 `GameSession` / `GameManager` / `WaveManager` states:
 
-1. **Hangar** — title, start button, shop (if you have credits).
+1. **Hangar** — title, start button, shop (if you have credits). First session shows a dismissable **First flight** card (WASD / shop / Start Wave; PlayerPrefs).
 2. **Playing** — fly the 3D ship, shoot one projectile type, split asteroids, one seeking enemy.
 3. **Wave Clear** — score (including clear bonus) and **150 credits**, then shop.
 4. **Fail** — ship destroyed; retry the same wave. Bought upgrades stay.
