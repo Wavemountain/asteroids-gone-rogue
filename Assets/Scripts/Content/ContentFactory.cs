@@ -4,8 +4,8 @@ using UnityEngine;
 namespace AsteroidsGoneRogue
 {
     /// <summary>
-    /// Builds Week 1 stub visuals from primitives. Hierarchy names and part
-    /// origins match Assets/Art/Import so FBX can replace meshes later.
+    /// Builds the Week 1 playable hierarchy. Visuals come from Assets/Art/Import
+    /// FBX when present; primitives remain as a fallback.
     /// </summary>
     public sealed class ContentFactory : MonoBehaviour
     {
@@ -27,6 +27,9 @@ namespace AsteroidsGoneRogue
         private Material _arena;
         private Material _projectile;
         private Material _shield;
+        private Material _accentHot;
+        private Material _accentWarm;
+        private Material _asteroidB;
 
         public Material Hull
         {
@@ -42,13 +45,17 @@ namespace AsteroidsGoneRogue
         {
             _hull = MakeMaterial("Mat_Ship_Hull", new Color(0.45f, 0.52f, 0.58f), 0.45f, 0.35f);
             _accent = MakeMaterial("Mat_Ship_Accent", new Color(1f, 0.55f, 0.14f), 0.2f, 0.55f, new Color(1f, 0.4f, 0.05f) * 1.4f);
+            _accentHot = MakeMaterial("Mat_Ship_Accent_Hot", new Color(1f, 0.38f, 0.08f), 0.15f, 0.45f, new Color(1f, 0.25f, 0.04f) * 1.8f);
+            _accentWarm = MakeMaterial("Mat_Ship_Accent_Warm", new Color(1f, 0.68f, 0.28f), 0.18f, 0.5f, new Color(1f, 0.5f, 0.12f) * 1.1f);
             _glass = MakeTransparent("Mat_Ship_Glass", new Color(0.35f, 0.7f, 0.95f, 0.28f), new Color(0.2f, 0.5f, 0.8f) * 0.4f);
             _glow = MakeMaterial("Mat_Ship_Glow", new Color(1f, 0.55f, 0.15f), 0f, 0.15f, new Color(1f, 0.45f, 0.05f) * 2.2f);
             _asteroid = MakeMaterial("Mat_Asteroid", new Color(0.38f, 0.32f, 0.28f), 0.05f, 0.18f);
+            _asteroidB = MakeMaterial("Mat_Asteroid_B", new Color(0.46f, 0.3f, 0.22f), 0.04f, 0.14f);
             _enemy = MakeMaterial("Mat_Enemy", new Color(0.72f, 0.16f, 0.18f), 0.25f, 0.4f, new Color(0.6f, 0.05f, 0.08f));
             _arena = MakeMaterial("Mat_Arena", new Color(0.07f, 0.11f, 0.14f), 0.1f, 0.12f);
             _projectile = MakeMaterial("Mat_Projectile", new Color(1f, 0.85f, 0.25f), 0f, 0.2f, new Color(1f, 0.7f, 0.1f) * 2f);
             _shield = MakeTransparent("Mat_Shield", new Color(0.25f, 0.85f, 1f, 0.22f), new Color(0.2f, 0.7f, 1f) * 0.6f);
+            ArtImport.WarmPlayModeAssets();
         }
 
         public void BuildArena()
@@ -56,19 +63,22 @@ namespace AsteroidsGoneRogue
             GameObject root = new GameObject("Arena_Blockout");
             root.AddComponent<ArenaBounds>().Radius = WaveManager.ArenaRadius;
 
-            GameObject floor = CreatePrimitive(PrimitiveType.Cylinder, "Arena_Floor", root.transform, _arena);
-            floor.transform.localScale = new Vector3(WaveManager.ArenaRadius * 2f, 0.04f, WaveManager.ArenaRadius * 2f);
-            floor.transform.position = new Vector3(0f, -0.08f, 0f);
-
-            int pads = 16;
-            for (int i = 0; i < pads; i++)
+            if (!TryVisual("Arena_Blockout", root.transform, _arena))
             {
-                float angle = (Mathf.PI * 2f * i) / pads;
-                Vector3 pos = WaveManager.RingPoint(angle, WaveManager.ArenaRadius);
-                GameObject block = CreatePrimitive(PrimitiveType.Cube, "Arena_Pad_" + i, root.transform, _arena);
-                block.transform.position = pos + Vector3.up * 0.35f;
-                block.transform.localScale = new Vector3(1.6f, 0.7f, 1.6f);
-                block.transform.LookAt(Vector3.zero);
+                GameObject floor = CreatePrimitive(PrimitiveType.Cylinder, "Arena_Floor", root.transform, _arena);
+                floor.transform.localScale = new Vector3(WaveManager.ArenaRadius * 2f, 0.04f, WaveManager.ArenaRadius * 2f);
+                floor.transform.position = new Vector3(0f, -0.08f, 0f);
+
+                int pads = 16;
+                for (int i = 0; i < pads; i++)
+                {
+                    float angle = (Mathf.PI * 2f * i) / pads;
+                    Vector3 pos = WaveManager.RingPoint(angle, WaveManager.ArenaRadius);
+                    GameObject block = CreatePrimitive(PrimitiveType.Cube, "Arena_Pad_" + i, root.transform, _arena);
+                    block.transform.position = pos + Vector3.up * 0.35f;
+                    block.transform.localScale = new Vector3(1.6f, 0.7f, 1.6f);
+                    block.transform.LookAt(Vector3.zero);
+                }
             }
 
             _threatRoot = new GameObject("Threats").transform;
@@ -109,6 +119,11 @@ namespace AsteroidsGoneRogue
             root.transform.position = floorPosition;
             PartSlot slot = root.AddComponent<PartSlot>();
             slot.SlotId = propName;
+            if (TryVisual(propName, root.transform, material))
+            {
+                return;
+            }
+
             CreatePrimitive(mesh, "Mesh", root.transform, material,
                 new Vector3(0f, meshHeight * 0.5f, 0f), meshScale, Quaternion.identity);
         }
@@ -140,42 +155,63 @@ namespace AsteroidsGoneRogue
             slots.localPosition = Vector3.zero;
 
             Transform bodySlot = CreateSlot("Ship_Body", slots);
-            CreatePrimitive(PrimitiveType.Cube, "Mesh", bodySlot, _hull,
-                Vector3.zero, new Vector3(1.1f, 0.6f, 1.5f), Quaternion.identity);
-            CreatePrimitive(PrimitiveType.Cube, "Canopy", bodySlot, _glass,
-                new Vector3(0f, 0.28f, 0.15f), new Vector3(0.55f, 0.22f, 0.7f), Quaternion.identity);
+            if (!TryVisual("Ship_Body", bodySlot, _hull))
+            {
+                CreatePrimitive(PrimitiveType.Cube, "Mesh", bodySlot, _hull,
+                    Vector3.zero, new Vector3(1.1f, 0.6f, 1.5f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Cube, "Canopy", bodySlot, _glass,
+                    new Vector3(0f, 0.28f, 0.15f), new Vector3(0.55f, 0.22f, 0.7f), Quaternion.identity);
+            }
 
             Transform noseSlot = CreateSlot("Ship_Nose", slots);
-            GameObject defaultNose = CreatePrimitive(PrimitiveType.Cube, "Mesh_Default", noseSlot, _accent,
-                new Vector3(0f, 0f, 1.1f), new Vector3(0.45f, 0.35f, 0.7f), Quaternion.identity);
+            GameObject defaultNose;
+            if (!TryVisual("Ship_Nose", noseSlot, _accent, out defaultNose))
+            {
+                defaultNose = CreatePrimitive(PrimitiveType.Cube, "Mesh_Default", noseSlot, _accent,
+                    new Vector3(0f, 0f, 1.1f), new Vector3(0.45f, 0.35f, 0.7f), Quaternion.identity);
+            }
 
-            GameObject upgradedNose = new GameObject("Ship_Nose_Upgrade01");
-            upgradedNose.transform.SetParent(noseSlot, false);
-            upgradedNose.transform.localPosition = Vector3.zero;
+            GameObject upgradedNose;
+            if (!TryVisual("Ship_Nose_Upgrade01", noseSlot, _accent, out upgradedNose))
+            {
+                upgradedNose = new GameObject("Ship_Nose_Upgrade01");
+                upgradedNose.transform.SetParent(noseSlot, false);
+                upgradedNose.transform.localPosition = Vector3.zero;
+                CreatePrimitive(PrimitiveType.Cube, "Barrel_L", upgradedNose.transform, _accent,
+                    new Vector3(-0.28f, 0f, 1.2f), new Vector3(0.2f, 0.2f, 1.05f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Cube, "Barrel_R", upgradedNose.transform, _accent,
+                    new Vector3(0.28f, 0f, 1.2f), new Vector3(0.2f, 0.2f, 1.05f), Quaternion.identity);
+            }
+
             upgradedNose.SetActive(false);
-            CreatePrimitive(PrimitiveType.Cube, "Barrel_L", upgradedNose.transform, _accent,
-                new Vector3(-0.28f, 0f, 1.2f), new Vector3(0.2f, 0.2f, 1.05f), Quaternion.identity);
-            CreatePrimitive(PrimitiveType.Cube, "Barrel_R", upgradedNose.transform, _accent,
-                new Vector3(0.28f, 0f, 1.2f), new Vector3(0.2f, 0.2f, 1.05f), Quaternion.identity);
 
             Transform engineSlot = CreateSlot("Ship_Engine", slots);
-            GameObject defaultEngine = new GameObject("Mesh_Default");
-            defaultEngine.transform.SetParent(engineSlot, false);
-            CreatePrimitive(PrimitiveType.Cube, "Mesh", defaultEngine.transform, _hull,
-                new Vector3(0f, 0f, -1.05f), new Vector3(0.8f, 0.45f, 0.55f), Quaternion.identity);
-            CreatePrimitive(PrimitiveType.Cube, "Glow", defaultEngine.transform, _glow,
-                new Vector3(0f, 0f, -1.38f), new Vector3(0.45f, 0.28f, 0.18f), Quaternion.identity);
+            GameObject defaultEngine;
+            if (!TryVisual("Ship_Engine", engineSlot, _hull, out defaultEngine))
+            {
+                defaultEngine = new GameObject("Mesh_Default");
+                defaultEngine.transform.SetParent(engineSlot, false);
+                CreatePrimitive(PrimitiveType.Cube, "Mesh", defaultEngine.transform, _hull,
+                    new Vector3(0f, 0f, -1.05f), new Vector3(0.8f, 0.45f, 0.55f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Cube, "Glow", defaultEngine.transform, _glow,
+                    new Vector3(0f, 0f, -1.38f), new Vector3(0.45f, 0.28f, 0.18f), Quaternion.identity);
+            }
 
-            GameObject upgradedEngine = new GameObject("Ship_Engine_Upgrade01");
-            upgradedEngine.transform.SetParent(engineSlot, false);
-            upgradedEngine.transform.localPosition = Vector3.zero;
+            GameObject upgradedEngine;
+            if (!TryVisual("Ship_Engine_Upgrade01", engineSlot, _hull, out upgradedEngine))
+            {
+                upgradedEngine = new GameObject("Ship_Engine_Upgrade01");
+                upgradedEngine.transform.SetParent(engineSlot, false);
+                upgradedEngine.transform.localPosition = Vector3.zero;
+                CreatePrimitive(PrimitiveType.Cube, "Mesh", upgradedEngine.transform, _hull,
+                    new Vector3(0f, 0f, -1.1f), new Vector3(0.95f, 0.5f, 0.7f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Cube, "Glow_L", upgradedEngine.transform, _glow,
+                    new Vector3(-0.28f, 0f, -1.5f), new Vector3(0.32f, 0.24f, 0.28f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Cube, "Glow_R", upgradedEngine.transform, _glow,
+                    new Vector3(0.28f, 0f, -1.5f), new Vector3(0.32f, 0.24f, 0.28f), Quaternion.identity);
+            }
+
             upgradedEngine.SetActive(false);
-            CreatePrimitive(PrimitiveType.Cube, "Mesh", upgradedEngine.transform, _hull,
-                new Vector3(0f, 0f, -1.1f), new Vector3(0.95f, 0.5f, 0.7f), Quaternion.identity);
-            CreatePrimitive(PrimitiveType.Cube, "Glow_L", upgradedEngine.transform, _glow,
-                new Vector3(-0.28f, 0f, -1.5f), new Vector3(0.32f, 0.24f, 0.28f), Quaternion.identity);
-            CreatePrimitive(PrimitiveType.Cube, "Glow_R", upgradedEngine.transform, _glow,
-                new Vector3(0.28f, 0f, -1.5f), new Vector3(0.32f, 0.24f, 0.28f), Quaternion.identity);
 
             GameObject shield = CreatePrimitive(PrimitiveType.Sphere, "ShieldBubble", slots, _shield,
                 Vector3.zero, new Vector3(2.4f, 2.4f, 2.4f), Quaternion.identity);
@@ -233,7 +269,17 @@ namespace AsteroidsGoneRogue
 
         public EnemySeeker CreateEnemy(Vector3 position, Transform player, WaveManager waves)
         {
-            GameObject root = new GameObject("Enemy_01");
+            return CreateEnemy(position, player, waves, "Enemy_01");
+        }
+
+        public EnemySeeker CreateEnemy(Vector3 position, Transform player, WaveManager waves, string visualName)
+        {
+            if (string.IsNullOrEmpty(visualName))
+            {
+                visualName = "Enemy_01";
+            }
+
+            GameObject root = new GameObject(visualName);
             root.tag = GameTags.Enemy;
             root.transform.SetParent(_threatRoot, false);
             root.transform.position = position;
@@ -252,10 +298,13 @@ namespace AsteroidsGoneRogue
             collider.radius = 0.45f;
             collider.height = EnemyMeters;
 
-            CreatePrimitive(PrimitiveType.Capsule, "Mesh", root.transform, _enemy,
-                Vector3.zero, new Vector3(0.7f, 0.7f, 0.7f), Quaternion.Euler(90f, 0f, 0f));
-            CreatePrimitive(PrimitiveType.Cube, "Canard", root.transform, _accent,
-                new Vector3(0f, 0.15f, -0.35f), new Vector3(1.4f, 0.08f, 0.35f), Quaternion.identity);
+            if (!TryVisual(visualName, root.transform, _enemy))
+            {
+                CreatePrimitive(PrimitiveType.Capsule, "Mesh", root.transform, _enemy,
+                    Vector3.zero, new Vector3(0.7f, 0.7f, 0.7f), Quaternion.Euler(90f, 0f, 0f));
+                CreatePrimitive(PrimitiveType.Cube, "Canard", root.transform, _accent,
+                    new Vector3(0f, 0.15f, -0.35f), new Vector3(1.4f, 0.08f, 0.35f), Quaternion.identity);
+            }
 
             EnemySeeker seeker = root.AddComponent<EnemySeeker>();
             seeker.Initialize(player, waves);
@@ -278,8 +327,11 @@ namespace AsteroidsGoneRogue
             body.useGravity = false;
             body.isKinematic = true;
 
-            CreatePrimitive(PrimitiveType.Sphere, "Mesh", root.transform, _projectile,
-                Vector3.zero, new Vector3(0.22f, 0.22f, 0.55f), Quaternion.identity);
+            if (!TryVisual("Projectile_Bolt", root.transform, _projectile))
+            {
+                CreatePrimitive(PrimitiveType.Sphere, "Mesh", root.transform, _projectile,
+                    Vector3.zero, new Vector3(0.22f, 0.22f, 0.55f), Quaternion.identity);
+            }
 
             Projectile projectile = root.AddComponent<Projectile>();
             projectile.Launch(direction, speed, damage);
@@ -322,17 +374,125 @@ namespace AsteroidsGoneRogue
             SphereCollider collider = root.AddComponent<SphereCollider>();
             collider.radius = meters * 0.5f;
 
-            float wobble = size == AsteroidSize.Large ? 0.18f : 0.12f;
-            Vector3 scale = new Vector3(
-                meters * (1f + Random.Range(-wobble, wobble)),
-                meters * (variantB ? 0.7f : 0.82f),
-                meters * (1f + Random.Range(-wobble, wobble)));
-            CreatePrimitive(variantB ? PrimitiveType.Cube : PrimitiveType.Sphere, "Mesh", root.transform, _asteroid,
-                Vector3.zero, scale, Quaternion.identity);
+            if (!TryVisual(propName, root.transform, variantB ? _asteroidB : _asteroid))
+            {
+                float wobble = size == AsteroidSize.Large ? 0.18f : 0.12f;
+                Vector3 scale = new Vector3(
+                    meters * (1f + Random.Range(-wobble, wobble)),
+                    meters * (variantB ? 0.7f : 0.82f),
+                    meters * (1f + Random.Range(-wobble, wobble)));
+                CreatePrimitive(variantB ? PrimitiveType.Cube : PrimitiveType.Sphere, "Mesh", root.transform, _asteroid,
+                    Vector3.zero, scale, Quaternion.identity);
+            }
 
             Asteroid asteroid = root.AddComponent<Asteroid>();
             asteroid.Initialize(size, waves, this, drift);
             return asteroid;
+        }
+
+        public GameObject CreatePickup(string visualName, Vector3 position)
+        {
+            if (string.IsNullOrEmpty(visualName))
+            {
+                visualName = "Pickup_Score";
+            }
+
+            GameObject root = new GameObject(visualName);
+            root.transform.position = position;
+            Material fallback = visualName.IndexOf("Shield", System.StringComparison.OrdinalIgnoreCase) >= 0
+                ? _shield
+                : _accent;
+            if (!TryVisual(visualName, root.transform, fallback))
+            {
+                CreatePrimitive(PrimitiveType.Sphere, "Mesh", root.transform, fallback,
+                    Vector3.zero, new Vector3(0.7f, 0.7f, 0.7f), Quaternion.identity);
+            }
+
+            return root;
+        }
+
+        private bool TryVisual(string assetName, Transform parent, Material fallback)
+        {
+            GameObject instance;
+            return TryVisual(assetName, parent, fallback, out instance);
+        }
+
+        private bool TryVisual(string assetName, Transform parent, Material fallback, out GameObject instance)
+        {
+            return ArtImport.TryInstantiate(assetName, parent, RemapImported, fallback, out instance);
+        }
+
+        private Material RemapImported(string importedName, Material fallback)
+        {
+            string name = importedName ?? string.Empty;
+            if (ContainsIgnoreCase(name, "Glass"))
+            {
+                return _glass;
+            }
+
+            if (ContainsIgnoreCase(name, "Glow"))
+            {
+                return _glow;
+            }
+
+            if (ContainsIgnoreCase(name, "Hull"))
+            {
+                return _hull;
+            }
+
+            if (ContainsIgnoreCase(name, "Asteroid"))
+            {
+                return ContainsIgnoreCase(name, "_B") || ContainsIgnoreCase(name, "Variant")
+                    ? _asteroidB
+                    : _asteroid;
+            }
+
+            if (ContainsIgnoreCase(name, "Enemy"))
+            {
+                return ContainsIgnoreCase(name, "Accent") ? _accentHot : _enemy;
+            }
+
+            if (ContainsIgnoreCase(name, "Arena"))
+            {
+                return _arena;
+            }
+
+            if (ContainsIgnoreCase(name, "Projectile") || ContainsIgnoreCase(name, "Bolt"))
+            {
+                return _projectile;
+            }
+
+            if (ContainsIgnoreCase(name, "Shield"))
+            {
+                return _shield;
+            }
+
+            if (ContainsIgnoreCase(name, "Score") || ContainsIgnoreCase(name, "Pickup"))
+            {
+                return _accent;
+            }
+
+            if (ContainsIgnoreCase(name, "Hot"))
+            {
+                return _accentHot;
+            }
+
+            if (ContainsIgnoreCase(name, "Warm"))
+            {
+                return _accentWarm;
+            }
+
+            if (ContainsIgnoreCase(name, "Accent"))
+            {
+                return _accent;
+            }
+
+            return fallback;
+        }
+
+        private static bool ContainsIgnoreCase(string value, string token)
+        {
+            return value.IndexOf(token, System.StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static Transform CreateSlot(string slotId, Transform parent)

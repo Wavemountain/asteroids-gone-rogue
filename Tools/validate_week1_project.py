@@ -85,6 +85,7 @@ def main() -> int:
         "class EnemySeeker",
         "class HangarShop",
         "class ContentFactory",
+        "class ArtImport",
         "class GameBootstrap",
         "class GameUi",
         "enum GamePhase",
@@ -126,6 +127,60 @@ def main() -> int:
         "Mat_Arena",
     ):
         require(ROOT / f"Assets/Art/Materials/{mat}.mat")
+
+    factory = read(ROOT / "Assets/Scripts/Content/ContentFactory.cs")
+    if "ArtImport.TryInstantiate" not in factory:
+        err("ContentFactory should instantiate Import FBX through ArtImport")
+    if "Ship_Nose_Upgrade01" not in factory or "Ship_Engine_Upgrade01" not in factory:
+        err("ContentFactory should bind hangar upgrade FBX slots")
+
+    art_import = read(ROOT / "Assets/Scripts/Content/ArtImport.cs")
+    if "Resources.Load" not in art_import:
+        err("ArtImport must Resources.Load Play Mode FBX so Press Play needs no Inspector wiring")
+    if "AssetDatabase.LoadAssetAtPath" not in art_import:
+        err("ArtImport should also load Assets/Art/Import via AssetDatabase in the Editor")
+
+    play_fbx = (
+        "Ship_Nose",
+        "Ship_Body",
+        "Ship_Engine",
+        "Ship_Nose_Upgrade01",
+        "Ship_Engine_Upgrade01",
+        "Enemy_01",
+        "Enemy_Scout",
+        "Enemy_Gunner",
+        "Enemy_Drone",
+        "Asteroid_Large",
+        "Asteroid_Small",
+        "Asteroid_VariantB_Large",
+        "Asteroid_VariantB_Small",
+        "Arena_Blockout",
+        "Hangar_Crate",
+        "Hangar_Terminal",
+        "Hangar_LightPillar",
+        "Projectile_Bolt",
+        "Pickup_Score",
+        "Pickup_Shield",
+    )
+    for name in play_fbx:
+        path = ROOT / f"Assets/Art/Import/{name}.fbx"
+        require(path, "Play Mode mesh")
+        if path.exists() and path.stat().st_size < 1000:
+            err(f"{path.relative_to(ROOT)} looks like an LFS pointer, not an FBX")
+        meta = ROOT / f"Assets/Art/Import/{name}.fbx.meta"
+        require(meta, "ModelImporter settings")
+        if meta.exists():
+            text = read(meta)
+            if "addColliders: 0" not in text:
+                err(f"{name}.fbx.meta should disable generated colliders")
+            if "globalScale: 1" not in text:
+                err(f"{name}.fbx.meta should import at scale 1")
+
+        resources = ROOT / f"Assets/Resources/Art/Import/{name}.fbx"
+        require(resources, "Resources.Load Play Mode mesh")
+        if resources.exists() and resources.stat().st_size < 1000:
+            err(f"{resources.relative_to(ROOT)} looks like an LFS pointer, not an FBX")
+        require(ROOT / f"Assets/Resources/Art/Import/{name}.fbx.meta", "Resources ModelImporter")
 
     for prefab in (
         "Ship_Nose",

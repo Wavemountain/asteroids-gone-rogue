@@ -64,10 +64,11 @@ Assets/Scripts/Player/            Ship fly / aim / shoot / health
 Assets/Scripts/Combat/            Asteroid split, enemy seeker
 Assets/Scripts/Hangar/            Shop
 Assets/Scripts/UI/                Code-built hangar + HUD
-Assets/Scripts/Content/           Runtime primitive factory + part slots
+Assets/Scripts/Content/           Runtime factory + ArtImport (FBX by path)
 Assets/Art/Materials/             Mat_Ship_Hull, Mat_Ship_Accent, Mat_Asteroid, Mat_Enemy, Mat_Arena
-Assets/Art/Prefabs/               Swap-friendly visual stubs (same names as future FBX)
-Assets/Art/Import/                Drop FBX here — see IMPORT.md
+Assets/Art/Prefabs/               Named visual templates (Play Mode does not require wiring them)
+Assets/Art/Import/                BlenderBot FBX source — see IMPORT.md
+Assets/Resources/Art/Import/      Same playable FBX for Resources.Load on Press Play
 Assets/Resources/Audio/           CC0 SFX + music (see CREDITS.md)
 ```
 
@@ -89,13 +90,13 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 
 ## What is stubbed
 
-- **Meshes** are primitives. Real FBX is expected later at `Assets/Art/Import/` (`Ship_*`, hangar `Hangar_Crate` / `Hangar_Terminal` / `Hangar_LightPillar`, asteroids, `Enemy_01`, `Arena_Blockout`). Read `IMPORT.md` and `MANIFEST.md`. Hangar props use **base pivots**; Week 1 shows primitive dressing only between waves.
-- **Ship_*** may be refreshed — part slots share origin `0,0,0` so they can be replaced in place.
-- **Later enemies** `Enemy_Scout` / `Enemy_Gunner` are named in IMPORT.md only. Week 1 still has one enemy type.
+- **Meshes** come from `Assets/Art/Import/` FBX on Press Play (`ArtImport` loads by path — no Inspector mesh swap). Primitive fallbacks stay if an FBX is missing.
+- **Not spawned in Week 1:** `Arena_World2/3_Blockout`, `Ship_Complete*`, `Ship_Body_Upgrade01`, `Pickup_Score` / `Pickup_Shield`. Scout / Gunner / Drone FBX load if spawned; the wave still only creates `Enemy_01`.
+- **Ship_*** part slots share origin `0,0,0` so Rapid Fire / Nose Hardpoint stay a SetActive swap.
 - No extra ships, no 30-wave campaign, no extra worlds, no large shop, no polish pass, no multiplayer.
 - No Input System / URP / TextMeshPro (avoids extra first-open prompts).
 
-`ContentFactory` builds the live ship / rocks / enemy at runtime so Play Mode does not depend on prefab field wiring. Prefabs in `Assets/Art/Prefabs/` are named templates for the FBX swap.
+`ContentFactory` builds the live ship / rocks / enemy at runtime so Play Mode does not depend on prefab field wiring.
 
 ## Repo checks (no Editor required)
 
@@ -108,4 +109,4 @@ python3 Tools/test_week1_logic.py
 
 ## Success check
 
-Press Play → hangar → start a wave → fly, shoot, split a large asteroid, kill the chaser → clear (or die) → see score → buy an upgrade → next wave uses it (faster gun, shield bubble, or new nose).
+Press Play → hangar shows the BlenderBot ship + crate/terminal/pillar (Console: `ArtImport: 20/20 Play Mode FBX ready`). Start a wave → fly, shoot, split a large asteroid, kill the chaser → clear (or die) → see score → buy Rapid Fire or Nose Hardpoint → the engine/nose FBX swap → next wave uses it.

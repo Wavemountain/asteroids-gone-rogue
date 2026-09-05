@@ -118,11 +118,29 @@ def test_nose_changes_damage() -> None:
     assert loadout.damage == 2
 
 
+def test_factory_wires_import_fbx() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    art = (root / "Assets/Scripts/Content/ArtImport.cs").read_text(encoding="utf-8")
+    assert "ArtImport.TryInstantiate" in factory
+    assert "Ship_Nose_Upgrade01" in factory
+    assert "Ship_Engine_Upgrade01" in factory
+    assert "Projectile_Bolt" in factory
+    assert "Arena_Blockout" in factory
+    assert "Resources.Load" in art
+    assert "AssetDatabase.LoadAssetAtPath" in art
+    assert "Enemy_01" in factory
+    assert "CreateEnemy(" in factory
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
     test_shop_cannot_overspend()
     test_nose_changes_damage()
+    test_factory_wires_import_fbx()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

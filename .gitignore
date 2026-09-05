@@ -1,3 +1,7 @@
+# Python
+__pycache__/
+*.py[cod]
+
 # Unity generated
 [Ll]ibrary/
 [Tt]emp/

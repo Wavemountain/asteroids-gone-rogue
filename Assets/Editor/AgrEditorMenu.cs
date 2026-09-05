@@ -1,3 +1,4 @@
+using AsteroidsGoneRogue;
 using UnityEditor;
 using UnityEngine;
 
@@ -62,9 +63,33 @@ namespace AsteroidsGoneRogue.EditorTools
                 ok = false;
             }
 
+            int loaded = 0;
+            for (int i = 0; i < ArtImport.PlayModeAssets.Length; i++)
+            {
+                string assetName = ArtImport.PlayModeAssets[i];
+                string path = ArtImport.AssetPath(assetName);
+                string resourcesPath = "Assets/Resources/Art/Import/" + assetName + ".fbx";
+                GameObject model = AssetDatabase.LoadAssetAtPath<GameObject>(resourcesPath);
+                if (model == null)
+                {
+                    model = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                }
+
+                if (model == null)
+                {
+                    Debug.LogError("Play Mode FBX missing or not imported: " + resourcesPath + " / " + path);
+                    ok = false;
+                }
+                else
+                {
+                    loaded++;
+                }
+            }
+
             if (ok)
             {
-                Debug.Log("Asteroids gone rogue Week 1 setup looks good. Press Play.");
+                Debug.Log("Asteroids gone rogue Week 1 setup looks good. Press Play. ArtImport: "
+                    + loaded + "/" + ArtImport.PlayModeAssets.Length + " FBX imported.");
             }
         }
     }
