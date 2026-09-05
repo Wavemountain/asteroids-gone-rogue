@@ -48,6 +48,11 @@ class Session:
     def hangar(self) -> None:
         self.phase = Phase.HANGAR
 
+    def abort(self) -> None:
+        assert self.phase == Phase.PLAYING
+        self.fail_reason = ""
+        self.phase = Phase.HANGAR
+
     def spend(self, cost: int) -> bool:
         if self.credits < cost:
             return False
@@ -131,6 +136,40 @@ def test_shop_cannot_overspend() -> None:
     loadout = Loadout()
     loadout.shields = 1
     assert loadout.shields == 1
+
+
+def test_abort_keeps_wave_score_and_skips_bonus() -> None:
+    s = Session()
+    s.begin()
+    s.add_score(50)
+    s.abort()
+    assert s.phase == Phase.HANGAR
+    assert s.wave == 1
+    assert s.score == 50
+    assert s.credits == 0
+    s.begin()
+    s.complete()
+    assert s.credits == 150
+    assert s.wave == 2
+
+
+def wrap_xz(x: float, z: float, radius: float, inset: float = 0.05) -> tuple[float, float]:
+    inner = radius - inset
+    mag = (x * x + z * z) ** 0.5
+    if mag <= radius:
+        return x, z
+    return -x * inner / mag, -z * inner / mag
+
+
+def test_arena_wrap_mirrors_opposite_edge() -> None:
+    x, z = wrap_xz(30.0, 0.0, 22.0)
+    assert abs(x + 21.95) < 0.001
+    assert abs(z) < 0.001
+    x, z = wrap_xz(0.0, -40.0, 22.0)
+    assert abs(x) < 0.001
+    assert abs(z - 21.95) < 0.001
+    x, z = wrap_xz(3.0, 4.0, 22.0)
+    assert (x, z) == (3.0, 4.0)
 
 
 def test_nose_changes_damage() -> None:
@@ -264,18 +303,68 @@ def test_hit_iframes_and_fail_cause_ui() -> None:
     assert "FailReasonText" in ui
     assert "Asteroid collision" in cause
     assert "Enemy contact" in cause
+    assert "Enemy contact (" in cause
+    assert "FailReason(DamageCause cause, EnemyKind kind)" in cause
+    health = (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
+    assert "seeker.Kind" in health
+    seeker = (root / "Assets/Scripts/Combat/EnemySeeker.cs").read_text(encoding="utf-8")
+    assert "public EnemyKind Kind" in seeker
+
+
+def test_tighter_loop_wrap_abort_weapons() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    asteroid = (root / "Assets/Scripts/Combat/Asteroid.cs").read_text(encoding="utf-8")
+    wrap = (root / "Assets/Scripts/Core/ArenaWrap.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+    session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    catalog = (root / "Assets/Scripts/Core/ShopCatalog.cs").read_text(encoding="utf-8")
+    shooter = (root / "Assets/Scripts/Player/ShipShooter.cs").read_text(encoding="utf-8")
+    projectile = (root / "Assets/Scripts/Player/Projectile.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    enemies = (root / "Assets/Scripts/Combat/EnemyKind.cs").read_text(encoding="utf-8")
+
+    assert "private void FixedUpdate()" in asteroid
+    assert "WrapIfOutsideArena" in asteroid
+    assert "ArenaWrap.WrapXz" in asteroid
+    assert "SoftLockSeconds = 3f" in wrap
+    assert "SoftLockSlack = 2f" in wrap
+    assert "RescueStrandedThreats" in waves
+    assert "ForceWrapOrDespawn" in waves
+    assert "AbortToHangar" in session
+    assert "AbortWave" in manager
+    assert "DespawnAll()" in manager.split("public void AbortWave()")[1].split("public void")[0]
+    assert "CompleteWave" not in manager.split("public void AbortWave()")[1].split("public void")[0]
+    assert "Abort → Hangar" in ui
+    assert "KeyCode.Escape" in ui
+    assert "SpreadBolt" in catalog and "Pierce" in catalog
+    assert "SpreadPelletCount = 3" in shooter
+    assert "FireMode.Spread" in shooter
+    assert "FireMode.Pierce" in shooter
+    assert "bool pierce" in projectile
+    assert "_hitIds" in projectile
+    assert "SpawnProjectile(Vector3 origin, Vector3 direction, float speed, int damage, bool pierce)" in factory
+    assert "Projectile_Bolt" in factory
+    assert "case EnemyKind.Gunner:\n                    return 4;" in enemies
+    assert "case EnemyKind.Bomber:\n                    return 5;" in enemies
 
 
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
     test_fail_stores_death_cause()
+    test_abort_keeps_wave_score_and_skips_bonus()
+    test_arena_wrap_mirrors_opposite_edge()
     test_shop_cannot_overspend()
     test_nose_changes_damage()
     test_body_upgrade_adds_hull()
     test_wave_ladder_rises()
     test_factory_wires_import_fbx()
     test_hit_iframes_and_fail_cause_ui()
+    test_tighter_loop_wrap_abort_weapons()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

@@ -14,6 +14,7 @@ namespace AsteroidsGoneRogue
         private bool _dead;
         private float _invulnerableUntil;
         private DamageCause _lastCause = DamageCause.Unknown;
+        private EnemyKind _lastEnemyKind = EnemyKind.Mid01;
 
         public int Hull
         {
@@ -35,6 +36,11 @@ namespace AsteroidsGoneRogue
             get { return _lastCause; }
         }
 
+        public EnemyKind LastEnemyKind
+        {
+            get { return _lastEnemyKind; }
+        }
+
         public void Bind(GameManager game, ShipVisuals visuals)
         {
             _game = game;
@@ -48,6 +54,7 @@ namespace AsteroidsGoneRogue
             _hull = _maxHull;
             _shield = loadout != null ? loadout.ShieldCharges : 0;
             _lastCause = DamageCause.Unknown;
+            _lastEnemyKind = EnemyKind.Mid01;
             ClearInvulnerability();
             if (_visuals != null)
             {
@@ -99,12 +106,18 @@ namespace AsteroidsGoneRogue
 
         public void ApplyDamage(int amount, DamageCause cause)
         {
+            ApplyDamage(amount, cause, EnemyKind.Mid01);
+        }
+
+        public void ApplyDamage(int amount, DamageCause cause, EnemyKind enemyKind)
+        {
             if (_dead || amount <= 0 || IsInvulnerable)
             {
                 return;
             }
 
             _lastCause = cause;
+            _lastEnemyKind = enemyKind;
             int remaining = amount;
             if (_shield > 0)
             {
@@ -135,7 +148,10 @@ namespace AsteroidsGoneRogue
                 ClearInvulnerability();
                 if (_game != null)
                 {
-                    _game.NotifyPlayerDestroyed(DamageCauseText.FailReason(cause));
+                    string reason = cause == DamageCause.EnemyContact
+                        ? DamageCauseText.FailReason(cause, enemyKind)
+                        : DamageCauseText.FailReason(cause);
+                    _game.NotifyPlayerDestroyed(reason);
                 }
             }
             else
@@ -170,7 +186,16 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            ApplyDamage(1, cause);
+            if (cause == DamageCause.EnemyContact)
+            {
+                EnemySeeker seeker = other.GetComponentInParent<EnemySeeker>();
+                EnemyKind kind = seeker != null ? seeker.Kind : EnemyKind.Mid01;
+                ApplyDamage(1, cause, kind);
+            }
+            else
+            {
+                ApplyDamage(1, cause);
+            }
             IDamageable damageable = other.GetComponentInParent<IDamageable>();
             if (damageable != null && !ReferenceEquals(damageable, this))
             {

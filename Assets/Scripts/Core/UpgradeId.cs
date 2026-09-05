@@ -7,6 +7,8 @@ namespace AsteroidsGoneRogue
         NoseHardpoint,
         BodyUpgrade01,
         NoseUpgrade02,
-        EngineUpgrade02
+        EngineUpgrade02,
+        SpreadBolt,
+        Pierce
     }
 }

@@ -61,6 +61,11 @@ namespace AsteroidsGoneRogue
             }
 
             AimAtMouse();
+            if (Input.GetKeyDown(KeyCode.Q) || Input.GetMouseButtonDown(1))
+            {
+                _shooter.CycleFireMode();
+            }
+
             if (Input.GetButton("Fire1") || Input.GetKey(KeyCode.Space))
             {
                 _shooter.TryFire();

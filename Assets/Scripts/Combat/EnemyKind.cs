@@ -41,11 +41,11 @@ namespace AsteroidsGoneRogue
                 case EnemyKind.Scout:
                     return 2;
                 case EnemyKind.Gunner:
-                    return 5;
+                    return 4;
                 case EnemyKind.Drone:
                     return 2;
                 case EnemyKind.Bomber:
-                    return 6;
+                    return 5;
                 case EnemyKind.Sniper:
                     return 3;
                 case EnemyKind.SwarmPod:

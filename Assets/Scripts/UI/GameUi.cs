@@ -23,6 +23,8 @@ namespace AsteroidsGoneRogue
         private Text _primaryLabel;
         private Button[] _buyButtons;
         private Text[] _buyLabels;
+        private Button _abortButton;
+        private Text _abortLabel;
         private Button _muteButton;
         private Text _muteLabel;
         private Slider _sfxSlider;
@@ -80,8 +82,16 @@ namespace AsteroidsGoneRogue
 
             bool playing = _session.Phase == GamePhase.Playing;
             _menuRoot.SetActive(!playing);
+            if (_abortButton != null)
+            {
+                _abortButton.gameObject.SetActive(playing);
+            }
+
             _hud.gameObject.SetActive(true);
             _hud.text = BuildHud(playing);
+            _hint.text = playing
+                ? "WASD move  ·  Mouse aim  ·  LMB / Space fire  ·  Q / RMB fire mode  ·  Esc abort"
+                : "WASD move  ·  Mouse aim  ·  Left mouse / Space fire";
             RefreshWorldBadge();
             RefreshFirstHangarHint();
 
@@ -157,6 +167,13 @@ namespace AsteroidsGoneRogue
             _primaryLabel = _primary.GetComponentInChildren<Text>();
             _primary.onClick.AddListener(OnPrimary);
 
+            _abortButton = CreateButton("AbortWave", transform, font, new Vector2(0.78f, 0.09f), new Vector2(0.97f, 0.155f));
+            _abortLabel = _abortButton.GetComponentInChildren<Text>();
+            _abortLabel.text = "Abort → Hangar";
+            _abortLabel.fontSize = 18;
+            _abortButton.onClick.AddListener(OnAbort);
+            _abortButton.gameObject.SetActive(false);
+
             int shopCount = ShopCatalog.Items.Length;
             _buyButtons = new Button[shopCount];
             _buyLabels = new Text[shopCount];
@@ -167,15 +184,15 @@ namespace AsteroidsGoneRogue
                 int row = i / 2;
                 float x0 = col == 0 ? 0.05f : 0.52f;
                 float x1 = col == 0 ? 0.48f : 0.95f;
-                float top = 0.7f - row * 0.21f;
-                float bot = top - 0.18f;
+                float top = 0.70f - row * 0.155f;
+                float bot = top - 0.14f;
                 Button button = CreateButton("Buy_" + item.Id, _menuRoot.transform, font,
                     new Vector2(x0, bot), new Vector2(x1, top));
                 int captured = i;
                 button.onClick.AddListener(() => OnBuy(ShopCatalog.Items[captured].Id));
                 _buyButtons[i] = button;
                 _buyLabels[i] = button.GetComponentInChildren<Text>();
-                _buyLabels[i].fontSize = 16;
+                _buyLabels[i].fontSize = 14;
             }
 
             BuildAudioControls(font);
@@ -198,6 +215,14 @@ namespace AsteroidsGoneRogue
             if (_shop != null)
             {
                 _shop.TryBuy(id);
+            }
+        }
+
+        private void OnAbort()
+        {
+            if (_game != null)
+            {
+                _game.AbortWave();
             }
         }
 
@@ -332,6 +357,16 @@ namespace AsteroidsGoneRogue
 
         private void Update()
         {
+            if (_session != null && _session.Phase == GamePhase.Playing && Input.GetKeyDown(KeyCode.Escape))
+            {
+                OnAbort();
+            }
+
+            if (_session != null && _session.Phase == GamePhase.Playing && _hud != null)
+            {
+                _hud.text = BuildHud(true);
+            }
+
             if (_world == null)
             {
                 return;
@@ -422,10 +457,19 @@ namespace AsteroidsGoneRogue
             string remaining = playing && _waves != null
                 ? "   ·   Remaining " + _waves.RemainingThreats
                 : string.Empty;
+            string fireMode = string.Empty;
+            if (playing && _ship != null && _ship.Shooter != null
+                && _loadout != null && _loadout.State != null
+                && (_loadout.State.SpreadBolt || _loadout.State.Pierce))
+            {
+                fireMode = "\nFire " + _ship.Shooter.Mode;
+            }
+
             return "Wave " + _session.WaveIndex
                 + "   ·   Score " + _session.Score
                 + "\nHull " + hull + "   ·   Shield " + shield
-                + remaining;
+                + remaining
+                + fireMode;
         }
 
         private static Font ResolveFont()

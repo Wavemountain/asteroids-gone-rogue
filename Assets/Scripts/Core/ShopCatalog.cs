@@ -49,7 +49,17 @@ namespace AsteroidsGoneRogue
                 UpgradeId.EngineUpgrade02,
                 "Engine Upgrade 02",
                 "Requires Rapid Fire. Swaps to Ship_Engine_Upgrade02 (faster gun).",
-                140)
+                140),
+            new ShopItem(
+                UpgradeId.SpreadBolt,
+                "Spread Bolt",
+                "Second shot mode: 3 lower-damage pellets. Q / RMB to switch. Reuses bolt visuals.",
+                110),
+            new ShopItem(
+                UpgradeId.Pierce,
+                "Pierce",
+                "Second shot mode: bolt goes through targets. Q / RMB to switch.",
+                130)
         };
     }
 }

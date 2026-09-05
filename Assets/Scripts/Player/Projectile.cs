@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace AsteroidsGoneRogue
@@ -9,11 +10,20 @@ namespace AsteroidsGoneRogue
         private Vector3 _velocity;
         private int _damage = 1;
         private float _dieAt;
+        private bool _pierce;
+        private readonly HashSet<int> _hitIds = new HashSet<int>();
 
         public void Launch(Vector3 direction, float speed, int damage)
         {
+            Launch(direction, speed, damage, false);
+        }
+
+        public void Launch(Vector3 direction, float speed, int damage, bool pierce)
+        {
             _velocity = direction.normalized * speed;
             _damage = damage;
+            _pierce = pierce;
+            _hitIds.Clear();
             _dieAt = Time.time + Lifetime;
             transform.rotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
         }
@@ -40,8 +50,18 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            MonoBehaviour target = damageable as MonoBehaviour;
+            int id = target != null ? target.GetInstanceID() : other.GetInstanceID();
+            if (!_hitIds.Add(id))
+            {
+                return;
+            }
+
             damageable.ApplyDamage(_damage);
-            Destroy(gameObject);
+            if (!_pierce)
+            {
+                Destroy(gameObject);
+            }
         }
     }
 }

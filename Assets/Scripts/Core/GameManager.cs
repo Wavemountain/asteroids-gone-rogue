@@ -74,6 +74,33 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        public void AbortWave()
+        {
+            if (_session == null || _session.Phase != GamePhase.Playing)
+            {
+                return;
+            }
+
+            if (_ship != null)
+            {
+                _ship.SetInputEnabled(false);
+            }
+
+            if (_waves != null)
+            {
+                _waves.DespawnAll();
+            }
+
+            _session.AbortToHangar();
+            if (_ship != null)
+            {
+                _ship.ResetForWave(_loadout.State);
+                _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
+            }
+
+            RaiseStateChanged();
+        }
+
         public void AddBonusScore(int amount)
         {
             if (_session == null || _session.Phase != GamePhase.Playing || amount <= 0)

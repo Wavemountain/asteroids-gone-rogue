@@ -17,6 +17,11 @@ namespace AsteroidsGoneRogue
         private bool _dead;
         private Rigidbody _body;
 
+        public EnemyKind Kind
+        {
+            get { return _kind; }
+        }
+
         public void Initialize(Transform target, WaveManager waves)
         {
             Initialize(target, waves, EnemyKind.Mid01);
