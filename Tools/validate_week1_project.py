@@ -138,6 +138,9 @@ def main() -> int:
         "Asteroid_Small",
         "Enemy_01",
         "Arena_Blockout",
+        "Hangar_Crate",
+        "Hangar_Terminal",
+        "Hangar_LightPillar",
     ):
         require(ROOT / f"Assets/Art/Prefabs/{prefab}.prefab")
 

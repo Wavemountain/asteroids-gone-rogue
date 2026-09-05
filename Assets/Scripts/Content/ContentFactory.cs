@@ -17,6 +17,7 @@ namespace AsteroidsGoneRogue
         private readonly List<Projectile> _projectiles = new List<Projectile>();
         private Transform _threatRoot;
         private Transform _projectileRoot;
+        private GameObject _hangarDressing;
         private Material _hull;
         private Material _accent;
         private Material _glass;
@@ -72,6 +73,44 @@ namespace AsteroidsGoneRogue
 
             _threatRoot = new GameObject("Threats").transform;
             _projectileRoot = new GameObject("Projectiles").transform;
+            BuildHangarDressing();
+        }
+
+        public void SetHangarDressingVisible(bool visible)
+        {
+            if (_hangarDressing != null)
+            {
+                _hangarDressing.SetActive(visible);
+            }
+        }
+
+        private void BuildHangarDressing()
+        {
+            _hangarDressing = new GameObject("Hangar_Dressing");
+
+            PlaceHangarProp("Hangar_Crate", new Vector3(-5.2f, 0f, -4.4f), _arena, PrimitiveType.Cube,
+                new Vector3(1.3f, 1.1f, 1.3f), 1.1f);
+            PlaceHangarProp("Hangar_Terminal", new Vector3(5.4f, 0f, -3.6f), _hull, PrimitiveType.Cube,
+                new Vector3(1.1f, 1.8f, 0.55f), 1.8f);
+            PlaceHangarProp("Hangar_LightPillar", new Vector3(0f, 0f, 7.5f), _glow, PrimitiveType.Cylinder,
+                new Vector3(0.55f, 2.4f, 0.55f), 4.8f);
+        }
+
+        private void PlaceHangarProp(
+            string propName,
+            Vector3 floorPosition,
+            Material material,
+            PrimitiveType mesh,
+            Vector3 meshScale,
+            float meshHeight)
+        {
+            GameObject root = new GameObject(propName);
+            root.transform.SetParent(_hangarDressing.transform, false);
+            root.transform.position = floorPosition;
+            PartSlot slot = root.AddComponent<PartSlot>();
+            slot.SlotId = propName;
+            CreatePrimitive(mesh, "Mesh", root.transform, material,
+                new Vector3(0f, meshHeight * 0.5f, 0f), meshScale, Quaternion.identity);
         }
 
         public ShipController BuildShip(PlayerLoadout loadout, GameManager game, Camera camera)

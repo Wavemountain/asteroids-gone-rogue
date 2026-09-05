@@ -6,7 +6,8 @@ These notes exist so ship parts and threats can be swapped without rewriting gam
 ## Scale and pivots
 
 - **1 Unity unit = 1 meter**
-- **Pivots must be `0, 0, 0`** on every imported mesh (especially `Ship_*`)
+- **Ship / combat meshes:** pivots must be `0, 0, 0` (especially `Ship_*`)
+- **Hangar props:** pivots sit on the **base** (floor contact), not the mesh center
 - Forward is **+Z**, up is **+Y**
 - Ship part meshes share one origin so hangar upgrades can enable/disable slots without re-centering
 
@@ -44,6 +45,16 @@ All `Ship_*` parts, including upgrades, share origin `0,0,0` with the base slots
 - `Arena_Blockout.fbx`
 - `AsteroidsGoneRogue_Week1_All.fbx` (optional combined pack)
 - `MANIFEST` (artist checklist — this repo also keeps `MANIFEST.md`)
+
+### Hangar dressing (Week 1 stubs in-game; FBX later)
+
+Drop these into **`Assets/Art/Import/`**. When the FBX are committed later, the source path is `/workspace/asteroids-gone-rogue/assets/fbx/` (copy into `Assets/Art/Import/`, keep these names).
+
+Pivots are on the **base**. Week 1 already shows primitive stand-ins (`Hangar_Crate`, `Hangar_Terminal`, `Hangar_LightPillar`) in hangar / results and hides them during a wave.
+
+- `Hangar_Crate.fbx`
+- `Hangar_Terminal.fbx`
+- `Hangar_LightPillar.fbx`
 
 ### Later wave ladder (do not implement in Week 1)
 

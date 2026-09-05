@@ -24,6 +24,14 @@ Artist pack checklist for **Asteroids gone rogue** Week 1.
 - [ ] `Enemy_01` (~2 m) — Week 1 playable enemy
 - [ ] `Arena_Blockout` (play radius ~22 m)
 
+## Hangar dressing (pivots at base → `Assets/Art/Import/`)
+
+Later copy from `/workspace/asteroids-gone-rogue/assets/fbx/`. Week 1 uses primitive stubs.
+
+- [ ] `Hangar_Crate`
+- [ ] `Hangar_Terminal`
+- [ ] `Hangar_LightPillar`
+
 ## Later (not Week 1 gameplay)
 
 - [ ] `Enemy_Scout` (early-wave chaser, later ladder)

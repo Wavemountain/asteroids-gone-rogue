@@ -89,7 +89,7 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 
 ## What is stubbed
 
-- **Meshes** are primitives. Real FBX is expected later at `Assets/Art/Import/` (`Ship_Nose` / `Body` / `Engine` / `Complete` / `Nose_Upgrade01` / `Engine_Upgrade01`, `Asteroid_Large` / `Small`, `Enemy_01`, `Arena_Blockout`, `AsteroidsGoneRogue_Week1_All`). Read `IMPORT.md` and `MANIFEST.md`.
+- **Meshes** are primitives. Real FBX is expected later at `Assets/Art/Import/` (`Ship_*`, hangar `Hangar_Crate` / `Hangar_Terminal` / `Hangar_LightPillar`, asteroids, `Enemy_01`, `Arena_Blockout`). Read `IMPORT.md` and `MANIFEST.md`. Hangar props use **base pivots**; Week 1 shows primitive dressing only between waves.
 - **Ship_*** may be refreshed — part slots share origin `0,0,0` so they can be replaced in place.
 - **Later enemies** `Enemy_Scout` / `Enemy_Gunner` are named in IMPORT.md only. Week 1 still has one enemy type.
 - No extra ships, no 30-wave campaign, no extra worlds, no large shop, no polish pass, no multiplayer.

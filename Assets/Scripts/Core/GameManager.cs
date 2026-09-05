@@ -156,6 +156,11 @@ namespace AsteroidsGoneRogue
             {
                 AudioCues.Instance.SyncMusicToPhase(_session.Phase);
             }
+
+            if (_factory != null)
+            {
+                _factory.SetHangarDressingVisible(_session.Phase != GamePhase.Playing);
+            }
         }
     }
 }

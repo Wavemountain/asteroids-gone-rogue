@@ -869,6 +869,9 @@ def main() -> None:
         ("Asteroid_Small", "sphere", "Mat_Asteroid", (1.8, 1.8, 1.8)),
         ("Enemy_01", "capsule", "Mat_Enemy", (0.7, 0.7, 0.7)),
         ("Arena_Blockout", "cylinder", "Mat_Arena", (44.0, 0.04, 44.0)),
+        ("Hangar_Crate", "cube", "Mat_Arena", (1.3, 1.1, 1.3)),
+        ("Hangar_Terminal", "cube", "Mat_Ship_Hull", (1.1, 1.8, 0.55)),
+        ("Hangar_LightPillar", "cylinder", "Mat_Ship_Glow", (0.55, 2.4, 0.55)),
         ("Projectile", "sphere", "Mat_Projectile", (0.22, 0.22, 0.55)),
     ]
     for name, mesh, mat, scale in prefabs:
