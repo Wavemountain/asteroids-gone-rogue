@@ -46,7 +46,8 @@ These filenames are instantiated by `ContentFactory` / `ArtImport` when the file
 - `Enemy_01.fbx` — **Week 1 uses this one enemy type only**
 - `Enemy_Scout.fbx` / `Enemy_Gunner.fbx` / `Enemy_Drone.fbx` — waves 2–10 (Bomber / Sniper / SwarmPod stay unused)
 - `Arena_Blockout.fbx` — World 1 hangar / arena
-- `Projectile_Bolt.fbx` — shot visual (trigger collider stays on the gameplay root)
+- `Projectile_Bolt.fbx` — player shot visual (GameBot Bolt Buffer v2; also accepted as `Projectile_Bolt_Buffer_v2`)
+- `Projectile_EnemyBolt.fbx` — Gunner / Sniper shot visual (also accepted as `Projectile_EnemyBolt_Buffer`)
 
 `Arena_World2_Blockout.fbx` / `Arena_World3_Blockout.fbx` are not Week 1 play worlds.
 
@@ -59,6 +60,7 @@ Shown in hangar / results and hidden during a wave. Pivots on the **base** — p
 - `Hangar_LightPillar.fbx`
 - `Hangar_Workbench.fbx` / `Hangar_FuelCell.fbx` / `Hangar_ShopKiosk.fbx`
 - `Hangar_Console.fbx` / `Hangar_PowerBox.fbx` / `Hangar_FireExtinguisher.fbx` — 0.31 hangar-wire from BlenderBot buffer (no `_Buffer` suffix)
+- `Hangar_Locker.fbx` — 0.32 hangar-wire from BlenderBot buffer (no `_Buffer` suffix)
 
 ### Pickups (not in the Week 1 loop)
 

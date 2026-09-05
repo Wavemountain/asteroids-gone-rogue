@@ -20,6 +20,10 @@ namespace AsteroidsGoneRogue
 
         public event Action StateChanged;
 
+        public bool LastRunWasNewBest { get; private set; }
+
+        public LocalBest Best { get; private set; }
+
         public void Initialize(
             GameSession session,
             PlayerLoadout loadout,
@@ -36,6 +40,8 @@ namespace AsteroidsGoneRogue
             _ui = ui;
             _factory = factory;
             _ship = ship;
+            Best = LocalBest.Load();
+            LastRunWasNewBest = false;
         }
 
         public void EnterHangar()
@@ -92,6 +98,11 @@ namespace AsteroidsGoneRogue
             }
 
             _session.AbortToHangar();
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayAbortWhoosh();
+            }
+
             if (_ship != null)
             {
                 _ship.ResetForWave(_loadout.State);
@@ -145,6 +156,7 @@ namespace AsteroidsGoneRogue
             _ship.SetInputEnabled(false);
             _waves.DespawnAll();
             _session.FailWave(cause);
+            RecordBest(_session.WaveIndex);
             RaiseStateChanged();
         }
 
@@ -172,6 +184,7 @@ namespace AsteroidsGoneRogue
 
         private void CompleteWave()
         {
+            int clearedWave = _session.WaveIndex;
             _ship.SetInputEnabled(false);
             _waves.DespawnAll();
             _session.CompleteWave(ScoreValues.WaveClearBonus, ScoreValues.WaveClearCredits);
@@ -180,7 +193,23 @@ namespace AsteroidsGoneRogue
                 AudioCues.Instance.PlayWaveClear();
             }
 
+            RecordBest(clearedWave);
             RaiseStateChanged();
+        }
+
+        private void RecordBest(int wave)
+        {
+            if (Best == null)
+            {
+                Best = LocalBest.Load();
+            }
+
+            int world = ContentFactory.WorldIndexForWave(wave);
+            LastRunWasNewBest = Best.TryRecord(_session.Score, wave, world);
+            if (LastRunWasNewBest)
+            {
+                Best.Save();
+            }
         }
 
         private void RaiseStateChanged()

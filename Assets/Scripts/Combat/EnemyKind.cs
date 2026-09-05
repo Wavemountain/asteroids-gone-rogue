@@ -201,5 +201,20 @@ namespace AsteroidsGoneRogue
                 || kind == EnemyKind.Sniper
                 || kind == EnemyKind.SwarmPod;
         }
+
+        public static bool FiresBolts(EnemyKind kind)
+        {
+            return kind == EnemyKind.Gunner || kind == EnemyKind.Sniper;
+        }
+
+        public static float FireCooldown(EnemyKind kind)
+        {
+            return kind == EnemyKind.Sniper ? 2.2f : 1.35f;
+        }
+
+        public static float BoltSpeed(EnemyKind kind)
+        {
+            return kind == EnemyKind.Sniper ? 22f : 16f;
+        }
     }
 }

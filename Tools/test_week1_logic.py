@@ -214,6 +214,7 @@ def test_wave_ladder_rises() -> None:
     assert "Hangar_Console" in factory
     assert "Hangar_PowerBox" in factory
     assert "Hangar_FireExtinguisher" in factory
+    assert "Hangar_Locker" in factory
     assert "PlateauWave" in text
     assert "PlateauAsteroidCap" in text
     assert large_asteroid_count(1) == 4
@@ -259,6 +260,7 @@ def test_factory_wires_import_fbx() -> None:
     assert "SpreadBolt" in catalog and "Pierce" in catalog
     assert "ShieldCell" in catalog
     assert "Projectile_Bolt" in factory
+    assert "Projectile_EnemyBolt" in factory
     assert "Arena_Blockout" in factory
     assert "Resources.Load" in art
     assert "AssetDatabase.LoadAssetAtPath" in art
@@ -280,9 +282,12 @@ def test_factory_wires_import_fbx() -> None:
     audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
     assert "DefaultSfxVolume = 0.8f" in audio
     assert "DefaultMusicVolume = 0.28f" in audio
-    assert "MusicOutputScale = 0.55f" in audio
+    assert "HangarMusicScale = 0.36f" in audio
+    assert "ArenaMusicScale = 0.82f" in audio
+    assert "HangarMusicPitch = 0.88f" in audio
     assert "PlayerPrefs.GetInt(MuteKey, 0)" in audio
     assert 'Resources.Load<AudioClip>("Audio/Sfx/maximize_008")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/click_002")' in audio
     assert "Play(_worldChange)" in audio
     assert "Play(_purchase)" in audio
     world_fn = audio.split("public void PlayWorldChange()")[1].split("public void")[0]
@@ -402,6 +407,85 @@ def test_shop_clarity_and_hangar_wire() -> None:
         assert not res_fbx.read_bytes()[:64].startswith(lfs_prefix)
 
 
+def is_better_best(best_score: int, best_wave: int, score: int, wave: int) -> bool:
+    return score > best_score or (score == best_score and wave > best_wave)
+
+
+def test_local_best_audio_and_bolts() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    best_src = (root / "Assets/Scripts/Core/LocalBest.cs").read_text(encoding="utf-8")
+    session = Session()
+    assert not is_better_best(100, 3, 50, 8)
+    assert is_better_best(100, 3, 100, 4)
+    assert is_better_best(0, 0, 0, 1)
+    assert not is_better_best(0, 1, 0, 1)
+    session.begin()
+    session.add_score(50)
+    session.complete()
+    assert is_better_best(0, 0, session.score, 1)
+    assert "agr.best.score" in best_src
+    assert "agr.best.wave" in best_src
+    assert "agr.best.world" in best_src
+    assert "static bool IsBetter" in best_src
+    assert "CardLine" in best_src
+
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    shooter = (root / "Assets/Scripts/Player/ShipShooter.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    art = (root / "Assets/Scripts/Content/ArtImport.cs").read_text(encoding="utf-8")
+    seeker = (root / "Assets/Scripts/Combat/EnemySeeker.cs").read_text(encoding="utf-8")
+    projectile = (root / "Assets/Scripts/Player/Projectile.cs").read_text(encoding="utf-8")
+    assert "RecordBest" in manager
+    assert "LastRunWasNewBest" in manager
+    assert "PlayAbortWhoosh" in manager
+    assert "BestCardLine" in ui
+    assert "NEW BEST" in ui
+    click_fn = audio.split("public void PlayUiClick()")[1].split("public void")[0]
+    assert "click_002" in audio
+    assert "_uiClick" in click_fn
+    assert "Play(_purchase, 0.42f)" not in click_fn
+    buy_fn = audio.split("public void PlayHangarPurchase()")[1].split("public void")[0]
+    assert "Play(_purchase)" in buy_fn
+    assert "PlayShootSpread" in audio and "PlayShootSpread" in shooter
+    assert "PlayShootPierce" in audio and "PlayShootPierce" in shooter
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/laserRetro_000")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/laserLarge_000")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/impactMetal_003")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/minimize_005")' in audio
+    assert "HangarMusicScale" in audio and "ArenaMusicScale" in audio
+    assert "Projectile_EnemyBolt" in factory
+    assert "Projectile_Bolt_Buffer_v2" in factory
+    assert "Projectile_EnemyBolt_Buffer" in factory
+    assert "SpawnEnemyProjectile" in factory
+    assert 'PlaceHangarProp("Hangar_Locker"' in factory
+    warm = art.split("PlayModeAssets")[1].split("};")[0]
+    assert "Hangar_Locker" in warm
+    assert "Projectile_EnemyBolt" in warm
+    assert "FiresBolts" in seeker or "SpawnEnemyProjectile" in seeker
+    assert "bool hostile" in projectile
+    lfs_prefix = b"version https://git-lfs.github.com/spec/v1"
+    for name in ("Projectile_Bolt", "Projectile_EnemyBolt", "Hangar_Locker"):
+        art_fbx = root / f"Assets/Art/Import/{name}.fbx"
+        res_fbx = root / f"Assets/Resources/Art/Import/{name}.fbx"
+        assert art_fbx.is_file() and art_fbx.stat().st_size > 1000
+        assert res_fbx.is_file() and res_fbx.stat().st_size > 1000
+        assert not res_fbx.read_bytes()[:64].startswith(lfs_prefix)
+    for clip in (
+        "click_002.ogg",
+        "minimize_005.ogg",
+        "laserRetro_000.ogg",
+        "laserLarge_000.ogg",
+        "impactMetal_003.ogg",
+        "laserSmall_001.ogg",
+    ):
+        path = root / "Assets/Resources/Audio/Sfx" / clip
+        assert path.is_file() and path.stat().st_size > 1000
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -416,6 +500,7 @@ def main() -> int:
     test_hit_iframes_and_fail_cause_ui()
     test_tighter_loop_wrap_abort_weapons()
     test_shop_clarity_and_hangar_wire()
+    test_local_best_audio_and_bolts()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

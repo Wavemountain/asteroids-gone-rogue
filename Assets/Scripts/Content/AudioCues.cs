@@ -4,6 +4,7 @@ namespace AsteroidsGoneRogue
 {
     /// <summary>
     /// CC0 clips loaded from Resources/Audio. Mute and volumes persist in PlayerPrefs.
+    /// UI click is a distinct Kenney click — not the hangar purchase confirmation.
     /// </summary>
     public sealed class AudioCues : MonoBehaviour
     {
@@ -12,18 +13,26 @@ namespace AsteroidsGoneRogue
         public const string MusicKey = "agr.audio.music";
         public const float DefaultSfxVolume = 0.8f;
         public const float DefaultMusicVolume = 0.28f;
-        private const float MusicOutputScale = 0.55f;
+        public const float HangarMusicScale = 0.36f;
+        public const float ArenaMusicScale = 0.82f;
+        public const float HangarMusicPitch = 0.88f;
+        public const float ArenaMusicPitch = 1f;
 
         public static AudioCues Instance { get; private set; }
 
         private AudioSource _sfx;
         private AudioSource _music;
         private AudioClip _shoot;
+        private AudioClip _shootSpread;
+        private AudioClip _shootPierce;
+        private AudioClip _shootEnemy;
         private AudioClip _hit;
         private AudioClip _asteroidSplit;
         private AudioClip _enemyDeath;
         private AudioClip _playerDamage;
         private AudioClip _purchase;
+        private AudioClip _uiClick;
+        private AudioClip _abort;
         private AudioClip _worldChange;
         private AudioClip _waveClear;
         private AudioClip _arenaLoop;
@@ -32,6 +41,8 @@ namespace AsteroidsGoneRogue
         private float _sfxVolume = DefaultSfxVolume;
         private float _musicVolume = DefaultMusicVolume;
         private AudioClip _currentMusic;
+        private float _musicScale = HangarMusicScale;
+        private float _musicPitch = HangarMusicPitch;
 
         public bool Muted
         {
@@ -63,6 +74,21 @@ namespace AsteroidsGoneRogue
         public void PlayShoot()
         {
             Play(_shoot);
+        }
+
+        public void PlayShootSpread()
+        {
+            Play(_shootSpread != null ? _shootSpread : _shoot);
+        }
+
+        public void PlayShootPierce()
+        {
+            Play(_shootPierce != null ? _shootPierce : _shoot);
+        }
+
+        public void PlayEnemyShoot()
+        {
+            Play(_shootEnemy != null ? _shootEnemy : _shoot, 0.7f);
         }
 
         public void PlayHit()
@@ -97,10 +123,12 @@ namespace AsteroidsGoneRogue
 
         public void PlayUiClick()
         {
-            if (_sfx != null && _purchase != null && !_muted)
-            {
-                _sfx.PlayOneShot(_purchase, 0.42f);
-            }
+            Play(_uiClick != null ? _uiClick : _purchase, 0.7f);
+        }
+
+        public void PlayAbortWhoosh()
+        {
+            Play(_abort != null ? _abort : _worldChange);
         }
 
         public void PlayWaveClear()
@@ -117,11 +145,11 @@ namespace AsteroidsGoneRogue
         {
             if (phase == GamePhase.Playing)
             {
-                PlayLoop(_arenaLoop);
+                PlayLoop(_arenaLoop, ArenaMusicScale, ArenaMusicPitch);
             }
             else
             {
-                PlayLoop(_hangarAmbience);
+                PlayLoop(_hangarAmbience, HangarMusicScale, HangarMusicPitch);
             }
         }
 
@@ -156,21 +184,29 @@ namespace AsteroidsGoneRogue
 
         private void Play(AudioClip clip)
         {
+            Play(clip, 1f);
+        }
+
+        private void Play(AudioClip clip, float scale)
+        {
             if (_sfx != null && clip != null && !_muted)
             {
-                _sfx.PlayOneShot(clip);
+                _sfx.PlayOneShot(clip, Mathf.Clamp01(scale));
             }
         }
 
-        private void PlayLoop(AudioClip clip)
+        private void PlayLoop(AudioClip clip, float scale, float pitch)
         {
             if (_music == null || clip == null)
             {
                 return;
             }
 
+            _musicScale = scale;
+            _musicPitch = pitch;
             if (_currentMusic == clip && _music.isPlaying)
             {
+                ApplyVolumes();
                 return;
             }
 
@@ -197,7 +233,8 @@ namespace AsteroidsGoneRogue
 
             if (_music != null)
             {
-                _music.volume = _muted ? 0f : _musicVolume * MusicOutputScale;
+                _music.pitch = _musicPitch;
+                _music.volume = _muted ? 0f : _musicVolume * _musicScale;
                 if (_muted)
                 {
                     _music.Pause();
@@ -212,11 +249,16 @@ namespace AsteroidsGoneRogue
         private void LoadClips()
         {
             _shoot = Resources.Load<AudioClip>("Audio/Sfx/laserSmall_000");
-            _hit = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_000");
+            _shootSpread = Resources.Load<AudioClip>("Audio/Sfx/laserRetro_000");
+            _shootPierce = Resources.Load<AudioClip>("Audio/Sfx/laserLarge_000");
+            _shootEnemy = Resources.Load<AudioClip>("Audio/Sfx/laserSmall_001");
+            _hit = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_003");
             _asteroidSplit = Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_000");
             _enemyDeath = Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_003");
             _playerDamage = Resources.Load<AudioClip>("Audio/Sfx/forceField_000");
             _purchase = Resources.Load<AudioClip>("Audio/Sfx/confirmation_002");
+            _uiClick = Resources.Load<AudioClip>("Audio/Sfx/click_002");
+            _abort = Resources.Load<AudioClip>("Audio/Sfx/minimize_005");
             _worldChange = Resources.Load<AudioClip>("Audio/Sfx/maximize_008");
             _waveClear = Resources.Load<AudioClip>("Audio/Sfx/jingles_PIZZA07");
             _arenaLoop = Resources.Load<AudioClip>("Audio/Music/OutThere");

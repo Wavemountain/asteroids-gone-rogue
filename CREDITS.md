@@ -13,8 +13,11 @@ Mirror used: https://opengameart.org/content/sci-fi-sounds (`sci-fi_sounds.zip`)
 
 | Cue | File in repo | Original pack file |
 | --- | --- | --- |
-| Shoot | `Assets/Resources/Audio/Sfx/laserSmall_000.ogg` | `Audio/laserSmall_000.ogg` |
-| Hit | `Assets/Resources/Audio/Sfx/impactMetal_000.ogg` | `Audio/impactMetal_000.ogg` |
+| Shoot (bolt) | `Assets/Resources/Audio/Sfx/laserSmall_000.ogg` | `Audio/laserSmall_000.ogg` |
+| Shoot (spread) | `Assets/Resources/Audio/Sfx/laserRetro_000.ogg` | `Audio/laserRetro_000.ogg` |
+| Shoot (pierce) | `Assets/Resources/Audio/Sfx/laserLarge_000.ogg` | `Audio/laserLarge_000.ogg` |
+| Enemy bolt | `Assets/Resources/Audio/Sfx/laserSmall_001.ogg` | `Audio/laserSmall_001.ogg` |
+| Hit | `Assets/Resources/Audio/Sfx/impactMetal_003.ogg` | `Audio/impactMetal_003.ogg` |
 | Asteroid split | `Assets/Resources/Audio/Sfx/explosionCrunch_000.ogg` | `Audio/explosionCrunch_000.ogg` |
 | Enemy death | `Assets/Resources/Audio/Sfx/explosionCrunch_003.ogg` | `Audio/explosionCrunch_003.ogg` |
 | Player damage | `Assets/Resources/Audio/Sfx/forceField_000.ogg` | `Audio/forceField_000.ogg` |
@@ -26,7 +29,9 @@ Mirror used: https://opengameart.org/content/interface-sounds (`kenney_interface
 
 | Cue | File in repo | Original pack file |
 | --- | --- | --- |
+| UI click | `Assets/Resources/Audio/Sfx/click_002.ogg` | `Audio/click_002.ogg` |
 | Hangar purchase | `Assets/Resources/Audio/Sfx/confirmation_002.ogg` | `Audio/confirmation_002.ogg` |
+| Abort whoosh | `Assets/Resources/Audio/Sfx/minimize_005.ogg` | `Audio/minimize_005.ogg` |
 | Arena world swap | `Assets/Resources/Audio/Sfx/maximize_008.ogg` | `Audio/maximize_008.ogg` |
 
 Pack: **Kenney Music Jingles** (CC0)  
@@ -47,6 +52,8 @@ Kenney license text (from the Sci-Fi Sounds pack) is kept at `Assets/Audio/Kenne
 | Arena loop | `Assets/Resources/Audio/Music/OutThere.ogg` | Space Music: Out There | yd | CC0 | https://opengameart.org/content/space-music-out-there |
 | Hangar ambience | `Assets/Resources/Audio/Music/spacelifeNo14.ogg` | Spacelife #14 | yd | CC0 | https://opengameart.org/content/spacelife-14 |
 
+Hangar plays `spacelifeNo14` softer and slightly down-pitched. Arena plays `OutThere` louder at concert pitch so the two beds stay distinct.
+
 ## Engine wiring
 
-`AudioCues` loads these clips from `Resources/Audio` at runtime (so Play Mode does not depend on Inspector references). Hangar UI has **Mute** plus **SFX** and **Music** sliders; values persist in PlayerPrefs.
+`AudioCues` loads these clips from `Resources/Audio` at runtime (so Play Mode does not depend on Inspector references). Hangar UI has **Mute** plus **SFX** and **Music** sliders; values persist in PlayerPrefs. Local best score / wave / world persist under `agr.best.*`.

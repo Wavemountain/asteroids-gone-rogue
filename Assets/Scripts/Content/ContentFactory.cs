@@ -31,6 +31,7 @@ namespace AsteroidsGoneRogue
         private Material _projectile;
         private Material _projectileSpread;
         private Material _projectilePierce;
+        private Material _projectileEnemy;
         private Material _projectileHalo;
         private Material _shield;
         private Material _accentHot;
@@ -68,6 +69,7 @@ namespace AsteroidsGoneRogue
             _projectile = MakeMaterial("Mat_Projectile", new Color(1f, 0.92f, 0.42f), 0f, 0.35f, new Color(1f, 0.78f, 0.18f) * 3.4f);
             _projectileSpread = MakeMaterial("Mat_Projectile_Spread", new Color(1f, 0.55f, 0.16f), 0f, 0.3f, new Color(1f, 0.4f, 0.05f) * 3.2f);
             _projectilePierce = MakeMaterial("Mat_Projectile_Pierce", new Color(0.45f, 0.92f, 1f), 0f, 0.35f, new Color(0.25f, 0.75f, 1f) * 3.6f);
+            _projectileEnemy = MakeMaterial("Mat_Projectile_Enemy", new Color(1f, 0.28f, 0.22f), 0f, 0.3f, new Color(1f, 0.12f, 0.08f) * 3.4f);
             _projectileHalo = MakeTransparent("Mat_Projectile_Halo", new Color(1f, 0.85f, 0.35f, 0.28f), new Color(1f, 0.7f, 0.15f) * 1.8f);
             _hangarMetal = MakeMaterial("Mat_Hangar_Metal", new Color(0.28f, 0.32f, 0.36f), 0.55f, 0.42f);
             _hangarAmber = MakeMaterial("Mat_Hangar_Amber", new Color(1f, 0.58f, 0.16f), 0.2f, 0.5f, new Color(1f, 0.42f, 0.06f) * 1.6f);
@@ -194,6 +196,8 @@ namespace AsteroidsGoneRogue
                 new Vector3(0.85f, 1.35f, 0.55f), 1.35f, new Color(1f, 0.45f, 0.1f), 0.85f);
             PlaceHangarProp("Hangar_FireExtinguisher", "Hangar_FireExtinguisher", new Vector3(1.35f, 0f, -2.9f), _accentHot, PrimitiveType.Cylinder,
                 new Vector3(0.22f, 0.55f, 0.22f), 1.1f, Color.clear, 0f);
+            PlaceHangarProp("Hangar_Locker", "Hangar_Locker", new Vector3(-4.8f, 0f, 6.6f), _hangarMetal, PrimitiveType.Cube,
+                new Vector3(1.15f, 2.05f, 0.72f), 2.05f, Color.clear, 0f);
 
             CreatePrimitive(PrimitiveType.Cylinder, "Hangar_ShipPad", _hangarDressing.transform, _hangarAmber,
                 new Vector3(0f, 0.02f, 0f), new Vector3(4.6f, 0.04f, 4.6f), Quaternion.identity);
@@ -263,6 +267,15 @@ namespace AsteroidsGoneRogue
                     new Vector3(0f, 0.55f, 0f), new Vector3(0.28f, 0.55f, 0.28f), Quaternion.identity);
                 CreatePrimitive(PrimitiveType.Cube, "Nozzle", parent, _hangarMetal,
                     new Vector3(0.16f, 1.05f, 0f), new Vector3(0.22f, 0.08f, 0.08f), Quaternion.identity);
+                return true;
+            }
+
+            if (visualName == "Hangar_Locker")
+            {
+                CreatePrimitive(PrimitiveType.Cube, "Cabinet", parent, _hangarMetal,
+                    new Vector3(0f, 1.02f, 0f), new Vector3(1.1f, 2.04f, 0.68f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Cube, "Door", parent, _hangarAmber,
+                    new Vector3(0f, 1.05f, 0.36f), new Vector3(0.92f, 1.7f, 0.06f), Quaternion.identity);
                 return true;
             }
 
@@ -497,7 +510,30 @@ namespace AsteroidsGoneRogue
 
         public Projectile SpawnProjectile(Vector3 origin, Vector3 direction, float speed, int damage, bool pierce, bool spread)
         {
-            GameObject root = new GameObject("Projectile");
+            return SpawnBolt(origin, direction, speed, damage, pierce, spread, false, EnemyKind.Mid01);
+        }
+
+        public Projectile SpawnEnemyProjectile(
+            Vector3 origin,
+            Vector3 direction,
+            float speed,
+            int damage,
+            EnemyKind kind)
+        {
+            return SpawnBolt(origin, direction, speed, damage, false, false, true, kind);
+        }
+
+        private Projectile SpawnBolt(
+            Vector3 origin,
+            Vector3 direction,
+            float speed,
+            int damage,
+            bool pierce,
+            bool spread,
+            bool hostile,
+            EnemyKind kind)
+        {
+            GameObject root = new GameObject(hostile ? "EnemyProjectile" : "Projectile");
             root.tag = GameTags.Projectile;
             root.transform.SetParent(_projectileRoot, false);
             root.transform.position = origin;
@@ -505,34 +541,75 @@ namespace AsteroidsGoneRogue
 
             SphereCollider collider = root.AddComponent<SphereCollider>();
             collider.isTrigger = true;
-            collider.radius = 0.18f;
+            collider.radius = hostile ? 0.2f : 0.18f;
 
             Rigidbody body = root.AddComponent<Rigidbody>();
             body.useGravity = false;
             body.isKinematic = true;
 
-            Material boltMat = pierce ? _projectilePierce : (spread ? _projectileSpread : _projectile);
-            if (!TryVisual("Projectile_Bolt", root.transform, boltMat))
+            Material boltMat = hostile
+                ? _projectileEnemy
+                : (pierce ? _projectilePierce : (spread ? _projectileSpread : _projectile));
+            string visual = hostile ? "Projectile_EnemyBolt" : "Projectile_Bolt";
+            string bufferVisual = hostile ? "Projectile_EnemyBolt_Buffer" : "Projectile_Bolt_Buffer_v2";
+            GameObject mesh;
+            if (!TryVisual(visual, root.transform, boltMat, out mesh)
+                && !TryVisual(bufferVisual, root.transform, boltMat, out mesh))
             {
-                CreatePrimitive(PrimitiveType.Sphere, "Mesh", root.transform, boltMat,
-                    Vector3.zero, new Vector3(0.2f, 0.2f, 0.62f), Quaternion.identity);
+                Vector3 fallbackScale = pierce
+                    ? new Vector3(0.14f, 0.14f, 0.95f)
+                    : (spread ? new Vector3(0.28f, 0.28f, 0.42f) : new Vector3(0.2f, 0.2f, 0.62f));
+                mesh = CreatePrimitive(PrimitiveType.Sphere, "Mesh", root.transform, boltMat,
+                    Vector3.zero, fallbackScale, Quaternion.identity);
+            }
+            else if (mesh != null)
+            {
+                if (pierce)
+                {
+                    mesh.transform.localScale = new Vector3(0.7f, 0.7f, 1.45f);
+                }
+                else if (spread)
+                {
+                    mesh.transform.localScale = new Vector3(1.2f, 1.2f, 0.72f);
+                }
             }
 
-            Material haloMat = pierce ? _projectilePierce : _projectileHalo;
+            Material haloMat = pierce ? _projectilePierce : (hostile ? _projectileEnemy : (spread ? _projectileSpread : _projectileHalo));
+            Vector3 haloScale = pierce
+                ? new Vector3(0.26f, 0.26f, 1.15f)
+                : (spread ? new Vector3(0.52f, 0.52f, 0.62f) : new Vector3(0.38f, 0.38f, 0.85f));
             CreatePrimitive(PrimitiveType.Sphere, "BoltHalo", root.transform, haloMat,
-                Vector3.zero, new Vector3(0.38f, 0.38f, 0.85f), Quaternion.identity);
+                Vector3.zero, haloScale, Quaternion.identity);
 
             TrailRenderer trail = root.AddComponent<TrailRenderer>();
-            trail.time = pierce ? 0.2f : 0.12f;
-            trail.startWidth = 0.2f;
-            trail.endWidth = 0.02f;
+            trail.time = pierce ? 0.28f : (spread ? 0.08f : (hostile ? 0.16f : 0.12f));
+            trail.startWidth = spread ? 0.34f : (pierce ? 0.1f : 0.2f);
+            trail.endWidth = pierce ? 0.01f : 0.02f;
             trail.minVertexDistance = 0.12f;
             trail.material = boltMat;
-            trail.startColor = pierce ? new Color(0.45f, 0.9f, 1f, 0.9f) : new Color(1f, 0.85f, 0.3f, 0.9f);
-            trail.endColor = new Color(1f, 0.7f, 0.15f, 0f);
+            if (pierce)
+            {
+                trail.startColor = new Color(0.35f, 0.9f, 1f, 0.95f);
+                trail.endColor = new Color(0.1f, 0.45f, 1f, 0f);
+            }
+            else if (spread)
+            {
+                trail.startColor = new Color(1f, 0.45f, 0.08f, 0.95f);
+                trail.endColor = new Color(1f, 0.2f, 0.02f, 0f);
+            }
+            else if (hostile)
+            {
+                trail.startColor = new Color(1f, 0.25f, 0.18f, 0.9f);
+                trail.endColor = new Color(0.6f, 0.02f, 0.02f, 0f);
+            }
+            else
+            {
+                trail.startColor = new Color(1f, 0.85f, 0.3f, 0.9f);
+                trail.endColor = new Color(1f, 0.7f, 0.15f, 0f);
+            }
 
             Projectile projectile = root.AddComponent<Projectile>();
-            projectile.Launch(direction, speed, damage, pierce);
+            projectile.Launch(direction, speed, damage, pierce, hostile, kind);
             _projectiles.Add(projectile);
             return projectile;
         }
@@ -736,7 +813,7 @@ namespace AsteroidsGoneRogue
             if (ContainsIgnoreCase(name, "Hangar") || ContainsIgnoreCase(name, "Kiosk")
                 || ContainsIgnoreCase(name, "Crate") || ContainsIgnoreCase(name, "Workbench")
                 || ContainsIgnoreCase(name, "Ammo") || ContainsIgnoreCase(name, "Console")
-                || ContainsIgnoreCase(name, "PowerBox"))
+                || ContainsIgnoreCase(name, "PowerBox") || ContainsIgnoreCase(name, "Locker"))
             {
                 if (ContainsIgnoreCase(name, "Glow") || ContainsIgnoreCase(name, "Light")
                     || ContainsIgnoreCase(name, "Fuel"))

@@ -61,6 +61,11 @@ def main() -> int:
         err("MERGE_CHECKLIST.md must name Unity 6000.6.0f1")
     require(ROOT / "CREDITS.md")
     require(ROOT / "Assets/Resources/Audio/Sfx/laserSmall_000.ogg")
+    require(ROOT / "Assets/Resources/Audio/Sfx/click_002.ogg")
+    require(ROOT / "Assets/Resources/Audio/Sfx/minimize_005.ogg")
+    require(ROOT / "Assets/Resources/Audio/Sfx/laserRetro_000.ogg")
+    require(ROOT / "Assets/Resources/Audio/Sfx/laserLarge_000.ogg")
+    require(ROOT / "Assets/Resources/Audio/Sfx/impactMetal_003.ogg")
     require(ROOT / "Assets/Resources/Audio/Music/OutThere.ogg")
     require(ROOT / "Assets/Resources/Audio/Music/spacelifeNo14.ogg")
 
@@ -189,7 +194,9 @@ def main() -> int:
         "Hangar_Console",
         "Hangar_PowerBox",
         "Hangar_FireExtinguisher",
+        "Hangar_Locker",
         "Projectile_Bolt",
+        "Projectile_EnemyBolt",
         "Pickup_Score",
         "Pickup_Shield",
     )

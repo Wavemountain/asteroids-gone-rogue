@@ -38,10 +38,10 @@ Editor helpers: menu **Asteroids gone rogue → Open Play Scene** / **Validate W
 
 `GameSession` / `GameManager` / `WaveManager` states:
 
-1. **Hangar** — title, start button, shop (if you have credits). First session shows a dismissable **First flight** card (WASD / Abort Esc / Q·RMB fire modes / shop / Start Wave; PlayerPrefs). Hangar dressing includes Console, PowerBox, and FireExtinguisher.
+1. **Hangar** — title, start button, shop (if you have credits). First session shows a dismissable **First flight** card (WASD / Abort Esc / Q·RMB fire modes / shop / Start Wave; PlayerPrefs). Hangar dressing includes Console, PowerBox, FireExtinguisher, and Locker.
 2. **Playing** — fly the 3D ship, shoot bolt / spread / pierce (if bought), split asteroids. Asteroids **wrap** at the arena edge so waves cannot soft-lock. **Abort → Hangar** leaves the wave without the clear bonus.
-3. **Wave Clear** — score (including clear bonus) and **150 credits**, then shop.
-4. **Fail** — ship destroyed; retry the same wave. Bought upgrades stay.
+3. **Wave Clear** — score (including clear bonus) and **150 credits**, then shop. Card also shows the locally persisted **Best** score / wave / world.
+4. **Fail** — ship destroyed; retry the same wave. Bought upgrades stay. Fail card shows **Best** score / wave / world.
 
 Wave 1: 4 large asteroids + 1 `Enemy_01`. Waves 2–10 add Scout / Gunner / Drone, then Bomber / Sniper / SwarmPod when those FBX are present. After wave 10 the roster plateaus and large asteroids tick +1 per wave (7 → 8… cap 10). After every 5 cleared waves the arena mesh swaps World 1→6 (loop). Same radius and rules.
 
@@ -87,16 +87,21 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 
 | Cue | Pack | File |
 | --- | --- | --- |
-| Shoot | Kenney Sci-Fi Sounds | `laserSmall_000.ogg` |
-| Hit | Kenney Sci-Fi Sounds | `impactMetal_000.ogg` |
+| UI click | Kenney Interface Sounds | `click_002.ogg` |
+| Hangar purchase | Kenney Interface Sounds | `confirmation_002.ogg` |
+| Abort whoosh | Kenney Interface Sounds | `minimize_005.ogg` |
+| Shoot (bolt) | Kenney Sci-Fi Sounds | `laserSmall_000.ogg` |
+| Shoot (spread) | Kenney Sci-Fi Sounds | `laserRetro_000.ogg` |
+| Shoot (pierce) | Kenney Sci-Fi Sounds | `laserLarge_000.ogg` |
+| Enemy bolt | Kenney Sci-Fi Sounds | `laserSmall_001.ogg` |
+| Hit | Kenney Sci-Fi Sounds | `impactMetal_003.ogg` |
 | Asteroid split | Kenney Sci-Fi Sounds | `explosionCrunch_000.ogg` |
 | Enemy death | Kenney Sci-Fi Sounds | `explosionCrunch_003.ogg` |
 | Player damage | Kenney Sci-Fi Sounds | `forceField_000.ogg` |
-| Hangar purchase | Kenney Interface Sounds | `confirmation_002.ogg` |
 | Arena world swap | Kenney Interface Sounds | `maximize_008.ogg` |
 | Wave clear | Kenney Music Jingles | `jingles_PIZZA07.ogg` |
-| Arena loop | yd — Space Music: Out There | `OutThere.ogg` |
-| Hangar ambience | yd — Spacelife #14 | `spacelifeNo14.ogg` |
+| Arena loop | yd — Space Music: Out There | `OutThere.ogg` (fuller mix, pitch 1.0) |
+| Hangar ambience | yd — Spacelife #14 | `spacelifeNo14.ogg` (softer mix, pitch 0.88) |
 
 ## What is stubbed
 
@@ -124,4 +129,4 @@ See **[MERGE_CHECKLIST.md](MERGE_CHECKLIST.md)**. Do **not** merge PR #1 until W
 
 ## Success check
 
-Press Play → hangar FBX (crate/terminal/pillar + workbench/kiosk/banner/ammo rack). Wave 1 `Enemy_01` → later Scout/Gunner/Drone/Bomber/Sniper/SwarmPod. Shop Body + Nose/Engine 02. Worlds 2–6 swap every 5 clears. Pickups and muzzle/explosion VFX.
+Press Play → hangar FBX (crate/terminal/pillar + workbench/kiosk/banner/ammo rack + Console/PowerBox/extinguisher/Locker). Wave 1 `Enemy_01` → later Scout/Gunner/Drone/Bomber/Sniper/SwarmPod. Gunner/Sniper fire `Projectile_EnemyBolt`. Shop Body + Nose/Engine 02 + Spread/Pierce. Worlds 2–6 swap every 5 clears. Clear/fail cards show local Best. Pickups and muzzle/explosion VFX.

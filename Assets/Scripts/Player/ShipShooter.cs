@@ -91,7 +91,18 @@ namespace AsteroidsGoneRogue
             _factory.SpawnVfx("Vfx_MuzzleFlash", origin, 0.12f);
             if (AudioCues.Instance != null)
             {
-                AudioCues.Instance.PlayShoot();
+                if (mode == FireMode.Spread)
+                {
+                    AudioCues.Instance.PlayShootSpread();
+                }
+                else if (mode == FireMode.Pierce)
+                {
+                    AudioCues.Instance.PlayShootPierce();
+                }
+                else
+                {
+                    AudioCues.Instance.PlayShoot();
+                }
             }
         }
 

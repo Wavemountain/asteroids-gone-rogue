@@ -27,7 +27,8 @@ FBX in this folder are instantiated on Press Play by `ArtImport` / `ContentFacto
 - [x] `Asteroid_VariantB_Large` / `Asteroid_VariantB_Small` — type B visual only (same split)
 - [x] `Enemy_01` (~2 m) — Week 1 playable enemy
 - [x] `Arena_Blockout` (play radius ~22 m) — World 1
-- [x] `Projectile_Bolt`
+- [x] `Projectile_Bolt` (Buffer v2 mesh)
+- [x] `Projectile_EnemyBolt`
 
 ## Hangar dressing (pivots at base)
 
@@ -35,6 +36,7 @@ FBX in this folder are instantiated on Press Play by `ArtImport` / `ContentFacto
 - [x] `Hangar_Terminal`
 - [x] `Hangar_LightPillar`
 - [x] `Hangar_Console` / `Hangar_PowerBox` / `Hangar_FireExtinguisher` (0.31 hangar-wire)
+- [x] `Hangar_Locker` (0.32 hangar-wire)
 
 ## Present but not Week 1 gameplay
 

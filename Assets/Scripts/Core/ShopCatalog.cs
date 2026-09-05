@@ -66,7 +66,7 @@ namespace AsteroidsGoneRogue
             new ShopItem(
                 UpgradeId.SpreadBolt,
                 "Spread Bolt",
-                "Second shot mode: 3 lower-damage pellets. Q / RMB to switch. Reuses bolt visuals.",
+                "Second shot mode: 3 amber pellets. Q / RMB to switch. Distinct from cyan pierce.",
                 110,
                 ShopGroup.Weapons),
             new ShopItem(
