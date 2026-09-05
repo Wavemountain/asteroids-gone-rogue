@@ -19,9 +19,11 @@ Mirror used: https://opengameart.org/content/sci-fi-sounds (`sci-fi_sounds.zip`)
 | Enemy bolt | `Assets/Resources/Audio/Sfx/laserSmall_001.ogg` | `Audio/laserSmall_001.ogg` |
 | Hit | `Assets/Resources/Audio/Sfx/impactMetal_003.ogg` | `Audio/impactMetal_003.ogg` |
 | Hit punch layer | `Assets/Resources/Audio/Sfx/impactMetal_000.ogg` | `Audio/impactMetal_000.ogg` |
+| SwarmPod / Mid hit | `Assets/Resources/Audio/Sfx/impactMetal_001.ogg` | `Audio/impactMetal_001.ogg` (no punch) |
 | Asteroid split | `Assets/Resources/Audio/Sfx/explosionCrunch_000.ogg` | `Audio/explosionCrunch_000.ogg` |
 | Enemy death | `Assets/Resources/Audio/Sfx/explosionCrunch_003.ogg` | `Audio/explosionCrunch_003.ogg` |
 | Enemy death punch | `Assets/Resources/Audio/Sfx/impactMetal_000.ogg` | `Audio/impactMetal_000.ogg` (layered; asteroid crunch stays `explosionCrunch_000` only) |
+| SwarmPod / Mid death | `Assets/Resources/Audio/Sfx/explosionCrunch_001.ogg` | `Audio/explosionCrunch_001.ogg` (no punch) |
 | Player damage | `Assets/Resources/Audio/Sfx/forceField_000.ogg` | `Audio/forceField_000.ogg` |
 
 Pack: **Kenney Interface Sounds** (CC0)  

@@ -198,8 +198,8 @@ namespace AsteroidsGoneRogue
                 new Vector3(0.22f, 0.55f, 0.22f), 1.1f, Color.clear, 0f);
             PlaceHangarProp("Hangar_Locker", "Hangar_Locker", new Vector3(-4.8f, 0f, 6.6f), _hangarMetal, PrimitiveType.Cube,
                 new Vector3(1.15f, 2.05f, 0.72f), 2.05f, Color.clear, 0f);
-            PlaceHangarProp("Hangar_LaunchSign", "Hangar_LaunchSign", new Vector3(3.5f, 0f, -3.2f), _hangarAmber, PrimitiveType.Cube,
-                new Vector3(1.15f, 1.85f, 0.18f), 1.85f, new Color(1f, 0.62f, 0.16f), 1.45f, 180f);
+            PlaceHangarProp("Hangar_LaunchSign", "Hangar_LaunchSign", new Vector3(1.95f, 0f, -2.55f), _hangarAmber, PrimitiveType.Cube,
+                new Vector3(1.28f, 2.05f, 0.2f), 2.05f, new Color(1f, 0.68f, 0.18f), 1.85f, 198f);
             PlaceHangarProp("Hangar_ShipComplete", "Ship_Complete", new Vector3(8.2f, 0f, 7.4f), _hull, PrimitiveType.Cube,
                 new Vector3(1.1f, 0.55f, 2.4f), 0.55f, new Color(1f, 0.55f, 0.16f), 0.7f);
 
@@ -326,9 +326,9 @@ namespace AsteroidsGoneRogue
             if (visualName == "Hangar_LaunchSign")
             {
                 CreatePrimitive(PrimitiveType.Cube, "Post", parent, _hangarMetal,
-                    new Vector3(0f, 0.85f, 0f), new Vector3(0.16f, 1.7f, 0.16f), Quaternion.identity);
+                    new Vector3(0f, 0.92f, 0f), new Vector3(0.16f, 1.84f, 0.16f), Quaternion.identity);
                 CreatePrimitive(PrimitiveType.Cube, "Board", parent, _hangarAmber,
-                    new Vector3(0f, 1.55f, 0.08f), new Vector3(1.2f, 0.72f, 0.08f), Quaternion.identity);
+                    new Vector3(0f, 1.72f, 0.1f), new Vector3(1.42f, 0.82f, 0.1f), Quaternion.identity);
                 return true;
             }
 

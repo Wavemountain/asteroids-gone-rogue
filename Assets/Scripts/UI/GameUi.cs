@@ -35,6 +35,7 @@ namespace AsteroidsGoneRogue
         private GameObject _summaryRoot;
         private Text _summaryTitle;
         private Text _summaryBody;
+        private Text _waveMedal;
         private Text _continueHint;
         private Image _hitFlash;
         private bool _tutorialDismissed;
@@ -384,11 +385,15 @@ namespace AsteroidsGoneRogue
             _summaryTitle.color = new Color(1f, 0.82f, 0.4f);
 
             _summaryBody = CreateText("SummaryBody", _summaryRoot.transform, font, 16, TextAnchor.UpperCenter, FontStyle.Normal);
-            Stretch(_summaryBody.rectTransform, new Vector2(0.04f, 0.22f), new Vector2(0.96f, 0.76f));
+            Stretch(_summaryBody.rectTransform, new Vector2(0.04f, 0.28f), new Vector2(0.96f, 0.76f));
             _summaryBody.color = new Color(0.94f, 0.93f, 0.86f);
 
+            _waveMedal = CreateText("WaveMedal", _summaryRoot.transform, font, 15, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Stretch(_waveMedal.rectTransform, new Vector2(0.04f, 0.155f), new Vector2(0.96f, 0.28f));
+            _waveMedal.color = new Color(1f, 0.84f, 0.38f);
+
             _continueHint = CreateText("ContinueHint", _summaryRoot.transform, font, 15, TextAnchor.LowerCenter, FontStyle.Bold);
-            Stretch(_continueHint.rectTransform, new Vector2(0.04f, 0.03f), new Vector2(0.96f, 0.24f));
+            Stretch(_continueHint.rectTransform, new Vector2(0.04f, 0.03f), new Vector2(0.96f, 0.155f));
             _continueHint.color = new Color(0.55f, 0.9f, 1f);
             _summaryRoot.SetActive(false);
         }
@@ -438,7 +443,28 @@ namespace AsteroidsGoneRogue
             }
 
             _summaryBody.text = body;
+            bool medal = RunSummary.ShowWaveMedal(_session.LastResolvedWave, _session.Phase);
+            if (_waveMedal != null)
+            {
+                _waveMedal.gameObject.SetActive(medal);
+                if (medal)
+                {
+                    _waveMedal.text = RunSummary.WaveMedal(_session.LastResolvedWave);
+                }
+            }
+
             bool hint = RunSummary.ShowContinueHint(_session.LastResolvedWave, _session.Phase);
+            if (medal)
+            {
+                Stretch(_summaryBody.rectTransform, new Vector2(0.04f, 0.28f), new Vector2(0.96f, 0.76f));
+                Stretch(_continueHint.rectTransform, new Vector2(0.04f, 0.03f), new Vector2(0.96f, 0.155f));
+            }
+            else
+            {
+                Stretch(_summaryBody.rectTransform, new Vector2(0.04f, 0.22f), new Vector2(0.96f, 0.76f));
+                Stretch(_continueHint.rectTransform, new Vector2(0.04f, 0.03f), new Vector2(0.96f, 0.24f));
+            }
+
             _continueHint.gameObject.SetActive(hint);
             if (hint)
             {

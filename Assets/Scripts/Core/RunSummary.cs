@@ -1,12 +1,13 @@
 namespace AsteroidsGoneRogue
 {
     /// <summary>
-    /// Short hangar cards: end-of-run stats and the post-wave-1 "why continue" line.
+    /// Short hangar cards: end-of-run stats, wave 1–3 continue lines, and the wave-3 medal.
     /// Pure C# so tests can check the copy without the Editor.
     /// </summary>
     public static class RunSummary
     {
         public const int World2StartsAtWave = 6;
+        public const string Wave3MedalTitle = "Scout Wing";
 
         public static string Title(GamePhase phase, string failReason)
         {
@@ -84,8 +85,30 @@ namespace AsteroidsGoneRogue
         public static string ContinueHint(int lastResolvedWave, int credits, LoadoutState loadout)
         {
             ShopItem next = NextUnlock(credits, loadout);
+            if (lastResolvedWave == 3)
+            {
+                return next != null
+                    ? "Buy " + next.Title + " before Gunner"
+                    : "Push for a new best before Gunner";
+            }
+
             string buy = next != null ? "Buy " + next.Title : "Push for a new best.";
             return NextUnlockLandmark(lastResolvedWave) + "  ·  " + buy;
+        }
+
+        public static bool ShowWaveMedal(int lastResolvedWave, GamePhase phase)
+        {
+            return phase == GamePhase.WaveClear && lastResolvedWave == 3;
+        }
+
+        public static string WaveMedal(int lastResolvedWave)
+        {
+            if (lastResolvedWave != 3)
+            {
+                return string.Empty;
+            }
+
+            return "★ " + Wave3MedalTitle + "  ·  World 2 at wave " + World2StartsAtWave;
         }
 
         public static string NextUnlockLandmark(int lastResolvedWave)
@@ -97,7 +120,7 @@ namespace AsteroidsGoneRogue
 
             if (lastResolvedWave == 3)
             {
-                return "Gunner next";
+                return "before Gunner";
             }
 
             return "World 2 at wave " + World2StartsAtWave;

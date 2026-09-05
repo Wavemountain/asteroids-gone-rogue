@@ -35,9 +35,11 @@ namespace AsteroidsGoneRogue
         private AudioClip _shootEnemy;
         private AudioClip _hit;
         private AudioClip _hitPunch;
+        private AudioClip _hitLight;
         private AudioClip _asteroidSplit;
         private AudioClip _enemyDeath;
         private AudioClip _enemyDeathPunch;
+        private AudioClip _enemyDeathLight;
         private AudioClip _playerDamage;
         private AudioClip _purchase;
         private AudioClip _uiClick;
@@ -112,6 +114,17 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        public void PlayHit(EnemyKind kind)
+        {
+            if (UsesLightThreatSfx(kind))
+            {
+                Play(_hitLight != null ? _hitLight : _hit, 0.92f);
+                return;
+            }
+
+            PlayHit();
+        }
+
         public void PlayExplosion()
         {
             PlayAsteroidSplit();
@@ -129,6 +142,22 @@ namespace AsteroidsGoneRogue
             {
                 Play(_enemyDeathPunch, EnemyDeathPunchScale);
             }
+        }
+
+        public void PlayEnemyDeath(EnemyKind kind)
+        {
+            if (UsesLightThreatSfx(kind))
+            {
+                Play(_enemyDeathLight != null ? _enemyDeathLight : _enemyDeath, 0.9f);
+                return;
+            }
+
+            PlayEnemyDeath();
+        }
+
+        public static bool UsesLightThreatSfx(EnemyKind kind)
+        {
+            return kind == EnemyKind.Mid01 || kind == EnemyKind.SwarmPod;
         }
 
         public void PlayPlayerDamage()
@@ -338,9 +367,11 @@ namespace AsteroidsGoneRogue
             _shootEnemy = Resources.Load<AudioClip>("Audio/Sfx/laserSmall_001");
             _hit = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_003");
             _hitPunch = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_000");
+            _hitLight = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_001");
             _asteroidSplit = Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_000");
             _enemyDeath = Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_003");
             _enemyDeathPunch = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_000");
+            _enemyDeathLight = Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_001");
             _playerDamage = Resources.Load<AudioClip>("Audio/Sfx/forceField_000");
             _purchase = Resources.Load<AudioClip>("Audio/Sfx/confirmation_002");
             _uiClick = Resources.Load<AudioClip>("Audio/Sfx/click_002");

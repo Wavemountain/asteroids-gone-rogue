@@ -45,9 +45,9 @@ These filenames are instantiated by `ContentFactory` / `ArtImport` when the file
 - `Asteroid_Large.fbx` / `Asteroid_Small.fbx` — type A visual (Week 1 split rules)
 - `Asteroid_VariantB_Large.fbx` / `Asteroid_VariantB_Small.fbx` — type B visual only (~45% mix)
 - `Enemy_01.fbx` — wave 1
-- `Enemy_Scout.fbx` / `Enemy_Gunner.fbx` (Buffer v4 bytes under the canonical names) — Play waves 2+ via `CreateEnemy` / `EnemyCatalog.VisualName` (primary name first; also accepts `Enemy_*_Buffer_v4`)
+- `Enemy_Scout.fbx` / `Enemy_Gunner.fbx` (Buffer v5 bytes under the canonical names) — Play waves 2+ via `CreateEnemy` / `EnemyCatalog.VisualName` (primary name first; also accepts `Enemy_*_Buffer_v5` then `Enemy_*_Buffer_v4`)
 - `Enemy_Bomber.fbx` / `Enemy_Sniper.fbx` (Buffer v5 bytes under the canonical names) — Play waves 7+ via `CreateEnemy` / `EnemyCatalog.VisualName` (primary name first; also accepts `Enemy_*_Buffer_v5`)
-- `Enemy_Drone.fbx` — waves 5+
+- `Enemy_Drone.fbx` (Buffer v4 bytes under the canonical name) — waves 5+ via `CreateEnemy` / `EnemyCatalog.VisualName` (also accepts `Enemy_Drone_Buffer_v4`)
 - `Arena_Blockout.fbx` — World 1 hangar / arena
 - `Projectile_Bolt.fbx` — player shot visual (GameBot Bolt Buffer v2; also accepted as `Projectile_Bolt_Buffer_v2`)
 - `Projectile_EnemyBolt.fbx` — Gunner / Sniper shot visual (also accepted as `Projectile_EnemyBolt_Buffer`)
@@ -64,7 +64,7 @@ Shown in hangar / results and hidden during a wave. Pivots on the **base** — p
 - `Hangar_Workbench.fbx` / `Hangar_FuelCell.fbx` / `Hangar_ShopKiosk.fbx`
 - `Hangar_Console.fbx` / `Hangar_PowerBox.fbx` / `Hangar_FireExtinguisher.fbx` — 0.31 hangar-wire from BlenderBot buffer (no `_Buffer` suffix)
 - `Hangar_Locker.fbx` — 0.32 hangar-wire from BlenderBot buffer (no `_Buffer` suffix)
-- `Hangar_LaunchSign.fbx` — 0.34 Start Wave landmark from Buffer v2 (canonical name first)
+- `Hangar_LaunchSign.fbx` — Start Wave landmark from Buffer v2 (canonical name first); 0.341 sits closer to the pad and faces the hangar camera
 
 ### Pickups (not in the Week 1 loop)
 

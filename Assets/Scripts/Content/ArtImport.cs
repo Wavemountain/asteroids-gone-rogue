@@ -84,7 +84,7 @@ namespace AsteroidsGoneRogue
 
         /// <summary>
         /// Primary Play Mode name first, then optional GameBot Buffer_* aliases.
-        /// Canonical files live as Enemy_Bomber.fbx / Hangar_LaunchSign.fbx (not Buffer_*).
+        /// Canonical files live as Enemy_Scout.fbx / Enemy_Drone.fbx / Hangar_LaunchSign.fbx (not Buffer_*).
         /// </summary>
         public static string[] CandidateNames(string assetName)
         {
@@ -92,9 +92,11 @@ namespace AsteroidsGoneRogue
             switch (key)
             {
                 case "Enemy_Scout":
-                    return new[] { "Enemy_Scout", "Enemy_Scout_Buffer_v4" };
+                    return new[] { "Enemy_Scout", "Enemy_Scout_Buffer_v5", "Enemy_Scout_Buffer_v4" };
                 case "Enemy_Gunner":
-                    return new[] { "Enemy_Gunner", "Enemy_Gunner_Buffer_v4" };
+                    return new[] { "Enemy_Gunner", "Enemy_Gunner_Buffer_v5", "Enemy_Gunner_Buffer_v4" };
+                case "Enemy_Drone":
+                    return new[] { "Enemy_Drone", "Enemy_Drone_Buffer_v4" };
                 case "Enemy_Bomber":
                     return new[] { "Enemy_Bomber", "Enemy_Bomber_Buffer_v5" };
                 case "Enemy_Sniper":

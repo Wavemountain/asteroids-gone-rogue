@@ -648,7 +648,7 @@ def test_enemies_launch_034() -> None:
     assert not RunSummary_show_continue(4, Phase.WAVE_CLEAR)
     assert not RunSummary_show_continue(2, Phase.FAILED)
     assert "Gunner at wave 4" in summary
-    assert "Gunner next" in summary
+    assert "before Gunner" in summary
     assert "RunSummary.ContinueHint(" in ui
     assert "RunSummary.ShowContinueHint(" in ui
 
@@ -698,6 +698,98 @@ def test_enemies_launch_034() -> None:
         assert art_fbx.read_bytes() == res_fbx.read_bytes()
 
 
+def continue_hint(last_resolved_wave: int, next_title: str | None) -> str:
+    if last_resolved_wave == 3:
+        return f"Buy {next_title} before Gunner" if next_title else "Push for a new best before Gunner"
+    landmark = "Gunner at wave 4" if last_resolved_wave == 2 else "World 2 at wave 6"
+    buy = f"Buy {next_title}" if next_title else "Push for a new best."
+    return landmark + "  ·  " + buy
+
+
+def wave_medal(last_resolved_wave: int, phase: str) -> str:
+    if phase != Phase.WAVE_CLEAR or last_resolved_wave != 3:
+        return ""
+    return "★ Scout Wing  ·  World 2 at wave 6"
+
+
+def test_scout_drone_polish_0341() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    art = (root / "Assets/Scripts/Content/ArtImport.cs").read_text(encoding="utf-8")
+    enemies = (root / "Assets/Scripts/Combat/EnemyKind.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    seeker = (root / "Assets/Scripts/Combat/EnemySeeker.cs").read_text(encoding="utf-8")
+
+    assert 'Buy " + next.Title + " before Gunner' in summary
+    assert continue_hint(3, "Shield Cell") == "Buy Shield Cell before Gunner"
+    assert continue_hint(3, None) == "Push for a new best before Gunner"
+    assert continue_hint(2, "Body Upgrade") == "Gunner at wave 4  ·  Buy Body Upgrade"
+    assert "ShowWaveMedal" in summary
+    assert "WaveMedal" in ui
+    assert wave_medal(3, Phase.WAVE_CLEAR) == "★ Scout Wing  ·  World 2 at wave 6"
+    assert wave_medal(2, Phase.WAVE_CLEAR) == ""
+    assert wave_medal(3, Phase.FAILED) == ""
+    assert "Scout Wing" in summary
+    assert "RunSummary.ShowWaveMedal(" in ui
+    assert "RunSummary.WaveMedal(" in ui
+
+    assert "Enemy_Scout_Buffer_v5" in art
+    assert "Enemy_Gunner_Buffer_v5" in art
+    assert "Enemy_Drone_Buffer_v4" in art
+    assert art.index('"Enemy_Scout"') < art.index("Enemy_Scout_Buffer_v5")
+    assert art.index("Enemy_Scout_Buffer_v5") < art.index("Enemy_Scout_Buffer_v4")
+    assert art.index('"Enemy_Gunner"') < art.index("Enemy_Gunner_Buffer_v5")
+    assert art.index('"Enemy_Drone"') < art.index("Enemy_Drone_Buffer_v4")
+    assert "Enemy_Scout_Buffer_v5" in enemies
+    assert "Enemy_Gunner_Buffer_v5" in enemies
+    assert "Enemy_Drone_Buffer_v4" in enemies
+    assert "Enemy_Scout_Buffer_v5" not in factory
+    assert "Enemy_Gunner_Buffer_v5" not in factory
+    assert "Enemy_Drone_Buffer_v4" not in factory
+    assert 'EnemyCatalog.VisualName' in (root / "Assets/Scripts/Core/WaveManager.cs").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'new Vector3(1.95f, 0f, -2.55f)' in factory
+    assert "198f" in factory.split('PlaceHangarProp("Hangar_LaunchSign"')[1].split(";")[0]
+
+    death_kind = audio.split("public void PlayEnemyDeath(EnemyKind kind)")[1].split("public ")[0]
+    hit_kind = audio.split("public void PlayHit(EnemyKind kind)")[1].split("public ")[0]
+    death = audio.split("public void PlayEnemyDeath()")[1].split("public void")[0]
+    split = audio.split("public void PlayAsteroidSplit()")[1].split("public void")[0]
+    punch = audio.split("public void PlayHit()")[1].split("public void")[0]
+    abort_fn = audio.split("public void PlayAbortWhoosh()")[1].split("public void")[0]
+    assert "UsesLightThreatSfx" in death_kind
+    assert "UsesLightThreatSfx" in hit_kind
+    assert "_enemyDeathLight" in death_kind
+    assert "_hitLight" in hit_kind
+    assert "Play(_enemyDeath)" in death
+    assert "EnemyDeathPunchScale" in death
+    assert "Play(_asteroidSplit)" in split
+    assert "_enemyDeathPunch" not in split
+    assert "HitPunchScale" in punch
+    assert "DuckMusic" in abort_fn
+    assert "PlayEnemyDeath(_kind)" in seeker
+    assert "PlayHit(_kind)" in seeker
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_001")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/impactMetal_001")' in audio
+    assert (root / "Assets/Resources/Audio/Sfx/explosionCrunch_001.ogg").is_file()
+    assert (root / "Assets/Resources/Audio/Sfx/impactMetal_001.ogg").is_file()
+
+    lfs_prefix = b"version https://git-lfs.github.com/spec/v1"
+    for name in ("Enemy_Scout", "Enemy_Gunner", "Enemy_Drone"):
+        art_fbx = root / f"Assets/Art/Import/{name}.fbx"
+        res_fbx = root / f"Assets/Resources/Art/Import/{name}.fbx"
+        assert art_fbx.is_file() and art_fbx.stat().st_size > 1000
+        assert res_fbx.is_file() and res_fbx.stat().st_size > 1000
+        assert not res_fbx.read_bytes()[:64].startswith(lfs_prefix)
+        assert art_fbx.read_bytes() == res_fbx.read_bytes()
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -715,6 +807,7 @@ def main() -> int:
     test_local_best_audio_and_bolts()
     test_juice_best_hud()
     test_enemies_launch_034()
+    test_scout_drone_polish_0341()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

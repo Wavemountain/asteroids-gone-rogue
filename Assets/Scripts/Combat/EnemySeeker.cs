@@ -56,7 +56,7 @@ namespace AsteroidsGoneRogue
                 CombatJuice.ThreatDamaged(transform, false);
                 if (AudioCues.Instance != null)
                 {
-                    AudioCues.Instance.PlayHit();
+                    AudioCues.Instance.PlayHit(_kind);
                 }
 
                 return;
@@ -77,7 +77,7 @@ namespace AsteroidsGoneRogue
 
             if (AudioCues.Instance != null)
             {
-                AudioCues.Instance.PlayEnemyDeath();
+                AudioCues.Instance.PlayEnemyDeath(_kind);
             }
 
             Destroy(gameObject);
