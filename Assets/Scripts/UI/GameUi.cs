@@ -114,12 +114,14 @@ namespace AsteroidsGoneRogue
             switch (_session.Phase)
             {
                 case GamePhase.WaveClear:
-                    _statusBase = "Wave clear  ·  Score " + _session.Score + "  ·  Hangar open";
+                    _statusBase = "Wave clear  ·  Score " + _session.Score + "  ·  Hangar open"
+                        + "\n" + BestCardLine();
                     _primaryLabel.text = "Next Wave";
                     break;
                 case GamePhase.Failed:
                     _statusBase = "Ship lost  ·  " + FailReasonText() + "  ·  Score " + _session.Score
-                        + "  ·  Retry the wave";
+                        + "  ·  Retry the wave"
+                        + "\n" + BestCardLine();
                     _primaryLabel.text = "Retry Wave";
                     break;
                 default:
@@ -593,6 +595,18 @@ namespace AsteroidsGoneRogue
 
             _buyLabels[index].text = item.Title + "\n" + costLine;
             _buyLabels[index].color = labelColor;
+        }
+
+        private string BestCardLine()
+        {
+            LocalBest best = _game != null && _game.Best != null ? _game.Best : LocalBest.Load();
+            string line = best.CardLine();
+            if (_game != null && _game.LastRunWasNewBest)
+            {
+                return line + "  ·  NEW BEST";
+            }
+
+            return line;
         }
 
         private string FailReasonText()

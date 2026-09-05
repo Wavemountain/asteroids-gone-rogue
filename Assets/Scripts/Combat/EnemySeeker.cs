@@ -16,6 +16,8 @@ namespace AsteroidsGoneRogue
         private float _turn;
         private bool _dead;
         private Rigidbody _body;
+        private ContentFactory _factory;
+        private float _nextShot;
 
         public EnemyKind Kind
         {
@@ -37,6 +39,8 @@ namespace AsteroidsGoneRogue
             _turn = EnemyCatalog.TurnDegreesPerSecond(kind);
             _dead = false;
             _body = GetComponent<Rigidbody>();
+            _factory = Object.FindFirstObjectByType<ContentFactory>();
+            _nextShot = Time.time + 0.85f;
         }
 
         public void ApplyDamage(int amount)
@@ -58,11 +62,10 @@ namespace AsteroidsGoneRogue
             }
 
             _dead = true;
-            ContentFactory factory = Object.FindFirstObjectByType<ContentFactory>();
-            if (factory != null)
+            if (_factory != null)
             {
-                factory.SpawnVfx("Vfx_Explosion_Lowpoly", transform.position, 0.45f);
-                factory.MaybeDropPickup(transform.position);
+                _factory.SpawnVfx("Vfx_Explosion_Lowpoly", transform.position, 0.45f);
+                _factory.MaybeDropPickup(transform.position);
             }
 
             if (_waves != null)
@@ -107,6 +110,7 @@ namespace AsteroidsGoneRogue
                 look,
                 _turn * Time.fixedDeltaTime);
             _body.linearVelocity = dir * _speed;
+            TryFireBolt(dir);
 
             Vector3 pos = transform.position;
             pos.y = 0f;
@@ -115,6 +119,27 @@ namespace AsteroidsGoneRogue
             {
                 pos = pos.normalized * limit;
                 transform.position = pos;
+            }
+        }
+
+        private void TryFireBolt(Vector3 toPlayerDir)
+        {
+            if (!EnemyCatalog.FiresBolts(_kind) || _factory == null || Time.time < _nextShot)
+            {
+                return;
+            }
+
+            if (Vector3.Dot(transform.forward, toPlayerDir) < 0.62f)
+            {
+                return;
+            }
+
+            _nextShot = Time.time + EnemyCatalog.FireCooldown(_kind);
+            Vector3 origin = transform.position + transform.forward * 1.15f;
+            _factory.SpawnEnemyProjectile(origin, transform.forward, EnemyCatalog.BoltSpeed(_kind), 1, _kind);
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayEnemyShoot();
             }
         }
     }

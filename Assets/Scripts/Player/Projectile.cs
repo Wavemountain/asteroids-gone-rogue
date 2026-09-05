@@ -11,6 +11,8 @@ namespace AsteroidsGoneRogue
         private int _damage = 1;
         private float _dieAt;
         private bool _pierce;
+        private bool _hostile;
+        private EnemyKind _enemyKind = EnemyKind.Mid01;
         private readonly HashSet<int> _hitIds = new HashSet<int>();
 
         public void Launch(Vector3 direction, float speed, int damage)
@@ -20,9 +22,22 @@ namespace AsteroidsGoneRogue
 
         public void Launch(Vector3 direction, float speed, int damage, bool pierce)
         {
+            Launch(direction, speed, damage, pierce, false, EnemyKind.Mid01);
+        }
+
+        public void Launch(
+            Vector3 direction,
+            float speed,
+            int damage,
+            bool pierce,
+            bool hostile,
+            EnemyKind enemyKind)
+        {
             _velocity = direction.normalized * speed;
             _damage = damage;
             _pierce = pierce;
+            _hostile = hostile;
+            _enemyKind = enemyKind;
             _hitIds.Clear();
             _dieAt = Time.time + Lifetime;
             transform.rotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
@@ -39,7 +54,19 @@ namespace AsteroidsGoneRogue
 
         private void OnTriggerEnter(Collider other)
         {
-            if (other.CompareTag(GameTags.Player) || other.CompareTag(GameTags.Projectile))
+            if (other.CompareTag(GameTags.Projectile))
+            {
+                return;
+            }
+
+            if (_hostile)
+            {
+                if (!other.CompareTag(GameTags.Player))
+                {
+                    return;
+                }
+            }
+            else if (other.CompareTag(GameTags.Player))
             {
                 return;
             }
@@ -57,7 +84,16 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            damageable.ApplyDamage(_damage);
+            ShipHealth health = damageable as ShipHealth;
+            if (health != null)
+            {
+                health.ApplyDamage(_damage, DamageCause.EnemyContact, _enemyKind);
+            }
+            else
+            {
+                damageable.ApplyDamage(_damage);
+            }
+
             if (!_pierce)
             {
                 Destroy(gameObject);
