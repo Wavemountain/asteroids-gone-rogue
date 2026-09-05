@@ -40,12 +40,44 @@ namespace AsteroidsGoneRogue
             }
 
             EnemyKind[] roster = RosterForWave(waveIndex);
+            int spawned = 0;
             for (int i = 0; i < roster.Length; i++)
             {
-                float angle = waveIndex * 0.55f + (Mathf.PI * 2f * i) / Mathf.Max(1, roster.Length) + 1.1f;
-                Vector3 pos = RingPoint(angle, 16.5f - (i % 2) * 1.4f);
+                if (!CanSpawn(roster[i]))
+                {
+                    continue;
+                }
+
+                float angle = waveIndex * 0.55f + (Mathf.PI * 2f * spawned) / Mathf.Max(1, roster.Length) + 1.1f;
+                Vector3 pos = RingPoint(angle, 16.5f - (spawned % 2) * 1.4f);
                 Register(_factory.CreateEnemy(pos, _player, this, EnemyCatalog.VisualName(roster[i])));
+                spawned++;
             }
+
+            SpawnWavePickup(waveIndex);
+        }
+
+        private static bool CanSpawn(EnemyKind kind)
+        {
+            if (!EnemyCatalog.RequiresImportedMesh(kind))
+            {
+                return true;
+            }
+
+            return ArtImport.LoadPrefab(EnemyCatalog.VisualName(kind)) != null;
+        }
+
+        private void SpawnWavePickup(int waveIndex)
+        {
+            if (waveIndex < 2)
+            {
+                return;
+            }
+
+            string[] kinds = { "Pickup_Score", "Pickup_Shield", "Pickup_Health", "Pickup_RapidFire" };
+            string visual = kinds[(waveIndex - 2) % kinds.Length];
+            Vector3 pos = RingPoint(waveIndex * 1.3f + 0.4f, 8.5f);
+            _factory.CreatePickup(visual, pos);
         }
 
         public static int LargeAsteroidCount(int waveIndex)
@@ -71,13 +103,13 @@ namespace AsteroidsGoneRogue
                 case 6:
                     return new[] { EnemyKind.Gunner, EnemyKind.Scout };
                 case 7:
-                    return new[] { EnemyKind.Gunner, EnemyKind.Drone, EnemyKind.Scout };
+                    return new[] { EnemyKind.Gunner, EnemyKind.Drone, EnemyKind.Scout, EnemyKind.Bomber };
                 case 8:
-                    return new[] { EnemyKind.Gunner, EnemyKind.Scout, EnemyKind.Drone, EnemyKind.Scout };
+                    return new[] { EnemyKind.Gunner, EnemyKind.Scout, EnemyKind.Drone, EnemyKind.Sniper };
                 case 9:
-                    return new[] { EnemyKind.Gunner, EnemyKind.Mid01, EnemyKind.Drone, EnemyKind.Scout };
+                    return new[] { EnemyKind.Gunner, EnemyKind.Mid01, EnemyKind.Drone, EnemyKind.SwarmPod };
                 default:
-                    return new[] { EnemyKind.Gunner, EnemyKind.Gunner, EnemyKind.Scout, EnemyKind.Drone };
+                    return new[] { EnemyKind.Gunner, EnemyKind.Bomber, EnemyKind.Sniper, EnemyKind.SwarmPod, EnemyKind.Scout };
             }
         }
 
@@ -113,6 +145,7 @@ namespace AsteroidsGoneRogue
             }
 
             _factory.ClearProjectiles();
+            _factory.ClearPickups();
         }
 
         public static Vector3 RingPoint(float angle, float radius)

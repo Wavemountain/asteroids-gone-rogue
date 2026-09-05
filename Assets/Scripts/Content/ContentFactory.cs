@@ -17,6 +17,7 @@ namespace AsteroidsGoneRogue
         private readonly List<Projectile> _projectiles = new List<Projectile>();
         private Transform _threatRoot;
         private Transform _projectileRoot;
+        private Transform _pickupRoot;
         private GameObject _hangarDressing;
         private Material _hull;
         private Material _accent;
@@ -83,6 +84,7 @@ namespace AsteroidsGoneRogue
 
             _threatRoot = new GameObject("Threats").transform;
             _projectileRoot = new GameObject("Projectiles").transform;
+            _pickupRoot = new GameObject("Pickups").transform;
             BuildHangarDressing();
         }
 
@@ -110,6 +112,8 @@ namespace AsteroidsGoneRogue
                 new Vector3(0.7f, 1.1f, 0.7f), 2.2f);
             PlaceHangarProp("Hangar_ShopKiosk", new Vector3(2.2f, 0f, -6.8f), _accent, PrimitiveType.Cube,
                 new Vector3(1.2f, 1.6f, 0.7f), 1.6f);
+            PlaceHangarProp("Hangar_Banner", new Vector3(0f, 0f, 9.4f), _accent, PrimitiveType.Cube,
+                new Vector3(2.4f, 1.6f, 0.2f), 1.6f);
         }
 
         private void PlaceHangarProp(
@@ -201,6 +205,15 @@ namespace AsteroidsGoneRogue
 
             upgradedNose.SetActive(false);
 
+            GameObject upgradedNose02;
+            if (!TryVisual("Ship_Nose_Upgrade02", noseSlot, _accent, out upgradedNose02))
+            {
+                upgradedNose02 = CreatePrimitive(PrimitiveType.Cube, "Ship_Nose_Upgrade02", noseSlot, _accentHot,
+                    new Vector3(0f, 0f, 1.25f), new Vector3(0.55f, 0.28f, 1.2f), Quaternion.identity);
+            }
+
+            upgradedNose02.SetActive(false);
+
             Transform engineSlot = CreateSlot("Ship_Engine", slots);
             GameObject defaultEngine;
             if (!TryVisual("Ship_Engine", engineSlot, _hull, out defaultEngine))
@@ -229,6 +242,15 @@ namespace AsteroidsGoneRogue
 
             upgradedEngine.SetActive(false);
 
+            GameObject upgradedEngine02;
+            if (!TryVisual("Ship_Engine_Upgrade02", engineSlot, _hull, out upgradedEngine02))
+            {
+                upgradedEngine02 = CreatePrimitive(PrimitiveType.Cube, "Ship_Engine_Upgrade02", engineSlot, _glow,
+                    new Vector3(0f, 0f, -1.2f), new Vector3(1.05f, 0.55f, 0.8f), Quaternion.identity);
+            }
+
+            upgradedEngine02.SetActive(false);
+
             GameObject shield = CreatePrimitive(PrimitiveType.Sphere, "ShieldBubble", slots, _shield,
                 Vector3.zero, new Vector3(2.4f, 2.4f, 2.4f), Quaternion.identity);
             shield.SetActive(false);
@@ -245,8 +267,10 @@ namespace AsteroidsGoneRogue
             visuals.EngineSlot = engineSlot;
             visuals.DefaultNose = defaultNose;
             visuals.UpgradedNose = upgradedNose;
+            visuals.UpgradedNose02 = upgradedNose02;
             visuals.DefaultEngine = defaultEngine;
             visuals.UpgradedEngine = upgradedEngine;
+            visuals.UpgradedEngine02 = upgradedEngine02;
             visuals.ShieldBubble = shield;
 
             ShipHealth health = root.AddComponent<ShipHealth>();
@@ -374,10 +398,7 @@ namespace AsteroidsGoneRogue
         private Asteroid CreateAsteroid(AsteroidSize size, Vector3 position, Vector3 drift, WaveManager waves)
         {
             float meters = size == AsteroidSize.Large ? LargeAsteroidMeters : SmallAsteroidMeters;
-            bool variantB = Random.value < 0.45f;
-            string propName = size == AsteroidSize.Large
-                ? (variantB ? "Asteroid_VariantB_Large" : "Asteroid_Large")
-                : (variantB ? "Asteroid_VariantB_Small" : "Asteroid_Small");
+            string propName = PickAsteroidVisual(size);
             GameObject root = new GameObject(propName);
             root.tag = GameTags.Asteroid;
             root.transform.SetParent(_threatRoot, false);
@@ -393,14 +414,19 @@ namespace AsteroidsGoneRogue
             SphereCollider collider = root.AddComponent<SphereCollider>();
             collider.radius = meters * 0.5f;
 
-            if (!TryVisual(propName, root.transform, variantB ? _asteroidB : _asteroid))
+            Material rock = propName.IndexOf("VariantB", System.StringComparison.Ordinal) >= 0
+                ? _asteroidB
+                : _asteroid;
+            if (!TryVisual(propName, root.transform, rock)
+                && !TryVisual(size == AsteroidSize.Large ? "Asteroid_Large" : "Asteroid_Small", root.transform, _asteroid))
             {
                 float wobble = size == AsteroidSize.Large ? 0.18f : 0.12f;
+                bool faceted = propName.IndexOf("Variant", System.StringComparison.Ordinal) >= 0;
                 Vector3 scale = new Vector3(
                     meters * (1f + Random.Range(-wobble, wobble)),
-                    meters * (variantB ? 0.7f : 0.82f),
+                    meters * (faceted ? 0.7f : 0.82f),
                     meters * (1f + Random.Range(-wobble, wobble)));
-                CreatePrimitive(variantB ? PrimitiveType.Cube : PrimitiveType.Sphere, "Mesh", root.transform, _asteroid,
+                CreatePrimitive(faceted ? PrimitiveType.Cube : PrimitiveType.Sphere, "Mesh", root.transform, rock,
                     Vector3.zero, scale, Quaternion.identity);
             }
 
@@ -417,6 +443,11 @@ namespace AsteroidsGoneRogue
             }
 
             GameObject root = new GameObject(visualName);
+            if (_pickupRoot != null)
+            {
+                root.transform.SetParent(_pickupRoot, false);
+            }
+
             root.transform.position = position;
             Material fallback = visualName.IndexOf("Shield", System.StringComparison.OrdinalIgnoreCase) >= 0
                 ? _shield
@@ -427,7 +458,73 @@ namespace AsteroidsGoneRogue
                     Vector3.zero, new Vector3(0.7f, 0.7f, 0.7f), Quaternion.identity);
             }
 
+            SphereCollider trigger = root.AddComponent<SphereCollider>();
+            trigger.isTrigger = true;
+            trigger.radius = 0.7f;
+            Rigidbody body = root.AddComponent<Rigidbody>();
+            body.useGravity = false;
+            body.isKinematic = true;
+            root.AddComponent<Pickup>().Bind(Pickup.KindFromName(visualName));
             return root;
+        }
+
+        public void ClearPickups()
+        {
+            if (_pickupRoot == null)
+            {
+                return;
+            }
+
+            for (int i = _pickupRoot.childCount - 1; i >= 0; i--)
+            {
+                Destroy(_pickupRoot.GetChild(i).gameObject);
+            }
+        }
+
+        public void SpawnVfx(string assetName, Vector3 position, float lifetime)
+        {
+            GameObject root = new GameObject(assetName);
+            root.transform.position = position;
+            if (!TryVisual(assetName, root.transform, _glow))
+            {
+                CreatePrimitive(PrimitiveType.Sphere, "Mesh", root.transform, _glow,
+                    Vector3.zero, new Vector3(0.45f, 0.45f, 0.45f), Quaternion.identity);
+            }
+
+            Destroy(root, lifetime);
+        }
+
+        public void MaybeDropPickup(Vector3 position)
+        {
+            if (Random.value > 0.22f)
+            {
+                return;
+            }
+
+            string[] kinds = { "Pickup_Score", "Pickup_Shield", "Pickup_Health", "Pickup_RapidFire" };
+            CreatePickup(kinds[Random.Range(0, kinds.Length)], position);
+        }
+
+        private static string PickAsteroidVisual(AsteroidSize size)
+        {
+            string suffix = size == AsteroidSize.Large ? "Large" : "Small";
+            float roll = Random.value;
+            if (roll < 0.25f)
+            {
+                return "Asteroid_VariantC_" + suffix;
+            }
+
+            if (roll < 0.5f)
+            {
+                return "Asteroid_VariantD_" + suffix;
+            }
+
+            if (roll < 0.75f)
+            {
+                return "Asteroid_VariantB_" + suffix;
+            }
+
+            return "Asteroid_" + suffix;
         }
 
         private bool TryVisual(string assetName, Transform parent, Material fallback)

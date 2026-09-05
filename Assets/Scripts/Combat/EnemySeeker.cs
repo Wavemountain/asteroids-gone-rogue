@@ -53,6 +53,13 @@ namespace AsteroidsGoneRogue
             }
 
             _dead = true;
+            ContentFactory factory = Object.FindObjectOfType<ContentFactory>();
+            if (factory != null)
+            {
+                factory.SpawnVfx("Vfx_Explosion_Lowpoly", transform.position, 0.45f);
+                factory.MaybeDropPickup(transform.position);
+            }
+
             if (_waves != null)
             {
                 _waves.NotifyDestroyed(this, EnemyCatalog.Score(_kind));

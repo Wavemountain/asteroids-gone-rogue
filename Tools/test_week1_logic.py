@@ -139,6 +139,14 @@ def test_wave_ladder_rises() -> None:
     assert "case 2:" in text and "EnemyKind.Scout" in text
     assert "case 4:" in text and "EnemyKind.Gunner" in text
     assert "case 5:" in text and "EnemyKind.Drone" in text
+    assert "EnemyKind.Bomber" in text
+    factory = (Path(__file__).resolve().parents[1] / "Assets/Scripts/Content/ContentFactory.cs").read_text(
+        encoding="utf-8"
+    )
+    assert "VariantC" in factory and "VariantD" in factory
+    assert "Vfx_MuzzleFlash" in (
+        Path(__file__).resolve().parents[1] / "Assets/Scripts/Player/ShipShooter.cs"
+    ).read_text(encoding="utf-8")
 
 
 def test_factory_wires_import_fbx() -> None:
@@ -155,9 +163,13 @@ def test_factory_wires_import_fbx() -> None:
     assert "Enemy_Scout" in waves or "EnemyKind.Scout" in waves
     assert "EnemyKind.Gunner" in waves
     assert "EnemyKind.Drone" in waves
-    assert "Enemy_Bomber" not in waves
+    assert "EnemyKind.Bomber" in waves
+    assert "EnemyKind.Sniper" in waves
+    assert "EnemyKind.SwarmPod" in waves
     catalog = (root / "Assets/Scripts/Core/ShopCatalog.cs").read_text(encoding="utf-8")
     assert "BodyUpgrade01" in catalog
+    assert "NoseUpgrade02" in catalog
+    assert "EngineUpgrade02" in catalog
     assert "Projectile_Bolt" in factory
     assert "Arena_Blockout" in factory
     assert "Resources.Load" in art

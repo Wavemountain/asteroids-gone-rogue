@@ -5,6 +5,8 @@ namespace AsteroidsGoneRogue
         RapidFire,
         ShieldCell,
         NoseHardpoint,
-        BodyUpgrade01
+        BodyUpgrade01,
+        NoseUpgrade02,
+        EngineUpgrade02
     }
 }

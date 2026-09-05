@@ -74,6 +74,17 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        public void AddBonusScore(int amount)
+        {
+            if (_session == null || _session.Phase != GamePhase.Playing || amount <= 0)
+            {
+                return;
+            }
+
+            _session.AddScore(amount);
+            RaiseStateChanged();
+        }
+
         public void NotifyThreatDestroyed(int scoreValue)
         {
             if (_session.Phase != GamePhase.Playing)

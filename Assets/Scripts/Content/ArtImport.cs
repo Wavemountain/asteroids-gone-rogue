@@ -120,7 +120,7 @@ namespace AsteroidsGoneRogue
             {
                 _summaryLogged = true;
                 Debug.Log("ArtImport: " + loaded + "/" + PlayModeAssets.Length
-                    + " Play Mode FBX ready from " + ImportFolder + ".");
+                    + " Play Mode FBX ready (Resources/Art/Import + " + ImportFolder + ").");
             }
         }
 

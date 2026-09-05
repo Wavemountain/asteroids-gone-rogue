@@ -39,7 +39,17 @@ namespace AsteroidsGoneRogue
                 UpgradeId.BodyUpgrade01,
                 "Body Upgrade",
                 "Swaps the hull to Ship_Body_Upgrade01 and adds 1 hull hit.",
-                90)
+                90),
+            new ShopItem(
+                UpgradeId.NoseUpgrade02,
+                "Nose Upgrade 02",
+                "Requires Nose Hardpoint. Swaps to Ship_Nose_Upgrade02 (3 damage).",
+                150),
+            new ShopItem(
+                UpgradeId.EngineUpgrade02,
+                "Engine Upgrade 02",
+                "Requires Rapid Fire. Swaps to Ship_Engine_Upgrade02 (faster gun).",
+                140)
         };
     }
 }

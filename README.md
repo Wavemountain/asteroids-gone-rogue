@@ -41,7 +41,7 @@ Editor helpers: menu **Asteroids gone rogue → Open Play Scene** / **Validate W
 3. **Wave Clear** — score (including clear bonus) and **150 credits**, then shop.
 4. **Fail** — ship destroyed; retry the same wave. Bought upgrades stay.
 
-Wave 1: 4 large asteroids + 1 `Enemy_01`. Waves 2–10 add `Enemy_Scout` / `Enemy_Gunner` / `Enemy_Drone` and more rocks. Bomber / Sniper / SwarmPod stay unused.
+Wave 1: 4 large asteroids + 1 `Enemy_01`. Waves 2–10 add Scout / Gunner / Drone, then Bomber / Sniper / SwarmPod when those FBX are present. World 2–6 arenas stay unused.
 
 ## Shop
 
@@ -53,6 +53,8 @@ Upgrades persist into the next wave.
 | Shield Cell | 80 | +1 visible shield hit before hull (max 2) |
 | Nose Hardpoint | 120 | Swaps **Ship_Nose** → `Ship_Nose_Upgrade01`; faster, 2-damage shots |
 | Body Upgrade | 90 | Swaps **Ship_Body** → `Ship_Body_Upgrade01`; +1 hull |
+| Nose Upgrade 02 | 150 | Requires Nose Hardpoint; `Ship_Nose_Upgrade02`; 3 damage |
+| Engine Upgrade 02 | 140 | Requires Rapid Fire; `Ship_Engine_Upgrade02`; faster gun |
 
 Hull is 3 hits. Large asteroids take 2 hits then split into 3 small shards. Small shards and the enemy are destroyable.
 
@@ -92,7 +94,7 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 ## What is stubbed
 
 - **Meshes** come from `Assets/Art/Import/` FBX on Press Play (`ArtImport` loads by path — no Inspector mesh swap). Primitive fallbacks stay if an FBX is missing.
-- **Not spawned:** `Arena_World2+`, `Ship_Complete*`, `Ship_*_Upgrade02`, Bomber / Sniper / SwarmPod, extra pickups.
+- **Not spawned:** `Arena_World2–6` gameplay, `Ship_Complete*`, Body Upgrade 02.
 - **Ship_*** part slots share origin `0,0,0` so Rapid Fire / Nose Hardpoint / Body Upgrade stay a SetActive swap.
 - No extra ships, no 30-wave campaign, no extra worlds, no large shop, no polish pass, no multiplayer.
 - No Input System / URP / TextMeshPro (avoids extra first-open prompts).
@@ -110,4 +112,4 @@ python3 Tools/test_week1_logic.py
 
 ## Success check
 
-Press Play → hangar shows the BlenderBot ship + crate/terminal/pillar/workbench/fuel cell/kiosk. Start Wave 1 (`Enemy_01`) → clear → Wave 2 Scout → later Gunner/Drone. Buy **Body Upgrade** to swap `Ship_Body_Upgrade01` (Rapid Fire / Shield / Nose Hardpoint still work).
+Press Play → hangar FBX (crate/terminal/pillar + workbench/kiosk/banner). Wave 1 `Enemy_01` → later Scout/Gunner/Drone/Bomber/Sniper/SwarmPod. Shop Body + Nose/Engine 02. Pickups and muzzle/explosion VFX.

@@ -15,12 +15,14 @@ namespace AsteroidsGoneRogue
         private bool _inputEnabled;
 
         public ShipHealth Health { get; private set; }
+        public ShipShooter Shooter { get; private set; }
         public ShipVisuals Visuals { get; private set; }
 
         public void Bind(ShipHealth health, ShipShooter shooter, ShipVisuals visuals, Camera camera)
         {
             Health = health;
             _shooter = shooter;
+            Shooter = shooter;
             Visuals = visuals;
             _camera = camera;
             _body = GetComponent<Rigidbody>();

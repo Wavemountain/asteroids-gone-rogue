@@ -87,6 +87,11 @@ namespace AsteroidsGoneRogue
                 }
             }
 
+            if (_factory != null)
+            {
+                _factory.SpawnVfx("Vfx_Explosion_Lowpoly", transform.position, 0.45f);
+            }
+
             if (_waves != null)
             {
                 _waves.NotifyDestroyed(this, score);

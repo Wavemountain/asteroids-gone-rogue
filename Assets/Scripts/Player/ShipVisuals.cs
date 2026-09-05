@@ -14,8 +14,10 @@ namespace AsteroidsGoneRogue
         public GameObject UpgradedBody;
         public GameObject DefaultNose;
         public GameObject UpgradedNose;
+        public GameObject UpgradedNose02;
         public GameObject DefaultEngine;
         public GameObject UpgradedEngine;
+        public GameObject UpgradedEngine02;
         public GameObject ShieldBubble;
 
         public void ApplyLoadout(LoadoutState loadout)
@@ -31,26 +33,46 @@ namespace AsteroidsGoneRogue
                 UpgradedBody.SetActive(bodyUpgrade);
             }
 
-            bool hardpoint = loadout != null && loadout.NoseHardpoint;
-            if (DefaultNose != null)
+            int noseTier = 0;
+            if (loadout != null && loadout.NoseUpgrade02)
             {
-                DefaultNose.SetActive(!hardpoint);
+                noseTier = 2;
+            }
+            else if (loadout != null && loadout.NoseHardpoint)
+            {
+                noseTier = 1;
             }
 
-            if (UpgradedNose != null)
+            SetTier(DefaultNose, UpgradedNose, UpgradedNose02, noseTier);
+
+            int engineTier = 0;
+            if (loadout != null && loadout.EngineUpgrade02)
             {
-                UpgradedNose.SetActive(hardpoint);
+                engineTier = 2;
+            }
+            else if (loadout != null && loadout.RapidFire)
+            {
+                engineTier = 1;
             }
 
-            bool engineUpgrade = loadout != null && loadout.RapidFire;
-            if (DefaultEngine != null)
+            SetTier(DefaultEngine, UpgradedEngine, UpgradedEngine02, engineTier);
+        }
+
+        private static void SetTier(GameObject tier0, GameObject tier1, GameObject tier2, int tier)
+        {
+            if (tier0 != null)
             {
-                DefaultEngine.SetActive(!engineUpgrade);
+                tier0.SetActive(tier == 0);
             }
 
-            if (UpgradedEngine != null)
+            if (tier1 != null)
             {
-                UpgradedEngine.SetActive(engineUpgrade);
+                tier1.SetActive(tier == 1);
+            }
+
+            if (tier2 != null)
+            {
+                tier2.SetActive(tier == 2);
             }
         }
 

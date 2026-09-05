@@ -7,6 +7,7 @@ namespace AsteroidsGoneRogue
         private GameManager _game;
         private ShipVisuals _visuals;
         private int _hull = LoadoutState.HullHitPoints;
+        private int _maxHull = LoadoutState.HullHitPoints;
         private int _shield;
         private bool _dead;
 
@@ -29,12 +30,50 @@ namespace AsteroidsGoneRogue
         public void ResetForWave(LoadoutState loadout)
         {
             _dead = false;
-            _hull = loadout != null ? loadout.CurrentHullHitPoints : LoadoutState.HullHitPoints;
+            _maxHull = loadout != null ? loadout.CurrentHullHitPoints : LoadoutState.HullHitPoints;
+            _hull = _maxHull;
             _shield = loadout != null ? loadout.ShieldCharges : 0;
             if (_visuals != null)
             {
                 _visuals.SetShieldVisible(_shield > 0);
             }
+        }
+
+        public bool TryHeal(int amount)
+        {
+            if (_dead || amount <= 0 || _hull >= _maxHull)
+            {
+                return false;
+            }
+
+            _hull = Mathf.Min(_maxHull, _hull + amount);
+            if (_game != null)
+            {
+                _game.RefreshHud();
+            }
+
+            return true;
+        }
+
+        public bool TryAddShield()
+        {
+            if (_dead || _shield >= LoadoutState.MaxShieldCharges)
+            {
+                return false;
+            }
+
+            _shield += 1;
+            if (_visuals != null)
+            {
+                _visuals.SetShieldVisible(true);
+            }
+
+            if (_game != null)
+            {
+                _game.RefreshHud();
+            }
+
+            return true;
         }
 
         public void ApplyDamage(int amount)
