@@ -66,6 +66,7 @@ def main() -> int:
     require(ROOT / "Assets/Resources/Audio/Sfx/laserRetro_000.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/laserLarge_000.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/impactMetal_003.ogg")
+    require(ROOT / "Assets/Resources/Audio/Sfx/impactMetal_000.ogg")
     require(ROOT / "Assets/Resources/Audio/Music/OutThere.ogg")
     require(ROOT / "Assets/Resources/Audio/Music/spacelifeNo14.ogg")
 
@@ -195,6 +196,7 @@ def main() -> int:
         "Hangar_PowerBox",
         "Hangar_FireExtinguisher",
         "Hangar_Locker",
+        "Ship_Complete",
         "Projectile_Bolt",
         "Projectile_EnemyBolt",
         "Pickup_Score",

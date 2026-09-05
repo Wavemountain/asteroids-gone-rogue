@@ -146,6 +146,7 @@ namespace AsteroidsGoneRogue
                 _hull = 0;
                 _dead = true;
                 ClearInvulnerability();
+                CombatJuice.PlayerDamaged(true);
                 if (_game != null)
                 {
                     string reason = cause == DamageCause.EnemyContact
@@ -156,6 +157,7 @@ namespace AsteroidsGoneRogue
             }
             else
             {
+                CombatJuice.PlayerDamaged(false);
                 BeginInvulnerability();
                 if (_game != null)
                 {

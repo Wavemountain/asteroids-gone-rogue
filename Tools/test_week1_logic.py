@@ -20,6 +20,9 @@ class Session:
         self.score = 0
         self.credits = 0
         self.fail_reason = ""
+        self.last_resolved_wave = 0
+        self.last_credits_awarded = 0
+        self.last_run_score = 0
 
     @property
     def can_start(self) -> bool:
@@ -35,14 +38,20 @@ class Session:
 
     def complete(self, bonus: int = 100, credits: int = 150) -> None:
         assert self.phase == Phase.PLAYING
+        self.last_resolved_wave = self.wave
+        self.last_credits_awarded = credits
         self.score += bonus
         self.credits += credits
+        self.last_run_score = self.score
         self.wave += 1
         self.phase = Phase.WAVE_CLEAR
 
     def fail(self, reason: str | None = None) -> None:
         assert self.phase == Phase.PLAYING
         self.fail_reason = reason or "Unknown cause"
+        self.last_resolved_wave = self.wave
+        self.last_credits_awarded = 0
+        self.last_run_score = self.score
         self.phase = Phase.FAILED
 
     def hangar(self) -> None:
@@ -90,6 +99,9 @@ def test_clear_loop() -> None:
     assert s.wave == 2
     assert s.score == 185
     assert s.credits == 150
+    assert s.last_resolved_wave == 1
+    assert s.last_credits_awarded == 150
+    assert s.last_run_score == 185
     assert s.spend(100)
     loadout = Loadout()
     loadout.rapid = True
@@ -282,9 +294,9 @@ def test_factory_wires_import_fbx() -> None:
     audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
     assert "DefaultSfxVolume = 0.8f" in audio
     assert "DefaultMusicVolume = 0.28f" in audio
-    assert "HangarMusicScale = 0.36f" in audio
+    assert "HangarMusicScale = 0.48f" in audio
     assert "ArenaMusicScale = 0.82f" in audio
-    assert "HangarMusicPitch = 0.88f" in audio
+    assert "HangarMusicPitch = 0.94f" in audio
     assert "PlayerPrefs.GetInt(MuteKey, 0)" in audio
     assert 'Resources.Load<AudioClip>("Audio/Sfx/maximize_008")' in audio
     assert 'Resources.Load<AudioClip>("Audio/Sfx/click_002")' in audio
@@ -486,6 +498,109 @@ def test_local_best_audio_and_bolts() -> None:
         assert path.is_file() and path.stat().st_size > 1000
 
 
+def test_juice_best_hud() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    juice = (root / "Assets/Scripts/Combat/CombatJuice.cs").read_text(encoding="utf-8")
+    flash = (root / "Assets/Scripts/Combat/MeshHitFlash.cs").read_text(encoding="utf-8")
+    camera = (root / "Assets/Scripts/Player/FollowCamera.cs").read_text(encoding="utf-8")
+    health = (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
+    visuals = (root / "Assets/Scripts/Player/ShipVisuals.cs").read_text(encoding="utf-8")
+    seeker = (root / "Assets/Scripts/Combat/EnemySeeker.cs").read_text(encoding="utf-8")
+    asteroid = (root / "Assets/Scripts/Combat/Asteroid.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    art = (root / "Assets/Scripts/Content/ArtImport.cs").read_text(encoding="utf-8")
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    enemies = (root / "Assets/Scripts/Combat/EnemyKind.cs").read_text(encoding="utf-8")
+
+    assert "LastResolvedWave" in session
+    assert "LastCreditsAwarded" in session
+    assert "RunSummaryCard" in ui
+    assert "RefreshRunSummary" in ui
+    assert "BestCardLine()" in ui.split("private string BuildHud")[1]
+    assert "ContinueHint" in ui
+    assert "World 2 at wave" in summary
+    assert "ShowAfterWave1Hint" in summary
+    assert "CreditsLine" in summary and "UpgradesLine" in summary
+    assert "WAVE CLEAR" in summary and "SHIP LOST" in summary
+
+    s = Session()
+    s.begin()
+    s.add_score(85)
+    s.complete()
+    assert s.last_resolved_wave == 1
+    assert s.last_credits_awarded == 150
+    assert RunSummary_show_after_wave1(s.last_resolved_wave, s.phase)
+    assert not RunSummary_show_after_wave1(2, Phase.WAVE_CLEAR)
+    assert "Score 185  ·  Wave 1  ·  World 1" == run_stats_line(185, 1, 1)
+    assert "Credits 150  (+150)" == run_credits_line(150, 150)
+
+    assert "PlayerDamaged" in juice
+    assert "ThreatDamaged" in juice
+    assert "AddShake" in camera
+    assert "FlashHit" in ui
+    assert "ScreenFlash" in ui
+    assert "MaterialPropertyBlock" in flash
+    assert "public static void Play" in flash
+    assert "CombatJuice.PlayerDamaged(false)" in health
+    assert "CombatJuice.PlayerDamaged(true)" in health
+    assert "CombatJuice.ThreatDamaged(transform, false)" in seeker
+    assert "CombatJuice.ThreatDamaged(transform, true)" in seeker
+    assert "CombatJuice.ThreatDamaged(transform, true)" in asteroid
+    assert "Fx_HitFlash" not in visuals and "DeathBurst" not in visuals
+
+    assert "PierceNeedle" in factory
+    assert "SpreadCore" in factory
+    assert "new Vector3(0.48f, 0.48f, 2.05f)" in factory
+    assert "new Vector3(1.65f, 1.65f, 0.48f)" in factory
+    assert "TryEnemyVisual" in factory
+    assert "Enemy_Scout_Buffer_v4" in factory
+    assert "Enemy_Gunner_Buffer_v4" in factory
+    assert 'PlaceHangarProp("Hangar_ShipComplete", "Ship_Complete"' in factory
+    warm = art.split("PlayModeAssets")[1].split("};")[0]
+    assert "Enemy_Scout" in warm and "Enemy_Gunner" in warm
+    assert "Ship_Complete" in warm
+    assert "Enemy_Scout_Buffer_v4" in enemies
+
+    assert "DuckMusic" in audio
+    assert "PlayAbortWhoosh" in audio
+    assert "AbortDuckScale" in audio
+    assert "HitPunchScale = 1.22f" in audio
+    assert "HangarLayerScale" in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/impactMetal_000")' in audio
+    punch = audio.split("public void PlayHit()")[1].split("public void")[0]
+    assert "HitPunchScale" in punch
+    abort_fn = audio.split("public void PlayAbortWhoosh()")[1].split("public void")[0]
+    assert "DuckMusic" in abort_fn
+
+    lfs_prefix = b"version https://git-lfs.github.com/spec/v1"
+    for name in ("Enemy_Scout", "Enemy_Gunner", "Ship_Complete"):
+        art_fbx = root / f"Assets/Art/Import/{name}.fbx"
+        res_fbx = root / f"Assets/Resources/Art/Import/{name}.fbx"
+        assert art_fbx.is_file() and art_fbx.stat().st_size > 1000
+        assert res_fbx.is_file() and res_fbx.stat().st_size > 1000
+        assert not res_fbx.read_bytes()[:64].startswith(lfs_prefix)
+        assert art_fbx.read_bytes() == res_fbx.read_bytes()
+
+
+def run_stats_line(score: int, wave: int, world: int) -> str:
+    return f"Score {score}  ·  Wave {wave}  ·  World {world}"
+
+
+def run_credits_line(credits: int, awarded: int) -> str:
+    if awarded > 0:
+        return f"Credits {credits}  (+{awarded})"
+    return f"Credits {credits}"
+
+
+def RunSummary_show_after_wave1(last_resolved_wave: int, phase: str) -> bool:
+    return last_resolved_wave == 1 and phase == Phase.WAVE_CLEAR
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -501,6 +616,7 @@ def main() -> int:
     test_tighter_loop_wrap_abort_weapons()
     test_shop_clarity_and_hangar_wire()
     test_local_best_audio_and_bolts()
+    test_juice_best_hud()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

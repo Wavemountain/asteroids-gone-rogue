@@ -14,7 +14,7 @@ FBX in this folder are instantiated on Press Play by `ArtImport` / `ContentFacto
 - [x] `Ship_Nose` — Play Mode
 - [x] `Ship_Body` — Play Mode
 - [x] `Ship_Engine` — Play Mode
-- [x] `Ship_Complete` (preview only)
+- [x] `Ship_Complete` (hangar bay display, Buffer v3 bytes)
 - [x] `Ship_Nose_Upgrade01` (hangar nose slot)
 - [x] `Ship_Engine_Upgrade01` (hangar engine slot)
 - [x] `Ship_Body_Upgrade01` (imported, no shop swap)
@@ -40,7 +40,8 @@ FBX in this folder are instantiated on Press Play by `ArtImport` / `ContentFacto
 
 ## Present but not Week 1 gameplay
 
-- [x] `Enemy_Scout` / `Enemy_Gunner` / `Enemy_Drone` (loadable if spawned)
+- [x] `Enemy_Scout` / `Enemy_Gunner` (Play waves 2+, Buffer v4 bytes under canonical names)
+- [x] `Enemy_Drone` (loadable if spawned)
 - [x] `Arena_World2_Blockout` / `Arena_World3_Blockout`
 - [x] `Pickup_Score` / `Pickup_Shield` (`CreatePickup` only)
 

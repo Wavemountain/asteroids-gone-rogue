@@ -61,6 +61,7 @@ namespace AsteroidsGoneRogue
             "Hangar_PowerBox",
             "Hangar_FireExtinguisher",
             "Hangar_Locker",
+            "Ship_Complete",
             "Projectile_Bolt",
             "Projectile_EnemyBolt",
             "Pickup_Score",

@@ -53,6 +53,7 @@ namespace AsteroidsGoneRogue
             _hp -= amount;
             if (_hp > 0)
             {
+                CombatJuice.ThreatDamaged(transform, false);
                 if (AudioCues.Instance != null)
                 {
                     AudioCues.Instance.PlayHit();
@@ -62,6 +63,7 @@ namespace AsteroidsGoneRogue
             }
 
             _dead = true;
+            CombatJuice.ThreatDamaged(transform, true);
             if (_factory != null)
             {
                 _factory.SpawnVfx("Vfx_Explosion_Lowpoly", transform.position, 0.45f);

@@ -13,6 +13,9 @@ namespace AsteroidsGoneRogue
         public int Score { get; private set; }
         public int Credits { get; private set; }
         public string FailReason { get; private set; } = string.Empty;
+        public int LastResolvedWave { get; private set; }
+        public int LastCreditsAwarded { get; private set; }
+        public int LastRunScore { get; private set; }
 
         public bool CanStartWave
         {
@@ -37,6 +40,7 @@ namespace AsteroidsGoneRogue
             }
 
             FailReason = string.Empty;
+            LastCreditsAwarded = 0;
             Phase = GamePhase.Playing;
         }
 
@@ -57,8 +61,11 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            LastResolvedWave = WaveIndex;
+            LastCreditsAwarded = credits;
             Score += bonusScore;
             Credits += credits;
+            LastRunScore = Score;
             WaveIndex += 1;
             Phase = GamePhase.WaveClear;
         }
@@ -76,6 +83,9 @@ namespace AsteroidsGoneRogue
             }
 
             FailReason = string.IsNullOrEmpty(reason) ? "Unknown cause" : reason;
+            LastResolvedWave = WaveIndex;
+            LastCreditsAwarded = 0;
+            LastRunScore = Score;
             Phase = GamePhase.Failed;
         }
 

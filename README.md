@@ -40,8 +40,8 @@ Editor helpers: menu **Asteroids gone rogue → Open Play Scene** / **Validate W
 
 1. **Hangar** — title, start button, shop (if you have credits). First session shows a dismissable **First flight** card (WASD / Abort Esc / Q·RMB fire modes / shop / Start Wave; PlayerPrefs). Hangar dressing includes Console, PowerBox, FireExtinguisher, and Locker.
 2. **Playing** — fly the 3D ship, shoot bolt / spread / pierce (if bought), split asteroids. Asteroids **wrap** at the arena edge so waves cannot soft-lock. **Abort → Hangar** leaves the wave without the clear bonus.
-3. **Wave Clear** — score (including clear bonus) and **150 credits**, then shop. Card also shows the locally persisted **Best** score / wave / world.
-4. **Fail** — ship destroyed; retry the same wave. Bought upgrades stay. Fail card shows **Best** score / wave / world.
+3. **Wave Clear** — short **Run summary** card (score / wave / world / credits / upgrades) plus **150 credits**, then shop. After wave 1, one line points at World 2 (wave 6) and the cheapest shop buy. Hangar HUD always shows **Best** score / wave / world.
+4. **Fail** — ship destroyed; retry the same wave. Bought upgrades stay. Fail uses the same summary card. Hangar HUD keeps **Best** visible.
 
 Wave 1: 4 large asteroids + 1 `Enemy_01`. Waves 2–10 add Scout / Gunner / Drone, then Bomber / Sniper / SwarmPod when those FBX are present. After wave 10 the roster plateaus and large asteroids tick +1 per wave (7 → 8… cap 10). After every 5 cleared waves the arena mesh swaps World 1→6 (loop). Same radius and rules.
 
@@ -59,8 +59,8 @@ Upgrades persist into the next wave.
 | Body Upgrade | 90 | Swaps **Ship_Body** → `Ship_Body_Upgrade01`; +1 hull |
 | Nose Upgrade 02 | 150 | Requires Nose Hardpoint; `Ship_Nose_Upgrade02`; 3 damage |
 | Engine Upgrade 02 | 140 | Requires Rapid Fire; `Ship_Engine_Upgrade02`; faster gun |
-| Spread Bolt | 110 | Second shot mode: 3 lower-damage pellets; same `Projectile_Bolt` visual. Q / RMB to switch |
-| Pierce | 130 | Second shot mode: bolt passes through targets until it expires. Q / RMB to switch |
+| Spread Bolt | 110 | Second shot mode: 3 lower-damage amber pellets (fat silhouette + SpreadCore). Q / RMB to switch |
+| Pierce | 130 | Second shot mode: cyan needle that passes through targets (PierceNeedle). Q / RMB to switch |
 
 Hull is 3 hits. Large asteroids take 2 hits then split into 3 small shards. Small shards and enemies are destroyable. Gunner is 4 HP, Bomber is 5 HP. Fail screen names the enemy kind (`Enemy contact (Scout)`).
 
@@ -94,20 +94,21 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 | Shoot (spread) | Kenney Sci-Fi Sounds | `laserRetro_000.ogg` |
 | Shoot (pierce) | Kenney Sci-Fi Sounds | `laserLarge_000.ogg` |
 | Enemy bolt | Kenney Sci-Fi Sounds | `laserSmall_001.ogg` |
-| Hit | Kenney Sci-Fi Sounds | `impactMetal_003.ogg` |
+| Hit | Kenney Sci-Fi Sounds | `impactMetal_003.ogg` (+ `impactMetal_000.ogg` punch layer) |
 | Asteroid split | Kenney Sci-Fi Sounds | `explosionCrunch_000.ogg` |
 | Enemy death | Kenney Sci-Fi Sounds | `explosionCrunch_003.ogg` |
 | Player damage | Kenney Sci-Fi Sounds | `forceField_000.ogg` |
 | Arena world swap | Kenney Interface Sounds | `maximize_008.ogg` |
 | Wave clear | Kenney Music Jingles | `jingles_PIZZA07.ogg` |
 | Arena loop | yd — Space Music: Out There | `OutThere.ogg` (fuller mix, pitch 1.0) |
-| Hangar ambience | yd — Spacelife #14 | `spacelifeNo14.ogg` (softer mix, pitch 0.88) |
+| Hangar ambience | yd — Spacelife #14 | `spacelifeNo14.ogg` (denser layered bed, pitch 0.94 + 1.02) |
 
 ## What is stubbed
 
 - **Meshes** come from `Assets/Art/Import/` FBX on Press Play (`ArtImport` loads by path — no Inspector mesh swap). Primitive fallbacks stay if an FBX is missing.
 - **Arena World 2–6** meshes **do spawn** — after every 5 cleared waves the floor swaps `Arena_Blockout` → World2 → … → World6 (then loops). Same radius and rules; not separate campaigns.
-- **Not in Play:** `Ship_Complete*`, **`Ship_Body_Upgrade02`** (imported only; shop stops at Body Upgrade 01 + Nose/Engine 02).
+- **Hangar only:** `Ship_Complete` v3 (parked bay display). **Not in Play:** `Ship_Complete_Upgrade01`, **`Ship_Body_Upgrade02`** (imported only; shop stops at Body Upgrade 01 + Nose/Engine 02).
+- Combat juice: light screen flash + camera shake on hits / explosions. Player death stays quiet.
 - **Ship_*** part slots share origin `0,0,0` so Rapid Fire / Nose Hardpoint / Body Upgrade stay a SetActive swap.
 - No extra ships, no 30-wave campaign, no extra worlds, no large shop, no polish pass, no multiplayer.
 - No Input System / URP / TextMeshPro (avoids extra first-open prompts).
@@ -129,4 +130,4 @@ See **[MERGE_CHECKLIST.md](MERGE_CHECKLIST.md)**. Do **not** merge PR #1 until W
 
 ## Success check
 
-Press Play → hangar FBX (crate/terminal/pillar + workbench/kiosk/banner/ammo rack + Console/PowerBox/extinguisher/Locker). Wave 1 `Enemy_01` → later Scout/Gunner/Drone/Bomber/Sniper/SwarmPod. Gunner/Sniper fire `Projectile_EnemyBolt`. Shop Body + Nose/Engine 02 + Spread/Pierce. Worlds 2–6 swap every 5 clears. Clear/fail cards show local Best. Pickups and muzzle/explosion VFX.
+Press Play → hangar FBX (crate/terminal/pillar + workbench/kiosk/banner/ammo rack + Console/PowerBox/extinguisher/Locker + parked `Ship_Complete`). Wave 1 `Enemy_01` → later Scout/Gunner v4 / Drone/Bomber/Sniper/SwarmPod. Gunner/Sniper fire `Projectile_EnemyBolt`. Shop Body + Nose/Engine 02 + Spread/Pierce. Worlds 2–6 swap every 5 clears. Hangar HUD always shows Best; clear/fail show the run summary card. Pickups, muzzle/explosion VFX, hit flash + light shake.

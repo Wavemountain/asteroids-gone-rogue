@@ -13,20 +13,27 @@ namespace AsteroidsGoneRogue
         public const string MusicKey = "agr.audio.music";
         public const float DefaultSfxVolume = 0.8f;
         public const float DefaultMusicVolume = 0.28f;
-        public const float HangarMusicScale = 0.36f;
+        public const float HangarMusicScale = 0.48f;
         public const float ArenaMusicScale = 0.82f;
-        public const float HangarMusicPitch = 0.88f;
+        public const float HangarMusicPitch = 0.94f;
         public const float ArenaMusicPitch = 1f;
+        public const float HangarLayerScale = 0.22f;
+        public const float HangarLayerPitch = 1.02f;
+        public const float AbortDuckScale = 0.18f;
+        public const float AbortDuckSeconds = 0.55f;
+        public const float HitPunchScale = 1.22f;
 
         public static AudioCues Instance { get; private set; }
 
         private AudioSource _sfx;
         private AudioSource _music;
+        private AudioSource _hangarLayer;
         private AudioClip _shoot;
         private AudioClip _shootSpread;
         private AudioClip _shootPierce;
         private AudioClip _shootEnemy;
         private AudioClip _hit;
+        private AudioClip _hitPunch;
         private AudioClip _asteroidSplit;
         private AudioClip _enemyDeath;
         private AudioClip _playerDamage;
@@ -43,6 +50,8 @@ namespace AsteroidsGoneRogue
         private AudioClip _currentMusic;
         private float _musicScale = HangarMusicScale;
         private float _musicPitch = HangarMusicPitch;
+        private float _duckScale = 1f;
+        private float _duckUntil;
 
         public bool Muted
         {
@@ -64,6 +73,7 @@ namespace AsteroidsGoneRogue
             Instance = this;
             _sfx = CreateSource("SfxSource", false);
             _music = CreateSource("MusicSource", true);
+            _hangarLayer = CreateSource("HangarLayerSource", true);
             LoadClips();
             _muted = PlayerPrefs.GetInt(MuteKey, 0) == 1;
             _sfxVolume = PlayerPrefs.GetFloat(SfxKey, DefaultSfxVolume);
@@ -93,7 +103,11 @@ namespace AsteroidsGoneRogue
 
         public void PlayHit()
         {
-            Play(_hit);
+            Play(_hit, HitPunchScale);
+            if (_hitPunch != null)
+            {
+                Play(_hitPunch, 0.58f);
+            }
         }
 
         public void PlayExplosion()
@@ -113,7 +127,8 @@ namespace AsteroidsGoneRogue
 
         public void PlayPlayerDamage()
         {
-            Play(_playerDamage);
+            Play(_playerDamage, 1.15f);
+            Play(_hit, 0.85f);
         }
 
         public void PlayHangarPurchase()
@@ -129,6 +144,14 @@ namespace AsteroidsGoneRogue
         public void PlayAbortWhoosh()
         {
             Play(_abort != null ? _abort : _worldChange);
+            DuckMusic(AbortDuckSeconds, AbortDuckScale);
+        }
+
+        public void DuckMusic(float seconds, float scale)
+        {
+            _duckUntil = Time.unscaledTime + Mathf.Max(0.05f, seconds);
+            _duckScale = Mathf.Clamp01(scale);
+            ApplyVolumes();
         }
 
         public void PlayWaveClear()
@@ -191,8 +214,29 @@ namespace AsteroidsGoneRogue
         {
             if (_sfx != null && clip != null && !_muted)
             {
-                _sfx.PlayOneShot(clip, Mathf.Clamp01(scale));
+                _sfx.PlayOneShot(clip, Mathf.Clamp(scale, 0f, 1.4f));
             }
+        }
+
+        private void Update()
+        {
+            if (_duckUntil <= 0f)
+            {
+                return;
+            }
+
+            if (Time.unscaledTime >= _duckUntil)
+            {
+                _duckScale = 1f;
+                _duckUntil = 0f;
+            }
+            else
+            {
+                float remain = _duckUntil - Time.unscaledTime;
+                _duckScale = Mathf.Lerp(1f, AbortDuckScale, Mathf.Clamp01(remain / AbortDuckSeconds));
+            }
+
+            ApplyVolumes();
         }
 
         private void PlayLoop(AudioClip clip, float scale, float pitch)
@@ -234,7 +278,7 @@ namespace AsteroidsGoneRogue
             if (_music != null)
             {
                 _music.pitch = _musicPitch;
-                _music.volume = _muted ? 0f : _musicVolume * _musicScale;
+                _music.volume = _muted ? 0f : _musicVolume * _musicScale * _duckScale;
                 if (_muted)
                 {
                     _music.Pause();
@@ -243,6 +287,40 @@ namespace AsteroidsGoneRogue
                 {
                     _music.Play();
                 }
+            }
+
+            ApplyHangarLayer();
+        }
+
+        private void ApplyHangarLayer()
+        {
+            if (_hangarLayer == null || _hangarAmbience == null)
+            {
+                return;
+            }
+
+            bool hangar = _currentMusic == _hangarAmbience && !_muted;
+            _hangarLayer.pitch = HangarLayerPitch;
+            _hangarLayer.volume = hangar ? _musicVolume * HangarLayerScale * _duckScale : 0f;
+            if (!hangar)
+            {
+                if (_hangarLayer.isPlaying)
+                {
+                    _hangarLayer.Stop();
+                }
+
+                return;
+            }
+
+            if (_hangarLayer.clip != _hangarAmbience)
+            {
+                _hangarLayer.clip = _hangarAmbience;
+                _hangarLayer.loop = true;
+            }
+
+            if (!_hangarLayer.isPlaying)
+            {
+                _hangarLayer.Play();
             }
         }
 
@@ -253,6 +331,7 @@ namespace AsteroidsGoneRogue
             _shootPierce = Resources.Load<AudioClip>("Audio/Sfx/laserLarge_000");
             _shootEnemy = Resources.Load<AudioClip>("Audio/Sfx/laserSmall_001");
             _hit = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_003");
+            _hitPunch = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_000");
             _asteroidSplit = Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_000");
             _enemyDeath = Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_003");
             _playerDamage = Resources.Load<AudioClip>("Audio/Sfx/forceField_000");

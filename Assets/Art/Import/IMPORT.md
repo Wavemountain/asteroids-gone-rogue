@@ -37,14 +37,16 @@ These filenames are instantiated by `ContentFactory` / `ArtImport` when the file
 - `Ship_Engine_Upgrade01.fbx` — hangar **Rapid Fire**
 
 `Ship_Body_Upgrade01.fbx` is the hangar **Body Upgrade** slot swap.
-`Ship_Complete.fbx` / `Ship_Complete_Upgrade01.fbx` are reference assembles only.
+`Ship_Complete.fbx` (Buffer v3) is a hangar bay display via `ContentFactory`.
+`Ship_Complete_Upgrade01.fbx` stays a reference assemble only.
 
 ### Combat / arena
 
 - `Asteroid_Large.fbx` / `Asteroid_Small.fbx` — type A visual (Week 1 split rules)
 - `Asteroid_VariantB_Large.fbx` / `Asteroid_VariantB_Small.fbx` — type B visual only (~45% mix)
-- `Enemy_01.fbx` — **Week 1 uses this one enemy type only**
-- `Enemy_Scout.fbx` / `Enemy_Gunner.fbx` / `Enemy_Drone.fbx` — waves 2–10 (Bomber / Sniper / SwarmPod stay unused)
+- `Enemy_01.fbx` — wave 1
+- `Enemy_Scout.fbx` / `Enemy_Gunner.fbx` (Buffer v4) — Play waves 2+ via `CreateEnemy` / `EnemyCatalog.VisualName` (also accepts `Enemy_*_Buffer_v4`)
+- `Enemy_Drone.fbx` — waves 5+
 - `Arena_Blockout.fbx` — World 1 hangar / arena
 - `Projectile_Bolt.fbx` — player shot visual (GameBot Bolt Buffer v2; also accepted as `Projectile_Bolt_Buffer_v2`)
 - `Projectile_EnemyBolt.fbx` — Gunner / Sniper shot visual (also accepted as `Projectile_EnemyBolt_Buffer`)

@@ -162,12 +162,12 @@ namespace AsteroidsGoneRogue
 
         public static EnemyKind FromVisual(string visualName)
         {
-            if (visualName == "Enemy_Scout")
+            if (visualName == "Enemy_Scout" || visualName == "Enemy_Scout_Buffer_v4")
             {
                 return EnemyKind.Scout;
             }
 
-            if (visualName == "Enemy_Gunner")
+            if (visualName == "Enemy_Gunner" || visualName == "Enemy_Gunner_Buffer_v4")
             {
                 return EnemyKind.Gunner;
             }
