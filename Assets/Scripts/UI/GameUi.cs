@@ -419,10 +419,10 @@ namespace AsteroidsGoneRogue
 
         private static Font ResolveFont()
         {
-            Font font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (font == null)
             {
-                font = Font.CreateDynamicFontFromOSFont("Arial", 16);
+                font = Font.CreateDynamicFontFromOSFont("LegacyRuntime", 16);
             }
 
             return font;

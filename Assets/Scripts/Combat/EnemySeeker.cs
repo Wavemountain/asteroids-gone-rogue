@@ -101,7 +101,7 @@ namespace AsteroidsGoneRogue
                 transform.rotation,
                 look,
                 _turn * Time.fixedDeltaTime);
-            _body.velocity = dir * _speed;
+            _body.linearVelocity = dir * _speed;
 
             Vector3 pos = transform.position;
             pos.y = 0f;

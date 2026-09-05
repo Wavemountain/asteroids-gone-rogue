@@ -33,7 +33,7 @@ namespace AsteroidsGoneRogue
             _inputEnabled = enabled;
             if (!enabled && _body != null)
             {
-                _body.velocity = Vector3.zero;
+                _body.linearVelocity = Vector3.zero;
                 _body.angularVelocity = Vector3.zero;
             }
         }
@@ -43,7 +43,7 @@ namespace AsteroidsGoneRogue
             transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
             if (_body != null)
             {
-                _body.velocity = Vector3.zero;
+                _body.linearVelocity = Vector3.zero;
                 _body.angularVelocity = Vector3.zero;
             }
 
@@ -81,9 +81,9 @@ namespace AsteroidsGoneRogue
             }
 
             _body.AddForce(input * Thrust, ForceMode.Acceleration);
-            if (_body.velocity.sqrMagnitude > MaxSpeed * MaxSpeed)
+            if (_body.linearVelocity.sqrMagnitude > MaxSpeed * MaxSpeed)
             {
-                _body.velocity = _body.velocity.normalized * MaxSpeed;
+                _body.linearVelocity = _body.linearVelocity.normalized * MaxSpeed;
             }
 
             ClampToArena();
@@ -128,10 +128,10 @@ namespace AsteroidsGoneRogue
             {
                 pos = pos.normalized * limit;
                 transform.position = pos;
-                Vector3 vel = _body.velocity;
+                Vector3 vel = _body.linearVelocity;
                 vel += -pos.normalized * 2f;
                 vel.y = 0f;
-                _body.velocity = vel;
+                _body.linearVelocity = vel;
             }
             else if (Mathf.Abs(transform.position.y) > 0.01f)
             {
