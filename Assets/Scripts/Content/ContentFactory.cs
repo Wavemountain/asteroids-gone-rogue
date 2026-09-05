@@ -29,10 +29,19 @@ namespace AsteroidsGoneRogue
         private Material _enemy;
         private Material _arena;
         private Material _projectile;
+        private Material _projectileSpread;
+        private Material _projectilePierce;
+        private Material _projectileHalo;
         private Material _shield;
         private Material _accentHot;
         private Material _accentWarm;
         private Material _asteroidB;
+        private Material _hangarMetal;
+        private Material _hangarAmber;
+        private Material _hangarCyan;
+        private Material _hangarGlow;
+        private static readonly Color HangarAmbient = new Color(0.2f, 0.17f, 0.13f);
+        private static readonly Color CombatAmbient = new Color(0.12f, 0.14f, 0.18f);
 
         public Material Hull
         {
@@ -56,7 +65,14 @@ namespace AsteroidsGoneRogue
             _asteroidB = MakeMaterial("Mat_Asteroid_B", new Color(0.46f, 0.3f, 0.22f), 0.04f, 0.14f);
             _enemy = MakeMaterial("Mat_Enemy", new Color(0.72f, 0.16f, 0.18f), 0.25f, 0.4f, new Color(0.6f, 0.05f, 0.08f));
             _arena = MakeMaterial("Mat_Arena", new Color(0.07f, 0.11f, 0.14f), 0.1f, 0.12f);
-            _projectile = MakeMaterial("Mat_Projectile", new Color(1f, 0.85f, 0.25f), 0f, 0.2f, new Color(1f, 0.7f, 0.1f) * 2f);
+            _projectile = MakeMaterial("Mat_Projectile", new Color(1f, 0.92f, 0.42f), 0f, 0.35f, new Color(1f, 0.78f, 0.18f) * 3.4f);
+            _projectileSpread = MakeMaterial("Mat_Projectile_Spread", new Color(1f, 0.55f, 0.16f), 0f, 0.3f, new Color(1f, 0.4f, 0.05f) * 3.2f);
+            _projectilePierce = MakeMaterial("Mat_Projectile_Pierce", new Color(0.45f, 0.92f, 1f), 0f, 0.35f, new Color(0.25f, 0.75f, 1f) * 3.6f);
+            _projectileHalo = MakeTransparent("Mat_Projectile_Halo", new Color(1f, 0.85f, 0.35f, 0.28f), new Color(1f, 0.7f, 0.15f) * 1.8f);
+            _hangarMetal = MakeMaterial("Mat_Hangar_Metal", new Color(0.28f, 0.32f, 0.36f), 0.55f, 0.42f);
+            _hangarAmber = MakeMaterial("Mat_Hangar_Amber", new Color(1f, 0.58f, 0.16f), 0.2f, 0.5f, new Color(1f, 0.42f, 0.06f) * 1.6f);
+            _hangarCyan = MakeMaterial("Mat_Hangar_Cyan", new Color(0.22f, 0.72f, 0.88f), 0.15f, 0.45f, new Color(0.15f, 0.55f, 0.8f) * 1.4f);
+            _hangarGlow = MakeMaterial("Mat_Hangar_Glow", new Color(1f, 0.72f, 0.28f), 0f, 0.2f, new Color(1f, 0.55f, 0.12f) * 2.6f);
             _shield = MakeTransparent("Mat_Shield", new Color(0.25f, 0.85f, 1f, 0.22f), new Color(0.2f, 0.7f, 1f) * 0.6f);
             ArtImport.WarmPlayModeAssets();
         }
@@ -142,50 +158,115 @@ namespace AsteroidsGoneRogue
             {
                 _hangarDressing.SetActive(visible);
             }
+
+            RenderSettings.ambientLight = visible ? HangarAmbient : CombatAmbient;
         }
 
         private void BuildHangarDressing()
         {
             _hangarDressing = new GameObject("Hangar_Dressing");
 
-            PlaceHangarProp("Hangar_Crate", new Vector3(-5.2f, 0f, -4.4f), _arena, PrimitiveType.Cube,
-                new Vector3(1.3f, 1.1f, 1.3f), 1.1f);
-            PlaceHangarProp("Hangar_Terminal", new Vector3(5.4f, 0f, -3.6f), _hull, PrimitiveType.Cube,
-                new Vector3(1.1f, 1.8f, 0.55f), 1.8f);
-            PlaceHangarProp("Hangar_LightPillar", new Vector3(0f, 0f, 7.5f), _glow, PrimitiveType.Cylinder,
-                new Vector3(0.55f, 2.4f, 0.55f), 4.8f);
-            PlaceHangarProp("Hangar_Workbench", new Vector3(-7.4f, 0f, 1.8f), _hull, PrimitiveType.Cube,
-                new Vector3(1.6f, 0.85f, 0.9f), 0.85f);
-            PlaceHangarProp("Hangar_FuelCell", new Vector3(7.4f, 0f, 1.6f), _glow, PrimitiveType.Cylinder,
-                new Vector3(0.7f, 1.1f, 0.7f), 2.2f);
-            PlaceHangarProp("Hangar_ShopKiosk", new Vector3(2.2f, 0f, -6.8f), _accent, PrimitiveType.Cube,
-                new Vector3(1.2f, 1.6f, 0.7f), 1.6f);
-            PlaceHangarProp("Hangar_Banner", new Vector3(0f, 0f, 9.4f), _accent, PrimitiveType.Cube,
-                new Vector3(2.4f, 1.6f, 0.2f), 1.6f);
-            PlaceHangarProp("Hangar_AmmoRack", new Vector3(-7.2f, 0f, 5.2f), _hull, PrimitiveType.Cube,
-                new Vector3(1.4f, 1.4f, 0.55f), 1.4f);
+            PlaceHangarProp("Hangar_Crate", "Hangar_Crate", new Vector3(-5.2f, 0f, -4.4f), _hangarMetal, PrimitiveType.Cube,
+                new Vector3(1.3f, 1.1f, 1.3f), 1.1f, Color.clear, 0f);
+            PlaceHangarProp("Hangar_Crate_2", "Hangar_Crate", new Vector3(-6.5f, 0f, -5.7f), _hangarMetal, PrimitiveType.Cube,
+                new Vector3(1.05f, 0.9f, 1.05f), 0.9f, Color.clear, 0f);
+            PlaceHangarProp("Hangar_Terminal", "Hangar_Terminal", new Vector3(5.4f, 0f, -3.6f), _hangarCyan, PrimitiveType.Cube,
+                new Vector3(1.1f, 1.8f, 0.55f), 1.8f, new Color(0.25f, 0.7f, 1f), 1.1f);
+            PlaceHangarProp("Hangar_LightPillar", "Hangar_LightPillar", new Vector3(0f, 0f, 7.5f), _hangarGlow, PrimitiveType.Cylinder,
+                new Vector3(0.55f, 2.4f, 0.55f), 4.8f, new Color(1f, 0.7f, 0.25f), 1.8f);
+            PlaceHangarProp("Hangar_LightPillar_2", "Hangar_LightPillar", new Vector3(-8.2f, 0f, -2.4f), _hangarGlow, PrimitiveType.Cylinder,
+                new Vector3(0.45f, 2.1f, 0.45f), 4.2f, new Color(1f, 0.62f, 0.2f), 1.4f);
+            PlaceHangarProp("Hangar_Workbench", "Hangar_Workbench", new Vector3(-7.4f, 0f, 1.8f), _hangarMetal, PrimitiveType.Cube,
+                new Vector3(1.6f, 0.85f, 0.9f), 0.85f, Color.clear, 0f);
+            PlaceHangarProp("Hangar_FuelCell", "Hangar_FuelCell", new Vector3(7.4f, 0f, 1.6f), _hangarGlow, PrimitiveType.Cylinder,
+                new Vector3(0.7f, 1.1f, 0.7f), 2.2f, new Color(1f, 0.55f, 0.12f), 1.2f);
+            PlaceHangarProp("Hangar_ShopKiosk", "Hangar_ShopKiosk", new Vector3(2.2f, 0f, -6.8f), _hangarAmber, PrimitiveType.Cube,
+                new Vector3(1.2f, 1.6f, 0.7f), 1.6f, new Color(1f, 0.5f, 0.12f), 1.35f);
+            PlaceHangarProp("Hangar_Banner", "Hangar_Banner", new Vector3(0f, 0f, 9.4f), _hangarAmber, PrimitiveType.Cube,
+                new Vector3(2.4f, 1.6f, 0.2f), 1.6f, Color.clear, 0f);
+            PlaceHangarProp("Hangar_AmmoRack", "Hangar_AmmoRack", new Vector3(-7.2f, 0f, 5.2f), _hangarMetal, PrimitiveType.Cube,
+                new Vector3(1.4f, 1.4f, 0.55f), 1.4f, Color.clear, 0f);
+            PlaceHangarProp("Hangar_AmmoRack_2", "Hangar_AmmoRack", new Vector3(7.1f, 0f, 5.0f), _hangarMetal, PrimitiveType.Cube,
+                new Vector3(1.3f, 1.3f, 0.5f), 1.3f, Color.clear, 0f);
+            PlaceHangarProp("Hangar_Console", "Hangar_Console", new Vector3(3.4f, 0f, -4.6f), _hangarCyan, PrimitiveType.Cube,
+                new Vector3(1.35f, 1.15f, 0.7f), 1.15f, new Color(0.3f, 0.75f, 1f), 1.15f);
+            PlaceHangarProp("Hangar_PowerBox", "Hangar_PowerBox", new Vector3(-3.8f, 0f, -3.2f), _hangarAmber, PrimitiveType.Cube,
+                new Vector3(0.85f, 1.35f, 0.55f), 1.35f, new Color(1f, 0.45f, 0.1f), 0.85f);
+            PlaceHangarProp("Hangar_FireExtinguisher", "Hangar_FireExtinguisher", new Vector3(1.35f, 0f, -2.9f), _accentHot, PrimitiveType.Cylinder,
+                new Vector3(0.22f, 0.55f, 0.22f), 1.1f, Color.clear, 0f);
+
+            CreatePrimitive(PrimitiveType.Cylinder, "Hangar_ShipPad", _hangarDressing.transform, _hangarAmber,
+                new Vector3(0f, 0.02f, 0f), new Vector3(4.6f, 0.04f, 4.6f), Quaternion.identity);
+            CreatePrimitive(PrimitiveType.Cube, "Hangar_KioskPlate", _hangarDressing.transform, _hangarCyan,
+                new Vector3(2.2f, 0.015f, -6.4f), new Vector3(2.4f, 0.03f, 1.8f), Quaternion.identity);
         }
 
         private void PlaceHangarProp(
-            string propName,
+            string instanceName,
+            string visualName,
             Vector3 floorPosition,
             Material material,
             PrimitiveType mesh,
             Vector3 meshScale,
-            float meshHeight)
+            float meshHeight,
+            Color lightColor,
+            float lightIntensity)
         {
-            GameObject root = new GameObject(propName);
+            GameObject root = new GameObject(instanceName);
             root.transform.SetParent(_hangarDressing.transform, false);
             root.transform.position = floorPosition;
             PartSlot slot = root.AddComponent<PartSlot>();
-            slot.SlotId = propName;
-            if (TryVisual(propName, root.transform, material))
+            slot.SlotId = visualName;
+            if (!TryVisual(visualName, root.transform, material)
+                && !BuildHangarBufferFallback(visualName, root.transform))
             {
-                return;
+                CreatePrimitive(mesh, "Mesh", root.transform, material,
+                    new Vector3(0f, meshHeight * 0.5f, 0f), meshScale, Quaternion.identity);
             }
 
-            CreatePrimitive(mesh, "Mesh", root.transform, material,
-                new Vector3(0f, meshHeight * 0.5f, 0f), meshScale, Quaternion.identity);
+            if (lightIntensity > 0.01f)
+            {
+                GameObject lamp = new GameObject("HangarLight");
+                lamp.transform.SetParent(root.transform, false);
+                lamp.transform.localPosition = new Vector3(0f, meshHeight * 0.65f + 0.4f, 0f);
+                Light light = lamp.AddComponent<Light>();
+                light.type = LightType.Point;
+                light.color = lightColor;
+                light.intensity = lightIntensity;
+                light.range = 7.5f;
+            }
+        }
+
+        private bool BuildHangarBufferFallback(string visualName, Transform parent)
+        {
+            if (visualName == "Hangar_Console")
+            {
+                CreatePrimitive(PrimitiveType.Cube, "Desk", parent, _hangarMetal,
+                    new Vector3(0f, 0.42f, 0f), new Vector3(1.4f, 0.84f, 0.72f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Cube, "Screen", parent, _hangarCyan,
+                    new Vector3(0f, 1.18f, -0.18f), new Vector3(1.05f, 0.62f, 0.1f), Quaternion.identity);
+                return true;
+            }
+
+            if (visualName == "Hangar_PowerBox")
+            {
+                CreatePrimitive(PrimitiveType.Cube, "Cabinet", parent, _hangarMetal,
+                    new Vector3(0f, 0.68f, 0f), new Vector3(0.82f, 1.36f, 0.5f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Cube, "Stripe", parent, _hangarAmber,
+                    new Vector3(0f, 1.05f, 0.26f), new Vector3(0.7f, 0.12f, 0.06f), Quaternion.identity);
+                return true;
+            }
+
+            if (visualName == "Hangar_FireExtinguisher")
+            {
+                CreatePrimitive(PrimitiveType.Cylinder, "Tank", parent, _accentHot,
+                    new Vector3(0f, 0.55f, 0f), new Vector3(0.28f, 0.55f, 0.28f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Cube, "Nozzle", parent, _hangarMetal,
+                    new Vector3(0.16f, 1.05f, 0f), new Vector3(0.22f, 0.08f, 0.08f), Quaternion.identity);
+                return true;
+            }
+
+            return false;
         }
 
         public ShipController BuildShip(PlayerLoadout loadout, GameManager game, Camera camera)
@@ -411,6 +492,11 @@ namespace AsteroidsGoneRogue
 
         public Projectile SpawnProjectile(Vector3 origin, Vector3 direction, float speed, int damage, bool pierce)
         {
+            return SpawnProjectile(origin, direction, speed, damage, pierce, false);
+        }
+
+        public Projectile SpawnProjectile(Vector3 origin, Vector3 direction, float speed, int damage, bool pierce, bool spread)
+        {
             GameObject root = new GameObject("Projectile");
             root.tag = GameTags.Projectile;
             root.transform.SetParent(_projectileRoot, false);
@@ -425,11 +511,25 @@ namespace AsteroidsGoneRogue
             body.useGravity = false;
             body.isKinematic = true;
 
-            if (!TryVisual("Projectile_Bolt", root.transform, _projectile))
+            Material boltMat = pierce ? _projectilePierce : (spread ? _projectileSpread : _projectile);
+            if (!TryVisual("Projectile_Bolt", root.transform, boltMat))
             {
-                CreatePrimitive(PrimitiveType.Sphere, "Mesh", root.transform, _projectile,
-                    Vector3.zero, new Vector3(0.22f, 0.22f, 0.55f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Sphere, "Mesh", root.transform, boltMat,
+                    Vector3.zero, new Vector3(0.2f, 0.2f, 0.62f), Quaternion.identity);
             }
+
+            Material haloMat = pierce ? _projectilePierce : _projectileHalo;
+            CreatePrimitive(PrimitiveType.Sphere, "BoltHalo", root.transform, haloMat,
+                Vector3.zero, new Vector3(0.38f, 0.38f, 0.85f), Quaternion.identity);
+
+            TrailRenderer trail = root.AddComponent<TrailRenderer>();
+            trail.time = pierce ? 0.2f : 0.12f;
+            trail.startWidth = 0.2f;
+            trail.endWidth = 0.02f;
+            trail.minVertexDistance = 0.12f;
+            trail.material = boltMat;
+            trail.startColor = pierce ? new Color(0.45f, 0.9f, 1f, 0.9f) : new Color(1f, 0.85f, 0.3f, 0.9f);
+            trail.endColor = new Color(1f, 0.7f, 0.15f, 0f);
 
             Projectile projectile = root.AddComponent<Projectile>();
             projectile.Launch(direction, speed, damage, pierce);
@@ -628,9 +728,40 @@ namespace AsteroidsGoneRogue
                 return _arena;
             }
 
+            if (ContainsIgnoreCase(name, "Extinguisher") || ContainsIgnoreCase(name, "Fire"))
+            {
+                return _accentHot;
+            }
+
+            if (ContainsIgnoreCase(name, "Hangar") || ContainsIgnoreCase(name, "Kiosk")
+                || ContainsIgnoreCase(name, "Crate") || ContainsIgnoreCase(name, "Workbench")
+                || ContainsIgnoreCase(name, "Ammo") || ContainsIgnoreCase(name, "Console")
+                || ContainsIgnoreCase(name, "PowerBox"))
+            {
+                if (ContainsIgnoreCase(name, "Glow") || ContainsIgnoreCase(name, "Light")
+                    || ContainsIgnoreCase(name, "Fuel"))
+                {
+                    return _hangarGlow;
+                }
+
+                if (ContainsIgnoreCase(name, "Kiosk") || ContainsIgnoreCase(name, "Banner")
+                    || ContainsIgnoreCase(name, "Amber") || ContainsIgnoreCase(name, "Power"))
+                {
+                    return _hangarAmber;
+                }
+
+                if (ContainsIgnoreCase(name, "Terminal") || ContainsIgnoreCase(name, "Screen")
+                    || ContainsIgnoreCase(name, "Cyan") || ContainsIgnoreCase(name, "Console"))
+                {
+                    return _hangarCyan;
+                }
+
+                return _hangarMetal;
+            }
+
             if (ContainsIgnoreCase(name, "Projectile") || ContainsIgnoreCase(name, "Bolt"))
             {
-                return _projectile;
+                return fallback != null ? fallback : _projectile;
             }
 
             if (ContainsIgnoreCase(name, "Shield"))

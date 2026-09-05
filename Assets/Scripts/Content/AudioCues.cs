@@ -95,6 +95,14 @@ namespace AsteroidsGoneRogue
             Play(_purchase);
         }
 
+        public void PlayUiClick()
+        {
+            if (_sfx != null && _purchase != null && !_muted)
+            {
+                _sfx.PlayOneShot(_purchase, 0.42f);
+            }
+        }
+
         public void PlayWaveClear()
         {
             Play(_waveClear);

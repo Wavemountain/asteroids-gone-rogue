@@ -34,6 +34,7 @@ FBX in this folder are instantiated on Press Play by `ArtImport` / `ContentFacto
 - [x] `Hangar_Crate`
 - [x] `Hangar_Terminal`
 - [x] `Hangar_LightPillar`
+- [x] `Hangar_Console` / `Hangar_PowerBox` / `Hangar_FireExtinguisher` (0.31 hangar-wire)
 
 ## Present but not Week 1 gameplay
 

@@ -29,6 +29,19 @@ def read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+LFS_POINTER_PREFIX = b"version https://git-lfs.github.com/spec/v1"
+
+
+def is_lfs_pointer(path: Path) -> bool:
+    """True when the working-tree file is Git LFS pointer text, not an FBX binary."""
+    if not path.is_file():
+        return False
+    if path.stat().st_size < 1000:
+        return True
+    head = path.read_bytes()[:64]
+    return head.startswith(LFS_POINTER_PREFIX)
+
+
 def main() -> int:
     require(ROOT / "Packages/manifest.json")
     require(ROOT / "ProjectSettings/ProjectVersion.txt")
@@ -173,6 +186,9 @@ def main() -> int:
         "Hangar_Workbench",
         "Hangar_FuelCell",
         "Hangar_ShopKiosk",
+        "Hangar_Console",
+        "Hangar_PowerBox",
+        "Hangar_FireExtinguisher",
         "Projectile_Bolt",
         "Pickup_Score",
         "Pickup_Shield",
@@ -180,7 +196,7 @@ def main() -> int:
     for name in play_fbx:
         path = ROOT / f"Assets/Art/Import/{name}.fbx"
         require(path, "Play Mode mesh")
-        if path.exists() and path.stat().st_size < 1000:
+        if path.exists() and is_lfs_pointer(path):
             err(f"{path.relative_to(ROOT)} looks like an LFS pointer, not an FBX")
         meta = ROOT / f"Assets/Art/Import/{name}.fbx.meta"
         require(meta, "ModelImporter settings")
@@ -193,9 +209,14 @@ def main() -> int:
 
         resources = ROOT / f"Assets/Resources/Art/Import/{name}.fbx"
         require(resources, "Resources.Load Play Mode mesh")
-        if resources.exists() and resources.stat().st_size < 1000:
+        if resources.exists() and is_lfs_pointer(resources):
             err(f"{resources.relative_to(ROOT)} looks like an LFS pointer, not an FBX")
         require(ROOT / f"Assets/Resources/Art/Import/{name}.fbx.meta", "Resources ModelImporter")
+
+    resources_import = ROOT / "Assets/Resources/Art/Import"
+    for fbx in sorted(resources_import.glob("*.fbx")):
+        if is_lfs_pointer(fbx):
+            err(f"{fbx.relative_to(ROOT)} is a Git LFS pointer text file, not an FBX binary")
 
     for prefab in (
         "Ship_Nose",
