@@ -147,6 +147,12 @@ def test_wave_ladder_rises() -> None:
     assert "ArenaVisualForWave" in factory
     assert "WorldIndexForWave" in factory
     assert "Arena_World2_Blockout" in factory
+    assert "Hangar_AmmoRack" in factory
+    art_list = (Path(__file__).resolve().parents[1] / "Assets/Scripts/Content/ArtImport.cs").read_text(
+        encoding="utf-8"
+    )
+    warm = art_list.split("PlayModeAssets")[1].split("};")[0]
+    assert "Ship_Body_Upgrade02" not in warm
     assert "Vfx_MuzzleFlash" in (
         Path(__file__).resolve().parents[1] / "Assets/Scripts/Player/ShipShooter.cs"
     ).read_text(encoding="utf-8")

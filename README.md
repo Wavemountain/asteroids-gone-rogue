@@ -94,7 +94,8 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 ## What is stubbed
 
 - **Meshes** come from `Assets/Art/Import/` FBX on Press Play (`ArtImport` loads by path — no Inspector mesh swap). Primitive fallbacks stay if an FBX is missing.
-- **Not spawned:** `Arena_World2–6` gameplay, `Ship_Complete*`, Body Upgrade 02.
+- **Arena World 2–6** meshes **do spawn** — after every 5 cleared waves the floor swaps `Arena_Blockout` → World2 → … → World6 (then loops). Same radius and rules; not separate campaigns.
+- **Not in Play:** `Ship_Complete*`, **`Ship_Body_Upgrade02`** (imported only; shop stops at Body Upgrade 01 + Nose/Engine 02).
 - **Ship_*** part slots share origin `0,0,0` so Rapid Fire / Nose Hardpoint / Body Upgrade stay a SetActive swap.
 - No extra ships, no 30-wave campaign, no extra worlds, no large shop, no polish pass, no multiplayer.
 - No Input System / URP / TextMeshPro (avoids extra first-open prompts).
@@ -116,4 +117,4 @@ See **[MERGE_CHECKLIST.md](MERGE_CHECKLIST.md)**. Do **not** merge PR #1 until W
 
 ## Success check
 
-Press Play → hangar FBX (crate/terminal/pillar + workbench/kiosk/banner). Wave 1 `Enemy_01` → later Scout/Gunner/Drone/Bomber/Sniper/SwarmPod. Shop Body + Nose/Engine 02. Pickups and muzzle/explosion VFX.
+Press Play → hangar FBX (crate/terminal/pillar + workbench/kiosk/banner/ammo rack). Wave 1 `Enemy_01` → later Scout/Gunner/Drone/Bomber/Sniper/SwarmPod. Shop Body + Nose/Engine 02. Worlds 2–6 swap every 5 clears. Pickups and muzzle/explosion VFX.

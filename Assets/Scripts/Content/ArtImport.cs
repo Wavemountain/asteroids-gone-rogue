@@ -28,7 +28,6 @@ namespace AsteroidsGoneRogue
             "Ship_Engine_Upgrade01",
             "Ship_Nose_Upgrade02",
             "Ship_Engine_Upgrade02",
-            "Ship_Body_Upgrade02",
             "Enemy_01",
             "Enemy_Scout",
             "Enemy_Gunner",

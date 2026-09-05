@@ -106,6 +106,8 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            bool announce = !string.IsNullOrEmpty(_arenaVisualName);
+
             for (int i = _arenaRoot.transform.childCount - 1; i >= 0; i--)
             {
                 Destroy(_arenaRoot.transform.GetChild(i).gameObject);
@@ -120,6 +122,18 @@ namespace AsteroidsGoneRogue
             }
 
             _arenaVisualName = visualName;
+            if (announce)
+            {
+                if (AudioCues.Instance != null)
+                {
+                    AudioCues.Instance.PlayWorldChange();
+                }
+
+                if (GameUi.Instance != null)
+                {
+                    GameUi.Instance.AnnounceWorldChange(WorldIndexForWave(waveIndex));
+                }
+            }
         }
 
         public void SetHangarDressingVisible(bool visible)
@@ -148,6 +162,8 @@ namespace AsteroidsGoneRogue
                 new Vector3(1.2f, 1.6f, 0.7f), 1.6f);
             PlaceHangarProp("Hangar_Banner", new Vector3(0f, 0f, 9.4f), _accent, PrimitiveType.Cube,
                 new Vector3(2.4f, 1.6f, 0.2f), 1.6f);
+            PlaceHangarProp("Hangar_AmmoRack", new Vector3(-7.2f, 0f, 5.2f), _hull, PrimitiveType.Cube,
+                new Vector3(1.4f, 1.4f, 0.55f), 1.4f);
         }
 
         private void PlaceHangarProp(

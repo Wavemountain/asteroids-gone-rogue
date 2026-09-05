@@ -19,7 +19,7 @@ This is the Week 1–2 playable core for **Asteroids gone rogue**. Branch: `curs
 
 ## Play verify
 
-- Hangar shows BlenderBot ship + crate / terminal / pillar / workbench / kiosk / banner.
+- Hangar shows BlenderBot ship + crate / terminal / pillar / workbench / kiosk / banner / ammo rack.
 - Top-right badge reads **WORLD 1** on wave 1. After 5 clears it becomes **WORLD 2**, then 3–6, then loops.
 - Shop buttons you cannot afford (or that are locked / owned) are **greyed and disabled**.
 - Wave 1: `Enemy_01`. Later: Scout / Gunner / Drone. Waves 7+: Bomber / Sniper / SwarmPod if those FBX imported.

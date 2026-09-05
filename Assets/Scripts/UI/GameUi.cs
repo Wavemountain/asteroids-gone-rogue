@@ -27,6 +27,10 @@ namespace AsteroidsGoneRogue
         private Text _muteLabel;
         private Slider _sfxSlider;
         private Slider _musicSlider;
+        private float _worldFlashUntil;
+        private int _flashedWorld = 1;
+
+        public static GameUi Instance { get; private set; }
 
         public static GameUi Build(string productTitle)
         {
@@ -43,6 +47,7 @@ namespace AsteroidsGoneRogue
 
             GameUi ui = canvasObject.AddComponent<GameUi>();
             ui.Construct(productTitle);
+            Instance = ui;
             return ui;
         }
 
@@ -137,28 +142,32 @@ namespace AsteroidsGoneRogue
             _status.color = new Color(0.95f, 0.95f, 0.9f);
 
             _credits = CreateText("Credits", _menuRoot.transform, font, 24, TextAnchor.UpperCenter, FontStyle.Normal);
-            Stretch(_credits.rectTransform, new Vector2(0.06f, 0.8f), new Vector2(0.94f, 0.88f));
+            Stretch(_credits.rectTransform, new Vector2(0.06f, 0.83f), new Vector2(0.94f, 0.9f));
             _credits.color = new Color(0.7f, 0.9f, 1f);
 
-            _primary = CreateButton("Primary", _menuRoot.transform, font, new Vector2(0.3f, 0.7f), new Vector2(0.7f, 0.78f));
+            _primary = CreateButton("Primary", _menuRoot.transform, font, new Vector2(0.3f, 0.74f), new Vector2(0.7f, 0.82f));
             _primaryLabel = _primary.GetComponentInChildren<Text>();
             _primary.onClick.AddListener(OnPrimary);
 
             int shopCount = ShopCatalog.Items.Length;
             _buyButtons = new Button[shopCount];
             _buyLabels = new Text[shopCount];
-            float y = 0.66f;
-            float step = 0.1f;
             for (int i = 0; i < shopCount; i++)
             {
                 ShopItem item = ShopCatalog.Items[i];
+                int col = i % 2;
+                int row = i / 2;
+                float x0 = col == 0 ? 0.05f : 0.52f;
+                float x1 = col == 0 ? 0.48f : 0.95f;
+                float top = 0.7f - row * 0.21f;
+                float bot = top - 0.18f;
                 Button button = CreateButton("Buy_" + item.Id, _menuRoot.transform, font,
-                    new Vector2(0.08f, y - 0.085f), new Vector2(0.92f, y));
+                    new Vector2(x0, bot), new Vector2(x1, top));
                 int captured = i;
                 button.onClick.AddListener(() => OnBuy(ShopCatalog.Items[captured].Id));
                 _buyButtons[i] = button;
                 _buyLabels[i] = button.GetComponentInChildren<Text>();
-                y -= step;
+                _buyLabels[i].fontSize = 16;
             }
 
             BuildAudioControls(font);
@@ -248,9 +257,39 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        public void AnnounceWorldChange(int world)
+        {
+            _flashedWorld = world;
+            _worldFlashUntil = Time.unscaledTime + 1.6f;
+            RefreshWorldBadge();
+        }
+
+        private void Update()
+        {
+            if (_world == null)
+            {
+                return;
+            }
+
+            if (Time.unscaledTime < _worldFlashUntil)
+            {
+                float pulse = Mathf.PingPong(Time.unscaledTime * 7f, 1f);
+                _world.fontSize = 38 + (int)(10f * pulse);
+                _world.color = Color.Lerp(new Color(1f, 0.95f, 0.5f), new Color(1f, 0.45f, 0.08f), pulse);
+                _world.text = "WORLD " + _flashedWorld + "  ONLINE";
+                return;
+            }
+
+            if (_world.fontSize != 34)
+            {
+                _world.fontSize = 34;
+                RefreshWorldBadge();
+            }
+        }
+
         private void RefreshWorldBadge()
         {
-            if (_world == null || _session == null)
+            if (_world == null || _session == null || Time.unscaledTime < _worldFlashUntil)
             {
                 return;
             }

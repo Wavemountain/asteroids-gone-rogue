@@ -96,6 +96,11 @@ namespace AsteroidsGoneRogue
             Play(_waveClear);
         }
 
+        public void PlayWorldChange()
+        {
+            Play(_purchase);
+        }
+
         public void SyncMusicToPhase(GamePhase phase)
         {
             if (phase == GamePhase.Playing)
