@@ -790,6 +790,120 @@ def test_scout_drone_polish_0341() -> None:
         assert art_fbx.read_bytes() == res_fbx.read_bytes()
 
 
+def medal_badge_row(mask: int) -> str:
+    parts: list[str] = []
+    if mask & 1:
+        parts.append("★ Scout Wing")
+    if mask & 2:
+        parts.append("★ Deep Orbit")
+    return "  ·  ".join(parts)
+
+
+def try_award_mask(mask: int, bit: int) -> tuple[bool, int]:
+    nxt = mask | bit
+    return nxt != mask, nxt
+
+
+def test_medals_swarm_035() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    persist = (root / "Assets/Scripts/Core/HangarPersist.cs").read_text(encoding="utf-8")
+    medals = (root / "Assets/Scripts/Core/MedalCatalog.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    art = (root / "Assets/Scripts/Content/ArtImport.cs").read_text(encoding="utf-8")
+    enemies = (root / "Assets/Scripts/Combat/EnemyKind.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    sign = (root / "Assets/Scripts/Content/HangarSignPulse.cs").read_text(encoding="utf-8")
+
+    assert "agr.hangar.medals" in persist
+    assert "class HangarPersist" in persist
+    assert "TryAward" in persist
+    assert "BadgeRow" in persist
+    assert "MedalId.ScoutWing" in medals
+    assert "MedalId.DeepOrbit" in medals
+    assert 'DeepOrbitTitle = "Deep Orbit"' in medals
+    assert "TryForClearedWave" in medals
+    assert "TryForWorldEntry" in medals
+    assert "WorldEntryBeat" in medals
+    assert medal_badge_row(0) == ""
+    assert medal_badge_row(1) == "★ Scout Wing"
+    assert medal_badge_row(2) == "★ Deep Orbit"
+    assert medal_badge_row(3) == "★ Scout Wing  ·  ★ Deep Orbit"
+    awarded, mask = try_award_mask(0, 1)
+    assert awarded and mask == 1
+    awarded, mask = try_award_mask(1, 1)
+    assert not awarded and mask == 1
+    awarded, mask = try_award_mask(1, 2)
+    assert awarded and mask == 3
+    assert "ShowWaveMedal" in summary
+    assert wave_medal(3, Phase.WAVE_CLEAR) == "★ Scout Wing  ·  World 2 at wave 6"
+    assert "BadgeRow" in ui
+    assert "AnnounceMedalBeat" in ui
+    assert "RefreshBadgeRow" in ui
+    assert "TryAwardWaveMedal" in manager
+    assert "TryAwardWorldMedal" in manager
+    assert "HangarPersist.Load" in manager
+    assert "AnnounceMedalBeat" in manager
+
+    assert "Enemy_01_Buffer_v8" in art
+    assert "Enemy_SwarmPod_Buffer_v6" in art
+    assert "Enemy_Bomber_Buffer_v6" in art
+    assert "Ship_Complete_Buffer_v4" in art
+    assert art.index('"Enemy_01"') < art.index("Enemy_01_Buffer_v8")
+    assert art.index('"Enemy_SwarmPod"') < art.index("Enemy_SwarmPod_Buffer_v6")
+    assert art.index('"Enemy_Bomber"') < art.index("Enemy_Bomber_Buffer_v6")
+    assert art.index("Enemy_Bomber_Buffer_v6") < art.index("Enemy_Bomber_Buffer_v5")
+    assert art.index('"Ship_Complete"') < art.index("Ship_Complete_Buffer_v4")
+    assert "Enemy_01_Buffer_v8" in enemies
+    assert "Enemy_SwarmPod_Buffer_v6" in enemies
+    assert "Enemy_Bomber_Buffer_v6" in enemies
+    assert "Enemy_01_Buffer_v8" not in factory
+    assert "DressMidMesh" in factory
+    assert "DressLaunchSign" in factory
+    assert "LaunchGoDecal" in factory
+    assert 'go.text = "GO"' in factory
+    assert "Mat_LaunchSign_Decal" in factory
+    assert "HangarSignPulse" in factory
+    assert "class HangarSignPulse" in sign
+
+    spawn = audio.split("public void PlaySwarmPodSpawn()")[1].split("public void")[0]
+    assert "_swarmPodSpawn" in spawn
+    death_kind = audio.split("public void PlayEnemyDeath(EnemyKind kind)")[1].split("public ")[0]
+    hit_kind = audio.split("public void PlayHit(EnemyKind kind)")[1].split("public ")[0]
+    death = audio.split("public void PlayEnemyDeath()")[1].split("public void")[0]
+    split = audio.split("public void PlayAsteroidSplit()")[1].split("public void")[0]
+    abort_fn = audio.split("public void PlayAbortWhoosh()")[1].split("public void")[0]
+    assert "UsesLightThreatSfx" in death_kind
+    assert "UsesLightThreatSfx" in hit_kind
+    assert "Play(_enemyDeath)" in death
+    assert "EnemyDeathPunchScale" in death
+    assert "Play(_asteroidSplit)" in split
+    assert "_enemyDeathPunch" not in split
+    assert "DuckMusic" in abort_fn
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/phaserUp5")' in audio
+    assert (root / "Assets/Resources/Audio/Sfx/phaserUp5.ogg").is_file()
+    assert (root / "Assets/Resources/Audio/Sfx/phaserUp5.ogg").stat().st_size > 1000
+
+    lfs_prefix = b"version https://git-lfs.github.com/spec/v1"
+    for name, min_size in (
+        ("Ship_Complete", 150000),
+        ("Enemy_SwarmPod", 200000),
+        ("Enemy_Bomber", 160000),
+        ("Enemy_01", 100000),
+    ):
+        art_fbx = root / f"Assets/Art/Import/{name}.fbx"
+        res_fbx = root / f"Assets/Resources/Art/Import/{name}.fbx"
+        assert art_fbx.is_file() and art_fbx.stat().st_size > min_size
+        assert res_fbx.is_file() and res_fbx.stat().st_size > min_size
+        assert not art_fbx.read_bytes()[:64].startswith(lfs_prefix)
+        assert not res_fbx.read_bytes()[:64].startswith(lfs_prefix)
+        assert art_fbx.read_bytes() == res_fbx.read_bytes()
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -808,6 +922,7 @@ def main() -> int:
     test_juice_best_hud()
     test_enemies_launch_034()
     test_scout_drone_polish_0341()
+    test_medals_swarm_035()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

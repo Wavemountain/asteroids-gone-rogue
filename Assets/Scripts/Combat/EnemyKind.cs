@@ -181,7 +181,9 @@ namespace AsteroidsGoneRogue
                 return EnemyKind.Drone;
             }
 
-            if (visualName == "Enemy_Bomber" || visualName == "Enemy_Bomber_Buffer_v5")
+            if (visualName == "Enemy_Bomber"
+                || visualName == "Enemy_Bomber_Buffer_v6"
+                || visualName == "Enemy_Bomber_Buffer_v5")
             {
                 return EnemyKind.Bomber;
             }
@@ -191,9 +193,14 @@ namespace AsteroidsGoneRogue
                 return EnemyKind.Sniper;
             }
 
-            if (visualName == "Enemy_SwarmPod")
+            if (visualName == "Enemy_SwarmPod" || visualName == "Enemy_SwarmPod_Buffer_v6")
             {
                 return EnemyKind.SwarmPod;
+            }
+
+            if (visualName == "Enemy_01" || visualName == "Enemy_01_Buffer_v8")
+            {
+                return EnemyKind.Mid01;
             }
 
             return EnemyKind.Mid01;

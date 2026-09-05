@@ -41,6 +41,9 @@ namespace AsteroidsGoneRogue
         private Material _hangarAmber;
         private Material _hangarCyan;
         private Material _hangarGlow;
+        private Material _launchAmber;
+        private Material _launchGlow;
+        private Material _launchDecal;
         private static readonly Color HangarAmbient = new Color(0.2f, 0.17f, 0.13f);
         private static readonly Color CombatAmbient = new Color(0.12f, 0.14f, 0.18f);
 
@@ -75,6 +78,9 @@ namespace AsteroidsGoneRogue
             _hangarAmber = MakeMaterial("Mat_Hangar_Amber", new Color(1f, 0.58f, 0.16f), 0.2f, 0.5f, new Color(1f, 0.42f, 0.06f) * 1.6f);
             _hangarCyan = MakeMaterial("Mat_Hangar_Cyan", new Color(0.22f, 0.72f, 0.88f), 0.15f, 0.45f, new Color(0.15f, 0.55f, 0.8f) * 1.4f);
             _hangarGlow = MakeMaterial("Mat_Hangar_Glow", new Color(1f, 0.72f, 0.28f), 0f, 0.2f, new Color(1f, 0.55f, 0.12f) * 2.6f);
+            _launchAmber = MakeMaterial("Mat_LaunchSign_Amber", new Color(1f, 0.62f, 0.14f), 0.12f, 0.42f, new Color(1f, 0.48f, 0.06f) * 3.8f);
+            _launchGlow = MakeMaterial("Mat_LaunchSign_Glow", new Color(1f, 0.86f, 0.32f), 0f, 0.18f, new Color(1f, 0.7f, 0.12f) * 5.2f);
+            _launchDecal = MakeMaterial("Mat_LaunchSign_Decal", new Color(1f, 0.94f, 0.42f), 0f, 0.12f, new Color(1f, 0.82f, 0.18f) * 6.4f);
             _shield = MakeTransparent("Mat_Shield", new Color(0.25f, 0.85f, 1f, 0.22f), new Color(0.2f, 0.7f, 1f) * 0.6f);
             ArtImport.WarmPlayModeAssets();
         }
@@ -198,8 +204,9 @@ namespace AsteroidsGoneRogue
                 new Vector3(0.22f, 0.55f, 0.22f), 1.1f, Color.clear, 0f);
             PlaceHangarProp("Hangar_Locker", "Hangar_Locker", new Vector3(-4.8f, 0f, 6.6f), _hangarMetal, PrimitiveType.Cube,
                 new Vector3(1.15f, 2.05f, 0.72f), 2.05f, Color.clear, 0f);
-            PlaceHangarProp("Hangar_LaunchSign", "Hangar_LaunchSign", new Vector3(1.95f, 0f, -2.55f), _hangarAmber, PrimitiveType.Cube,
-                new Vector3(1.28f, 2.05f, 0.2f), 2.05f, new Color(1f, 0.68f, 0.18f), 1.85f, 198f);
+            GameObject launchSign = PlaceHangarProp("Hangar_LaunchSign", "Hangar_LaunchSign", new Vector3(1.95f, 0f, -2.55f), _launchAmber, PrimitiveType.Cube,
+                new Vector3(1.28f, 2.05f, 0.2f), 2.05f, new Color(1f, 0.78f, 0.22f), 2.65f, 198f);
+            DressLaunchSign(launchSign);
             PlaceHangarProp("Hangar_ShipComplete", "Ship_Complete", new Vector3(8.2f, 0f, 7.4f), _hull, PrimitiveType.Cube,
                 new Vector3(1.1f, 0.55f, 2.4f), 0.55f, new Color(1f, 0.55f, 0.16f), 0.7f);
 
@@ -209,7 +216,7 @@ namespace AsteroidsGoneRogue
                 new Vector3(2.2f, 0.015f, -6.4f), new Vector3(2.4f, 0.03f, 1.8f), Quaternion.identity);
         }
 
-        private void PlaceHangarProp(
+        private GameObject PlaceHangarProp(
             string instanceName,
             string visualName,
             Vector3 floorPosition,
@@ -220,7 +227,7 @@ namespace AsteroidsGoneRogue
             Color lightColor,
             float lightIntensity)
         {
-            PlaceHangarProp(
+            return PlaceHangarProp(
                 instanceName,
                 visualName,
                 floorPosition,
@@ -233,7 +240,7 @@ namespace AsteroidsGoneRogue
                 0f);
         }
 
-        private void PlaceHangarProp(
+        private GameObject PlaceHangarProp(
             string instanceName,
             string visualName,
             Vector3 floorPosition,
@@ -272,6 +279,54 @@ namespace AsteroidsGoneRogue
                 light.intensity = lightIntensity;
                 light.range = 7.5f;
             }
+
+            return root;
+        }
+
+        private void DressLaunchSign(GameObject root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            Light lamp = root.GetComponentInChildren<Light>();
+            if (lamp != null)
+            {
+                lamp.type = LightType.Spot;
+                lamp.range = 11f;
+                lamp.spotAngle = 68f;
+                lamp.intensity = 3.15f;
+                lamp.color = new Color(1f, 0.8f, 0.28f);
+                lamp.transform.localPosition = new Vector3(0f, 2.15f, 0.55f);
+                lamp.transform.localRotation = Quaternion.Euler(18f, 180f, 0f);
+            }
+
+            CreatePrimitive(PrimitiveType.Cube, "LaunchGoPlate", root.transform, _launchGlow,
+                new Vector3(0f, 1.38f, 0.14f), new Vector3(0.92f, 0.62f, 0.04f), Quaternion.identity);
+            GameObject decal = new GameObject("LaunchGoDecal");
+            decal.transform.SetParent(root.transform, false);
+            decal.transform.localPosition = new Vector3(0f, 1.38f, 0.18f);
+            decal.transform.localRotation = Quaternion.identity;
+            TextMesh go = decal.AddComponent<TextMesh>();
+            go.text = "GO";
+            Font font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            if (font != null)
+            {
+                go.font = font;
+            }
+
+            go.fontSize = 72;
+            go.characterSize = 0.085f;
+            go.anchor = TextAnchor.MiddleCenter;
+            go.alignment = TextAlignment.Center;
+            go.color = new Color(1f, 0.95f, 0.42f);
+            go.fontStyle = FontStyle.Bold;
+
+            HangarSignPulse pulse = root.AddComponent<HangarSignPulse>();
+            pulse.SignLight = lamp;
+            pulse.BaseIntensity = 3.15f;
+            pulse.BaseEmission = new Color(1f, 0.7f, 0.14f) * 4.6f;
         }
 
         private bool BuildHangarBufferFallback(string visualName, Transform parent)
@@ -545,9 +600,18 @@ namespace AsteroidsGoneRogue
                 CreatePrimitive(PrimitiveType.Cube, "Canard", root.transform, _accent,
                     new Vector3(0f, 0.15f, -0.35f), new Vector3(1.4f, 0.08f, 0.35f), Quaternion.identity);
             }
+            else if (kind == EnemyKind.Mid01)
+            {
+                DressMidMesh(root.transform);
+            }
 
             EnemySeeker seeker = root.AddComponent<EnemySeeker>();
             seeker.Initialize(player, waves, kind);
+            if (kind == EnemyKind.SwarmPod && AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlaySwarmPodSpawn();
+            }
+
             return seeker;
         }
 
@@ -837,9 +901,59 @@ namespace AsteroidsGoneRogue
             return ArtImport.TryInstantiate(assetName, parent, RemapImported, fallback, out instance);
         }
 
+        private void DressMidMesh(Transform root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+            MaterialPropertyBlock block = new MaterialPropertyBlock();
+            block.SetColor("_EmissionColor", new Color(0.82f, 0.1f, 0.12f));
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                if (renderers[i] != null)
+                {
+                    renderers[i].SetPropertyBlock(block);
+                }
+            }
+        }
+
         private Material RemapImported(string importedName, Material fallback)
         {
             string name = importedName ?? string.Empty;
+            if (ContainsIgnoreCase(name, "LaunchSign") || ContainsIgnoreCase(name, "Launch_Go")
+                || ContainsIgnoreCase(name, "LaunchGo"))
+            {
+                if (ContainsIgnoreCase(name, "Decal") || ContainsIgnoreCase(name, "Text")
+                    || ContainsIgnoreCase(name, "Go"))
+                {
+                    return _launchDecal;
+                }
+
+                if (ContainsIgnoreCase(name, "Glow") || ContainsIgnoreCase(name, "Light")
+                    || ContainsIgnoreCase(name, "Emissive"))
+                {
+                    return _launchGlow;
+                }
+
+                return _launchAmber;
+            }
+
+            if (ContainsIgnoreCase(name, "Enemy") || ContainsIgnoreCase(name, "Mid")
+                || ContainsIgnoreCase(name, "Swarm") || ContainsIgnoreCase(name, "Bomber"))
+            {
+                if (ContainsIgnoreCase(name, "Accent") || ContainsIgnoreCase(name, "Canopy")
+                    || ContainsIgnoreCase(name, "Eye") || ContainsIgnoreCase(name, "Stripe")
+                    || ContainsIgnoreCase(name, "Glow"))
+                {
+                    return _accentHot;
+                }
+
+                return _enemy;
+            }
+
             if (ContainsIgnoreCase(name, "Glass"))
             {
                 return _glass;

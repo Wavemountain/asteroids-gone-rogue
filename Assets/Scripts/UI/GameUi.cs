@@ -37,10 +37,12 @@ namespace AsteroidsGoneRogue
         private Text _summaryBody;
         private Text _waveMedal;
         private Text _continueHint;
+        private Text _badgeRow;
         private Image _hitFlash;
         private bool _tutorialDismissed;
         private float _worldFlashUntil;
         private int _flashedWorld = 1;
+        private string _medalBeat = string.Empty;
         private string _statusBase = string.Empty;
         private ShopItem _hoveredItem;
         private float _hitFlashUntil;
@@ -117,6 +119,7 @@ namespace AsteroidsGoneRogue
                 ? "WASD move  ·  Mouse aim  ·  LMB / Space fire  ·  Q / RMB fire mode  ·  Esc abort"
                 : "WASD move  ·  Mouse aim  ·  LMB / Space fire  ·  " + HangarControlsHint;
             RefreshWorldBadge();
+            RefreshBadgeRow(playing);
             RefreshFirstHangarHint();
 
             if (playing)
@@ -209,8 +212,12 @@ namespace AsteroidsGoneRogue
             _world.color = new Color(1f, 0.82f, 0.28f);
 
             _hud = CreateText("Hud", transform, font, 24, TextAnchor.UpperLeft, FontStyle.Normal);
-            Stretch(_hud.rectTransform, new Vector2(0.03f, 0.68f), new Vector2(0.5f, 0.86f));
+            Stretch(_hud.rectTransform, new Vector2(0.03f, 0.64f), new Vector2(0.5f, 0.80f));
             _hud.color = Color.white;
+
+            _badgeRow = CreateText("BadgeRow", transform, font, 20, TextAnchor.UpperLeft, FontStyle.Bold);
+            Stretch(_badgeRow.rectTransform, new Vector2(0.03f, 0.80f), new Vector2(0.58f, 0.86f));
+            _badgeRow.color = new Color(1f, 0.84f, 0.38f);
 
             _hint = CreateText("Hint", transform, font, 20, TextAnchor.LowerCenter, FontStyle.Normal);
             Stretch(_hint.rectTransform, new Vector2(0.1f, 0.02f), new Vector2(0.9f, 0.08f));
@@ -638,6 +645,18 @@ namespace AsteroidsGoneRogue
             RefreshWorldBadge();
         }
 
+        public void AnnounceMedalBeat(string line)
+        {
+            _medalBeat = line ?? string.Empty;
+            if (string.IsNullOrEmpty(_medalBeat))
+            {
+                return;
+            }
+
+            _worldFlashUntil = Mathf.Max(_worldFlashUntil, Time.unscaledTime + 1.55f);
+            RefreshWorldBadge();
+        }
+
         private void Update()
         {
             if (_session != null && _session.Phase == GamePhase.Playing && Input.GetKeyDown(KeyCode.Escape))
@@ -662,13 +681,20 @@ namespace AsteroidsGoneRogue
                 float pulse = Mathf.PingPong(Time.unscaledTime * 7f, 1f);
                 _world.fontSize = 38 + (int)(10f * pulse);
                 _world.color = Color.Lerp(new Color(1f, 0.95f, 0.5f), new Color(1f, 0.45f, 0.08f), pulse);
-                _world.text = "WORLD " + _flashedWorld + "  ONLINE";
+                string flash = "WORLD " + _flashedWorld + "  ONLINE";
+                if (!string.IsNullOrEmpty(_medalBeat))
+                {
+                    flash += "\n" + _medalBeat;
+                }
+
+                _world.text = flash;
                 return;
             }
 
-            if (_world.fontSize != 34)
+            if (_world.fontSize != 34 || !string.IsNullOrEmpty(_medalBeat))
             {
                 _world.fontSize = 34;
+                _medalBeat = string.Empty;
                 RefreshWorldBadge();
             }
         }
@@ -683,6 +709,23 @@ namespace AsteroidsGoneRogue
             int world = ContentFactory.WorldIndexForWave(_session.WaveIndex);
             _world.text = "WORLD " + world;
             _world.color = new Color(1f, 0.82f, 0.28f);
+        }
+
+        private void RefreshBadgeRow(bool playing)
+        {
+            if (_badgeRow == null)
+            {
+                return;
+            }
+
+            HangarPersist persist = _game != null && _game.Persist != null ? _game.Persist : HangarPersist.Load();
+            string row = persist != null ? persist.BadgeRow() : string.Empty;
+            bool show = !playing && !string.IsNullOrEmpty(row);
+            _badgeRow.gameObject.SetActive(show);
+            if (show)
+            {
+                _badgeRow.text = row;
+            }
         }
 
         private void RefreshBuyButton(int index, ShopItem item)

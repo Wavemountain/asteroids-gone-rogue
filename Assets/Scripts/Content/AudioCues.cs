@@ -46,6 +46,7 @@ namespace AsteroidsGoneRogue
         private AudioClip _abort;
         private AudioClip _worldChange;
         private AudioClip _waveClear;
+        private AudioClip _swarmPodSpawn;
         private AudioClip _arenaLoop;
         private AudioClip _hangarAmbience;
         private bool _muted;
@@ -197,6 +198,11 @@ namespace AsteroidsGoneRogue
         public void PlayWorldChange()
         {
             Play(_worldChange);
+        }
+
+        public void PlaySwarmPodSpawn()
+        {
+            Play(_swarmPodSpawn != null ? _swarmPodSpawn : _worldChange, 0.86f);
         }
 
         public void SyncMusicToPhase(GamePhase phase)
@@ -378,6 +384,7 @@ namespace AsteroidsGoneRogue
             _abort = Resources.Load<AudioClip>("Audio/Sfx/minimize_005");
             _worldChange = Resources.Load<AudioClip>("Audio/Sfx/maximize_008");
             _waveClear = Resources.Load<AudioClip>("Audio/Sfx/jingles_PIZZA07");
+            _swarmPodSpawn = Resources.Load<AudioClip>("Audio/Sfx/phaserUp5");
             _arenaLoop = Resources.Load<AudioClip>("Audio/Music/OutThere");
             _hangarAmbience = Resources.Load<AudioClip>("Audio/Music/spacelifeNo14");
         }

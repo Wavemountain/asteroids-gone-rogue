@@ -24,6 +24,8 @@ namespace AsteroidsGoneRogue
 
         public LocalBest Best { get; private set; }
 
+        public HangarPersist Persist { get; private set; }
+
         public void Initialize(
             GameSession session,
             PlayerLoadout loadout,
@@ -41,6 +43,7 @@ namespace AsteroidsGoneRogue
             _factory = factory;
             _ship = ship;
             Best = LocalBest.Load();
+            Persist = HangarPersist.Load();
             LastRunWasNewBest = false;
         }
 
@@ -64,7 +67,14 @@ namespace AsteroidsGoneRogue
             _ship.ResetForWave(_loadout.State);
             _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
             _ship.SetInputEnabled(true);
+            int world = ContentFactory.WorldIndexForWave(_session.WaveIndex);
+            bool worldMedal = TryAwardWorldMedal(world);
             _waves.SpawnWave(_session.WaveIndex);
+            if (worldMedal && _ui != null)
+            {
+                _ui.AnnounceMedalBeat(MedalCatalog.WorldEntryBeat(world));
+            }
+
             RaiseStateChanged();
         }
 
@@ -194,7 +204,46 @@ namespace AsteroidsGoneRogue
             }
 
             RecordBest(clearedWave);
+            TryAwardWaveMedal(clearedWave);
             RaiseStateChanged();
+        }
+
+        private bool TryAwardWaveMedal(int clearedWave)
+        {
+            MedalId medal;
+            if (!MedalCatalog.TryForClearedWave(clearedWave, out medal))
+            {
+                return false;
+            }
+
+            return TryAwardMedal(medal);
+        }
+
+        private bool TryAwardWorldMedal(int world)
+        {
+            MedalId medal;
+            if (!MedalCatalog.TryForWorldEntry(world, out medal))
+            {
+                return false;
+            }
+
+            return TryAwardMedal(medal);
+        }
+
+        private bool TryAwardMedal(MedalId medal)
+        {
+            if (Persist == null)
+            {
+                Persist = HangarPersist.Load();
+            }
+
+            if (!Persist.TryAward(medal))
+            {
+                return false;
+            }
+
+            Persist.Save();
+            return true;
         }
 
         private void RecordBest(int wave)

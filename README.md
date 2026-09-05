@@ -38,12 +38,12 @@ Editor helpers: menu **Asteroids gone rogue → Open Play Scene** / **Validate W
 
 `GameSession` / `GameManager` / `WaveManager` states:
 
-1. **Hangar** — title, start button, shop (if you have credits). First session shows a dismissable **First flight** card (WASD / Abort Esc / Q·RMB fire modes / shop / Start Wave; PlayerPrefs). Hangar dressing includes Console, PowerBox, FireExtinguisher, Locker, and a **LaunchSign** landmark on the pad’s camera-front edge.
+1. **Hangar** — title, start button, shop (if you have credits). First session shows a dismissable **First flight** card (WASD / Abort Esc / Q·RMB fire modes / shop / Start Wave; PlayerPrefs). Hangar dressing includes Console, PowerBox, FireExtinguisher, Locker, and a **LaunchSign** landmark (emissive GO plate) on the pad’s camera-front edge. Earned medals persist in the hangar **badge row** (`agr.hangar.medals`).
 2. **Playing** — fly the 3D ship, shoot bolt / spread / pierce (if bought), split asteroids. Asteroids **wrap** at the arena edge so waves cannot soft-lock. **Abort → Hangar** leaves the wave without the clear bonus.
-3. **Wave Clear** — short **Run summary** card (score / wave / world / credits / upgrades) plus **150 credits**, then shop. After waves 1–3, one short continue line (World 2 / Gunner at 4 / **Buy X before Gunner**). Wave 3 also shows a light **★ Scout Wing** medal with the World 2 unlock. Hangar HUD always shows **Best** score / wave / world. During play the score line compares against Best (`/ Best N` or `NEW BEST`) without a fourth HUD line.
+3. **Wave Clear** — short **Run summary** card (score / wave / world / credits / upgrades) plus **150 credits**, then shop. After waves 1–3, one short continue line (World 2 / Gunner at 4 / **Buy X before Gunner**). Wave 3 awards **★ Scout Wing** (persists in the hangar badge row). Entering World 2 (wave 6) is a short **WORLD 2 ONLINE · ★ Deep Orbit** beat. Hangar HUD always shows **Best** score / wave / world. During play the score line compares against Best (`/ Best N` or `NEW BEST`) without a fourth HUD line.
 4. **Fail** — ship destroyed; retry the same wave. Bought upgrades stay. Fail uses the same summary card. Hangar HUD keeps **Best** visible.
 
-Wave 1: 4 large asteroids + 1 `Enemy_01`. Waves 2–10 add Scout v5 / Gunner v5 / Drone v4, then Bomber / Sniper / SwarmPod when those FBX are present. After wave 10 the roster plateaus and large asteroids tick +1 per wave (7 → 8… cap 10). After every 5 cleared waves the arena mesh swaps World 1→6 (loop). Same radius and rules.
+Wave 1: 4 large asteroids + 1 `Enemy_01` (Mid v8 mesh). Waves 2–10 add Scout v5 / Gunner v5 / Drone v4, then Bomber v6 / Sniper / SwarmPod v6 when those FBX are present. After wave 10 the roster plateaus and large asteroids tick +1 per wave (7 → 8… cap 10). After every 5 cleared waves the arena mesh swaps World 1→6 (loop). Same radius and rules.
 
 ## Shop
 
@@ -99,6 +99,7 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 | Asteroid split | Kenney Sci-Fi Sounds | `explosionCrunch_000.ogg` |
 | Enemy death | Kenney Sci-Fi Sounds | `explosionCrunch_003.ogg` + `impactMetal_000.ogg` punch |
 | SwarmPod / Mid death | Kenney Sci-Fi Sounds | `explosionCrunch_001.ogg` (no punch) |
+| SwarmPod spawn | Kenney Digital Audio | `phaserUp5.ogg` |
 | Player damage | Kenney Sci-Fi Sounds | `forceField_000.ogg` |
 | Arena world swap | Kenney Interface Sounds | `maximize_008.ogg` |
 | Wave clear | Kenney Music Jingles | `jingles_PIZZA07.ogg` |
@@ -109,7 +110,7 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 
 - **Meshes** come from `Assets/Art/Import/` FBX on Press Play (`ArtImport` loads by path — no Inspector mesh swap). Primitive fallbacks stay if an FBX is missing.
 - **Arena World 2–6** meshes **do spawn** — after every 5 cleared waves the floor swaps `Arena_Blockout` → World2 → … → World6 (then loops). Same radius and rules; not separate campaigns.
-- **Hangar only:** `Ship_Complete` v3 (parked bay display). **Not in Play:** `Ship_Complete_Upgrade01`, **`Ship_Body_Upgrade02`** (imported only; shop stops at Body Upgrade 01 + Nose/Engine 02).
+- **Hangar only:** `Ship_Complete` v4 (parked bay display). **Not in Play:** `Ship_Complete_Upgrade01`, **`Ship_Body_Upgrade02`** (imported only; shop stops at Body Upgrade 01 + Nose/Engine 02).
 - Combat juice: light screen flash + camera shake on hits / explosions. Player death stays quiet.
 - **Ship_*** part slots share origin `0,0,0` so Rapid Fire / Nose Hardpoint / Body Upgrade stay a SetActive swap.
 - No extra ships, no 30-wave campaign, no extra worlds, no large shop, no polish pass, no multiplayer.
@@ -132,4 +133,4 @@ See **[MERGE_CHECKLIST.md](MERGE_CHECKLIST.md)**. Do **not** merge PR #1 until W
 
 ## Success check
 
-Press Play → hangar FBX (crate/terminal/pillar + workbench/kiosk/banner/ammo rack + Console/PowerBox/extinguisher/Locker/LaunchSign + parked `Ship_Complete`). Wave 1 `Enemy_01` → later Scout/Gunner v5 / Drone v4 / Bomber+Sniper v5 / SwarmPod. Gunner/Sniper fire `Projectile_EnemyBolt`. Shop Body + Nose/Engine 02 + Spread/Pierce. Worlds 2–6 swap every 5 clears. Play HUD compares score vs Best; clear/fail show the run summary card (wave 3: Buy X before Gunner + ★ Scout Wing). Pickups, muzzle/explosion VFX, hit flash + light shake.
+Press Play → hangar FBX (crate/terminal/pillar + workbench/kiosk/banner/ammo rack + Console/PowerBox/extinguisher/Locker/LaunchSign GO + parked `Ship_Complete` v4). Wave 1 `Enemy_01` v8 → later Scout/Gunner v5 / Drone v4 / Bomber v6 + Sniper / SwarmPod v6. Gunner/Sniper fire `Projectile_EnemyBolt`. Shop Body + Nose/Engine 02 + Spread/Pierce. Worlds 2–6 swap every 5 clears (World 2: ★ Deep Orbit). Play HUD compares score vs Best; hangar badge row keeps Scout Wing / later medals. Clear/fail show the run summary card (wave 3: Buy X before Gunner + ★ Scout Wing). Pickups, muzzle/explosion VFX, hit flash + light shake.

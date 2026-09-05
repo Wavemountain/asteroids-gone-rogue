@@ -69,6 +69,7 @@ def main() -> int:
     require(ROOT / "Assets/Resources/Audio/Sfx/impactMetal_000.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/impactMetal_001.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/explosionCrunch_001.ogg")
+    require(ROOT / "Assets/Resources/Audio/Sfx/phaserUp5.ogg")
     require(ROOT / "Assets/Resources/Audio/Music/OutThere.ogg")
     require(ROOT / "Assets/Resources/Audio/Music/spacelifeNo14.ogg")
 
@@ -116,6 +117,8 @@ def main() -> int:
         "class ArtImport",
         "class GameBootstrap",
         "class GameUi",
+        "class HangarPersist",
+        "class MedalCatalog",
         "enum GamePhase",
     ]
     blob = "\n".join(read(p) for p in scripts + editor_scripts)

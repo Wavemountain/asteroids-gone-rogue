@@ -1,7 +1,8 @@
 namespace AsteroidsGoneRogue
 {
     /// <summary>
-    /// Short hangar cards: end-of-run stats, wave 1–3 continue lines, and the wave-3 medal.
+    /// Short hangar cards: end-of-run stats, wave 1–3 continue lines, and the wave-3 Scout Wing teaser.
+    /// Scout Wing + later medals persist in <see cref="HangarPersist"/> / the hangar badge row.
     /// Pure C# so tests can check the copy without the Editor.
     /// </summary>
     public static class RunSummary

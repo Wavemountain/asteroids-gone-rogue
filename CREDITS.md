@@ -26,6 +26,14 @@ Mirror used: https://opengameart.org/content/sci-fi-sounds (`sci-fi_sounds.zip`)
 | SwarmPod / Mid death | `Assets/Resources/Audio/Sfx/explosionCrunch_001.ogg` | `Audio/explosionCrunch_001.ogg` (no punch) |
 | Player damage | `Assets/Resources/Audio/Sfx/forceField_000.ogg` | `Audio/forceField_000.ogg` |
 
+Pack: **Kenney Digital Audio** (CC0)  
+Author: Kenney  
+Source: https://kenney.nl/assets/digital-audio
+
+| Cue | File in repo | Original pack file |
+| --- | --- | --- |
+| SwarmPod spawn | `Assets/Resources/Audio/Sfx/phaserUp5.ogg` | `Audio/phaserUp5.ogg` |
+
 Pack: **Kenney Interface Sounds** (CC0)  
 Author: Kenney  
 Source: https://kenney.nl/assets/interface-sounds  
@@ -60,4 +68,4 @@ Hangar plays `spacelifeNo14` as a denser two-layer bed (pitch 0.94 + 1.02). Aren
 
 ## Engine wiring
 
-`AudioCues` loads these clips from `Resources/Audio` at runtime (so Play Mode does not depend on Inspector references). Hangar UI has **Mute** plus **SFX** and **Music** sliders; values persist in PlayerPrefs. Local best score / wave / world persist under `agr.best.*`.
+`AudioCues` loads these clips from `Resources/Audio` at runtime (so Play Mode does not depend on Inspector references). Hangar UI has **Mute** plus **SFX** and **Music** sliders; values persist in PlayerPrefs. Local best score / wave / world persist under `agr.best.*`. Hangar medals persist under `agr.hangar.medals`.
