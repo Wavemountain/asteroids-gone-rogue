@@ -36,7 +36,7 @@ These filenames are instantiated by `ContentFactory` / `ArtImport` when the file
 - `Ship_Nose_Upgrade01.fbx` — hangar **Nose Hardpoint**
 - `Ship_Engine_Upgrade01.fbx` — hangar **Rapid Fire**
 
-`Ship_Body_Upgrade01.fbx` is imported but unused (no shop item).
+`Ship_Body_Upgrade01.fbx` is the hangar **Body Upgrade** slot swap.
 `Ship_Complete.fbx` / `Ship_Complete_Upgrade01.fbx` are reference assembles only.
 
 ### Combat / arena
@@ -44,7 +44,7 @@ These filenames are instantiated by `ContentFactory` / `ArtImport` when the file
 - `Asteroid_Large.fbx` / `Asteroid_Small.fbx` — type A visual (Week 1 split rules)
 - `Asteroid_VariantB_Large.fbx` / `Asteroid_VariantB_Small.fbx` — type B visual only (~45% mix)
 - `Enemy_01.fbx` — **Week 1 uses this one enemy type only**
-- `Enemy_Scout.fbx` / `Enemy_Gunner.fbx` / `Enemy_Drone.fbx` — loadable if spawned; Wave 1 still only calls `Enemy_01`
+- `Enemy_Scout.fbx` / `Enemy_Gunner.fbx` / `Enemy_Drone.fbx` — waves 2–10 (Bomber / Sniper / SwarmPod stay unused)
 - `Arena_Blockout.fbx` — World 1 hangar / arena
 - `Projectile_Bolt.fbx` — shot visual (trigger collider stays on the gameplay root)
 
@@ -57,6 +57,7 @@ Shown in hangar / results and hidden during a wave. Pivots on the **base** — p
 - `Hangar_Crate.fbx`
 - `Hangar_Terminal.fbx`
 - `Hangar_LightPillar.fbx`
+- `Hangar_Workbench.fbx` / `Hangar_FuelCell.fbx` / `Hangar_ShopKiosk.fbx`
 
 ### Pickups (not in the Week 1 loop)
 

@@ -16,9 +16,17 @@ namespace AsteroidsGoneRogue
         public const int BaseProjectileDamage = 1;
         public const int HardpointProjectileDamage = 2;
 
+        public const int BodyUpgradeHullBonus = 1;
+
         public bool RapidFire { get; private set; }
         public int ShieldCharges { get; private set; }
         public bool NoseHardpoint { get; private set; }
+        public bool BodyUpgrade01 { get; private set; }
+
+        public int CurrentHullHitPoints
+        {
+            get { return HullHitPoints + (BodyUpgrade01 ? BodyUpgradeHullBonus : 0); }
+        }
 
         public float FireCooldown
         {
@@ -45,6 +53,8 @@ namespace AsteroidsGoneRogue
                     return ShieldCharges >= MaxShieldCharges;
                 case UpgradeId.NoseHardpoint:
                     return NoseHardpoint;
+                case UpgradeId.BodyUpgrade01:
+                    return BodyUpgrade01;
                 default:
                     return false;
             }
@@ -71,6 +81,9 @@ namespace AsteroidsGoneRogue
                     break;
                 case UpgradeId.NoseHardpoint:
                     NoseHardpoint = true;
+                    break;
+                case UpgradeId.BodyUpgrade01:
+                    BodyUpgrade01 = true;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException("id");

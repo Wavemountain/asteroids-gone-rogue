@@ -133,6 +133,10 @@ def main() -> int:
         err("ContentFactory should instantiate Import FBX through ArtImport")
     if "Ship_Nose_Upgrade01" not in factory or "Ship_Engine_Upgrade01" not in factory:
         err("ContentFactory should bind hangar upgrade FBX slots")
+    if "Ship_Body_Upgrade01" not in factory:
+        err("ContentFactory should bind Ship_Body_Upgrade01 for the shop swap")
+    if "RosterForWave" not in read(ROOT / "Assets/Scripts/Core/WaveManager.cs"):
+        err("WaveManager should expose a Scout/Gunner/Drone ladder")
 
     art_import = read(ROOT / "Assets/Scripts/Content/ArtImport.cs")
     if "Resources.Load" not in art_import:
@@ -143,6 +147,7 @@ def main() -> int:
     play_fbx = (
         "Ship_Nose",
         "Ship_Body",
+        "Ship_Body_Upgrade01",
         "Ship_Engine",
         "Ship_Nose_Upgrade01",
         "Ship_Engine_Upgrade01",
@@ -158,6 +163,9 @@ def main() -> int:
         "Hangar_Crate",
         "Hangar_Terminal",
         "Hangar_LightPillar",
+        "Hangar_Workbench",
+        "Hangar_FuelCell",
+        "Hangar_ShopKiosk",
         "Projectile_Bolt",
         "Pickup_Score",
         "Pickup_Shield",

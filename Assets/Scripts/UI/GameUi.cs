@@ -20,8 +20,8 @@ namespace AsteroidsGoneRogue
         private GameObject _menuRoot;
         private Button _primary;
         private Text _primaryLabel;
-        private readonly Button[] _buyButtons = new Button[3];
-        private readonly Text[] _buyLabels = new Text[3];
+        private Button[] _buyButtons;
+        private Text[] _buyLabels;
         private Button _muteButton;
         private Text _muteLabel;
         private Slider _sfxSlider;
@@ -123,31 +123,35 @@ namespace AsteroidsGoneRogue
             _hint.text = "WASD move  ·  Mouse aim  ·  Left mouse / Space fire";
 
             _menuRoot = CreatePanel("HangarPanel", transform, new Color(0.04f, 0.06f, 0.09f, 0.82f),
-                new Vector2(0.22f, 0.16f), new Vector2(0.78f, 0.7f));
+                new Vector2(0.22f, 0.1f), new Vector2(0.78f, 0.7f));
 
             _status = CreateText("Status", _menuRoot.transform, font, 28, TextAnchor.UpperCenter, FontStyle.Bold);
             Stretch(_status.rectTransform, new Vector2(0.06f, 0.82f), new Vector2(0.94f, 0.96f));
             _status.color = new Color(0.95f, 0.95f, 0.9f);
 
             _credits = CreateText("Credits", _menuRoot.transform, font, 24, TextAnchor.UpperCenter, FontStyle.Normal);
-            Stretch(_credits.rectTransform, new Vector2(0.06f, 0.72f), new Vector2(0.94f, 0.82f));
+            Stretch(_credits.rectTransform, new Vector2(0.06f, 0.74f), new Vector2(0.94f, 0.84f));
             _credits.color = new Color(0.7f, 0.9f, 1f);
 
-            _primary = CreateButton("Primary", _menuRoot.transform, font, new Vector2(0.3f, 0.58f), new Vector2(0.7f, 0.7f));
+            _primary = CreateButton("Primary", _menuRoot.transform, font, new Vector2(0.3f, 0.62f), new Vector2(0.7f, 0.72f));
             _primaryLabel = _primary.GetComponentInChildren<Text>();
             _primary.onClick.AddListener(OnPrimary);
 
-            float y = 0.42f;
-            for (int i = 0; i < ShopCatalog.Items.Length; i++)
+            int shopCount = ShopCatalog.Items.Length;
+            _buyButtons = new Button[shopCount];
+            _buyLabels = new Text[shopCount];
+            float y = 0.58f;
+            float step = 0.13f;
+            for (int i = 0; i < shopCount; i++)
             {
                 ShopItem item = ShopCatalog.Items[i];
                 Button button = CreateButton("Buy_" + item.Id, _menuRoot.transform, font,
-                    new Vector2(0.08f, y - 0.12f), new Vector2(0.92f, y));
+                    new Vector2(0.08f, y - 0.11f), new Vector2(0.92f, y));
                 int captured = i;
                 button.onClick.AddListener(() => OnBuy(ShopCatalog.Items[captured].Id));
                 _buyButtons[i] = button;
                 _buyLabels[i] = button.GetComponentInChildren<Text>();
-                y -= 0.15f;
+                y -= step;
             }
 
             BuildAudioControls(font);

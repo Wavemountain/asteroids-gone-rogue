@@ -104,6 +104,12 @@ namespace AsteroidsGoneRogue
                 new Vector3(1.1f, 1.8f, 0.55f), 1.8f);
             PlaceHangarProp("Hangar_LightPillar", new Vector3(0f, 0f, 7.5f), _glow, PrimitiveType.Cylinder,
                 new Vector3(0.55f, 2.4f, 0.55f), 4.8f);
+            PlaceHangarProp("Hangar_Workbench", new Vector3(-7.4f, 0f, 1.8f), _hull, PrimitiveType.Cube,
+                new Vector3(1.6f, 0.85f, 0.9f), 0.85f);
+            PlaceHangarProp("Hangar_FuelCell", new Vector3(7.4f, 0f, 1.6f), _glow, PrimitiveType.Cylinder,
+                new Vector3(0.7f, 1.1f, 0.7f), 2.2f);
+            PlaceHangarProp("Hangar_ShopKiosk", new Vector3(2.2f, 0f, -6.8f), _accent, PrimitiveType.Cube,
+                new Vector3(1.2f, 1.6f, 0.7f), 1.6f);
         }
 
         private void PlaceHangarProp(
@@ -155,13 +161,23 @@ namespace AsteroidsGoneRogue
             slots.localPosition = Vector3.zero;
 
             Transform bodySlot = CreateSlot("Ship_Body", slots);
-            if (!TryVisual("Ship_Body", bodySlot, _hull))
+            GameObject defaultBody;
+            if (!TryVisual("Ship_Body", bodySlot, _hull, out defaultBody))
             {
-                CreatePrimitive(PrimitiveType.Cube, "Mesh", bodySlot, _hull,
+                defaultBody = CreatePrimitive(PrimitiveType.Cube, "Mesh", bodySlot, _hull,
                     Vector3.zero, new Vector3(1.1f, 0.6f, 1.5f), Quaternion.identity);
-                CreatePrimitive(PrimitiveType.Cube, "Canopy", bodySlot, _glass,
+                CreatePrimitive(PrimitiveType.Cube, "Canopy", defaultBody.transform, _glass,
                     new Vector3(0f, 0.28f, 0.15f), new Vector3(0.55f, 0.22f, 0.7f), Quaternion.identity);
             }
+
+            GameObject upgradedBody;
+            if (!TryVisual("Ship_Body_Upgrade01", bodySlot, _hull, out upgradedBody))
+            {
+                upgradedBody = CreatePrimitive(PrimitiveType.Cube, "Ship_Body_Upgrade01", bodySlot, _accent,
+                    Vector3.zero, new Vector3(1.25f, 0.7f, 1.65f), Quaternion.identity);
+            }
+
+            upgradedBody.SetActive(false);
 
             Transform noseSlot = CreateSlot("Ship_Nose", slots);
             GameObject defaultNose;
@@ -223,6 +239,8 @@ namespace AsteroidsGoneRogue
 
             ShipVisuals visuals = root.AddComponent<ShipVisuals>();
             visuals.BodySlot = bodySlot;
+            visuals.DefaultBody = defaultBody;
+            visuals.UpgradedBody = upgradedBody;
             visuals.NoseSlot = noseSlot;
             visuals.EngineSlot = engineSlot;
             visuals.DefaultNose = defaultNose;
@@ -293,10 +311,11 @@ namespace AsteroidsGoneRogue
                 | RigidbodyConstraints.FreezeRotationZ;
             body.collisionDetectionMode = CollisionDetectionMode.Continuous;
 
+            EnemyKind kind = EnemyCatalog.FromVisual(visualName);
             CapsuleCollider collider = root.AddComponent<CapsuleCollider>();
             collider.direction = 2;
-            collider.radius = 0.45f;
-            collider.height = EnemyMeters;
+            collider.radius = EnemyCatalog.ColliderRadius(kind);
+            collider.height = EnemyCatalog.ColliderHeight(kind);
 
             if (!TryVisual(visualName, root.transform, _enemy))
             {
@@ -307,7 +326,7 @@ namespace AsteroidsGoneRogue
             }
 
             EnemySeeker seeker = root.AddComponent<EnemySeeker>();
-            seeker.Initialize(player, waves);
+            seeker.Initialize(player, waves, kind);
             return seeker;
         }
 

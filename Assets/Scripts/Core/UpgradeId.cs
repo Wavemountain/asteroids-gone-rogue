@@ -4,6 +4,7 @@ namespace AsteroidsGoneRogue
     {
         RapidFire,
         ShieldCell,
-        NoseHardpoint
+        NoseHardpoint,
+        BodyUpgrade01
     }
 }

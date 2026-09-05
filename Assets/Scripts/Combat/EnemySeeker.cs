@@ -10,15 +10,26 @@ namespace AsteroidsGoneRogue
 
         private Transform _target;
         private WaveManager _waves;
+        private EnemyKind _kind;
         private int _hp;
+        private float _speed;
+        private float _turn;
         private bool _dead;
         private Rigidbody _body;
 
         public void Initialize(Transform target, WaveManager waves)
         {
+            Initialize(target, waves, EnemyKind.Mid01);
+        }
+
+        public void Initialize(Transform target, WaveManager waves, EnemyKind kind)
+        {
             _target = target;
             _waves = waves;
-            _hp = HitPoints;
+            _kind = kind;
+            _hp = EnemyCatalog.HitPoints(kind);
+            _speed = EnemyCatalog.Speed(kind);
+            _turn = EnemyCatalog.TurnDegreesPerSecond(kind);
             _dead = false;
             _body = GetComponent<Rigidbody>();
         }
@@ -44,7 +55,7 @@ namespace AsteroidsGoneRogue
             _dead = true;
             if (_waves != null)
             {
-                _waves.NotifyDestroyed(this, ScoreValues.Enemy);
+                _waves.NotifyDestroyed(this, EnemyCatalog.Score(_kind));
             }
 
             if (AudioCues.Instance != null)
@@ -82,8 +93,8 @@ namespace AsteroidsGoneRogue
             transform.rotation = Quaternion.RotateTowards(
                 transform.rotation,
                 look,
-                TurnDegreesPerSecond * Time.fixedDeltaTime);
-            _body.velocity = dir * Speed;
+                _turn * Time.fixedDeltaTime);
+            _body.velocity = dir * _speed;
 
             Vector3 pos = transform.position;
             pos.y = 0f;

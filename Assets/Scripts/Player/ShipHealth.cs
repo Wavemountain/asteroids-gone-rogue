@@ -29,7 +29,7 @@ namespace AsteroidsGoneRogue
         public void ResetForWave(LoadoutState loadout)
         {
             _dead = false;
-            _hull = LoadoutState.HullHitPoints;
+            _hull = loadout != null ? loadout.CurrentHullHitPoints : LoadoutState.HullHitPoints;
             _shield = loadout != null ? loadout.ShieldCharges : 0;
             if (_visuals != null)
             {
