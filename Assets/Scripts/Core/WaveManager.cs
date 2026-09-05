@@ -9,6 +9,8 @@ namespace AsteroidsGoneRogue
         public const int LadderWaves = 8;
         private const int BaseLargeAsteroids = 4;
         private const int MaxLargeAsteroids = 7;
+        private const int PlateauWave = 10;
+        private const int PlateauAsteroidCap = 10;
 
         private readonly HashSet<IThreat> _live = new HashSet<IThreat>();
         private ContentFactory _factory;
@@ -83,7 +85,13 @@ namespace AsteroidsGoneRogue
 
         public static int LargeAsteroidCount(int waveIndex)
         {
-            return Mathf.Clamp(BaseLargeAsteroids + (waveIndex - 1), BaseLargeAsteroids, MaxLargeAsteroids);
+            int count = Mathf.Clamp(BaseLargeAsteroids + (waveIndex - 1), BaseLargeAsteroids, MaxLargeAsteroids);
+            if (waveIndex > PlateauWave)
+            {
+                count = Mathf.Min(count + (waveIndex - PlateauWave), PlateauAsteroidCap);
+            }
+
+            return count;
         }
 
         public static EnemyKind[] RosterForWave(int waveIndex)

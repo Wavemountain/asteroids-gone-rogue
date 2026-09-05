@@ -24,7 +24,8 @@ This is the Week 1–2 playable core for **Asteroids gone rogue**. Branch: `curs
 - Hangar shows BlenderBot ship + crate / terminal / pillar / workbench / kiosk / banner / ammo rack.
 - Top-right badge reads **WORLD 1** on wave 1. After 5 clears it becomes **WORLD 2**, then 3–6, then loops. Arena-swap flashes **WORLD N ONLINE** and plays the purchase SFX.
 - Shop is a 2-column grid below Start / credits (no overlap). Buttons you cannot afford (or that are locked / owned) are **greyed and disabled**.
-- Wave 1: `Enemy_01`. Later: Scout / Gunner / Drone. Waves 7+: Bomber / Sniper / SwarmPod if those FBX imported.
+- First Play audio: SFX audible (0.8), music not blasting (0.28, mixed down). Mute / sliders persist in PlayerPrefs.
+- Wave 1: `Enemy_01`. Later: Scout / Gunner / Drone. Waves 7+: Bomber / Sniper / SwarmPod if those FBX imported. After wave 10: +1 large asteroid per wave (cap 10).
 - Buy Body Upgrade → `Ship_Body_Upgrade01`. Nose/Engine Upgrade 02 after their prereqs.
 - Shoot → muzzle flash. Kill → explosion. Asteroids mix A/B/C/D visuals; split rules unchanged.
 - Console on Play: `ArtImport: 44/44 Play Mode FBX ready`.

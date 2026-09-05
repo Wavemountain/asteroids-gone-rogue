@@ -10,6 +10,9 @@ namespace AsteroidsGoneRogue
         public const string MuteKey = "agr.audio.mute";
         public const string SfxKey = "agr.audio.sfx";
         public const string MusicKey = "agr.audio.music";
+        public const float DefaultSfxVolume = 0.8f;
+        public const float DefaultMusicVolume = 0.28f;
+        private const float MusicOutputScale = 0.55f;
 
         public static AudioCues Instance { get; private set; }
 
@@ -25,8 +28,8 @@ namespace AsteroidsGoneRogue
         private AudioClip _arenaLoop;
         private AudioClip _hangarAmbience;
         private bool _muted;
-        private float _sfxVolume = 0.8f;
-        private float _musicVolume = 0.42f;
+        private float _sfxVolume = DefaultSfxVolume;
+        private float _musicVolume = DefaultMusicVolume;
         private AudioClip _currentMusic;
 
         public bool Muted
@@ -51,8 +54,8 @@ namespace AsteroidsGoneRogue
             _music = CreateSource("MusicSource", true);
             LoadClips();
             _muted = PlayerPrefs.GetInt(MuteKey, 0) == 1;
-            _sfxVolume = PlayerPrefs.GetFloat(SfxKey, 0.8f);
-            _musicVolume = PlayerPrefs.GetFloat(MusicKey, 0.42f);
+            _sfxVolume = PlayerPrefs.GetFloat(SfxKey, DefaultSfxVolume);
+            _musicVolume = PlayerPrefs.GetFloat(MusicKey, DefaultMusicVolume);
             ApplyVolumes();
         }
 
@@ -185,7 +188,7 @@ namespace AsteroidsGoneRogue
 
             if (_music != null)
             {
-                _music.volume = _muted ? 0f : _musicVolume;
+                _music.volume = _muted ? 0f : _musicVolume * MusicOutputScale;
                 if (_muted)
                 {
                     _music.Pause();

@@ -130,6 +130,13 @@ def test_body_upgrade_adds_hull() -> None:
     assert loadout.hull == 4
 
 
+def large_asteroid_count(wave: int) -> int:
+    count = min(max(4 + (wave - 1), 4), 7)
+    if wave > 10:
+        count = min(count + (wave - 10), 10)
+    return count
+
+
 def test_wave_ladder_rises() -> None:
     from pathlib import Path
 
@@ -148,6 +155,14 @@ def test_wave_ladder_rises() -> None:
     assert "WorldIndexForWave" in factory
     assert "Arena_World2_Blockout" in factory
     assert "Hangar_AmmoRack" in factory
+    assert "PlateauWave" in text
+    assert "PlateauAsteroidCap" in text
+    assert large_asteroid_count(1) == 4
+    assert large_asteroid_count(4) == 7
+    assert large_asteroid_count(10) == 7
+    assert large_asteroid_count(11) == 8
+    assert large_asteroid_count(13) == 10
+    assert large_asteroid_count(20) == 10
     art_list = (Path(__file__).resolve().parents[1] / "Assets/Scripts/Content/ArtImport.cs").read_text(
         encoding="utf-8"
     )
@@ -185,6 +200,11 @@ def test_factory_wires_import_fbx() -> None:
     assert "AssetDatabase.LoadAssetAtPath" in art
     assert "Enemy_01" in factory
     assert "CreateEnemy(" in factory
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    assert "DefaultSfxVolume = 0.8f" in audio
+    assert "DefaultMusicVolume = 0.28f" in audio
+    assert "MusicOutputScale = 0.55f" in audio
+    assert "PlayerPrefs.GetInt(MuteKey, 0)" in audio
 
 
 def main() -> int:

@@ -41,7 +41,7 @@ Editor helpers: menu **Asteroids gone rogue → Open Play Scene** / **Validate W
 3. **Wave Clear** — score (including clear bonus) and **150 credits**, then shop.
 4. **Fail** — ship destroyed; retry the same wave. Bought upgrades stay.
 
-Wave 1: 4 large asteroids + 1 `Enemy_01`. Waves 2–10 add Scout / Gunner / Drone, then Bomber / Sniper / SwarmPod when those FBX are present. After every 5 cleared waves the arena mesh swaps World 1→6 (loop). Same radius and rules.
+Wave 1: 4 large asteroids + 1 `Enemy_01`. Waves 2–10 add Scout / Gunner / Drone, then Bomber / Sniper / SwarmPod when those FBX are present. After wave 10 the roster plateaus and large asteroids tick +1 per wave (7 → 8… cap 10). After every 5 cleared waves the arena mesh swaps World 1→6 (loop). Same radius and rules.
 
 ## Shop
 
@@ -77,7 +77,7 @@ Assets/Resources/Audio/           CC0 SFX + music (see CREDITS.md)
 
 ## Audio (CC0)
 
-Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music controls sit in the top-right of the HUD (PlayerPrefs).
+Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music controls sit in the top-right of the HUD (PlayerPrefs). First Play: SFX 0.8, music 0.28 (mixed quieter so the bed does not blast); mute starts off.
 
 | Cue | Pack | File |
 | --- | --- | --- |
