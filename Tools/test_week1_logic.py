@@ -389,11 +389,17 @@ def test_shop_clarity_and_hangar_wire() -> None:
     assert 'PlaceHangarProp("Hangar_PowerBox"' in factory
     assert 'PlaceHangarProp("Hangar_FireExtinguisher"' in factory
     assert "PlayUiClick" in audio and "PlayUiClick" in ui
+    lfs_prefix = b"version https://git-lfs.github.com/spec/v1"
+    resources_import = root / "Assets/Resources/Art/Import"
+    for fbx in sorted(resources_import.glob("*.fbx")):
+        assert fbx.is_file() and fbx.stat().st_size > 1000
+        assert not fbx.read_bytes()[:64].startswith(lfs_prefix), f"{fbx.name} is an LFS pointer"
     for name in ("Hangar_Console", "Hangar_PowerBox", "Hangar_FireExtinguisher"):
         art_fbx = root / f"Assets/Art/Import/{name}.fbx"
         res_fbx = root / f"Assets/Resources/Art/Import/{name}.fbx"
         assert art_fbx.is_file() and art_fbx.stat().st_size > 1000
         assert res_fbx.is_file() and res_fbx.stat().st_size > 1000
+        assert not res_fbx.read_bytes()[:64].startswith(lfs_prefix)
 
 
 def main() -> int:
