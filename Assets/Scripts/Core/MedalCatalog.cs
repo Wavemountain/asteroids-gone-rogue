@@ -3,24 +3,31 @@ namespace AsteroidsGoneRogue
     /// <summary>
     /// Hangar medals. Bitmask ids so new awards can land without a schema bump.
     /// Pure C# so tests can check award copy and badge-row order without the Editor.
+    /// Badge row capacity is three medals (Scout Wing, Deep Orbit, Far Drift).
     /// </summary>
     public enum MedalId
     {
         ScoutWing = 1,
-        DeepOrbit = 2
+        DeepOrbit = 2,
+        FarDrift = 4
     }
 
     public static class MedalCatalog
     {
         public const string ScoutWingTitle = "Scout Wing";
         public const string DeepOrbitTitle = "Deep Orbit";
+        public const string FarDriftTitle = "Far Drift";
         public const int World2EntryWorld = 2;
+        public const int World3EntryWorld = 3;
         public const int ScoutWingClearsAtWave = 3;
+        public const int FarDriftClearsAtWave = 10;
+        public const int BadgeCapacity = 3;
 
         public static readonly MedalId[] All =
         {
             MedalId.ScoutWing,
-            MedalId.DeepOrbit
+            MedalId.DeepOrbit,
+            MedalId.FarDrift
         };
 
         public static string Title(MedalId id)
@@ -29,6 +36,8 @@ namespace AsteroidsGoneRogue
             {
                 case MedalId.DeepOrbit:
                     return DeepOrbitTitle;
+                case MedalId.FarDrift:
+                    return FarDriftTitle;
                 default:
                     return ScoutWingTitle;
             }
@@ -47,6 +56,12 @@ namespace AsteroidsGoneRogue
                 return true;
             }
 
+            if (clearedWave == FarDriftClearsAtWave)
+            {
+                medal = MedalId.FarDrift;
+                return true;
+            }
+
             medal = MedalId.ScoutWing;
             return false;
         }
@@ -56,6 +71,12 @@ namespace AsteroidsGoneRogue
             if (world == World2EntryWorld)
             {
                 medal = MedalId.DeepOrbit;
+                return true;
+            }
+
+            if (world == World3EntryWorld)
+            {
+                medal = MedalId.FarDrift;
                 return true;
             }
 
@@ -77,7 +98,8 @@ namespace AsteroidsGoneRogue
         public static string BadgeRow(int mask)
         {
             string line = string.Empty;
-            for (int i = 0; i < All.Length; i++)
+            int shown = 0;
+            for (int i = 0; i < All.Length && shown < BadgeCapacity; i++)
             {
                 MedalId id = All[i];
                 if ((mask & (int)id) == 0)
@@ -91,6 +113,7 @@ namespace AsteroidsGoneRogue
                 }
 
                 line += AwardLine(id);
+                shown++;
             }
 
             return line;

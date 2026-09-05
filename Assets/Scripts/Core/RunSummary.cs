@@ -1,13 +1,14 @@
 namespace AsteroidsGoneRogue
 {
     /// <summary>
-    /// Short hangar cards: end-of-run stats, wave 1–3 continue lines, and the wave-3 Scout Wing teaser.
-    /// Scout Wing + later medals persist in <see cref="HangarPersist"/> / the hangar badge row.
+    /// Short hangar cards: end-of-run stats, wave 1–5 continue lines, and medal announce copy.
+    /// Scout Wing / Deep Orbit / Far Drift persist in <see cref="HangarPersist"/> / the hangar badge row.
     /// Pure C# so tests can check the copy without the Editor.
     /// </summary>
     public static class RunSummary
     {
         public const int World2StartsAtWave = 6;
+        public const int World3StartsAtWave = 11;
         public const string Wave3MedalTitle = "Scout Wing";
 
         public static string Title(GamePhase phase, string failReason)
@@ -75,7 +76,7 @@ namespace AsteroidsGoneRogue
 
         public static bool ShowContinueHint(int lastResolvedWave, GamePhase phase)
         {
-            return phase == GamePhase.WaveClear && lastResolvedWave >= 1 && lastResolvedWave <= 3;
+            return phase == GamePhase.WaveClear && lastResolvedWave >= 1 && lastResolvedWave <= 5;
         }
 
         public static string AfterWave1Hint(int credits, LoadoutState loadout)
@@ -93,23 +94,66 @@ namespace AsteroidsGoneRogue
                     : "Push for a new best before Gunner";
             }
 
+            if (lastResolvedWave == 4 || lastResolvedWave == 5)
+            {
+                string tease = DeepOrbitTeaser(lastResolvedWave);
+                return next != null ? tease + "  ·  Buy " + next.Title : tease;
+            }
+
             string buy = next != null ? "Buy " + next.Title : "Push for a new best.";
             return NextUnlockLandmark(lastResolvedWave) + "  ·  " + buy;
         }
 
+        public static string DeepOrbitTeaser(int lastResolvedWave)
+        {
+            if (lastResolvedWave == 5)
+            {
+                return "World 2  ·  ★ " + MedalCatalog.DeepOrbitTitle;
+            }
+
+            return "★ " + MedalCatalog.DeepOrbitTitle + " at wave " + World2StartsAtWave;
+        }
+
         public static bool ShowWaveMedal(int lastResolvedWave, GamePhase phase)
         {
-            return phase == GamePhase.WaveClear && lastResolvedWave == 3;
+            if (lastResolvedWave == MedalCatalog.ScoutWingClearsAtWave)
+            {
+                return phase == GamePhase.WaveClear;
+            }
+
+            if (lastResolvedWave == World2StartsAtWave)
+            {
+                return phase == GamePhase.WaveClear || phase == GamePhase.Failed;
+            }
+
+            if (lastResolvedWave == MedalCatalog.FarDriftClearsAtWave)
+            {
+                return phase == GamePhase.WaveClear;
+            }
+
+            return false;
         }
 
         public static string WaveMedal(int lastResolvedWave)
         {
-            if (lastResolvedWave != 3)
+            if (lastResolvedWave == MedalCatalog.ScoutWingClearsAtWave)
             {
-                return string.Empty;
+                return MedalCatalog.AwardLine(MedalId.ScoutWing)
+                    + "  ·  World 2 at wave " + World2StartsAtWave;
             }
 
-            return "★ " + Wave3MedalTitle + "  ·  World 2 at wave " + World2StartsAtWave;
+            if (lastResolvedWave == World2StartsAtWave)
+            {
+                return MedalCatalog.AwardLine(MedalId.DeepOrbit)
+                    + "  ·  World 3 at wave " + World3StartsAtWave;
+            }
+
+            if (lastResolvedWave == MedalCatalog.FarDriftClearsAtWave)
+            {
+                return MedalCatalog.AwardLine(MedalId.FarDrift) + "  ·  World 3";
+            }
+
+            return string.Empty;
         }
 
         public static string NextUnlockLandmark(int lastResolvedWave)
@@ -122,6 +166,11 @@ namespace AsteroidsGoneRogue
             if (lastResolvedWave == 3)
             {
                 return "before Gunner";
+            }
+
+            if (lastResolvedWave == 4 || lastResolvedWave == 5)
+            {
+                return DeepOrbitTeaser(lastResolvedWave);
             }
 
             return "World 2 at wave " + World2StartsAtWave;

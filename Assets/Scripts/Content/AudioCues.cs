@@ -23,6 +23,10 @@ namespace AsteroidsGoneRogue
         public const float AbortDuckSeconds = 0.55f;
         public const float HitPunchScale = 1.22f;
         public const float EnemyDeathPunchScale = 0.78f;
+        public const float SwarmPodSpawnScale = 0.72f;
+        public const float SwarmPodDuckSeconds = 0.28f;
+        public const float SwarmPodDuckScale = 0.45f;
+        public const float SwarmPodSpawnGapSeconds = 0.4f;
 
         public static AudioCues Instance { get; private set; }
 
@@ -57,6 +61,7 @@ namespace AsteroidsGoneRogue
         private float _musicPitch = HangarMusicPitch;
         private float _duckScale = 1f;
         private float _duckUntil;
+        private float _lastSwarmPodSpawn;
 
         public bool Muted
         {
@@ -202,7 +207,14 @@ namespace AsteroidsGoneRogue
 
         public void PlaySwarmPodSpawn()
         {
-            Play(_swarmPodSpawn != null ? _swarmPodSpawn : _worldChange, 0.86f);
+            if (Time.unscaledTime - _lastSwarmPodSpawn < SwarmPodSpawnGapSeconds)
+            {
+                return;
+            }
+
+            _lastSwarmPodSpawn = Time.unscaledTime;
+            Play(_swarmPodSpawn != null ? _swarmPodSpawn : _worldChange, SwarmPodSpawnScale);
+            DuckMusic(SwarmPodDuckSeconds, SwarmPodDuckScale);
         }
 
         public void SyncMusicToPhase(GamePhase phase)

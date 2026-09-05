@@ -163,6 +163,7 @@ namespace AsteroidsGoneRogue
         public static EnemyKind FromVisual(string visualName)
         {
             if (visualName == "Enemy_Scout"
+                || visualName == "Enemy_Scout_Buffer_v6"
                 || visualName == "Enemy_Scout_Buffer_v5"
                 || visualName == "Enemy_Scout_Buffer_v4")
             {
@@ -170,13 +171,16 @@ namespace AsteroidsGoneRogue
             }
 
             if (visualName == "Enemy_Gunner"
+                || visualName == "Enemy_Gunner_Buffer_v6"
                 || visualName == "Enemy_Gunner_Buffer_v5"
                 || visualName == "Enemy_Gunner_Buffer_v4")
             {
                 return EnemyKind.Gunner;
             }
 
-            if (visualName == "Enemy_Drone" || visualName == "Enemy_Drone_Buffer_v4")
+            if (visualName == "Enemy_Drone"
+                || visualName == "Enemy_Drone_Buffer_v5"
+                || visualName == "Enemy_Drone_Buffer_v4")
             {
                 return EnemyKind.Drone;
             }

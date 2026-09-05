@@ -1,7 +1,7 @@
 namespace AsteroidsGoneRogue
 {
     /// <summary>
-    /// Hangar medals (Scout Wing now, more later) persisted locally.
+    /// Hangar medals (Scout Wing, Deep Orbit, Far Drift) persisted locally.
     /// Award rules stay in <see cref="MedalCatalog"/> so tests do not need PlayerPrefs.
     /// </summary>
     public sealed class HangarPersist

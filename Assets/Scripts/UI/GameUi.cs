@@ -215,8 +215,8 @@ namespace AsteroidsGoneRogue
             Stretch(_hud.rectTransform, new Vector2(0.03f, 0.64f), new Vector2(0.5f, 0.80f));
             _hud.color = Color.white;
 
-            _badgeRow = CreateText("BadgeRow", transform, font, 20, TextAnchor.UpperLeft, FontStyle.Bold);
-            Stretch(_badgeRow.rectTransform, new Vector2(0.03f, 0.80f), new Vector2(0.58f, 0.86f));
+            _badgeRow = CreateText("BadgeRow", transform, font, 18, TextAnchor.UpperLeft, FontStyle.Bold);
+            Stretch(_badgeRow.rectTransform, new Vector2(0.03f, 0.80f), new Vector2(0.66f, 0.86f));
             _badgeRow.color = new Color(1f, 0.84f, 0.38f);
 
             _hint = CreateText("Hint", transform, font, 20, TextAnchor.LowerCenter, FontStyle.Normal);

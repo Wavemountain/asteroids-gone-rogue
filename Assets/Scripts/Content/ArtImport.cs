@@ -92,11 +92,11 @@ namespace AsteroidsGoneRogue
             switch (key)
             {
                 case "Enemy_Scout":
-                    return new[] { "Enemy_Scout", "Enemy_Scout_Buffer_v5", "Enemy_Scout_Buffer_v4" };
+                    return new[] { "Enemy_Scout", "Enemy_Scout_Buffer_v6", "Enemy_Scout_Buffer_v5", "Enemy_Scout_Buffer_v4" };
                 case "Enemy_Gunner":
-                    return new[] { "Enemy_Gunner", "Enemy_Gunner_Buffer_v5", "Enemy_Gunner_Buffer_v4" };
+                    return new[] { "Enemy_Gunner", "Enemy_Gunner_Buffer_v6", "Enemy_Gunner_Buffer_v5", "Enemy_Gunner_Buffer_v4" };
                 case "Enemy_Drone":
-                    return new[] { "Enemy_Drone", "Enemy_Drone_Buffer_v4" };
+                    return new[] { "Enemy_Drone", "Enemy_Drone_Buffer_v5", "Enemy_Drone_Buffer_v4" };
                 case "Enemy_01":
                     return new[] { "Enemy_01", "Enemy_01_Buffer_v8" };
                 case "Enemy_Bomber":

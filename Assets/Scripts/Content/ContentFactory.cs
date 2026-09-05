@@ -304,6 +304,7 @@ namespace AsteroidsGoneRogue
 
             CreatePrimitive(PrimitiveType.Cube, "LaunchGoPlate", root.transform, _launchGlow,
                 new Vector3(0f, 1.38f, 0.14f), new Vector3(0.92f, 0.62f, 0.04f), Quaternion.identity);
+            DressLaunchGoMeshDecal(root.transform);
             GameObject decal = new GameObject("LaunchGoDecal");
             decal.transform.SetParent(root.transform, false);
             decal.transform.localPosition = new Vector3(0f, 1.38f, 0.18f);
@@ -327,6 +328,33 @@ namespace AsteroidsGoneRogue
             pulse.SignLight = lamp;
             pulse.BaseIntensity = 3.15f;
             pulse.BaseEmission = new Color(1f, 0.7f, 0.14f) * 4.6f;
+        }
+
+        private void DressLaunchGoMeshDecal(Transform parent)
+        {
+            GameObject mesh = new GameObject("LaunchGoMeshDecal");
+            mesh.transform.SetParent(parent, false);
+            mesh.transform.localPosition = new Vector3(0f, 1.38f, 0.165f);
+
+            CreatePrimitive(PrimitiveType.Cube, "GoG_Top", mesh.transform, _launchDecal,
+                new Vector3(-0.22f, 0.15f, 0f), new Vector3(0.24f, 0.05f, 0.03f), Quaternion.identity);
+            CreatePrimitive(PrimitiveType.Cube, "GoG_Left", mesh.transform, _launchDecal,
+                new Vector3(-0.32f, 0f, 0f), new Vector3(0.05f, 0.35f, 0.03f), Quaternion.identity);
+            CreatePrimitive(PrimitiveType.Cube, "GoG_Bottom", mesh.transform, _launchDecal,
+                new Vector3(-0.22f, -0.15f, 0f), new Vector3(0.24f, 0.05f, 0.03f), Quaternion.identity);
+            CreatePrimitive(PrimitiveType.Cube, "GoG_Mid", mesh.transform, _launchDecal,
+                new Vector3(-0.16f, 0f, 0f), new Vector3(0.12f, 0.05f, 0.03f), Quaternion.identity);
+            CreatePrimitive(PrimitiveType.Cube, "GoG_Spur", mesh.transform, _launchDecal,
+                new Vector3(-0.12f, -0.075f, 0f), new Vector3(0.05f, 0.16f, 0.03f), Quaternion.identity);
+
+            CreatePrimitive(PrimitiveType.Cube, "GoO_Top", mesh.transform, _launchDecal,
+                new Vector3(0.22f, 0.15f, 0f), new Vector3(0.22f, 0.05f, 0.03f), Quaternion.identity);
+            CreatePrimitive(PrimitiveType.Cube, "GoO_Bottom", mesh.transform, _launchDecal,
+                new Vector3(0.22f, -0.15f, 0f), new Vector3(0.22f, 0.05f, 0.03f), Quaternion.identity);
+            CreatePrimitive(PrimitiveType.Cube, "GoO_Left", mesh.transform, _launchDecal,
+                new Vector3(0.13f, 0f, 0f), new Vector3(0.05f, 0.35f, 0.03f), Quaternion.identity);
+            CreatePrimitive(PrimitiveType.Cube, "GoO_Right", mesh.transform, _launchDecal,
+                new Vector3(0.31f, 0f, 0f), new Vector3(0.05f, 0.35f, 0.03f), Quaternion.identity);
         }
 
         private bool BuildHangarBufferFallback(string visualName, Transform parent)
