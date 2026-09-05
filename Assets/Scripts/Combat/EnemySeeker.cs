@@ -53,7 +53,7 @@ namespace AsteroidsGoneRogue
             }
 
             _dead = true;
-            ContentFactory factory = Object.FindObjectOfType<ContentFactory>();
+            ContentFactory factory = Object.FindFirstObjectByType<ContentFactory>();
             if (factory != null)
             {
                 factory.SpawnVfx("Vfx_Explosion_Lowpoly", transform.position, 0.45f);
@@ -101,7 +101,7 @@ namespace AsteroidsGoneRogue
                 transform.rotation,
                 look,
                 _turn * Time.fixedDeltaTime);
-            _body.velocity = dir * _speed;
+            _body.linearVelocity = dir * _speed;
 
             Vector3 pos = transform.position;
             pos.y = 0f;

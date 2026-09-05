@@ -4,15 +4,15 @@ Week 1 playable Unity core: one solid wave loop (hangar → fight → clear or f
 
 ## Unity version
 
-**Unity 2022.3.21f1 LTS** (changeset `bf09ca542b87`)
+**Unity 6.6** (`6000.6.0f1`, changeset `f7f8ed4d1e24`)
 
 Built-in render pipeline. Old Input Manager (no Input System package, so first open should not show the Input System dialog).
 
-Hub may offer a newer 2022.3 LTS patch — that is fine.
+Hub may offer a newer 6000.6 patch — that is fine.
 
 ## Open the project
 
-1. Install **Unity 2022.3 LTS** via Unity Hub.
+1. Install **Unity 6.6** (`6000.6.0f1`) via Unity Hub.
 2. **Add** this repository folder (the folder that contains `Assets/`, `Packages/`, and `ProjectSettings/`).
 3. Open the project and wait for the first import (`Library/` is generated locally and is gitignored).
 4. Open `Assets/Scenes/Play.unity` if it is not already loaded (it is in **File → Build Settings**).

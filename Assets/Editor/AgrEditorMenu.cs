@@ -52,7 +52,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 ok = false;
             }
 
-            if (Object.FindObjectOfType<GameBootstrap>(true) == null)
+            if (Object.FindFirstObjectByType<GameBootstrap>(FindObjectsInactive.Include) == null)
             {
                 Debug.LogWarning("GameBootstrap is not in the open scene. Open Play and press Play — the scene YAML includes it.");
             }

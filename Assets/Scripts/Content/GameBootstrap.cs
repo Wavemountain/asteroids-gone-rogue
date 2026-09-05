@@ -72,7 +72,7 @@ namespace AsteroidsGoneRogue
 
         private static void EnsureEventSystem()
         {
-            if (FindObjectOfType<EventSystem>() != null)
+            if (FindFirstObjectByType<EventSystem>() != null)
             {
                 return;
             }
@@ -84,7 +84,7 @@ namespace AsteroidsGoneRogue
 
         private static void EnsureLight()
         {
-            Light[] lights = FindObjectsOfType<Light>();
+            Light[] lights = FindObjectsByType<Light>(FindObjectsSortMode.None);
             for (int i = 0; i < lights.Length; i++)
             {
                 if (lights[i].type == LightType.Directional)

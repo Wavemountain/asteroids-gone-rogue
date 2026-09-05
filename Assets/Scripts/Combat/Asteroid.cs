@@ -36,7 +36,7 @@ namespace AsteroidsGoneRogue
             Rigidbody body = GetComponent<Rigidbody>();
             if (body != null)
             {
-                body.velocity = drift;
+                body.linearVelocity = drift;
                 body.angularVelocity = Random.insideUnitSphere * 1.6f;
             }
         }

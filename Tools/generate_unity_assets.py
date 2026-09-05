@@ -97,7 +97,7 @@ TextScriptImporter:
 
 
 def fbx_meta(guid: str) -> str:
-    """Unity 2022.3 ModelImporter: scale 1, no colliders, no animation."""
+    """Unity ModelImporter: scale 1, no colliders, no animation."""
     return f"""fileFormatVersion: 2
 guid: {guid}
 ModelImporter:

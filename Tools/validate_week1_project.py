@@ -44,16 +44,16 @@ def main() -> int:
     checklist = read(ROOT / "MERGE_CHECKLIST.md")
     if "Do not merge until Wagge" not in checklist and "until Wagge says yes" not in checklist:
         err("MERGE_CHECKLIST.md must say not to merge until Wagge says yes")
-    if "2022.3.21f1" not in checklist:
-        err("MERGE_CHECKLIST.md must name Unity 2022.3.21f1")
+    if "6000.6.0f1" not in checklist:
+        err("MERGE_CHECKLIST.md must name Unity 6000.6.0f1")
     require(ROOT / "CREDITS.md")
     require(ROOT / "Assets/Resources/Audio/Sfx/laserSmall_000.ogg")
     require(ROOT / "Assets/Resources/Audio/Music/OutThere.ogg")
     require(ROOT / "Assets/Resources/Audio/Music/spacelifeNo14.ogg")
 
     version = read(ROOT / "ProjectSettings/ProjectVersion.txt")
-    if "2022.3.21f1" not in version:
-        err("ProjectVersion.txt should target Unity 2022.3.21f1 LTS")
+    if "6000.6.0f1" not in version:
+        err("ProjectVersion.txt should target Unity 6000.6.0f1")
 
     settings = read(ROOT / "ProjectSettings/ProjectSettings.asset")
     if f"productName: {TITLE}" not in settings:
@@ -75,10 +75,11 @@ def main() -> int:
     readme = read(ROOT / "README.md")
     if not readme.startswith(f"# {TITLE}"):
         err("README title must be Asteroids gone rogue")
-    if "2022.3.21f1" not in readme:
-        err("README must document the Unity version")
+    if "6000.6.0f1" not in readme:
+        err("README must document Unity 6000.6.0f1")
 
     scripts = list((ROOT / "Assets/Scripts").rglob("*.cs"))
+    editor_scripts = list((ROOT / "Assets/Editor").rglob("*.cs"))
     if len(scripts) < 20:
         err(f"expected a full script set, found {len(scripts)}")
 
@@ -96,7 +97,7 @@ def main() -> int:
         "class GameUi",
         "enum GamePhase",
     ]
-    blob = "\n".join(read(p) for p in scripts)
+    blob = "\n".join(read(p) for p in scripts + editor_scripts)
     for token in required_types:
         if token not in blob:
             err(f"missing C# {token}")
@@ -219,6 +220,20 @@ def main() -> int:
     if "UnityEngine.InputSystem" in blob:
         err("scripts should stay on the old Input Manager for a clean first open")
 
+    # Unity 6.6 API: obsolete FindObjectOfType / Rigidbody.velocity / drag must be gone.
+    if "FindObjectOfType" in blob or "FindObjectsOfType" in blob:
+        err("scripts still call obsolete FindObjectOfType / FindObjectsOfType")
+    if "body.velocity" in blob or "_body.velocity" in blob:
+        err("scripts still assign Rigidbody.velocity; use linearVelocity")
+    if "body.drag" in blob or "body.angularDrag" in blob:
+        err("scripts still use Rigidbody.drag / angularDrag; use linearDamping / angularDamping")
+
+    manifest = read(ROOT / "Packages/manifest.json")
+    if '"com.unity.ugui": "2.0.0"' not in manifest:
+        err("Packages/manifest.json should pin com.unity.ugui 2.0.0 for Unity 6")
+    if '"com.unity.inputsystem"' in manifest:
+        err("do not add the Input System package (keeps first-open clean)")
+
     if ERRORS:
         print("Week 1 validation FAILED:")
         for item in ERRORS:
@@ -227,7 +242,7 @@ def main() -> int:
 
     print("Week 1 Unity project structure OK")
     print(f" Title: {TITLE}")
-    print(" Unity: 2022.3.21f1 LTS")
+    print(" Unity: 6000.6.0f1")
     print(f" Scripts: {len(scripts)}")
     print(" Scene: Assets/Scenes/Play.unity → GameBootstrap")
     return 0
