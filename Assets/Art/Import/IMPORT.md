@@ -37,8 +37,9 @@ All `Ship_*` parts, including upgrades, share origin `0,0,0` with the base slots
 
 ### Combat / arena (unchanged)
 
-- `Asteroid_Large.fbx`
-- `Asteroid_Small.fbx`
+- `Asteroid_Large.fbx` — Week 1 split type (A)
+- `Asteroid_Small.fbx` — shards from a large hit
+- `Asteroid_VariantB_Large.fbx` / `Asteroid_VariantB_Small.fbx` — optional visual mix later; Week 1 gameplay stays one split type
 - `Enemy_01.fbx` — **Week 1 uses this one enemy type only**
 - `Arena_Blockout.fbx`
 - `AsteroidsGoneRogue_Week1_All.fbx` (optional combined pack)
