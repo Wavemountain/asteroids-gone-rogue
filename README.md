@@ -38,7 +38,7 @@ Editor helpers: menu **Asteroids gone rogue → Open Play Scene** / **Validate W
 
 `GameSession` / `GameManager` / `WaveManager` states:
 
-1. **Hangar** — title, start button, shop (if you have credits). First session shows a dismissable **First flight** card (WASD / shop / Start Wave; PlayerPrefs).
+1. **Hangar** — title, start button, shop (if you have credits). First session shows a dismissable **First flight** card (WASD / Abort Esc / Q·RMB fire modes / shop / Start Wave; PlayerPrefs). Hangar dressing includes Console, PowerBox, and FireExtinguisher.
 2. **Playing** — fly the 3D ship, shoot bolt / spread / pierce (if bought), split asteroids. Asteroids **wrap** at the arena edge so waves cannot soft-lock. **Abort → Hangar** leaves the wave without the clear bonus.
 3. **Wave Clear** — score (including clear bonus) and **150 credits**, then shop.
 4. **Fail** — ship destroyed; retry the same wave. Bought upgrades stay.
@@ -46,6 +46,8 @@ Editor helpers: menu **Asteroids gone rogue → Open Play Scene** / **Validate W
 Wave 1: 4 large asteroids + 1 `Enemy_01`. Waves 2–10 add Scout / Gunner / Drone, then Bomber / Sniper / SwarmPod when those FBX are present. After wave 10 the roster plateaus and large asteroids tick +1 per wave (7 → 8… cap 10). After every 5 cleared waves the arena mesh swaps World 1→6 (loop). Same radius and rules.
 
 ## Shop
+
+Hangar shop is grouped **HULL / NOSE / ENGINE** | **WEAPONS** | **DEFENSE**. Buy buttons show title + cost (or OWNED / LOCKED). Longer descriptions sit in the status line on hover.
 
 Upgrades persist into the next wave.
 

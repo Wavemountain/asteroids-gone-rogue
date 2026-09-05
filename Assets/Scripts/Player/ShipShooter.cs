@@ -104,7 +104,7 @@ namespace AsteroidsGoneRogue
             for (int i = 0; i < SpreadPelletCount; i++)
             {
                 Vector3 dir = Quaternion.AngleAxis(yaw[i], Vector3.up) * forward;
-                _factory.SpawnProjectile(origin, dir, speed, damage, false);
+                _factory.SpawnProjectile(origin, dir, speed, damage, false, true);
             }
         }
 

@@ -19,12 +19,12 @@ This is the Week 1–2 playable core for **Asteroids gone rogue**. Branch: `curs
 
 ## Play verify
 
-**ArtImport: 44/44 Play Mode FBX ready** — `ArtImport.PlayModeAssets` has 44 names; all 44 exist under `Assets/Resources/Art/Import/` and `Assets/Art/Import/`. `Ship_Body_Upgrade02` is imported only (not warmed, not in the shop).
+**ArtImport: 47/47 Play Mode FBX ready** — `ArtImport.PlayModeAssets` has 47 names; all 47 exist under `Assets/Resources/Art/Import/` and `Assets/Art/Import/`. `Ship_Body_Upgrade02` is imported only (not warmed, not in the shop). Hangar-wire I adds `Hangar_Console` / `Hangar_PowerBox` / `Hangar_FireExtinguisher`.
 
-- Hangar shows BlenderBot ship + crate / terminal / pillar / workbench / kiosk / banner / ammo rack.
-- First hangar (wave 1, first session): left **First flight** card — WASD / aim / shoot, “Clear a wave to earn credits and upgrades.”, shop + Start Wave. **Got it** or Start Wave dismisses it (PlayerPrefs; no spam later).
+- Hangar shows BlenderBot ship + crate / terminal / pillar / workbench / kiosk / banner / ammo rack + **Console / PowerBox / FireExtinguisher** (0.31 hangar-wire).
+- First hangar (wave 1, first session): left **First flight** card — WASD / aim / shoot, **Abort (Esc)**, **Q / RMB** fire modes (discover Spread / Pierce when owned), “Clear a wave to earn credits and upgrades.”, shop + Start Wave. **Got it** or Start Wave dismisses it (PlayerPrefs; no spam later). Hangar status line before Start Wave mirrors the same Abort / Q hint.
 - Top-right badge reads **WORLD 1** on wave 1. After 5 clears it becomes **WORLD 2**, then 3–6, then loops. Arena-swap flashes **WORLD N ONLINE** and plays `maximize_008` (not the hangar purchase cue).
-- Shop is a 2-column grid below Start / credits (no overlap). Buttons you cannot afford (or that are locked / owned) are **greyed and disabled**.
+- Shop is grouped Hull/Nose/Engine | Weapons | Defense below Start / credits (no overlap). Buttons show title + cost; hover writes the long description on the status line. Owned / locked / too-poor plates are **distinct greys** (teal OWNED, charcoal LOCKED).
 - First Play audio: SFX audible (0.8), music not blasting (0.28, mixed down). Mute / sliders persist in PlayerPrefs.
 - Wave 1: `Enemy_01`. Later: Scout / Gunner / Drone. Waves 7+: Bomber / Sniper / SwarmPod if those FBX imported. After wave 10: +1 large asteroid per wave (cap 10).
 - 0.3 loop: asteroids wrap at `ArenaRadius`; stranded threats outside `radius+2` for >3s force-wrap or despawn. Playing HUD has **Abort → Hangar** (Esc). Shop adds Spread Bolt + Pierce (Q / RMB cycle). Gunner 4 HP, Bomber 5 HP. Fail text `Enemy contact (Kind)`.

@@ -211,6 +211,9 @@ def test_wave_ladder_rises() -> None:
     assert "WorldIndexForWave" in factory
     assert "Arena_World2_Blockout" in factory
     assert "Hangar_AmmoRack" in factory
+    assert "Hangar_Console" in factory
+    assert "Hangar_PowerBox" in factory
+    assert "Hangar_FireExtinguisher" in factory
     assert "PlateauWave" in text
     assert "PlateauAsteroidCap" in text
     assert large_asteroid_count(1) == 4
@@ -250,6 +253,11 @@ def test_factory_wires_import_fbx() -> None:
     assert "BodyUpgrade01" in catalog
     assert "NoseUpgrade02" in catalog
     assert "EngineUpgrade02" in catalog
+    assert "ShopGroup.Hull" in catalog
+    assert "ShopGroup.Weapons" in catalog
+    assert "ShopGroup.Defense" in catalog
+    assert "SpreadBolt" in catalog and "Pierce" in catalog
+    assert "ShieldCell" in catalog
     assert "Projectile_Bolt" in factory
     assert "Arena_Blockout" in factory
     assert "Resources.Load" in art
@@ -261,8 +269,14 @@ def test_factory_wires_import_fbx() -> None:
     assert "agr.ui.firstHangarHint" in ui
     assert "First flight" in ui
     assert "Clear a wave to earn credits and upgrades." in ui
+    assert "Abort (Esc)" in ui
+    assert "Q / RMB fire modes" in ui
+    assert "discover Spread / Pierce when owned" in ui
     assert "Got it" in ui
     assert "DismissFirstHangarHint" in ui
+    assert "HULL / NOSE / ENGINE" in ui or "HullHeader" in catalog
+    assert "OWNED" in ui and "LOCKED" in ui
+    assert "PointerEnter" in ui
     audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
     assert "DefaultSfxVolume = 0.8f" in audio
     assert "DefaultMusicVolume = 0.28f" in audio
@@ -352,6 +366,36 @@ def test_tighter_loop_wrap_abort_weapons() -> None:
     assert "case EnemyKind.Bomber:\n                    return 5;" in enemies
 
 
+def test_shop_clarity_and_hangar_wire() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    catalog = (root / "Assets/Scripts/Core/ShopCatalog.cs").read_text(encoding="utf-8")
+    art = (root / "Assets/Scripts/Content/ArtImport.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    assert "HangarControlsHint" in ui
+    assert "HangarReadyStatus" in ui
+    assert "OnShopHover" in ui
+    assert "+ costLine" in ui
+    assert "item.Description" not in ui.split("RefreshBuyButton")[1].split("FailReasonText")[0]
+    assert catalog.index("ShopGroup.Hull") < catalog.index("ShopGroup.Weapons")
+    warm = art.split("PlayModeAssets")[1].split("};")[0]
+    assert "Hangar_Console" in warm
+    assert "Hangar_PowerBox" in warm
+    assert "Hangar_FireExtinguisher" in warm
+    assert 'PlaceHangarProp("Hangar_Console"' in factory
+    assert 'PlaceHangarProp("Hangar_PowerBox"' in factory
+    assert 'PlaceHangarProp("Hangar_FireExtinguisher"' in factory
+    assert "PlayUiClick" in audio and "PlayUiClick" in ui
+    for name in ("Hangar_Console", "Hangar_PowerBox", "Hangar_FireExtinguisher"):
+        art_fbx = root / f"Assets/Art/Import/{name}.fbx"
+        res_fbx = root / f"Assets/Resources/Art/Import/{name}.fbx"
+        assert art_fbx.is_file() and art_fbx.stat().st_size > 1000
+        assert res_fbx.is_file() and res_fbx.stat().st_size > 1000
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -365,6 +409,7 @@ def main() -> int:
     test_factory_wires_import_fbx()
     test_hit_iframes_and_fail_cause_ui()
     test_tighter_loop_wrap_abort_weapons()
+    test_shop_clarity_and_hangar_wire()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

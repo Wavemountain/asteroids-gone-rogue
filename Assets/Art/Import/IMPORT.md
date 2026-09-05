@@ -58,6 +58,7 @@ Shown in hangar / results and hidden during a wave. Pivots on the **base** — p
 - `Hangar_Terminal.fbx`
 - `Hangar_LightPillar.fbx`
 - `Hangar_Workbench.fbx` / `Hangar_FuelCell.fbx` / `Hangar_ShopKiosk.fbx`
+- `Hangar_Console.fbx` / `Hangar_PowerBox.fbx` / `Hangar_FireExtinguisher.fbx` — 0.31 hangar-wire from BlenderBot buffer (no `_Buffer` suffix)
 
 ### Pickups (not in the Week 1 loop)
 
