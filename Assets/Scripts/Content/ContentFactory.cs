@@ -311,7 +311,7 @@ namespace AsteroidsGoneRogue
             decal.transform.localRotation = Quaternion.identity;
             TextMesh go = decal.AddComponent<TextMesh>();
             go.text = "GO";
-            Font font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (font != null)
             {
                 go.font = font;

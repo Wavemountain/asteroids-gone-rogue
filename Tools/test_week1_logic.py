@@ -1240,6 +1240,10 @@ def test_steam_world3_038() -> None:
     assert "FindAnyObjectByType<EventSystem>" in bootstrap
     assert "FindObjectsSortMode" not in bootstrap
     assert "FindObjectsByType<Light>()" in bootstrap
+    assert "Arial.ttf" not in factory
+    assert "Arial.ttf" not in ui
+    assert 'GetBuiltinResource<Font>("LegacyRuntime.ttf")' in factory
+    assert 'GetBuiltinResource<Font>("LegacyRuntime.ttf")' in ui
 
 
 def main() -> int:

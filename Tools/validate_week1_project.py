@@ -259,7 +259,11 @@ def main() -> int:
     if "UnityEngine.InputSystem" in blob:
         err("scripts should stay on the old Input Manager for a clean first open")
 
-    # Unity 6.6 API: obsolete FindObjectOfType / Rigidbody.velocity / drag must be gone.
+    # Unity 6.6 API: Arial builtin is gone; obsolete FindObjectOfType / velocity / drag must be gone.
+    if "Arial.ttf" in blob or '"Arial"' in blob:
+        err("scripts still load builtin/OS Arial; use LegacyRuntime.ttf")
+    if 'GetBuiltinResource<Font>("LegacyRuntime.ttf")' not in blob:
+        err("scripts should load builtin LegacyRuntime.ttf for Unity 6.6")
     if "FindObjectOfType" in blob or "FindObjectsOfType" in blob:
         err("scripts still call obsolete FindObjectOfType / FindObjectsOfType")
     if "GetInstanceID" in blob:
