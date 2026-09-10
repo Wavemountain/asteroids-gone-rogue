@@ -262,6 +262,12 @@ def main() -> int:
     # Unity 6.6 API: obsolete FindObjectOfType / Rigidbody.velocity / drag must be gone.
     if "FindObjectOfType" in blob or "FindObjectsOfType" in blob:
         err("scripts still call obsolete FindObjectOfType / FindObjectsOfType")
+    if "GetInstanceID" in blob:
+        err("scripts still call obsolete GetInstanceID; use GetEntityId")
+    if "FindFirstObjectByType" in blob:
+        err("scripts still call FindFirstObjectByType; use FindAnyObjectByType")
+    if "FindObjectsSortMode" in blob:
+        err("scripts still pass FindObjectsSortMode to FindObjectsByType")
     if "body.velocity" in blob or "_body.velocity" in blob:
         err("scripts still assign Rigidbody.velocity; use linearVelocity")
     if "body.drag" in blob or "body.angularDrag" in blob:

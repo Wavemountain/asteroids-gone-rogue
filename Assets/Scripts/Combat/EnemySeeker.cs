@@ -39,7 +39,7 @@ namespace AsteroidsGoneRogue
             _turn = EnemyCatalog.TurnDegreesPerSecond(kind);
             _dead = false;
             _body = GetComponent<Rigidbody>();
-            _factory = Object.FindFirstObjectByType<ContentFactory>();
+            _factory = Object.FindAnyObjectByType<ContentFactory>();
             _nextShot = Time.time + 0.85f;
         }
 

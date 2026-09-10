@@ -1225,6 +1225,22 @@ def test_steam_world3_038() -> None:
     assert "New sector" in readme
     assert "without a medal" in readme.lower() or "no medal" in readme.lower()
 
+    projectile = (root / "Assets/Scripts/Player/Projectile.cs").read_text(encoding="utf-8")
+    seeker = (root / "Assets/Scripts/Combat/EnemySeeker.cs").read_text(encoding="utf-8")
+    pickup = (root / "Assets/Scripts/Combat/Pickup.cs").read_text(encoding="utf-8")
+    bootstrap = (root / "Assets/Scripts/Content/GameBootstrap.cs").read_text(encoding="utf-8")
+    assert "GetInstanceID" not in projectile
+    assert "GetEntityId()" in projectile
+    assert "HashSet<EntityId>" in projectile
+    assert "FindFirstObjectByType" not in seeker
+    assert "FindFirstObjectByType" not in pickup
+    assert "FindFirstObjectByType" not in bootstrap
+    assert "FindAnyObjectByType<ContentFactory>" in seeker
+    assert "FindAnyObjectByType<GameManager>" in pickup
+    assert "FindAnyObjectByType<EventSystem>" in bootstrap
+    assert "FindObjectsSortMode" not in bootstrap
+    assert "FindObjectsByType<Light>()" in bootstrap
+
 
 def main() -> int:
     test_clear_loop()

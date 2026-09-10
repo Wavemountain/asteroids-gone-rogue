@@ -13,7 +13,7 @@ namespace AsteroidsGoneRogue
         private bool _pierce;
         private bool _hostile;
         private EnemyKind _enemyKind = EnemyKind.Mid01;
-        private readonly HashSet<int> _hitIds = new HashSet<int>();
+        private readonly HashSet<EntityId> _hitIds = new HashSet<EntityId>();
 
         public void Launch(Vector3 direction, float speed, int damage)
         {
@@ -78,7 +78,7 @@ namespace AsteroidsGoneRogue
             }
 
             MonoBehaviour target = damageable as MonoBehaviour;
-            int id = target != null ? target.GetInstanceID() : other.GetInstanceID();
+            EntityId id = target != null ? target.GetEntityId() : other.GetEntityId();
             if (!_hitIds.Add(id))
             {
                 return;

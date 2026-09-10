@@ -89,7 +89,7 @@ namespace AsteroidsGoneRogue
 
                     break;
                 default:
-                    GameManager game = Object.FindFirstObjectByType<GameManager>();
+                    GameManager game = Object.FindAnyObjectByType<GameManager>();
                     if (game != null)
                     {
                         game.AddBonusScore(ScoreValues.SmallAsteroid);
