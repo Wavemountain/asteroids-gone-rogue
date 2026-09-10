@@ -17,11 +17,14 @@ namespace AsteroidsGoneRogue
         public const string ScoutWingTitle = "Scout Wing";
         public const string DeepOrbitTitle = "Deep Orbit";
         public const string FarDriftTitle = "Far Drift";
+        public const string World3EntryTitle = "New sector";
         public const int World2EntryWorld = 2;
         public const int World3EntryWorld = 3;
         public const int ScoutWingClearsAtWave = 3;
         public const int FarDriftClearsAtWave = 10;
         public const int BadgeCapacity = 3;
+        public const float World2FlashSeconds = 1.55f;
+        public const float World3FlashSeconds = 2.15f;
 
         public static readonly MedalId[] All =
         {
@@ -86,12 +89,27 @@ namespace AsteroidsGoneRogue
         public static string WorldEntryBeat(int world)
         {
             MedalId medal;
-            if (!TryForWorldEntry(world, out medal))
+            if (TryForWorldEntry(world, out medal))
             {
-                return string.Empty;
+                return AwardLine(medal);
             }
 
-            return AwardLine(medal);
+            if (world == World3EntryWorld)
+            {
+                return World3EntryTitle;
+            }
+
+            return string.Empty;
+        }
+
+        public static string World3HangarLine()
+        {
+            return "World 3 online  ·  " + World3EntryTitle;
+        }
+
+        public static float WorldEntryFlashSeconds(int world)
+        {
+            return world == World3EntryWorld ? World3FlashSeconds : World2FlashSeconds;
         }
 
         public static string BadgeRow(int mask)
@@ -120,7 +138,7 @@ namespace AsteroidsGoneRogue
 
         /// <summary>
         /// Always-visible three-rung ladder (earned ★ / locked ○) so the next medal is obvious.
-        /// World 3 entry is a world swap only — Far Drift awards on wave 10 clear.
+        /// World 3 entry is a New sector beat with no medal — Far Drift awards on wave 10 clear.
         /// </summary>
         public static string LadderLine(int mask)
         {

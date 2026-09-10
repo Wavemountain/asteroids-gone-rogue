@@ -1117,6 +1117,115 @@ def test_sniper_fardrift_037() -> None:
     assert jingle.read_bytes()[:4] == b"OggS"
 
 
+def world_entry_beat(world: int) -> str:
+    if world == 2:
+        return "★ Deep Orbit"
+    if world == 3:
+        return "New sector"
+    return ""
+
+
+def next_medal_hook(next_wave: int) -> str:
+    if next_wave <= 3:
+        return "Next  ·  ★ Scout Wing at wave 3"
+    if next_wave <= 6:
+        return "Next  ·  ★ Deep Orbit at wave 6"
+    if next_wave <= 10:
+        return "Next  ·  ★ Far Drift at wave 10"
+    if next_wave <= 11:
+        return "Next  ·  World 3 at wave 11"
+    return ""
+
+
+def test_steam_world3_038() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    medals = (root / "Assets/Scripts/Core/MedalCatalog.cs").read_text(encoding="utf-8")
+    persist = (root / "Assets/Scripts/Core/HangarPersist.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    art = (root / "Assets/Scripts/Content/ArtImport.cs").read_text(encoding="utf-8")
+    manifest = (root / "Packages/manifest.json").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    checklist = (root / "MERGE_CHECKLIST.md").read_text(encoding="utf-8")
+
+    world_entry = medals.split("public static bool TryForWorldEntry")[1].split("public static")[0]
+    assert "MedalId.DeepOrbit" in world_entry
+    assert "MedalId.FarDrift" not in world_entry
+    assert "World3EntryWorld" not in world_entry
+    assert 'World3EntryTitle = "New sector"' in medals
+    assert "World3HangarLine" in medals
+    assert "World3FlashSeconds = 2.15f" in medals
+    assert world_entry_beat(2) == "★ Deep Orbit"
+    assert world_entry_beat(3) == "New sector"
+    assert "★" not in world_entry_beat(3)
+    assert world_entry_beat(1) == ""
+    assert world_entry_beat(4) == ""
+    beat_fn = medals.split("public static string WorldEntryBeat")[1].split("public static")[0]
+    assert "World3EntryWorld" in beat_fn
+    assert "World3EntryTitle" in beat_fn
+    assert "AwardLine(medal)" in beat_fn
+    hangar_fn = medals.split("public static string World3HangarLine")[1].split("public static")[0]
+    assert "World 3 online" in hangar_fn
+    assert "World3EntryTitle" in hangar_fn
+    assert "★" not in hangar_fn
+
+    assert "NextMedalHook" in summary
+    assert next_medal_hook(1) == "Next  ·  ★ Scout Wing at wave 3"
+    assert next_medal_hook(3) == "Next  ·  ★ Scout Wing at wave 3"
+    assert next_medal_hook(4) == "Next  ·  ★ Deep Orbit at wave 6"
+    assert next_medal_hook(10) == "Next  ·  ★ Far Drift at wave 10"
+    assert next_medal_hook(11) == "Next  ·  World 3 at wave 11"
+    assert next_medal_hook(12) == ""
+    assert "IsWorld3EntryLine" in summary
+    assert "World3StartsAtWave" in summary
+    assert "World3HangarLine" in summary
+    assert 'AwardLine(MedalId.FarDrift) + "  ·  World 3"' not in summary
+
+    assert "Medal ladder (top-left)" in ui
+    assert "Scout Wing at wave 3" in ui
+    assert "Clear a wave to earn credits and upgrades." in ui
+    assert 'MedalLadderPrefix = "MEDALS"' in ui
+    assert "NextMedalHook" in ui
+    assert "IsWorld3EntryLine" in ui
+    assert "World3EntryWorld" in ui
+    start = manager.split("public void StartWave()")[1].split("public void ContinueFromResults")[0]
+    assert "TryAwardWorldMedal(world)" in start
+    assert "WorldEntryBeat(world)" in start
+    assert "WorldEntryFlashSeconds(world)" in start
+    assert "worldMedal &&" not in start
+    assert persist.count("LadderLine") >= 1
+
+    assert "PlayWorldChange(WorldIndexForWave(waveIndex))" in factory
+    assert "World3ChangeScale = 1.12f" in audio
+    assert "World3DuckSeconds = 0.42f" in audio
+    assert "World3DuckScale = 0.4f" in audio
+    world_change = audio.split("public void PlayWorldChange(int world)")[1].split("public void")[0]
+    assert "World3EntryWorld" in world_change
+    assert "World3ChangeScale" in world_change
+    assert "DuckMusic" in world_change
+    assert "jingles_PIZZA16" not in world_change
+
+    assert "Enemy_Scout_Buffer_v8" not in art
+    assert "Enemy_Gunner_Buffer_v8" not in art
+    assert "Enemy_Drone_Buffer_v7" not in art
+    assert "Enemy_Sniper_Buffer_v9" not in art
+    assert "Enemy_Scout_Buffer_v7" in art
+    assert "Enemy_Sniper_Buffer_v8" in art
+    assert "com.unity.modules.vr" not in manifest
+    assert "com.unity.modules.xr" not in manifest
+    assert "Hub-open smoke" in readme
+    assert "Hub-open smoke" in checklist
+    assert "0.38-steam-world3" in checklist
+    assert "no 0.39" in checklist
+    assert "New sector" in readme
+    assert "without a medal" in readme.lower() or "no medal" in readme.lower()
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -1138,6 +1247,7 @@ def main() -> int:
     test_medals_swarm_035()
     test_scout_gunner_medals_036()
     test_sniper_fardrift_037()
+    test_steam_world3_038()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

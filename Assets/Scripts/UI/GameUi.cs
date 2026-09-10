@@ -51,10 +51,12 @@ namespace AsteroidsGoneRogue
         public const string FirstHangarHintKey = "agr.ui.firstHangarHint";
         public const string HangarControlsHint =
             "Abort (Esc)  ·  Q / RMB fire modes (discover Spread / Pierce when owned)";
+        public const string MedalLadderPrefix = "MEDALS";
         public const string HangarHintBody =
             "WASD move · mouse aim\nLMB / Space shoot\nAbort (Esc) leaves the wave\n"
             + "Q / RMB fire modes\n(discover Spread / Pierce when owned)\n\n"
-            + "Clear a wave to earn credits and upgrades.\n\n"
+            + "Clear a wave to earn credits and upgrades.\n"
+            + "Medal ladder (top-left): ★ Scout Wing at wave 3.\n\n"
             + "Shop buys upgrades with those credits.\nStart Wave to fly.";
 
         public static GameUi Instance { get; private set; }
@@ -161,6 +163,12 @@ namespace AsteroidsGoneRogue
                 ? "Hangar  ·  Clear a wave to earn credits and upgrades."
                 : "Hangar  ·  Wave " + _session.WaveIndex
                     + "  ·  World " + ContentFactory.WorldIndexForWave(_session.WaveIndex) + " ready";
+            string hook = RunSummary.NextMedalHook(_session.WaveIndex);
+            if (!string.IsNullOrEmpty(hook))
+            {
+                return waveLine + "\n" + hook + "\n" + HangarControlsHint;
+            }
+
             return waveLine + "\n" + HangarControlsHint;
         }
 
@@ -212,11 +220,11 @@ namespace AsteroidsGoneRogue
             _world.color = new Color(1f, 0.82f, 0.28f);
 
             _hud = CreateText("Hud", transform, font, 24, TextAnchor.UpperLeft, FontStyle.Normal);
-            Stretch(_hud.rectTransform, new Vector2(0.03f, 0.64f), new Vector2(0.5f, 0.80f));
+            Stretch(_hud.rectTransform, new Vector2(0.03f, 0.62f), new Vector2(0.5f, 0.775f));
             _hud.color = Color.white;
 
             _badgeRow = CreateText("BadgeRow", transform, font, 18, TextAnchor.UpperLeft, FontStyle.Bold);
-            Stretch(_badgeRow.rectTransform, new Vector2(0.03f, 0.80f), new Vector2(0.72f, 0.86f));
+            Stretch(_badgeRow.rectTransform, new Vector2(0.03f, 0.775f), new Vector2(0.62f, 0.86f));
             _badgeRow.color = new Color(1f, 0.84f, 0.38f);
 
             _hint = CreateText("Hint", transform, font, 20, TextAnchor.LowerCenter, FontStyle.Normal);
@@ -457,6 +465,9 @@ namespace AsteroidsGoneRogue
                 if (medal)
                 {
                     _waveMedal.text = RunSummary.WaveMedal(_session.LastResolvedWave);
+                    _waveMedal.color = RunSummary.IsWorld3EntryLine(_session.LastResolvedWave)
+                        ? new Color(0.55f, 0.9f, 1f)
+                        : new Color(1f, 0.84f, 0.38f);
                 }
             }
 
@@ -508,7 +519,7 @@ namespace AsteroidsGoneRogue
         {
             _tutorialDismissed = PlayerPrefs.GetInt(FirstHangarHintKey, 0) == 1;
             _tutorialRoot = CreatePanel("FirstHangarHint", transform, new Color(0.04f, 0.055f, 0.08f, 0.94f),
-                new Vector2(0.01f, 0.12f), new Vector2(0.178f, 0.72f));
+                new Vector2(0.008f, 0.08f), new Vector2(0.185f, 0.74f));
             CreateFill("HintHeader", _tutorialRoot.transform, new Color(1f, 0.58f, 0.16f, 0.22f),
                 new Vector2(0f, 0.94f), new Vector2(1f, 1f));
             CreateFill("HintRule", _tutorialRoot.transform, new Color(1f, 0.72f, 0.28f, 0.7f),
@@ -647,13 +658,18 @@ namespace AsteroidsGoneRogue
 
         public void AnnounceMedalBeat(string line)
         {
+            AnnounceMedalBeat(line, MedalCatalog.World2FlashSeconds);
+        }
+
+        public void AnnounceMedalBeat(string line, float seconds)
+        {
             _medalBeat = line ?? string.Empty;
             if (string.IsNullOrEmpty(_medalBeat))
             {
                 return;
             }
 
-            _worldFlashUntil = Mathf.Max(_worldFlashUntil, Time.unscaledTime + 1.55f);
+            _worldFlashUntil = Mathf.Max(_worldFlashUntil, Time.unscaledTime + Mathf.Max(1.2f, seconds));
             Stretch(_world.rectTransform, new Vector2(0.52f, 0.76f), new Vector2(0.97f, 0.98f));
             RefreshWorldBadge();
         }
@@ -681,7 +697,10 @@ namespace AsteroidsGoneRogue
             {
                 float pulse = Mathf.PingPong(Time.unscaledTime * 7f, 1f);
                 _world.fontSize = 38 + (int)(10f * pulse);
-                _world.color = Color.Lerp(new Color(1f, 0.95f, 0.5f), new Color(1f, 0.45f, 0.08f), pulse);
+                bool world3 = _flashedWorld == MedalCatalog.World3EntryWorld;
+                _world.color = world3
+                    ? Color.Lerp(new Color(0.75f, 0.95f, 1f), new Color(0.2f, 0.7f, 1f), pulse)
+                    : Color.Lerp(new Color(1f, 0.95f, 0.5f), new Color(1f, 0.45f, 0.08f), pulse);
                 string flash = "WORLD " + _flashedWorld + "  ONLINE";
                 if (!string.IsNullOrEmpty(_medalBeat))
                 {
@@ -726,10 +745,10 @@ namespace AsteroidsGoneRogue
             _badgeRow.gameObject.SetActive(show);
             if (show)
             {
-                _badgeRow.text = row;
+                _badgeRow.text = MedalLadderPrefix + "\n" + row;
                 _badgeRow.fontSize = playing ? 16 : 18;
                 _badgeRow.color = playing
-                    ? new Color(1f, 0.84f, 0.38f, 0.88f)
+                    ? new Color(1f, 0.84f, 0.38f, 0.92f)
                     : new Color(1f, 0.84f, 0.38f);
             }
         }

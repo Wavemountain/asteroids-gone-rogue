@@ -68,11 +68,12 @@ namespace AsteroidsGoneRogue
             _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
             _ship.SetInputEnabled(true);
             int world = ContentFactory.WorldIndexForWave(_session.WaveIndex);
-            bool worldMedal = TryAwardWorldMedal(world);
+            TryAwardWorldMedal(world);
             _waves.SpawnWave(_session.WaveIndex);
-            if (worldMedal && _ui != null)
+            string beat = MedalCatalog.WorldEntryBeat(world);
+            if (!string.IsNullOrEmpty(beat) && _ui != null)
             {
-                _ui.AnnounceMedalBeat(MedalCatalog.WorldEntryBeat(world));
+                _ui.AnnounceMedalBeat(beat, MedalCatalog.WorldEntryFlashSeconds(world));
             }
 
             RaiseStateChanged();

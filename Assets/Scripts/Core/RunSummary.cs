@@ -3,6 +3,7 @@ namespace AsteroidsGoneRogue
     /// <summary>
     /// Short hangar cards: end-of-run stats, wave 1–5 continue lines, and medal announce copy.
     /// Scout Wing / Deep Orbit / Far Drift persist in <see cref="HangarPersist"/> / the hangar badge row.
+    /// World 3 hangar line is a New sector beat with no medal.
     /// Pure C# so tests can check the copy without the Editor.
     /// </summary>
     public static class RunSummary
@@ -147,7 +148,17 @@ namespace AsteroidsGoneRogue
                 return phase == GamePhase.WaveClear;
             }
 
+            if (lastResolvedWave == World3StartsAtWave)
+            {
+                return phase == GamePhase.WaveClear || phase == GamePhase.Failed;
+            }
+
             return false;
+        }
+
+        public static bool IsWorld3EntryLine(int lastResolvedWave)
+        {
+            return lastResolvedWave == World3StartsAtWave;
         }
 
         public static string WaveMedal(int lastResolvedWave)
@@ -168,6 +179,42 @@ namespace AsteroidsGoneRogue
             {
                 return MedalCatalog.AwardLine(MedalId.FarDrift)
                     + "  ·  World 3 at wave " + World3StartsAtWave;
+            }
+
+            if (lastResolvedWave == World3StartsAtWave)
+            {
+                return MedalCatalog.World3HangarLine();
+            }
+
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// First-run / hangar carrot so the medal ladder has a next step in the first ~5 minutes.
+        /// </summary>
+        public static string NextMedalHook(int nextWave)
+        {
+            if (nextWave <= MedalCatalog.ScoutWingClearsAtWave)
+            {
+                return "Next  ·  ★ " + MedalCatalog.ScoutWingTitle
+                    + " at wave " + MedalCatalog.ScoutWingClearsAtWave;
+            }
+
+            if (nextWave <= World2StartsAtWave)
+            {
+                return "Next  ·  ★ " + MedalCatalog.DeepOrbitTitle
+                    + " at wave " + World2StartsAtWave;
+            }
+
+            if (nextWave <= MedalCatalog.FarDriftClearsAtWave)
+            {
+                return "Next  ·  ★ " + MedalCatalog.FarDriftTitle
+                    + " at wave " + MedalCatalog.FarDriftClearsAtWave;
+            }
+
+            if (nextWave <= World3StartsAtWave)
+            {
+                return "Next  ·  World 3 at wave " + World3StartsAtWave;
             }
 
             return string.Empty;

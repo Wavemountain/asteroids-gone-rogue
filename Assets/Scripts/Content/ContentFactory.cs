@@ -150,7 +150,7 @@ namespace AsteroidsGoneRogue
             {
                 if (AudioCues.Instance != null)
                 {
-                    AudioCues.Instance.PlayWorldChange();
+                    AudioCues.Instance.PlayWorldChange(WorldIndexForWave(waveIndex));
                 }
 
                 if (GameUi.Instance != null)

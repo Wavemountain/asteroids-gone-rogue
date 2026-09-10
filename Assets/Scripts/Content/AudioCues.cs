@@ -28,6 +28,9 @@ namespace AsteroidsGoneRogue
         public const float SwarmPodDuckScale = 0.38f;
         public const float SwarmPodSpawnGapSeconds = 0.62f;
         public const float FarDriftAwardScale = 0.94f;
+        public const float World3ChangeScale = 1.12f;
+        public const float World3DuckSeconds = 0.42f;
+        public const float World3DuckScale = 0.4f;
 
         public static AudioCues Instance { get; private set; }
 
@@ -209,6 +212,18 @@ namespace AsteroidsGoneRogue
 
         public void PlayWorldChange()
         {
+            PlayWorldChange(0);
+        }
+
+        public void PlayWorldChange(int world)
+        {
+            if (world == MedalCatalog.World3EntryWorld)
+            {
+                Play(_worldChange, World3ChangeScale);
+                DuckMusic(World3DuckSeconds, World3DuckScale);
+                return;
+            }
+
             Play(_worldChange);
         }
 
