@@ -184,7 +184,7 @@ namespace AsteroidsGoneRogue
 
         public void PlayUiClick()
         {
-            Play(_uiClick != null ? _uiClick : _purchase, 0.7f);
+            Play(_uiClick != null ? _uiClick : _purchase, 0.88f);
         }
 
         public void PlayAbortWhoosh()

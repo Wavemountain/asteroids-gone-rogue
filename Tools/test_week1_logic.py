@@ -637,7 +637,7 @@ def test_enemies_launch_034() -> None:
     assert is_better_best_world(100, 3, 1, 100, 3, 2)
     assert not is_better_best_world(100, 3, 2, 100, 3, 1)
     assert "PlayBestCompare" in ui
-    hud = ui.split("private string BuildHud")[1].split("private static Font")[0]
+    hud = ui.split("private string BuildHud")[1].split("private static void AddReadability")[0]
     assert "PlayBestCompare()" in hud
     assert '_audioPanel.SetActive(!playing)' in ui
 
@@ -1048,7 +1048,7 @@ def test_sniper_fardrift_037() -> None:
     assert "ScoutWingTitle" in summary
     assert "RunSummary.ShowContinueHint(" in ui
     assert "persist.LadderLine()" in ui
-    assert "playing ? 16 : 18" in ui
+    assert "playing ? 14 : 16" in ui
     complete = manager.split("private void CompleteWave()")[1].split("private bool TryAwardWorldMedal")[0]
     assert "PlayFarDriftAward" in complete
     assert "PlayWaveClear" in complete
@@ -1115,6 +1115,74 @@ def test_sniper_fardrift_037() -> None:
     jingle = root / "Assets/Resources/Audio/Sfx/jingles_PIZZA16.ogg"
     assert jingle.is_file() and jingle.stat().st_size > 1000
     assert jingle.read_bytes()[:4] == b"OggS"
+
+
+def test_ui_fonts_039() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    fonts = (root / "Assets/Scripts/UI/UiFonts.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+    camera = (root / "Assets/Scripts/Player/FollowCamera.cs").read_text(encoding="utf-8")
+    bootstrap = (root / "Assets/Scripts/Content/GameBootstrap.cs").read_text(encoding="utf-8")
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    manifest = (root / "Packages/manifest.json").read_text(encoding="utf-8")
+    lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    checklist = (root / "MERGE_CHECKLIST.md").read_text(encoding="utf-8")
+    credits = (root / "CREDITS.md").read_text(encoding="utf-8")
+
+    assert "class UiFonts" in fonts
+    assert 'DisplayResource = "Fonts/KenneyFuture"' in fonts
+    assert 'BodyResource = "Fonts/KenneyFutureNarrow"' in fonts
+    assert 'LegacyBuiltin = "LegacyRuntime.ttf"' in fonts
+    assert "Arial.ttf" not in fonts
+    assert "Arial.ttf" not in ui
+    assert "Arial.ttf" not in factory
+    assert "UiFonts.Display()" in ui
+    assert "UiFonts.Body()" in ui
+    assert "UiFonts.Display()" in factory
+    assert "HudPlate" in ui
+    assert "AddReadability" in ui
+    assert "PlayUiClick" in ui.split("private void OnMute()")[1].split("private void")[0]
+
+    display = root / "Assets/Resources/Fonts/KenneyFuture.ttf"
+    body = root / "Assets/Resources/Fonts/KenneyFutureNarrow.ttf"
+    license_txt = root / "Assets/Resources/Fonts/Kenney_Fonts_License.txt"
+    assert display.is_file() and display.stat().st_size > 10000
+    assert body.is_file() and body.stat().st_size > 10000
+    assert license_txt.is_file()
+    assert display.read_bytes()[0:4] in (b"\x00\x01\x00\x00", b"OTTO", b"true")
+    assert body.read_bytes()[0:4] in (b"\x00\x01\x00\x00", b"OTTO", b"true")
+
+    assert "ArenaRadius = 30f" in waves
+    assert "ArenaDesignRadius = 22f" in waves
+    assert "ScaledRing" in waves
+    assert "WaveManager.ArenaRadius / WaveManager.ArenaDesignRadius" in factory
+    assert "new Vector3(0f, 35f, -22f)" in camera
+    assert "fieldOfView = 54f" in bootstrap
+    assert "farClipPlane = 280f" in bootstrap
+
+    click = audio.split("public void PlayUiClick()")[1].split("public void")[0]
+    assert "0.88f" in click
+    buy = audio.split("public void PlayHangarPurchase()")[1].split("public void")[0]
+    assert "Play(_purchase" in buy
+
+    assert "com.unity.modules.vr" not in manifest
+    assert "com.unity.modules.xr" not in manifest
+    assert "com.unity.textmeshpro" not in manifest
+    assert "com.unity.modules.vr" not in lock
+    assert "com.unity.modules.xr" not in lock
+    assert "com.unity.textmeshpro" not in lock
+    assert "0.39-ui-fonts" in checklist
+    assert "no 0.40" in checklist
+    assert "Hub-open smoke" in checklist
+    assert "Kenney Future" in readme
+    assert "Kenney Future" in credits
+    assert "CC0" in credits
+    assert "GetEntityId" in readme or "GetEntityId" in checklist
 
 
 def world_entry_beat(world: int) -> str:
@@ -1220,8 +1288,6 @@ def test_steam_world3_038() -> None:
     assert "com.unity.modules.xr" not in manifest
     assert "Hub-open smoke" in readme
     assert "Hub-open smoke" in checklist
-    assert "0.38-steam-world3" in checklist
-    assert "no 0.39" in checklist
     assert "New sector" in readme
     assert "without a medal" in readme.lower() or "no medal" in readme.lower()
 
@@ -1229,6 +1295,7 @@ def test_steam_world3_038() -> None:
     seeker = (root / "Assets/Scripts/Combat/EnemySeeker.cs").read_text(encoding="utf-8")
     pickup = (root / "Assets/Scripts/Combat/Pickup.cs").read_text(encoding="utf-8")
     bootstrap = (root / "Assets/Scripts/Content/GameBootstrap.cs").read_text(encoding="utf-8")
+    fonts = (root / "Assets/Scripts/UI/UiFonts.cs").read_text(encoding="utf-8")
     assert "GetInstanceID" not in projectile
     assert "GetEntityId()" in projectile
     assert "HashSet<EntityId>" in projectile
@@ -1242,8 +1309,9 @@ def test_steam_world3_038() -> None:
     assert "FindObjectsByType<Light>()" in bootstrap
     assert "Arial.ttf" not in factory
     assert "Arial.ttf" not in ui
-    assert 'GetBuiltinResource<Font>("LegacyRuntime.ttf")' in factory
-    assert 'GetBuiltinResource<Font>("LegacyRuntime.ttf")' in ui
+    assert "Arial.ttf" not in fonts
+    assert 'GetBuiltinResource<Font>(LegacyBuiltin)' in fonts or 'GetBuiltinResource<Font>("LegacyRuntime.ttf")' in fonts
+    assert "Fonts/KenneyFuture" in fonts
 
 
 def main() -> int:
@@ -1268,6 +1336,7 @@ def main() -> int:
     test_scout_gunner_medals_036()
     test_sniper_fardrift_037()
     test_steam_world3_038()
+    test_ui_fonts_039()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

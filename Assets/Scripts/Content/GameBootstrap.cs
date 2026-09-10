@@ -26,9 +26,9 @@ namespace AsteroidsGoneRogue
 
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.02f, 0.03f, 0.05f);
-            camera.fieldOfView = 50f;
+            camera.fieldOfView = 54f;
             camera.nearClipPlane = 0.1f;
-            camera.farClipPlane = 200f;
+            camera.farClipPlane = 280f;
 
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.12f, 0.14f, 0.18f);

@@ -73,6 +73,9 @@ def main() -> int:
     require(ROOT / "Assets/Resources/Audio/Sfx/jingles_PIZZA16.ogg")
     require(ROOT / "Assets/Resources/Audio/Music/OutThere.ogg")
     require(ROOT / "Assets/Resources/Audio/Music/spacelifeNo14.ogg")
+    require(ROOT / "Assets/Resources/Fonts/KenneyFuture.ttf")
+    require(ROOT / "Assets/Resources/Fonts/KenneyFutureNarrow.ttf")
+    require(ROOT / "Assets/Resources/Fonts/Kenney_Fonts_License.txt")
 
     version = read(ROOT / "ProjectSettings/ProjectVersion.txt")
     if "6000.6.0f1" not in version:
@@ -118,6 +121,7 @@ def main() -> int:
         "class ArtImport",
         "class GameBootstrap",
         "class GameUi",
+        "class UiFonts",
         "class HangarPersist",
         "class MedalCatalog",
         "enum GamePhase",
@@ -231,6 +235,12 @@ def main() -> int:
             err(f"{resources.relative_to(ROOT)} looks like an LFS pointer, not an FBX")
         require(ROOT / f"Assets/Resources/Art/Import/{name}.fbx.meta", "Resources ModelImporter")
 
+    for font_name in ("KenneyFuture.ttf", "KenneyFutureNarrow.ttf"):
+        font_path = ROOT / "Assets/Resources/Fonts" / font_name
+        require(font_path, "bundled HUD font")
+        if font_path.exists() and is_lfs_pointer(font_path):
+            err(f"{font_path.relative_to(ROOT)} looks like an LFS pointer, not a font")
+
     resources_import = ROOT / "Assets/Resources/Art/Import"
     for fbx in sorted(resources_import.glob("*.fbx")):
         if is_lfs_pointer(fbx):
@@ -259,11 +269,16 @@ def main() -> int:
     if "UnityEngine.InputSystem" in blob:
         err("scripts should stay on the old Input Manager for a clean first open")
 
-    # Unity 6.6 API: Arial builtin is gone; obsolete FindObjectOfType / velocity / drag must be gone.
+    # Unity 6.6 API: Arial builtin is gone; bundled Kenney fonts with LegacyRuntime fallback.
     if "Arial.ttf" in blob or '"Arial"' in blob:
-        err("scripts still load builtin/OS Arial; use LegacyRuntime.ttf")
-    if 'GetBuiltinResource<Font>("LegacyRuntime.ttf")' not in blob:
-        err("scripts should load builtin LegacyRuntime.ttf for Unity 6.6")
+        err("scripts still load builtin/OS Arial; use bundled font or LegacyRuntime.ttf")
+    if 'GetBuiltinResource<Font>("LegacyRuntime.ttf")' not in blob and "LegacyBuiltin" not in blob:
+        err("scripts should keep LegacyRuntime.ttf as the Unity 6.6 font fallback")
+    fonts = read(ROOT / "Assets/Scripts/UI/UiFonts.cs")
+    if "Fonts/KenneyFuture" not in fonts or "Fonts/KenneyFutureNarrow" not in fonts:
+        err("UiFonts should load bundled Kenney Future / Future Narrow")
+    if 'GetBuiltinResource<Font>(LegacyBuiltin)' not in fonts and 'GetBuiltinResource<Font>("LegacyRuntime.ttf")' not in fonts:
+        err("UiFonts should fall back to builtin LegacyRuntime.ttf")
     if "FindObjectOfType" in blob or "FindObjectsOfType" in blob:
         err("scripts still call obsolete FindObjectOfType / FindObjectsOfType")
     if "GetInstanceID" in blob:
@@ -283,6 +298,8 @@ def main() -> int:
         err("Packages/manifest.json should pin com.unity.ugui 2.0.0 for Unity 6")
     if '"com.unity.inputsystem"' in manifest:
         err("do not add the Input System package (keeps first-open clean)")
+    if "com.unity.textmeshpro" in manifest or "com.unity.textmeshpro" in lock:
+        err("do not add TextMeshPro (bundled Kenney Font + ugui Text stays Hub-safe)")
     for blocked in (
         "com.unity.modules.vr",
         "com.unity.modules.xr",

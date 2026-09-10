@@ -38,4 +38,7 @@ Assets/Resources/Art/Import/*.FBX binary
 *.tif binary
 *.wav binary
 *.mp3 binary
-*.ogg binary
+*.ttf binary
+*.TTF binary
+*.otf binary
+*.OTF binary

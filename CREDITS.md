@@ -59,6 +59,19 @@ Mirror used: https://opengameart.org/content/85-short-music-jingles (`jingleSoun
 
 Kenney license text (from the Sci-Fi Sounds pack) is kept at `Assets/Audio/Kenney_License.txt`.
 
+## Fonts
+
+Pack: **Kenney Fonts** (CC0)  
+Author: Kenney  
+Source: https://kenney.nl/assets/kenney-fonts
+
+| Use | File in repo | Original pack file |
+| --- | --- | --- |
+| Display (title / world / medals / headers) | `Assets/Resources/Fonts/KenneyFuture.ttf` | `Fonts/Kenney Future.ttf` |
+| Body (HUD / shop / status) | `Assets/Resources/Fonts/KenneyFutureNarrow.ttf` | `Fonts/Kenney Future Narrow.ttf` |
+
+License text from the pack is at `Assets/Resources/Fonts/Kenney_Fonts_License.txt`.
+
 ## Music
 
 | Cue | File in repo | Track | Author | License | Source |
@@ -70,4 +83,4 @@ Hangar plays `spacelifeNo14` as a denser two-layer bed (pitch 0.94 + 1.02). Aren
 
 ## Engine wiring
 
-`AudioCues` loads these clips from `Resources/Audio` at runtime (so Play Mode does not depend on Inspector references). Hangar UI has **Mute** plus **SFX** and **Music** sliders; values persist in PlayerPrefs. Local best score / wave / world persist under `agr.best.*`. Hangar medals persist under `agr.hangar.medals`.
+`AudioCues` loads these clips from `Resources/Audio` at runtime (so Play Mode does not depend on Inspector references). Hangar UI has **Mute** plus **SFX** and **Music** sliders; Mute also plays the UI click. Values persist in PlayerPrefs. Local best score / wave / world persist under `agr.best.*`. Hangar medals persist under `agr.hangar.medals`. `UiFonts` loads Kenney Future / Future Narrow from `Resources/Fonts` (LegacyRuntime fallback; never Arial).

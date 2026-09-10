@@ -39,6 +39,7 @@ namespace AsteroidsGoneRogue
         private Text _continueHint;
         private Text _badgeRow;
         private Image _hitFlash;
+        private GameObject _hudPlate;
         private bool _tutorialDismissed;
         private float _worldFlashUntil;
         private int _flashedWorld = 1;
@@ -205,76 +206,89 @@ namespace AsteroidsGoneRogue
 
         private void Construct(string productTitle)
         {
-            Font font = ResolveFont();
-            CreateFill("Scrim", transform, new Color(0.02f, 0.03f, 0.05f, 0.18f), new Vector2(0f, 0f), new Vector2(1f, 1f));
+            Font display = UiFonts.Display();
+            Font body = UiFonts.Body();
+            CreateFill("Scrim", transform, new Color(0.015f, 0.02f, 0.04f, 0.22f), new Vector2(0f, 0f), new Vector2(1f, 1f));
             _hitFlash = CreateFill("ScreenFlash", transform, new Color(1f, 0.88f, 0.72f, 0f),
                 new Vector2(0f, 0f), new Vector2(1f, 1f)).GetComponent<Image>();
 
-            _title = CreateText("Title", transform, font, 54, TextAnchor.UpperCenter, FontStyle.Bold);
-            Stretch(_title.rectTransform, new Vector2(0.18f, 0.86f), new Vector2(0.82f, 0.98f));
+            _hudPlate = CreatePanel("HudPlate", transform, new Color(0.02f, 0.035f, 0.06f, 0.72f),
+                new Vector2(0.012f, 0.605f), new Vector2(0.395f, 0.875f));
+            CreateFill("HudPlateRule", _hudPlate.transform, new Color(1f, 0.72f, 0.28f, 0.55f),
+                new Vector2(0.04f, 0.0f), new Vector2(0.96f, 0.018f));
+
+            _title = CreateText("Title", transform, display, 46, TextAnchor.UpperCenter, FontStyle.Bold);
+            Stretch(_title.rectTransform, new Vector2(0.16f, 0.875f), new Vector2(0.84f, 0.985f));
             _title.text = productTitle;
-            _title.color = new Color(1f, 0.78f, 0.32f);
+            _title.color = new Color(1f, 0.82f, 0.38f);
+            AddReadability(_title, true);
 
-            _world = CreateText("WorldBadge", transform, font, 34, TextAnchor.UpperRight, FontStyle.Bold);
+            _world = CreateText("WorldBadge", transform, display, 30, TextAnchor.UpperRight, FontStyle.Bold);
             Stretch(_world.rectTransform, new Vector2(0.62f, 0.86f), new Vector2(0.97f, 0.98f));
-            _world.color = new Color(1f, 0.82f, 0.28f);
+            _world.color = new Color(1f, 0.84f, 0.32f);
+            AddReadability(_world, true);
 
-            _hud = CreateText("Hud", transform, font, 24, TextAnchor.UpperLeft, FontStyle.Normal);
+            _hud = CreateText("Hud", transform, body, 22, TextAnchor.UpperLeft, FontStyle.Normal);
             Stretch(_hud.rectTransform, new Vector2(0.03f, 0.62f), new Vector2(0.5f, 0.775f));
-            _hud.color = Color.white;
+            _hud.color = new Color(0.96f, 0.97f, 0.94f);
+            AddReadability(_hud, false);
 
-            _badgeRow = CreateText("BadgeRow", transform, font, 18, TextAnchor.UpperLeft, FontStyle.Bold);
+            _badgeRow = CreateText("BadgeRow", transform, display, 16, TextAnchor.UpperLeft, FontStyle.Bold);
             Stretch(_badgeRow.rectTransform, new Vector2(0.03f, 0.775f), new Vector2(0.62f, 0.86f));
-            _badgeRow.color = new Color(1f, 0.84f, 0.38f);
+            _badgeRow.color = new Color(1f, 0.86f, 0.42f);
+            AddReadability(_badgeRow, false);
 
-            _hint = CreateText("Hint", transform, font, 20, TextAnchor.LowerCenter, FontStyle.Normal);
-            Stretch(_hint.rectTransform, new Vector2(0.1f, 0.02f), new Vector2(0.9f, 0.08f));
-            _hint.color = new Color(0.75f, 0.8f, 0.85f);
+            _hint = CreateText("Hint", transform, body, 18, TextAnchor.LowerCenter, FontStyle.Normal);
+            Stretch(_hint.rectTransform, new Vector2(0.1f, 0.018f), new Vector2(0.9f, 0.078f));
+            _hint.color = new Color(0.82f, 0.88f, 0.92f);
             _hint.text = "WASD move  ·  Mouse aim  ·  Left mouse / Space fire";
+            AddReadability(_hint, false);
 
-            _menuRoot = CreatePanel("HangarPanel", transform, new Color(0.03f, 0.045f, 0.07f, 0.92f),
+            _menuRoot = CreatePanel("HangarPanel", transform, new Color(0.025f, 0.038f, 0.06f, 0.94f),
                 new Vector2(0.185f, 0.035f), new Vector2(0.815f, 0.725f));
-            CreateFill("HangarHeader", _menuRoot.transform, new Color(1f, 0.58f, 0.16f, 0.2f),
+            CreateFill("HangarHeader", _menuRoot.transform, new Color(1f, 0.58f, 0.16f, 0.28f),
                 new Vector2(0f, 0.962f), new Vector2(1f, 1f));
-            CreateFill("HangarRule", _menuRoot.transform, new Color(1f, 0.72f, 0.28f, 0.7f),
+            CreateFill("HangarRule", _menuRoot.transform, new Color(1f, 0.78f, 0.34f, 0.88f),
                 new Vector2(0.04f, 0.955f), new Vector2(0.96f, 0.962f));
+            CreateFill("HangarInner", _menuRoot.transform, new Color(0.04f, 0.07f, 0.1f, 0.35f),
+                new Vector2(0.012f, 0.018f), new Vector2(0.988f, 0.948f));
 
-            BuildRunSummary(font);
+            BuildRunSummary(display, body);
 
-            _status = CreateText("Status", _menuRoot.transform, font, 18, TextAnchor.UpperCenter, FontStyle.Bold);
+            _status = CreateText("Status", _menuRoot.transform, body, 17, TextAnchor.UpperCenter, FontStyle.Bold);
             Stretch(_status.rectTransform, new Vector2(0.04f, 0.84f), new Vector2(0.96f, 0.95f));
-            _status.color = new Color(0.96f, 0.93f, 0.84f);
+            _status.color = new Color(0.97f, 0.95f, 0.88f);
 
-            _credits = CreateText("Credits", _menuRoot.transform, font, 20, TextAnchor.UpperCenter, FontStyle.Normal);
+            _credits = CreateText("Credits", _menuRoot.transform, body, 20, TextAnchor.UpperCenter, FontStyle.Bold);
             Stretch(_credits.rectTransform, new Vector2(0.06f, 0.785f), new Vector2(0.94f, 0.84f));
-            _credits.color = new Color(0.55f, 0.88f, 1f);
+            _credits.color = new Color(0.45f, 0.92f, 1f);
 
-            _primary = CreateButton("Primary", _menuRoot.transform, font, new Vector2(0.28f, 0.675f), new Vector2(0.72f, 0.75f));
+            _primary = CreateButton("Primary", _menuRoot.transform, display, new Vector2(0.28f, 0.675f), new Vector2(0.72f, 0.75f));
             _primaryLabel = _primary.GetComponentInChildren<Text>();
             _primary.onClick.AddListener(OnPrimary);
             Image primaryPlate = _primary.targetGraphic as Image;
             if (primaryPlate != null)
             {
-                primaryPlate.color = new Color(0.36f, 0.24f, 0.08f, 0.98f);
+                primaryPlate.color = new Color(0.42f, 0.26f, 0.08f, 0.98f);
             }
 
-            _abortButton = CreateButton("AbortWave", transform, font, new Vector2(0.78f, 0.09f), new Vector2(0.97f, 0.155f));
+            _abortButton = CreateButton("AbortWave", transform, body, new Vector2(0.78f, 0.09f), new Vector2(0.97f, 0.155f));
             _abortLabel = _abortButton.GetComponentInChildren<Text>();
             _abortLabel.text = "Abort → Hangar";
-            _abortLabel.fontSize = 18;
+            _abortLabel.fontSize = 16;
             _abortButton.onClick.AddListener(OnAbort);
             _abortButton.gameObject.SetActive(false);
 
-            BuildShop(font);
-            BuildAudioControls(font);
-            BuildFirstHangarHint(font);
+            BuildShop(display, body);
+            BuildAudioControls(body);
+            BuildFirstHangarHint(display, body);
         }
 
-        private void BuildShop(Font font)
+        private void BuildShop(Font display, Font body)
         {
-            BuildGroupHeader(font, ShopCatalog.HullHeader, new Vector2(0.03f, 0.605f), new Vector2(0.56f, 0.66f));
-            BuildGroupHeader(font, ShopCatalog.WeaponsHeader, new Vector2(0.575f, 0.605f), new Vector2(0.775f, 0.66f));
-            BuildGroupHeader(font, ShopCatalog.DefenseHeader, new Vector2(0.79f, 0.605f), new Vector2(0.97f, 0.66f));
+            BuildGroupHeader(display, ShopCatalog.HullHeader, new Vector2(0.03f, 0.605f), new Vector2(0.56f, 0.66f));
+            BuildGroupHeader(display, ShopCatalog.WeaponsHeader, new Vector2(0.575f, 0.605f), new Vector2(0.775f, 0.66f));
+            BuildGroupHeader(display, ShopCatalog.DefenseHeader, new Vector2(0.79f, 0.605f), new Vector2(0.97f, 0.66f));
 
             int shopCount = ShopCatalog.Items.Length;
             _buyButtons = new Button[shopCount];
@@ -287,7 +301,7 @@ namespace AsteroidsGoneRogue
                 Vector2 min;
                 Vector2 max;
                 ShopButtonRect(item.Group, ref hullIndex, ref weaponIndex, out min, out max);
-                Button button = CreateButton("Buy_" + item.Id, _menuRoot.transform, font, min, max);
+                Button button = CreateButton("Buy_" + item.Id, _menuRoot.transform, body, min, max);
                 int captured = i;
                 button.onClick.AddListener(() => OnBuy(ShopCatalog.Items[captured].Id));
                 BindShopHover(button, item);
@@ -335,9 +349,9 @@ namespace AsteroidsGoneRogue
         {
             Text header = CreateText("Group_" + label, _menuRoot.transform, font, 14, TextAnchor.MiddleLeft, FontStyle.Bold);
             Stretch(header.rectTransform, min, max);
-            header.color = new Color(1f, 0.78f, 0.38f);
+            header.color = new Color(1f, 0.84f, 0.46f);
             header.text = label;
-            CreateFill("Rule_" + label, _menuRoot.transform, new Color(1f, 0.62f, 0.2f, 0.45f),
+            CreateFill("Rule_" + label, _menuRoot.transform, new Color(1f, 0.7f, 0.28f, 0.7f),
                 new Vector2(min.x, min.y), new Vector2(max.x, min.y + 0.008f));
         }
 
@@ -386,30 +400,30 @@ namespace AsteroidsGoneRogue
             }
         }
 
-        private void BuildRunSummary(Font font)
+        private void BuildRunSummary(Font display, Font body)
         {
-            _summaryRoot = CreatePanel("RunSummaryCard", _menuRoot.transform, new Color(0.06f, 0.09f, 0.13f, 0.96f),
+            _summaryRoot = CreatePanel("RunSummaryCard", _menuRoot.transform, new Color(0.04f, 0.07f, 0.11f, 0.97f),
                 new Vector2(0.04f, 0.81f), new Vector2(0.96f, 0.965f));
-            CreateFill("SummaryHeader", _summaryRoot.transform, new Color(1f, 0.58f, 0.16f, 0.22f),
+            CreateFill("SummaryHeader", _summaryRoot.transform, new Color(1f, 0.58f, 0.16f, 0.3f),
                 new Vector2(0f, 0.78f), new Vector2(1f, 1f));
-            CreateFill("SummaryRule", _summaryRoot.transform, new Color(1f, 0.72f, 0.28f, 0.7f),
+            CreateFill("SummaryRule", _summaryRoot.transform, new Color(1f, 0.78f, 0.34f, 0.85f),
                 new Vector2(0.06f, 0.77f), new Vector2(0.94f, 0.79f));
 
-            _summaryTitle = CreateText("SummaryTitle", _summaryRoot.transform, font, 18, TextAnchor.UpperCenter, FontStyle.Bold);
+            _summaryTitle = CreateText("SummaryTitle", _summaryRoot.transform, display, 17, TextAnchor.UpperCenter, FontStyle.Bold);
             Stretch(_summaryTitle.rectTransform, new Vector2(0.04f, 0.78f), new Vector2(0.96f, 0.97f));
-            _summaryTitle.color = new Color(1f, 0.82f, 0.4f);
+            _summaryTitle.color = new Color(1f, 0.86f, 0.44f);
 
-            _summaryBody = CreateText("SummaryBody", _summaryRoot.transform, font, 16, TextAnchor.UpperCenter, FontStyle.Normal);
+            _summaryBody = CreateText("SummaryBody", _summaryRoot.transform, body, 16, TextAnchor.UpperCenter, FontStyle.Normal);
             Stretch(_summaryBody.rectTransform, new Vector2(0.04f, 0.28f), new Vector2(0.96f, 0.76f));
-            _summaryBody.color = new Color(0.94f, 0.93f, 0.86f);
+            _summaryBody.color = new Color(0.95f, 0.94f, 0.88f);
 
-            _waveMedal = CreateText("WaveMedal", _summaryRoot.transform, font, 15, TextAnchor.MiddleCenter, FontStyle.Bold);
+            _waveMedal = CreateText("WaveMedal", _summaryRoot.transform, display, 14, TextAnchor.MiddleCenter, FontStyle.Bold);
             Stretch(_waveMedal.rectTransform, new Vector2(0.04f, 0.155f), new Vector2(0.96f, 0.28f));
-            _waveMedal.color = new Color(1f, 0.84f, 0.38f);
+            _waveMedal.color = new Color(1f, 0.86f, 0.42f);
 
-            _continueHint = CreateText("ContinueHint", _summaryRoot.transform, font, 15, TextAnchor.LowerCenter, FontStyle.Bold);
+            _continueHint = CreateText("ContinueHint", _summaryRoot.transform, body, 15, TextAnchor.LowerCenter, FontStyle.Bold);
             Stretch(_continueHint.rectTransform, new Vector2(0.04f, 0.03f), new Vector2(0.96f, 0.155f));
-            _continueHint.color = new Color(0.55f, 0.9f, 1f);
+            _continueHint.color = new Color(0.5f, 0.92f, 1f);
             _summaryRoot.SetActive(false);
         }
 
@@ -515,30 +529,30 @@ namespace AsteroidsGoneRogue
             _hitFlash.color = new Color(1f, 0.82f, 0.62f, _hitFlashStrength * pulse);
         }
 
-        private void BuildFirstHangarHint(Font font)
+        private void BuildFirstHangarHint(Font display, Font body)
         {
             _tutorialDismissed = PlayerPrefs.GetInt(FirstHangarHintKey, 0) == 1;
-            _tutorialRoot = CreatePanel("FirstHangarHint", transform, new Color(0.04f, 0.055f, 0.08f, 0.94f),
+            _tutorialRoot = CreatePanel("FirstHangarHint", transform, new Color(0.03f, 0.045f, 0.07f, 0.96f),
                 new Vector2(0.008f, 0.08f), new Vector2(0.185f, 0.74f));
-            CreateFill("HintHeader", _tutorialRoot.transform, new Color(1f, 0.58f, 0.16f, 0.22f),
+            CreateFill("HintHeader", _tutorialRoot.transform, new Color(1f, 0.58f, 0.16f, 0.3f),
                 new Vector2(0f, 0.94f), new Vector2(1f, 1f));
-            CreateFill("HintRule", _tutorialRoot.transform, new Color(1f, 0.72f, 0.28f, 0.7f),
+            CreateFill("HintRule", _tutorialRoot.transform, new Color(1f, 0.78f, 0.34f, 0.85f),
                 new Vector2(0.08f, 0.932f), new Vector2(0.92f, 0.94f));
 
-            Text title = CreateText("HintTitle", _tutorialRoot.transform, font, 18, TextAnchor.UpperCenter, FontStyle.Bold);
+            Text title = CreateText("HintTitle", _tutorialRoot.transform, display, 16, TextAnchor.UpperCenter, FontStyle.Bold);
             Stretch(title.rectTransform, new Vector2(0.06f, 0.86f), new Vector2(0.94f, 0.97f));
-            title.color = new Color(1f, 0.82f, 0.4f);
+            title.color = new Color(1f, 0.86f, 0.44f);
             title.text = "First flight";
 
-            Text body = CreateText("HintBody", _tutorialRoot.transform, font, 14, TextAnchor.UpperLeft, FontStyle.Normal);
-            Stretch(body.rectTransform, new Vector2(0.07f, 0.2f), new Vector2(0.93f, 0.85f));
-            body.color = new Color(0.9f, 0.9f, 0.86f);
-            body.text = HangarHintBody;
+            Text bodyText = CreateText("HintBody", _tutorialRoot.transform, body, 13, TextAnchor.UpperLeft, FontStyle.Normal);
+            Stretch(bodyText.rectTransform, new Vector2(0.07f, 0.2f), new Vector2(0.93f, 0.85f));
+            bodyText.color = new Color(0.92f, 0.92f, 0.88f);
+            bodyText.text = HangarHintBody;
 
-            Button gotIt = CreateButton("DismissHint", _tutorialRoot.transform, font,
+            Button gotIt = CreateButton("DismissHint", _tutorialRoot.transform, display,
                 new Vector2(0.12f, 0.04f), new Vector2(0.88f, 0.18f));
             gotIt.GetComponentInChildren<Text>().text = "Got it";
-            gotIt.GetComponentInChildren<Text>().fontSize = 16;
+            gotIt.GetComponentInChildren<Text>().fontSize = 15;
             gotIt.onClick.AddListener(OnDismissHintClicked);
             _tutorialRoot.SetActive(false);
         }
@@ -555,6 +569,10 @@ namespace AsteroidsGoneRogue
                 && _session.Phase == GamePhase.Hangar
                 && _session.WaveIndex == 1;
             _tutorialRoot.SetActive(firstHangar);
+            if (_hudPlate != null)
+            {
+                _hudPlate.SetActive(!firstHangar);
+            }
         }
 
         private void OnDismissHintClicked()
@@ -584,7 +602,7 @@ namespace AsteroidsGoneRogue
 
         private void BuildAudioControls(Font font)
         {
-            _audioPanel = CreatePanel("AudioPanel", transform, new Color(0.04f, 0.06f, 0.09f, 0.75f),
+            _audioPanel = CreatePanel("AudioPanel", transform, new Color(0.03f, 0.05f, 0.08f, 0.88f),
                 new Vector2(0.68f, 0.72f), new Vector2(0.98f, 0.86f));
             GameObject panel = _audioPanel;
 
@@ -607,11 +625,23 @@ namespace AsteroidsGoneRogue
 
         private void OnMute()
         {
-            if (AudioCues.Instance != null)
+            if (AudioCues.Instance == null)
             {
-                AudioCues.Instance.ToggleMute();
-                RefreshAudioControls();
+                return;
             }
+
+            if (!AudioCues.Instance.Muted)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+
+            AudioCues.Instance.ToggleMute();
+            if (!AudioCues.Instance.Muted)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+
+            RefreshAudioControls();
         }
 
         private void OnSfxVolume(float value)
@@ -696,7 +726,7 @@ namespace AsteroidsGoneRogue
             if (Time.unscaledTime < _worldFlashUntil)
             {
                 float pulse = Mathf.PingPong(Time.unscaledTime * 7f, 1f);
-                _world.fontSize = 38 + (int)(10f * pulse);
+                _world.fontSize = 32 + (int)(8f * pulse);
                 bool world3 = _flashedWorld == MedalCatalog.World3EntryWorld;
                 _world.color = world3
                     ? Color.Lerp(new Color(0.75f, 0.95f, 1f), new Color(0.2f, 0.7f, 1f), pulse)
@@ -711,9 +741,9 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (_world.fontSize != 34 || !string.IsNullOrEmpty(_medalBeat))
+            if (_world.fontSize != 30 || !string.IsNullOrEmpty(_medalBeat))
             {
-                _world.fontSize = 34;
+                _world.fontSize = 30;
                 _medalBeat = string.Empty;
                 Stretch(_world.rectTransform, new Vector2(0.62f, 0.86f), new Vector2(0.97f, 0.98f));
                 RefreshWorldBadge();
@@ -746,7 +776,7 @@ namespace AsteroidsGoneRogue
             if (show)
             {
                 _badgeRow.text = MedalLadderPrefix + "\n" + row;
-                _badgeRow.fontSize = playing ? 16 : 18;
+                _badgeRow.fontSize = playing ? 14 : 16;
                 _badgeRow.color = playing
                     ? new Color(1f, 0.84f, 0.38f, 0.92f)
                     : new Color(1f, 0.84f, 0.38f);
@@ -874,15 +904,19 @@ namespace AsteroidsGoneRogue
             return best.PlayCompare(_session.Score, _session.WaveIndex, world);
         }
 
-        private static Font ResolveFont()
+        private static void AddReadability(Text text, bool strong)
         {
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (font == null)
+            if (text == null)
             {
-                font = Font.CreateDynamicFontFromOSFont("LegacyRuntime", 16);
+                return;
             }
 
-            return font;
+            Outline outline = text.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(0.02f, 0.03f, 0.05f, strong ? 0.92f : 0.78f);
+            outline.effectDistance = strong ? new Vector2(1.35f, -1.35f) : new Vector2(1f, -1f);
+            Shadow shadow = text.gameObject.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0f, 0f, 0f, strong ? 0.55f : 0.4f);
+            shadow.effectDistance = new Vector2(2f, -2f);
         }
 
         private static GameObject CreatePanel(string name, Transform parent, Color color, Vector2 min, Vector2 max)
@@ -923,13 +957,13 @@ namespace AsteroidsGoneRogue
             GameObject go = new GameObject(name);
             go.transform.SetParent(parent, false);
             Image image = go.AddComponent<Image>();
-            image.color = new Color(0.18f, 0.22f, 0.28f, 0.95f);
+            image.color = new Color(0.16f, 0.2f, 0.28f, 0.96f);
             Button button = go.AddComponent<Button>();
             ColorBlock colors = button.colors;
             colors.normalColor = Color.white;
-            colors.highlightedColor = new Color(1f, 0.92f, 0.62f, 1f);
-            colors.pressedColor = new Color(0.85f, 0.65f, 0.28f, 1f);
-            colors.disabledColor = new Color(0.82f, 0.82f, 0.82f, 1f);
+            colors.highlightedColor = new Color(1f, 0.9f, 0.55f, 1f);
+            colors.pressedColor = new Color(0.92f, 0.62f, 0.22f, 1f);
+            colors.disabledColor = new Color(0.78f, 0.78f, 0.8f, 1f);
             button.colors = colors;
             Stretch(go.GetComponent<RectTransform>(), min, max);
 
@@ -963,7 +997,7 @@ namespace AsteroidsGoneRogue
             GameObject fill = new GameObject("Fill");
             fill.transform.SetParent(fillArea.transform, false);
             Image fillImage = fill.AddComponent<Image>();
-            fillImage.color = new Color(0.9f, 0.65f, 0.2f, 1f);
+            fillImage.color = new Color(0.95f, 0.68f, 0.22f, 1f);
             RectTransform fillRect = fill.GetComponent<RectTransform>();
             Stretch(fillRect, Vector2.zero, Vector2.one);
 

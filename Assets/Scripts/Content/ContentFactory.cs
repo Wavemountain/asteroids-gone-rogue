@@ -138,7 +138,13 @@ namespace AsteroidsGoneRogue
             }
 
             _arenaRoot.name = visualName;
-            if (!TryVisual(visualName, _arenaRoot.transform, _arena))
+            GameObject visual;
+            if (TryVisual(visualName, _arenaRoot.transform, _arena, out visual))
+            {
+                float scale = WaveManager.ArenaRadius / WaveManager.ArenaDesignRadius;
+                visual.transform.localScale = Vector3.one * scale;
+            }
+            else
             {
                 GameObject floor = CreatePrimitive(PrimitiveType.Cylinder, "Arena_Floor", _arenaRoot.transform, _arena);
                 floor.transform.localScale = new Vector3(WaveManager.ArenaRadius * 2f, 0.04f, WaveManager.ArenaRadius * 2f);
@@ -311,7 +317,7 @@ namespace AsteroidsGoneRogue
             decal.transform.localRotation = Quaternion.identity;
             TextMesh go = decal.AddComponent<TextMesh>();
             go.text = "GO";
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            Font font = UiFonts.Display();
             if (font != null)
             {
                 go.font = font;

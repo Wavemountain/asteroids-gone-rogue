@@ -4,7 +4,7 @@ namespace AsteroidsGoneRogue
 {
     public sealed class FollowCamera : MonoBehaviour
     {
-        public Vector3 Offset = new Vector3(0f, 26f, -16f);
+        public Vector3 Offset = new Vector3(0f, 35f, -22f);
         public float Follow = 8f;
         public const float ShakeDecay = 11f;
         public const float MaxShake = 0.36f;

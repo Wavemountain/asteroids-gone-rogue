@@ -5,7 +5,8 @@ namespace AsteroidsGoneRogue
 {
     public sealed class WaveManager : MonoBehaviour
     {
-        public const float ArenaRadius = 22f;
+        public const float ArenaRadius = 30f;
+        public const float ArenaDesignRadius = 22f;
         public const int LadderWaves = 8;
         private const int BaseLargeAsteroids = 4;
         private const int MaxLargeAsteroids = 7;
@@ -39,7 +40,7 @@ namespace AsteroidsGoneRogue
             for (int i = 0; i < largeCount; i++)
             {
                 float angle = (Mathf.PI * 2f * i) / largeCount + 0.35f;
-                Vector3 pos = RingPoint(angle, 14f + (i % 2) * 2.5f);
+                Vector3 pos = RingPoint(angle, ScaledRing(14f + (i % 2) * 2.5f));
                 Register(_factory.CreateLargeAsteroid(pos, this));
             }
 
@@ -53,7 +54,7 @@ namespace AsteroidsGoneRogue
                 }
 
                 float angle = waveIndex * 0.55f + (Mathf.PI * 2f * spawned) / Mathf.Max(1, roster.Length) + 1.1f;
-                Vector3 pos = RingPoint(angle, 16.5f - (spawned % 2) * 1.4f);
+                Vector3 pos = RingPoint(angle, ScaledRing(16.5f - (spawned % 2) * 1.4f));
                 Register(_factory.CreateEnemy(pos, _player, this, EnemyCatalog.VisualName(roster[i])));
                 spawned++;
             }
@@ -80,7 +81,7 @@ namespace AsteroidsGoneRogue
 
             string[] kinds = { "Pickup_Score", "Pickup_Shield", "Pickup_Health", "Pickup_RapidFire" };
             string visual = kinds[(waveIndex - 2) % kinds.Length];
-            Vector3 pos = RingPoint(waveIndex * 1.3f + 0.4f, 8.5f);
+            Vector3 pos = RingPoint(waveIndex * 1.3f + 0.4f, ScaledRing(8.5f));
             _factory.CreatePickup(visual, pos);
         }
 
@@ -258,6 +259,11 @@ namespace AsteroidsGoneRogue
                 _live.Remove(threat);
                 threat.Despawn();
             }
+        }
+
+        public static float ScaledRing(float designRadius)
+        {
+            return designRadius * (ArenaRadius / ArenaDesignRadius);
         }
 
         public static Vector3 RingPoint(float angle, float radius)

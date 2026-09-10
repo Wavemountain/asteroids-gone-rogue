@@ -85,6 +85,32 @@ AudioImporter:
 """
 
 
+def font_meta(guid: str, font_name: str) -> str:
+    return f"""fileFormatVersion: 2
+guid: {guid}
+TrueTypeFontImporter:
+  externalObjects: {{}}
+  serializedVersion: 4
+  fontSize: 16
+  forceTextureCase: -2
+  characterSpacing: 0
+  characterPadding: 1
+  includeFontData: 1
+  fontName: {font_name}
+  fontNames:
+  - {font_name}
+  fallbackFontReferences: []
+  customCharacters: 
+  fontRenderingMode: 0
+  ascentCalculationMode: 1
+  useLegacyBoundsCalculation: 0
+  shouldRoundAdvanceValue: 1
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+"""
+
+
 def markdown_meta(guid: str) -> str:
     return f"""fileFormatVersion: 2
 guid: {guid}
@@ -933,6 +959,7 @@ def main() -> None:
         "Assets/Resources/Audio",
         "Assets/Resources/Audio/Sfx",
         "Assets/Resources/Audio/Music",
+        "Assets/Resources/Fonts",
     ]
     for folder in folders:
         write(ROOT / f"{folder}.meta", folder_meta(guid_for(folder + "/")))
@@ -952,6 +979,14 @@ def main() -> None:
     for ogg in ROOT.joinpath("Assets").rglob("*.ogg"):
         rel = ogg.relative_to(ROOT).as_posix()
         write(ogg.with_suffix(".ogg.meta"), audio_meta(guid_for(rel), streaming="Music" in rel))
+
+    font_names = {
+        "KenneyFuture.ttf": "Kenney Future",
+        "KenneyFutureNarrow.ttf": "Kenney Future Narrow",
+    }
+    for ttf in ROOT.joinpath("Assets").rglob("*.ttf"):
+        rel = ttf.relative_to(ROOT).as_posix()
+        write(Path(str(ttf) + ".meta"), font_meta(guid_for(rel), font_names.get(ttf.name, ttf.stem)))
 
     for fbx in ROOT.joinpath("Assets").rglob("*.fbx"):
         rel = fbx.relative_to(ROOT).as_posix()
@@ -987,7 +1022,7 @@ def main() -> None:
         ("Asteroid_VariantB_Large", "cube", "Mat_Asteroid", (4.8, 3.4, 4.8)),
         ("Asteroid_VariantB_Small", "cube", "Mat_Asteroid", (1.8, 1.25, 1.8)),
         ("Enemy_01", "capsule", "Mat_Enemy", (0.7, 0.7, 0.7)),
-        ("Arena_Blockout", "cylinder", "Mat_Arena", (44.0, 0.04, 44.0)),
+        ("Arena_Blockout", "cylinder", "Mat_Arena", (60.0, 0.04, 60.0)),
         ("Hangar_Crate", "cube", "Mat_Arena", (1.3, 1.1, 1.3)),
         ("Hangar_Terminal", "cube", "Mat_Ship_Hull", (1.1, 1.8, 0.55)),
         ("Hangar_LightPillar", "cylinder", "Mat_Ship_Glow", (0.55, 2.4, 0.55)),
