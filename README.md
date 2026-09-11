@@ -105,12 +105,14 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 | Enemy death | Kenney Sci-Fi Sounds | `explosionCrunch_003.ogg` + `impactMetal_000.ogg` punch |
 | SwarmPod / Mid death | Kenney Sci-Fi Sounds | `explosionCrunch_001.ogg` (no punch) |
 | SwarmPod spawn | Kenney Digital Audio | `phaserUp5.ogg` |
-| Swarm / Swarmling spawn | Kenney Digital Audio | `phaserUp2.ogg` |
-| Swarm hit | Kenney Digital Audio | `pepSound1.ogg` |
-| Swarm death | Kenney Digital Audio | `phaserDown3.ogg` |
-| Brute spawn | Kenney Digital Audio | `twoTone1.ogg` |
-| Brute hit | Kenney Digital Audio | `zap2.ogg` |
-| Brute death | Kenney Digital Audio | `lowDown.ogg` |
+| Brute spawn | Kenney Digital Audio | `lowThreeTone.ogg` |
+| Brute hit (pool) | Kenney Sci-Fi Sounds | `impactMetal_000`–`002.ogg` |
+| Brute death | Kenney Sci-Fi Sounds | `explosionCrunch_003.ogg` |
+| Swarm spawn | Kenney Digital Audio | `phaseJump1.ogg` (+ optional `slime_000.ogg`) |
+| Swarm hit (pool) | Kenney Sci-Fi Sounds | `laserSmall_000`–`004.ogg` |
+| Swarm death (pool) | Kenney Digital Audio | `zap1.ogg` / `spaceTrash1`–`3.ogg` |
+| Spike activate | Kenney Sci-Fi Sounds | `forceField_001.ogg` |
+| Spike player hit (pool) | Kenney Sci-Fi Sounds | `laserRetro_000`–`002.ogg` |
 | Player damage | Kenney Sci-Fi Sounds | `forceField_000.ogg` |
 | Arena world swap | Kenney Interface Sounds | `maximize_008.ogg` |
 | World 3 entry | Kenney Interface Sounds | `maximize_008.ogg` (hotter + short bed duck) |

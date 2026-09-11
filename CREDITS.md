@@ -13,18 +13,21 @@ Mirror used: https://opengameart.org/content/sci-fi-sounds (`sci-fi_sounds.zip`)
 
 | Cue | File in repo | Original pack file |
 | --- | --- | --- |
-| Shoot (bolt) | `Assets/Resources/Audio/Sfx/laserSmall_000.ogg` | `Audio/laserSmall_000.ogg` |
-| Shoot (spread) | `Assets/Resources/Audio/Sfx/laserRetro_000.ogg` | `Audio/laserRetro_000.ogg` |
+| Shoot (bolt) / Swarm hit pool | `Assets/Resources/Audio/Sfx/laserSmall_000.ogg`–`004.ogg` | `Audio/laserSmall_000.ogg`–`004.ogg` |
+| Shoot (spread) / spike hit pool | `Assets/Resources/Audio/Sfx/laserRetro_000.ogg`–`002.ogg` | `Audio/laserRetro_000.ogg`–`002.ogg` |
 | Shoot (pierce) | `Assets/Resources/Audio/Sfx/laserLarge_000.ogg` | `Audio/laserLarge_000.ogg` |
 | Enemy bolt | `Assets/Resources/Audio/Sfx/laserSmall_001.ogg` | `Audio/laserSmall_001.ogg` |
 | Hit | `Assets/Resources/Audio/Sfx/impactMetal_003.ogg` | `Audio/impactMetal_003.ogg` |
 | Hit punch layer | `Assets/Resources/Audio/Sfx/impactMetal_000.ogg` | `Audio/impactMetal_000.ogg` |
 | SwarmPod / Mid hit | `Assets/Resources/Audio/Sfx/impactMetal_001.ogg` | `Audio/impactMetal_001.ogg` (no punch) |
+| Brute hit pool | `Assets/Resources/Audio/Sfx/impactMetal_000.ogg`–`002.ogg` | `Audio/impactMetal_000.ogg`–`002.ogg` |
+| Spike activate | `Assets/Resources/Audio/Sfx/forceField_001.ogg` | `Audio/forceField_001.ogg` |
 | Asteroid split | `Assets/Resources/Audio/Sfx/explosionCrunch_000.ogg` | `Audio/explosionCrunch_000.ogg` |
 | Enemy death | `Assets/Resources/Audio/Sfx/explosionCrunch_003.ogg` | `Audio/explosionCrunch_003.ogg` |
 | Enemy death punch | `Assets/Resources/Audio/Sfx/impactMetal_000.ogg` | `Audio/impactMetal_000.ogg` (layered; asteroid crunch stays `explosionCrunch_000` only) |
 | SwarmPod / Mid death | `Assets/Resources/Audio/Sfx/explosionCrunch_001.ogg` | `Audio/explosionCrunch_001.ogg` (no punch) |
 | Player damage | `Assets/Resources/Audio/Sfx/forceField_000.ogg` | `Audio/forceField_000.ogg` |
+| Swarm spawn layer (optional) | `Assets/Resources/Audio/Sfx/slime_000.ogg` | `Audio/slime_000.ogg` |
 
 Pack: **Kenney Digital Audio** (CC0)  
 Author: Kenney  
@@ -33,12 +36,10 @@ Source: https://kenney.nl/assets/digital-audio
 | Cue | File in repo | Original pack file |
 | --- | --- | --- |
 | SwarmPod spawn | `Assets/Resources/Audio/Sfx/phaserUp5.ogg` | `Audio/phaserUp5.ogg` |
-| Swarm / Swarmling spawn | `Assets/Resources/Audio/Sfx/phaserUp2.ogg` | `Audio/phaserUp2.ogg` |
-| Swarm hit | `Assets/Resources/Audio/Sfx/pepSound1.ogg` | `Audio/pepSound1.ogg` |
-| Swarm death | `Assets/Resources/Audio/Sfx/phaserDown3.ogg` | `Audio/phaserDown3.ogg` |
-| Brute spawn | `Assets/Resources/Audio/Sfx/twoTone1.ogg` | `Audio/twoTone1.ogg` |
-| Brute hit | `Assets/Resources/Audio/Sfx/zap2.ogg` | `Audio/zap2.ogg` |
-| Brute death | `Assets/Resources/Audio/Sfx/lowDown.ogg` | `Audio/lowDown.ogg` |
+| Brute spawn | `Assets/Resources/Audio/Sfx/lowThreeTone.ogg` | `Audio/lowThreeTone.ogg` |
+| Swarm spawn | `Assets/Resources/Audio/Sfx/phaseJump1.ogg` | `Audio/phaseJump1.ogg` |
+| Swarm death pool | `Assets/Resources/Audio/Sfx/zap1.ogg` | `Audio/zap1.ogg` |
+| Swarm death pool | `Assets/Resources/Audio/Sfx/spaceTrash1.ogg`–`3.ogg` | `Audio/spaceTrash1.ogg`–`3.ogg` |
 
 Pack: **Kenney Interface Sounds** (CC0)  
 Author: Kenney  
@@ -85,7 +86,7 @@ License text from the pack is at `Assets/Resources/Fonts/Kenney_Fonts_License.tx
 | Arena loop | `Assets/Resources/Audio/Music/OutThere.ogg` | Space Music: Out There | yd | CC0 | https://opengameart.org/content/space-music-out-there |
 | Hangar ambience | `Assets/Resources/Audio/Music/spacelifeNo14.ogg` | Spacelife #14 | yd | CC0 | https://opengameart.org/content/spacelife-14 |
 
-Hangar plays `spacelifeNo14` as a denser two-layer bed (pitch 0.94 + 1.02). Arena plays `OutThere` louder at concert pitch so the two beds stay distinct. Abort ducks the current bed under the whoosh. SwarmPod spawn ducks the bed briefly (0.62s gap / 0.86 scale) so `phaserUp5` cuts clutter. Monster SFX follow the retro-modern chip/arcade bible (younger-friendly): Brute `twoTone1` / `zap2` / `lowDown`; Swarm `phaserUp2` / `pepSound1` / `phaserDown3`. Not metal grit, not UI clicks. Wave 10 Far Drift plays `jingles_PIZZA16` instead of the wave-clear sting. World 3 entry reuses `maximize_008` slightly hotter with a short bed duck (no new jingle).
+Hangar plays `spacelifeNo14` as a denser two-layer bed (pitch 0.94 + 1.02). Arena plays `OutThere` louder at concert pitch so the two beds stay distinct. Abort ducks the current bed under the whoosh. SwarmPod spawn ducks the bed briefly (0.62s gap / 0.86 scale) so `phaserUp5` cuts clutter. 0.40 AtmosBot monster/spike list (Kenney CC0, retro-modern, not UI clicks): Brute `lowThreeTone` / `impactMetal_000`–`002` / `explosionCrunch_003`; Swarm `phaseJump1` (+ `slime_000`) / `laserSmall_000`–`004` / `zap1`+`spaceTrash1`–`3`; spike activate `forceField_001`, spike hit `laserRetro_000`–`002`. Wave 10 Far Drift plays `jingles_PIZZA16` instead of the wave-clear sting. World 3 entry reuses `maximize_008` slightly hotter with a short bed duck (no new jingle).
 
 ## Engine wiring
 

@@ -30,6 +30,11 @@ namespace AsteroidsGoneRogue
             ShipHealth health = other.GetComponentInParent<ShipHealth>();
             if (health != null)
             {
+                if (AudioCues.Instance != null)
+                {
+                    AudioCues.Instance.PlayHazardHit();
+                }
+
                 health.ApplyDamage(Damage, DamageCause.HazardContact);
             }
         }

@@ -1122,6 +1122,11 @@ namespace AsteroidsGoneRogue
 
                     break;
             }
+
+            if (ArenaLayout.UsesHazardSpikes(layout) && AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayHazardActivate();
+            }
         }
 
         private void PlaceDebrisIsland(Transform parent, Vector3 position, float scale)
