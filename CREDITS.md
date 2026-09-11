@@ -67,6 +67,16 @@ Mirror used: https://opengameart.org/content/85-short-music-jingles (`jingleSoun
 | --- | --- | --- |
 | Wave clear | `Assets/Resources/Audio/Sfx/jingles_PIZZA07.ogg` | `OGG/jingles_PIZZA/jingles_PIZZA07.ogg` |
 | Far Drift award | `Assets/Resources/Audio/Sfx/jingles_PIZZA16.ogg` | `Audio/Pizzicato jingles/jingles_PIZZI16.ogg` |
+| Credits open | `Assets/Resources/Audio/Sfx/jingles_NES07.ogg` | `Audio/8-Bit jingles/jingles_NES07.ogg` |
+| Credits close | `Assets/Resources/Audio/Sfx/jingles_NES12.ogg` | `Audio/8-Bit jingles/jingles_NES12.ogg` (fallback: PIZZA16) |
+
+Pack: **Kenney Music Loops** (CC0)  
+Author: Kenney  
+Source: https://kenney.nl/assets/music-loops
+
+| Cue | File in repo | Original pack file |
+| --- | --- | --- |
+| Credits loop | `Assets/Resources/Audio/Music/SpaceCadet.ogg` | `Loops/Space Cadet.ogg` |
 
 Kenney license text (from the Sci-Fi Sounds pack) is kept at `Assets/Audio/Kenney_License.txt`.
 
@@ -89,8 +99,9 @@ License text from the pack is at `Assets/Resources/Fonts/Kenney_Fonts_License.tx
 | --- | --- | --- | --- | --- | --- |
 | Arena loop | `Assets/Resources/Audio/Music/OutThere.ogg` | Space Music: Out There | yd | CC0 | https://opengameart.org/content/space-music-out-there |
 | Hangar ambience | `Assets/Resources/Audio/Music/spacelifeNo14.ogg` | Spacelife #14 | yd | CC0 | https://opengameart.org/content/spacelife-14 |
+| Credits loop | `Assets/Resources/Audio/Music/SpaceCadet.ogg` | Space Cadet | Kenney | CC0 | https://kenney.nl/assets/music-loops |
 
-Hangar plays `spacelifeNo14` as a denser two-layer bed (pitch 0.94 + 1.02). Arena plays `OutThere` louder at concert pitch so the two beds stay distinct. Abort ducks the current bed under the whoosh. SwarmPod spawn ducks the bed briefly (0.62s gap / 0.86 scale) so `phaserUp5` cuts clutter. 0.40 AtmosBot monster/spike list (Kenney CC0, retro-modern chip/arcade, AAA mix polish, not UI clicks): Brute `lowThreeTone` / `impactMetal_000`–`002` / `explosionCrunch_003` + unique `lowFrequency_explosion_000` death layer; Swarm `phaseJump1` (+ `slime_000`) / `laserSmall_000`–`004` pitched ±6% / `zap1`+`spaceTrash1`–`3`; spike activate `forceField_001` (0.94 + short bed duck), spike hit `laserRetro_000`–`002`. Wave 10 Far Drift plays `jingles_PIZZA16` instead of the wave-clear sting. World 3 entry reuses `maximize_008` slightly hotter with a short bed duck (no new jingle).
+Hangar plays `spacelifeNo14` as a denser two-layer bed (pitch 0.94 + 1.02). Arena plays `OutThere` louder at concert pitch so the two beds stay distinct. Credits play `SpaceCadet` at 0.55 with `jingles_NES07` open (bed duck 0.35s @ 0.4) and `jingles_NES12` close (PIZZA16 fallback); Continue restores hangar. Abort ducks the current bed under the whoosh. SwarmPod spawn ducks the bed briefly (0.62s gap / 0.86 scale) so `phaserUp5` cuts clutter. 0.40 AtmosBot monster/spike list (Kenney CC0, retro-modern chip/arcade, AAA mix polish, not UI clicks): Brute `lowThreeTone` / `impactMetal_000`–`002` / `explosionCrunch_003` + unique `lowFrequency_explosion_000` death layer; Swarm `phaseJump1` (+ `slime_000`) / `laserSmall_000`–`004` pitched ±6% / `zap1`+`spaceTrash1`–`3`; spike activate `forceField_001` (0.94 + short bed duck), spike hit `laserRetro_000`–`002`. Wave 10 Far Drift plays `jingles_PIZZA16` instead of the wave-clear sting. World 3 entry reuses `maximize_008` slightly hotter with a short bed duck (no new jingle).
 
 ## Engine wiring
 

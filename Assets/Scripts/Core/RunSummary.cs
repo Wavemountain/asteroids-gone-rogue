@@ -23,7 +23,6 @@ namespace AsteroidsGoneRogue
 
                 return "SHIP LOST  ·  " + failReason;
             }
-            }
 
             if (phase == GamePhase.WaveClear)
             {

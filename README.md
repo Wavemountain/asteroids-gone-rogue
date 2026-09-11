@@ -136,6 +136,9 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 | Far Drift award | Kenney Music Jingles | `jingles_PIZZA16.ogg` |
 | Arena loop | yd — Space Music: Out There | `OutThere.ogg` (fuller mix, pitch 1.0) |
 | Hangar ambience | yd — Spacelife #14 | `spacelifeNo14.ogg` (denser layered bed, pitch 0.94 + 1.02) |
+| Credits loop | Kenney Music Loops | `SpaceCadet.ogg` (0.55; duck 0.35s @ 0.4 under NES07) |
+| Credits open | Kenney Music Jingles | `jingles_NES07.ogg` |
+| Credits close | Kenney Music Jingles | `jingles_NES12.ogg` (PIZZA16 fallback) |
 
 ## What is stubbed
 
@@ -173,4 +176,4 @@ See **[MERGE_CHECKLIST.md](MERGE_CHECKLIST.md)**. Do **not** merge PR #1 until W
 
 ## Success check
 
-Press Play → hangar FBX (crate/terminal/pillar + workbench/kiosk/banner/ammo rack + Console/PowerBox/extinguisher/Locker/LaunchSign GO + parked `Ship_Complete` v5). Wave 1 `Enemy_01` v8 → later Scout/Gunner v7 / Drone v6 / Bomber v8 + Sniper v8 / SwarmPod v6 + wave 8 `Monster_Brute` / wave 9 `Monster_Swarm`. Gunner/Sniper fire `Projectile_EnemyBolt`. Shop Body/Hull 02 + Nose/Engine 03 + Overcharger/Afterburner + Spread/Twin/Pierce/Seeker/Ricochet + Shield Matrix. Worlds 2–7 swap every 5 clears with a new layout (World 2: ★ Deep Orbit + pylon ring; wave 10: ★ Far Drift; World 3: New sector beat + split trench, no medal; World 7: spoke ring). Play HUD compares score vs Best; **MEDALS** ladder stays visible (★ / ○). Clear/fail show the run summary card (wave 3: Buy X before Gunner + ★ Scout Wing; wave 6: ★ Deep Orbit; waves 8–9: Far Drift teaser; wave 10: ★ Far Drift · World 3 at 11; wave 11: World 3 online · New sector). Fail names the cause as your hull; Retry Wave keeps loadout. Kenney Future HUD/hangar type, arena radius 30, Mute click. Pickups, muzzle/explosion VFX, hit flash + light shake.
+Press Play → hangar FBX (crate/terminal/pillar + workbench/kiosk/banner/ammo rack + Console/PowerBox/extinguisher/Locker/LaunchSign GO + parked `Ship_Complete` v5). Hangar **Credits** opens the end-credits roll (`SpaceCadet` + NES07/NES12). Wave 1 `Enemy_01` v8 → later Scout/Gunner v7 / Drone v6 / Bomber v8 + Sniper v8 / SwarmPod v6 + wave 8 `Monster_Brute` / wave 9 `Monster_Swarm`. Gunner/Sniper fire `Projectile_EnemyBolt`. Shop Body/Hull 02 + Nose/Engine 03 + Overcharger/Afterburner + Spread/Twin/Pierce/Seeker/Ricochet + Shield Matrix. Worlds 2–7 swap every 5 clears with a new layout (World 2: ★ Deep Orbit + pylon ring; wave 10: ★ Far Drift; World 3: New sector beat + split trench, no medal; World 7: spoke ring). Play HUD compares score vs Best; **MEDALS** ladder stays visible (★ / ○). Clear/fail show the run summary card (wave 3: Buy X before Gunner + ★ Scout Wing; wave 6: ★ Deep Orbit; waves 8–9: Far Drift teaser; wave 10: ★ Far Drift · World 3 at 11; wave 11: World 3 online · New sector). Fail names the cause as your hull; Retry Wave keeps loadout. Kenney Future HUD/hangar type, arena radius 30, Mute click. Pickups, muzzle/explosion VFX, hit flash + light shake.

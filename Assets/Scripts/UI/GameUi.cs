@@ -50,6 +50,11 @@ namespace AsteroidsGoneRogue
         private ShopItem _hoveredItem;
         private float _hitFlashUntil;
         private float _hitFlashStrength;
+        private GameObject _endCreditsRoot;
+        private Text _endCreditsBody;
+        private Button _creditsButton;
+        private bool _creditsVisible;
+        private float _creditsScroll;
 
         public const string FirstHangarHintKey = "agr.ui.firstHangarHint";
         public const string HangarControlsHint =
@@ -107,10 +112,20 @@ namespace AsteroidsGoneRogue
             }
 
             bool playing = _session.Phase == GamePhase.Playing;
+            if (playing && _creditsVisible)
+            {
+                HideEndCredits(false);
+            }
+
             _menuRoot.SetActive(!playing);
             if (_abortButton != null)
             {
                 _abortButton.gameObject.SetActive(playing);
+            }
+
+            if (_creditsButton != null)
+            {
+                _creditsButton.gameObject.SetActive(!playing && !_creditsVisible);
             }
 
             _hud.gameObject.SetActive(true);
@@ -289,9 +304,16 @@ namespace AsteroidsGoneRogue
             _abortButton.onClick.AddListener(OnAbort);
             _abortButton.gameObject.SetActive(false);
 
+            _creditsButton = CreateButton("OpenCredits", transform, body, new Vector2(0.78f, 0.09f), new Vector2(0.97f, 0.155f));
+            Text creditsLabel = _creditsButton.GetComponentInChildren<Text>();
+            creditsLabel.text = "Credits";
+            creditsLabel.fontSize = 16;
+            _creditsButton.onClick.AddListener(ShowEndCredits);
+
             BuildShop(display, body);
             BuildAudioControls(body);
             BuildFirstHangarHint(display, body);
+            BuildEndCredits(display, body);
         }
 
         private void BuildShop(Font display, Font body)
@@ -617,6 +639,127 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        private void BuildEndCredits(Font display, Font body)
+        {
+            _endCreditsRoot = CreatePanel("EndCredits", transform, new Color(0.012f, 0.018f, 0.04f, 0.96f),
+                new Vector2(0f, 0f), new Vector2(1f, 1f));
+            Image scrim = _endCreditsRoot.GetComponent<Image>();
+            if (scrim != null)
+            {
+                scrim.raycastTarget = true;
+            }
+
+            CreateFill("CreditsHeader", _endCreditsRoot.transform, new Color(1f, 0.58f, 0.16f, 0.32f),
+                new Vector2(0.18f, 0.86f), new Vector2(0.82f, 0.94f));
+            CreateFill("CreditsRule", _endCreditsRoot.transform, new Color(1f, 0.82f, 0.44f, 0.9f),
+                new Vector2(0.22f, 0.852f), new Vector2(0.78f, 0.86f));
+            CreateFill("CreditsPlate", _endCreditsRoot.transform, new Color(0.03f, 0.05f, 0.08f, 0.72f),
+                new Vector2(0.2f, 0.16f), new Vector2(0.8f, 0.84f));
+
+            Text title = CreateText("CreditsTitle", _endCreditsRoot.transform, display, EndCredits.TitleSize,
+                TextAnchor.UpperCenter, FontStyle.Bold);
+            Stretch(title.rectTransform, new Vector2(0.22f, 0.78f), new Vector2(0.78f, 0.92f));
+            title.color = EndCredits.TitleColor;
+            title.text = EndCredits.Title();
+            AddReadability(title, true);
+
+            GameObject window = CreatePanel("CreditsWindow", _endCreditsRoot.transform, new Color(0.02f, 0.04f, 0.07f, 0.35f),
+                new Vector2(0.24f, 0.22f), new Vector2(0.76f, 0.76f));
+            window.AddComponent<RectMask2D>();
+            Image windowImage = window.GetComponent<Image>();
+            if (windowImage != null)
+            {
+                windowImage.raycastTarget = false;
+            }
+
+            _endCreditsBody = CreateText("CreditsBody", window.transform, body, EndCredits.BodySize,
+                TextAnchor.UpperCenter, FontStyle.Normal);
+            Stretch(_endCreditsBody.rectTransform, new Vector2(0.04f, -1.4f), new Vector2(0.96f, 1f));
+            _endCreditsBody.color = EndCredits.BodyColor;
+            _endCreditsBody.text = EndCredits.Body();
+            AddReadability(_endCreditsBody, false);
+
+            Button cont = CreateButton("CreditsContinue", _endCreditsRoot.transform, display,
+                new Vector2(0.34f, 0.045f), new Vector2(0.66f, 0.13f));
+            Text contLabel = cont.GetComponentInChildren<Text>();
+            contLabel.text = "Continue";
+            contLabel.fontSize = 20;
+            Image contPlate = cont.targetGraphic as Image;
+            if (contPlate != null)
+            {
+                contPlate.color = new Color(0.42f, 0.26f, 0.08f, 0.98f);
+            }
+
+            cont.onClick.AddListener(() => HideEndCredits(true));
+            _endCreditsRoot.SetActive(false);
+            _endCreditsRoot.transform.SetAsLastSibling();
+        }
+
+        private void ShowEndCredits()
+        {
+            if (_endCreditsRoot == null)
+            {
+                return;
+            }
+
+            DismissFirstHangarHint();
+            _creditsVisible = true;
+            _creditsScroll = 0f;
+            if (_endCreditsBody != null)
+            {
+                _endCreditsBody.rectTransform.anchoredPosition = Vector2.zero;
+            }
+
+            _endCreditsRoot.SetActive(true);
+            _endCreditsRoot.transform.SetAsLastSibling();
+            if (_creditsButton != null)
+            {
+                _creditsButton.gameObject.SetActive(false);
+            }
+
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
+                AudioCues.Instance.PlayCreditsOpen();
+                AudioCues.Instance.PlayCreditsLoop();
+            }
+        }
+
+        private void HideEndCredits(bool restoreHangarMusic)
+        {
+            if (!_creditsVisible && (_endCreditsRoot == null || !_endCreditsRoot.activeSelf))
+            {
+                _creditsVisible = false;
+                return;
+            }
+
+            _creditsVisible = false;
+            if (_endCreditsRoot != null)
+            {
+                _endCreditsRoot.SetActive(false);
+            }
+
+            if (_creditsButton != null && _session != null && _session.Phase != GamePhase.Playing)
+            {
+                _creditsButton.gameObject.SetActive(true);
+            }
+
+            if (AudioCues.Instance == null)
+            {
+                return;
+            }
+
+            if (restoreHangarMusic)
+            {
+                AudioCues.Instance.PlayCreditsClose();
+                AudioCues.Instance.StopCreditsMusic();
+            }
+            else
+            {
+                AudioCues.Instance.StopCreditsMusic();
+            }
+        }
+
         private void BuildAudioControls(Font font)
         {
             _audioPanel = CreatePanel("AudioPanel", transform, new Color(0.03f, 0.05f, 0.08f, 0.88f),
@@ -726,9 +869,21 @@ namespace AsteroidsGoneRogue
 
         private void Update()
         {
+            if (_creditsVisible && Input.GetKeyDown(KeyCode.Escape))
+            {
+                HideEndCredits(true);
+                return;
+            }
+
             if (_session != null && _session.Phase == GamePhase.Playing && Input.GetKeyDown(KeyCode.Escape))
             {
                 OnAbort();
+            }
+
+            if (_creditsVisible && _endCreditsBody != null)
+            {
+                _creditsScroll += EndCredits.ScrollSpeed * Time.unscaledDeltaTime;
+                _endCreditsBody.rectTransform.anchoredPosition = new Vector2(0f, _creditsScroll);
             }
 
             if (_session != null && _session.Phase == GamePhase.Playing && _hud != null)

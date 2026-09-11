@@ -1764,6 +1764,85 @@ def test_art_parity_040c() -> None:
     assert "AAA" in readme and "look bible" in readme.lower()
 
 
+def test_end_credits_040d() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    credits_cs = (root / "Assets/Scripts/Core/EndCredits.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    credits_md = (root / "CREDITS.md").read_text(encoding="utf-8")
+    checklist = (root / "MERGE_CHECKLIST.md").read_text(encoding="utf-8")
+    manifest = (root / "Packages/manifest.json").read_text(encoding="utf-8")
+    lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
+
+    assert "CreditsLoopScale = 0.55f" in audio
+    assert "CreditsOpenDuckSeconds = 0.35f" in audio
+    assert "CreditsOpenDuckScale = 0.4f" in audio
+    assert "PlayCreditsOpen" in audio and "PlayCreditsLoop" in audio
+    assert "StopCreditsMusic" in audio and "PlayCreditsClose" in audio
+    open_fn = audio.split("public void PlayCreditsOpen()")[1].split("public void")[0]
+    assert "_creditsOpen" in open_fn
+    assert "DuckMusic(CreditsOpenDuckSeconds, CreditsOpenDuckScale)" in open_fn
+    assert "maximize_008" not in open_fn and "_worldChange" not in open_fn
+    loop_fn = audio.split("public void PlayCreditsLoop()")[1].split("public void")[0]
+    assert "CreditsLoopScale" in loop_fn
+    stop_fn = audio.split("public void StopCreditsMusic()")[1].split("public void")[0]
+    assert "SyncMusicToPhase(GamePhase.Hangar)" in stop_fn
+    wave_fn = audio.split("public void PlayWaveClear()")[1].split("public void")[0]
+    assert "Play(_waveClear)" in wave_fn
+    assert "PlayCredits" not in wave_fn
+    assert 'Resources.Load<AudioClip>("Audio/Music/OutThere")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Music/spacelifeNo14")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Music/SpaceCadet")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/jingles_NES07")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/jingles_NES12")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/jingles_PIZZA16")' in audio
+    close_fn = audio.split("public void PlayCreditsClose()")[1].split("public void")[0]
+    assert "_creditsClose" in close_fn and "_farDriftAward" in close_fn
+
+    assert "class EndCredits" in credits_cs
+    assert 'return "Asteroids gone rogue"' in credits_cs
+    assert "Kenney.nl + yd" in credits_cs
+    assert "Kenney Future" in credits_cs
+    assert "SpelPM / GameBot / BlenderBot / AtmosBot / Speltest" in credits_cs
+    assert "TitleSize = 32" in credits_cs
+    assert "BodySize = 17" in credits_cs
+    assert "#FFD16F" in credits_cs and "#B8E8FF" in credits_cs
+    assert "new UnityEngine.Color32(255, 209, 111, 255)" in credits_cs
+    assert "new UnityEngine.Color32(184, 232, 255, 255)" in credits_cs
+    assert "ShowEndCredits" in ui and "HideEndCredits" in ui
+    assert "PlayCreditsOpen" in ui and "PlayCreditsLoop" in ui
+    assert "StopCreditsMusic" in ui
+    assert "EndCredits" in ui
+    assert "RectMask2D" in ui
+    assert "Continue" in ui.split("BuildEndCredits")[1].split("private void ShowEndCredits")[0]
+    assert "OpenCredits" in ui
+    assert "SHIP LOST" in summary
+
+    for rel, min_size in (
+        ("Assets/Resources/Audio/Music/SpaceCadet.ogg", 200000),
+        ("Assets/Resources/Audio/Sfx/jingles_NES07.ogg", 8000),
+        ("Assets/Resources/Audio/Sfx/jingles_NES12.ogg", 8000),
+        ("Assets/Resources/Audio/Music/OutThere.ogg", 1000),
+        ("Assets/Resources/Audio/Music/spacelifeNo14.ogg", 1000),
+    ):
+        path = root / rel
+        assert path.is_file() and path.stat().st_size > min_size
+        assert path.read_bytes()[:4] == b"OggS"
+
+    assert "SpaceCadet" in readme and "jingles_NES07" in readme
+    assert "SpaceCadet" in credits_md and "Kenney.nl" in credits_md
+    assert "SpaceCadet" in checklist and "EndCredits" in checklist or "Credits" in checklist
+    assert "com.unity.modules.vr" not in manifest
+    assert "com.unity.modules.xr" not in manifest
+    assert "com.unity.modules.vr" not in lock
+    assert "com.unity.modules.xr" not in lock
+    assert "AAA" in readme and "look bible" in readme.lower()
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -1790,6 +1869,7 @@ def main() -> int:
     test_monsters_arenas_040()
     test_weapons_upgrades_040b()
     test_art_parity_040c()
+    test_end_credits_040d()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

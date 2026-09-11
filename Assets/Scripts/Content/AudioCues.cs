@@ -48,6 +48,9 @@ namespace AsteroidsGoneRogue
         public const float HazardActivateDuckSeconds = 0.28f;
         public const float HazardActivateDuckScale = 0.42f;
         public const float HazardHitScale = 0.72f;
+        public const float CreditsLoopScale = 0.55f;
+        public const float CreditsOpenDuckSeconds = 0.35f;
+        public const float CreditsOpenDuckScale = 0.4f;
 
         public static AudioCues Instance { get; private set; }
 
@@ -89,6 +92,9 @@ namespace AsteroidsGoneRogue
         private AudioClip[] _hazardHits;
         private AudioClip _arenaLoop;
         private AudioClip _hangarAmbience;
+        private AudioClip _creditsLoop;
+        private AudioClip _creditsOpen;
+        private AudioClip _creditsClose;
         private bool _muted;
         private float _sfxVolume = DefaultSfxVolume;
         private float _musicVolume = DefaultMusicVolume;
@@ -97,6 +103,9 @@ namespace AsteroidsGoneRogue
         private float _musicPitch = HangarMusicPitch;
         private float _duckScale = 1f;
         private float _duckUntil;
+        private float _duckSeconds = AbortDuckSeconds;
+        private float _duckTarget = AbortDuckScale;
+        private bool _creditsMusic;
         private float _lastSwarmPodSpawn;
 
         public bool Muted
@@ -313,9 +322,34 @@ namespace AsteroidsGoneRogue
 
         public void DuckMusic(float seconds, float scale)
         {
-            _duckUntil = Time.unscaledTime + Mathf.Max(0.05f, seconds);
-            _duckScale = Mathf.Clamp01(scale);
+            _duckSeconds = Mathf.Max(0.05f, seconds);
+            _duckTarget = Mathf.Clamp01(scale);
+            _duckUntil = Time.unscaledTime + _duckSeconds;
+            _duckScale = _duckTarget;
             ApplyVolumes();
+        }
+
+        public void PlayCreditsOpen()
+        {
+            Play(_creditsOpen != null ? _creditsOpen : _waveClear);
+            DuckMusic(CreditsOpenDuckSeconds, CreditsOpenDuckScale);
+        }
+
+        public void PlayCreditsLoop()
+        {
+            _creditsMusic = true;
+            PlayLoop(_creditsLoop != null ? _creditsLoop : _hangarAmbience, CreditsLoopScale, 1f);
+        }
+
+        public void PlayCreditsClose()
+        {
+            Play(_creditsClose != null ? _creditsClose : _farDriftAward);
+        }
+
+        public void StopCreditsMusic()
+        {
+            _creditsMusic = false;
+            SyncMusicToPhase(GamePhase.Hangar);
         }
 
         public void PlayWaveClear()
@@ -359,6 +393,12 @@ namespace AsteroidsGoneRogue
 
         public void SyncMusicToPhase(GamePhase phase)
         {
+            if (_creditsMusic && phase != GamePhase.Playing)
+            {
+                return;
+            }
+
+            _creditsMusic = false;
             if (phase == GamePhase.Playing)
             {
                 PlayLoop(_arenaLoop, ArenaMusicScale, ArenaMusicPitch);
@@ -498,7 +538,7 @@ namespace AsteroidsGoneRogue
             else
             {
                 float remain = _duckUntil - Time.unscaledTime;
-                _duckScale = Mathf.Lerp(1f, AbortDuckScale, Mathf.Clamp01(remain / AbortDuckSeconds));
+                _duckScale = Mathf.Lerp(1f, _duckTarget, Mathf.Clamp01(remain / _duckSeconds));
             }
 
             ApplyVolumes();
@@ -646,6 +686,13 @@ namespace AsteroidsGoneRogue
                 "Audio/Sfx/laserRetro_002");
             _arenaLoop = Resources.Load<AudioClip>("Audio/Music/OutThere");
             _hangarAmbience = Resources.Load<AudioClip>("Audio/Music/spacelifeNo14");
+            _creditsLoop = Resources.Load<AudioClip>("Audio/Music/SpaceCadet");
+            _creditsOpen = Resources.Load<AudioClip>("Audio/Sfx/jingles_NES07");
+            _creditsClose = Resources.Load<AudioClip>("Audio/Sfx/jingles_NES12");
+            if (_creditsClose == null)
+            {
+                _creditsClose = _farDriftAward;
+            }
         }
 
         private AudioSource CreateSource(string sourceName, bool loop)
