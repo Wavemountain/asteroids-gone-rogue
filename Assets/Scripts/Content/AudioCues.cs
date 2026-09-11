@@ -5,6 +5,7 @@ namespace AsteroidsGoneRogue
     /// <summary>
     /// CC0 clips loaded from Resources/Audio. Mute and volumes persist in PlayerPrefs.
     /// UI click is a distinct Kenney click — not the hangar purchase confirmation.
+    /// Monster banks are retro-modern chip/arcade (bible), not metal grit.
     /// </summary>
     public sealed class AudioCues : MonoBehaviour
     {
@@ -149,13 +150,13 @@ namespace AsteroidsGoneRogue
 
             if (kind == EnemyKind.Brute)
             {
-                Play(_bruteHit != null ? _bruteHit : _hit, BruteHitScale);
+                Play(_bruteHit != null ? _bruteHit : _bruteSpawn, BruteHitScale);
                 return;
             }
 
             if (kind == EnemyKind.Swarm)
             {
-                Play(_swarmHit != null ? _swarmHit : _hitLight, SwarmHitScale);
+                Play(_swarmHit != null ? _swarmHit : _swarmSpawn, SwarmHitScale);
                 return;
             }
 
@@ -191,18 +192,13 @@ namespace AsteroidsGoneRogue
 
             if (kind == EnemyKind.Brute)
             {
-                Play(_bruteDeath != null ? _bruteDeath : _enemyDeath, BruteDeathScale);
-                if (_enemyDeathPunch != null)
-                {
-                    Play(_enemyDeathPunch, EnemyDeathPunchScale);
-                }
-
+                Play(_bruteDeath != null ? _bruteDeath : _bruteSpawn, BruteDeathScale);
                 return;
             }
 
             if (kind == EnemyKind.Swarm)
             {
-                Play(_swarmDeath != null ? _swarmDeath : _enemyDeathLight, SwarmDeathScale);
+                Play(_swarmDeath != null ? _swarmDeath : _swarmSpawn, SwarmDeathScale);
                 return;
             }
 
@@ -489,11 +485,12 @@ namespace AsteroidsGoneRogue
             _waveClear = Resources.Load<AudioClip>("Audio/Sfx/jingles_PIZZA07");
             _farDriftAward = Resources.Load<AudioClip>("Audio/Sfx/jingles_PIZZA16");
             _swarmPodSpawn = Resources.Load<AudioClip>("Audio/Sfx/phaserUp5");
-            _bruteSpawn = Resources.Load<AudioClip>("Audio/Sfx/lowFrequency_explosion_000");
-            _bruteHit = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_002");
-            _bruteDeath = Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_002");
+            // Retro-modern chip/arcade monster bank (bible). Not metal/explosion grit, not UI clicks.
+            _bruteSpawn = Resources.Load<AudioClip>("Audio/Sfx/twoTone1");
+            _bruteHit = Resources.Load<AudioClip>("Audio/Sfx/zap2");
+            _bruteDeath = Resources.Load<AudioClip>("Audio/Sfx/lowDown");
             _swarmSpawn = Resources.Load<AudioClip>("Audio/Sfx/phaserUp2");
-            _swarmHit = Resources.Load<AudioClip>("Audio/Sfx/forceField_001");
+            _swarmHit = Resources.Load<AudioClip>("Audio/Sfx/pepSound1");
             _swarmDeath = Resources.Load<AudioClip>("Audio/Sfx/phaserDown3");
             _arenaLoop = Resources.Load<AudioClip>("Audio/Music/OutThere");
             _hangarAmbience = Resources.Load<AudioClip>("Audio/Music/spacelifeNo14");

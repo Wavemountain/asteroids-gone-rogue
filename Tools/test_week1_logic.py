@@ -1419,13 +1419,20 @@ def test_monsters_arenas_040() -> None:
     assert "_bruteDeath" in death_kind.split("EnemyKind.Brute")[1].split("EnemyKind.Swarm")[0]
     assert "_swarmDeath" in death_kind.split("EnemyKind.Swarm")[1]
     assert "_bruteDeath" not in death_kind.split("EnemyKind.Swarm")[1]
+    assert "_enemyDeathPunch" not in death_kind.split("EnemyKind.Brute")[1].split("EnemyKind.Swarm")[0]
     assert "_uiClick" not in death_kind
-    assert 'Resources.Load<AudioClip>("Audio/Sfx/lowFrequency_explosion_000")' in audio
-    assert 'Resources.Load<AudioClip>("Audio/Sfx/impactMetal_002")' in audio
-    assert 'Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_002")' in audio
-    assert 'Resources.Load<AudioClip>("Audio/Sfx/phaserUp2")' in audio
-    assert 'Resources.Load<AudioClip>("Audio/Sfx/forceField_001")' in audio
-    assert 'Resources.Load<AudioClip>("Audio/Sfx/phaserDown3")' in audio
+    monster_loads = audio.split("Retro-modern chip/arcade monster bank")[1].split("_arenaLoop")[0]
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/twoTone1")' in monster_loads
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/zap2")' in monster_loads
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/lowDown")' in monster_loads
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/phaserUp2")' in monster_loads
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/pepSound1")' in monster_loads
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/phaserDown3")' in monster_loads
+    assert "impactMetal" not in monster_loads
+    assert "explosionCrunch" not in monster_loads
+    assert "lowFrequency" not in monster_loads
+    assert "forceField" not in monster_loads
+    assert "click_002" not in monster_loads
     assert "UsesMonsterThreatSfx" in audio
     light = audio.split("public static bool UsesLightThreatSfx")[1].split("public static bool UsesMonsterThreatSfx")[0]
     assert "EnemyKind.Swarmling" in light
@@ -1452,11 +1459,11 @@ def test_monsters_arenas_040() -> None:
         assert art_fbx.read_bytes() == res_fbx.read_bytes()
 
     for clip in (
-        "lowFrequency_explosion_000.ogg",
-        "impactMetal_002.ogg",
-        "explosionCrunch_002.ogg",
+        "twoTone1.ogg",
+        "zap2.ogg",
+        "lowDown.ogg",
         "phaserUp2.ogg",
-        "forceField_001.ogg",
+        "pepSound1.ogg",
         "phaserDown3.ogg",
     ):
         path = root / "Assets/Resources/Audio/Sfx" / clip
@@ -1477,9 +1484,12 @@ def test_monsters_arenas_040() -> None:
     assert "Arial.ttf" not in factory
     assert "Arial.ttf" not in ui
     assert "CC0" in credits
-    assert "impactMetal_002" in credits
-    assert "forceField_001" in credits
+    assert "twoTone1" in credits
+    assert "zap2" in credits
+    assert "lowDown" in credits
+    assert "pepSound1" in credits
     assert "phaserDown3" in credits
+    assert "chip/arcade" in credits.lower() or "retro-modern" in credits.lower()
 
 
 def main() -> int:
