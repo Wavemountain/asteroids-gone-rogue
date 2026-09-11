@@ -2115,7 +2115,7 @@ def test_astro_env_040() -> None:
     assert "AstroFloorVisualScale = 0.88f" in factory
     assert "DressArenaFloorRenderers" in factory
     assert "DressAstroFloorColliders" in factory
-    dress = factory.split("DressAstroFloorColliders")[1].split("private bool TryVisual")[0]
+    dress = factory.split("private static void DressAstroFloorColliders")[1].split("private bool TryVisual")[0]
     assert "AddComponent<BoxCollider>" in dress
     assert "box.isTrigger = true" in dress
     assert "AstroFloor_v2" in factory
