@@ -40,6 +40,12 @@ namespace AsteroidsGoneRogue
                 90,
                 ShopGroup.Hull),
             new ShopItem(
+                UpgradeId.BodyUpgrade02,
+                "Hull Plate 02",
+                "Requires Body Upgrade. Extra hull plate (5 hits). Reuses the Upgrade01 mesh.",
+                160,
+                ShopGroup.Hull),
+            new ShopItem(
                 UpgradeId.NoseHardpoint,
                 "Nose Hardpoint",
                 "Swaps the nose slot for faster, harder-hitting shots.",
@@ -50,6 +56,12 @@ namespace AsteroidsGoneRogue
                 "Nose Upgrade 02",
                 "Requires Nose Hardpoint. Swaps to Ship_Nose_Upgrade02 (3 damage).",
                 150,
+                ShopGroup.Hull),
+            new ShopItem(
+                UpgradeId.NoseUpgrade03,
+                "Nose Upgrade 03",
+                "Requires Nose 02. 4-damage shots. Reuses the Nose 02 mesh.",
+                185,
                 ShopGroup.Hull),
             new ShopItem(
                 UpgradeId.RapidFire,
@@ -64,22 +76,64 @@ namespace AsteroidsGoneRogue
                 140,
                 ShopGroup.Hull),
             new ShopItem(
+                UpgradeId.EngineUpgrade03,
+                "Engine Upgrade 03",
+                "Requires Engine 02. Faster cannon. Reuses the Engine 02 mesh.",
+                175,
+                ShopGroup.Hull),
+            new ShopItem(
+                UpgradeId.Overcharger,
+                "Overcharger",
+                "Nose branch. +1 damage, slightly slower gun. Locks Afterburner.",
+                210,
+                ShopGroup.Hull),
+            new ShopItem(
+                UpgradeId.Afterburner,
+                "Afterburner",
+                "Engine branch. Fastest cannon. Locks Overcharger.",
+                210,
+                ShopGroup.Hull),
+            new ShopItem(
                 UpgradeId.SpreadBolt,
                 "Spread Bolt",
-                "Second shot mode: 3 amber pellets. Q / RMB to switch. Distinct from cyan pierce.",
+                "Shot mode: 3 amber pellets. Q / RMB to switch. Distinct from cyan pierce.",
                 110,
                 ShopGroup.Weapons),
             new ShopItem(
                 UpgradeId.Pierce,
                 "Pierce",
-                "Second shot mode: bolt goes through targets. Q / RMB to switch.",
+                "Shot mode: bolt goes through targets. Q / RMB to switch.",
                 130,
+                ShopGroup.Weapons),
+            new ShopItem(
+                UpgradeId.TwinGuns,
+                "Twin Guns",
+                "Shot mode: two parallel full-damage bolts. Not a spread fan.",
+                125,
+                ShopGroup.Weapons),
+            new ShopItem(
+                UpgradeId.Seeker,
+                "Seeker",
+                "Shot mode: magenta missile that homes on the nearest threat.",
+                145,
+                ShopGroup.Weapons),
+            new ShopItem(
+                UpgradeId.Ricochet,
+                "Ricochet",
+                "Shot mode: lime bolt that bounces off the arena rim (not pierce).",
+                155,
                 ShopGroup.Weapons),
             new ShopItem(
                 UpgradeId.ShieldCell,
                 "Shield Cell",
-                "Adds one visible shield hit before hull damage (max 2).",
+                "Adds one visible shield hit before hull damage (max 2, or 3 with Matrix).",
                 80,
+                ShopGroup.Defense),
+            new ShopItem(
+                UpgradeId.ShieldMatrix,
+                "Shield Matrix",
+                "Requires two Shield Cells. Raises shield cap to 3.",
+                165,
                 ShopGroup.Defense)
         };
 

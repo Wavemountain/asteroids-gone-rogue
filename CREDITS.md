@@ -41,6 +41,9 @@ Source: https://kenney.nl/assets/digital-audio
 | Swarm spawn | `Assets/Resources/Audio/Sfx/phaseJump1.ogg` | `Audio/phaseJump1.ogg` |
 | Swarm death pool | `Assets/Resources/Audio/Sfx/zap1.ogg` | `Audio/zap1.ogg` |
 | Swarm death pool | `Assets/Resources/Audio/Sfx/spaceTrash1.ogg`–`3.ogg` | `Audio/spaceTrash1.ogg`–`3.ogg` |
+| Shoot (twin) | `Assets/Resources/Audio/Sfx/twoTone1.ogg` | `Audio/twoTone1.ogg` |
+| Shoot (seeker) | `Assets/Resources/Audio/Sfx/phaserUp2.ogg` | `Audio/phaserUp2.ogg` |
+| Shoot (ricochet) | `Assets/Resources/Audio/Sfx/pepSound1.ogg` | `Audio/pepSound1.ogg` |
 
 Pack: **Kenney Interface Sounds** (CC0)  
 Author: Kenney  

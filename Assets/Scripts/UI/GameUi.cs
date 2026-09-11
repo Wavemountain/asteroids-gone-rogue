@@ -296,28 +296,29 @@ namespace AsteroidsGoneRogue
 
         private void BuildShop(Font display, Font body)
         {
-            BuildGroupHeader(display, ShopCatalog.HullHeader, new Vector2(0.03f, 0.605f), new Vector2(0.56f, 0.66f));
-            BuildGroupHeader(display, ShopCatalog.WeaponsHeader, new Vector2(0.575f, 0.605f), new Vector2(0.775f, 0.66f));
-            BuildGroupHeader(display, ShopCatalog.DefenseHeader, new Vector2(0.79f, 0.605f), new Vector2(0.97f, 0.66f));
+            BuildGroupHeader(display, ShopCatalog.HullHeader, new Vector2(0.03f, 0.605f), new Vector2(0.60f, 0.66f));
+            BuildGroupHeader(display, ShopCatalog.WeaponsHeader, new Vector2(0.615f, 0.605f), new Vector2(0.80f, 0.66f));
+            BuildGroupHeader(display, ShopCatalog.DefenseHeader, new Vector2(0.815f, 0.605f), new Vector2(0.97f, 0.66f));
 
             int shopCount = ShopCatalog.Items.Length;
             _buyButtons = new Button[shopCount];
             _buyLabels = new Text[shopCount];
             int hullIndex = 0;
             int weaponIndex = 0;
+            int defenseIndex = 0;
             for (int i = 0; i < shopCount; i++)
             {
                 ShopItem item = ShopCatalog.Items[i];
                 Vector2 min;
                 Vector2 max;
-                ShopButtonRect(item.Group, ref hullIndex, ref weaponIndex, out min, out max);
+                ShopButtonRect(item.Group, ref hullIndex, ref weaponIndex, ref defenseIndex, out min, out max);
                 Button button = CreateButton("Buy_" + item.Id, _menuRoot.transform, body, min, max);
                 int captured = i;
                 button.onClick.AddListener(() => OnBuy(ShopCatalog.Items[captured].Id));
                 BindShopHover(button, item);
                 _buyButtons[i] = button;
                 _buyLabels[i] = button.GetComponentInChildren<Text>();
-                _buyLabels[i].fontSize = 15;
+                _buyLabels[i].fontSize = 13;
                 _buyLabels[i].fontStyle = FontStyle.Bold;
             }
         }
@@ -326,32 +327,35 @@ namespace AsteroidsGoneRogue
             ShopGroup group,
             ref int hullIndex,
             ref int weaponIndex,
+            ref int defenseIndex,
             out Vector2 min,
             out Vector2 max)
         {
-            const float ButtonHeight = 0.10f;
-            const float RowStep = 0.115f;
+            const float ButtonHeight = 0.068f;
+            const float RowStep = 0.078f;
             if (group == ShopGroup.Weapons)
             {
                 float top = 0.59f - weaponIndex * RowStep;
-                min = new Vector2(0.575f, top - ButtonHeight);
-                max = new Vector2(0.775f, top);
+                min = new Vector2(0.615f, top - ButtonHeight);
+                max = new Vector2(0.80f, top);
                 weaponIndex++;
                 return;
             }
 
             if (group == ShopGroup.Defense)
             {
-                min = new Vector2(0.79f, 0.49f);
-                max = new Vector2(0.97f, 0.59f);
+                float top = 0.59f - defenseIndex * RowStep;
+                min = new Vector2(0.815f, top - ButtonHeight);
+                max = new Vector2(0.97f, top);
+                defenseIndex++;
                 return;
             }
 
-            int col = hullIndex % 3;
-            int row = hullIndex / 3;
-            float x0 = 0.03f + col * 0.175f;
+            int col = hullIndex % 4;
+            int row = hullIndex / 4;
+            float x0 = 0.03f + col * 0.145f;
             min = new Vector2(x0, 0.59f - row * RowStep - ButtonHeight);
-            max = new Vector2(x0 + 0.165f, 0.59f - row * RowStep);
+            max = new Vector2(x0 + 0.138f, 0.59f - row * RowStep);
             hullIndex++;
         }
 
@@ -896,7 +900,7 @@ namespace AsteroidsGoneRogue
             string fireMode = string.Empty;
             if (playing && _ship != null && _ship.Shooter != null
                 && _loadout != null && _loadout.State != null
-                && (_loadout.State.SpreadBolt || _loadout.State.Pierce))
+                && _loadout.State.HasAltFire)
             {
                 fireMode = "\nFire " + _ship.Shooter.Mode;
             }

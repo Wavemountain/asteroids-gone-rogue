@@ -57,16 +57,26 @@ namespace AsteroidsGoneRogue
 
             string names = string.Empty;
             AppendOwned(ref names, loadout.BodyUpgrade01, "Body");
+            AppendOwned(ref names, loadout.BodyUpgrade02, "Hull 02");
             AppendOwned(ref names, loadout.NoseHardpoint, "Nose");
             AppendOwned(ref names, loadout.NoseUpgrade02, "Nose 02");
+            AppendOwned(ref names, loadout.NoseUpgrade03, "Nose 03");
             AppendOwned(ref names, loadout.RapidFire, "Rapid Fire");
             AppendOwned(ref names, loadout.EngineUpgrade02, "Engine 02");
+            AppendOwned(ref names, loadout.EngineUpgrade03, "Engine 03");
+            AppendOwned(ref names, loadout.Overcharger, "Overcharger");
+            AppendOwned(ref names, loadout.Afterburner, "Afterburner");
             AppendOwned(ref names, loadout.SpreadBolt, "Spread");
             AppendOwned(ref names, loadout.Pierce, "Pierce");
+            AppendOwned(ref names, loadout.TwinGuns, "Twin");
+            AppendOwned(ref names, loadout.Seeker, "Seeker");
+            AppendOwned(ref names, loadout.Ricochet, "Ricochet");
             if (loadout.ShieldCharges > 0)
             {
                 AppendOwned(ref names, true, "Shield x" + loadout.ShieldCharges);
             }
+
+            AppendOwned(ref names, loadout.ShieldMatrix, "Matrix");
 
             return string.IsNullOrEmpty(names) ? "Upgrades —" : "Upgrades  " + names;
         }

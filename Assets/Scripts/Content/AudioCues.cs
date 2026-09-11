@@ -58,6 +58,9 @@ namespace AsteroidsGoneRogue
         private AudioClip _shoot;
         private AudioClip _shootSpread;
         private AudioClip _shootPierce;
+        private AudioClip _shootSeeker;
+        private AudioClip _shootTwin;
+        private AudioClip _shootRicochet;
         private AudioClip _shootEnemy;
         private AudioClip _hit;
         private AudioClip _hitPunch;
@@ -138,6 +141,21 @@ namespace AsteroidsGoneRogue
         public void PlayShootPierce()
         {
             Play(_shootPierce != null ? _shootPierce : _shoot);
+        }
+
+        public void PlayShootSeeker()
+        {
+            Play(_shootSeeker != null ? _shootSeeker : _shootPierce, 0.82f);
+        }
+
+        public void PlayShootTwin()
+        {
+            Play(_shootTwin != null ? _shootTwin : _shoot, 0.92f);
+        }
+
+        public void PlayShootRicochet()
+        {
+            Play(_shootRicochet != null ? _shootRicochet : _shootSpread, 0.88f);
         }
 
         public void PlayEnemyShoot()
@@ -581,6 +599,9 @@ namespace AsteroidsGoneRogue
             _shoot = Resources.Load<AudioClip>("Audio/Sfx/laserSmall_000");
             _shootSpread = Resources.Load<AudioClip>("Audio/Sfx/laserRetro_000");
             _shootPierce = Resources.Load<AudioClip>("Audio/Sfx/laserLarge_000");
+            _shootSeeker = Resources.Load<AudioClip>("Audio/Sfx/phaserUp2");
+            _shootTwin = Resources.Load<AudioClip>("Audio/Sfx/twoTone1");
+            _shootRicochet = Resources.Load<AudioClip>("Audio/Sfx/pepSound1");
             _shootEnemy = Resources.Load<AudioClip>("Audio/Sfx/laserSmall_001");
             _hit = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_003");
             _hitPunch = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_000");

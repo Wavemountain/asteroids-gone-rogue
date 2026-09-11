@@ -70,7 +70,7 @@ namespace AsteroidsGoneRogue
             }
 
             int noseTier = 0;
-            if (loadout != null && loadout.NoseUpgrade02)
+            if (loadout != null && (loadout.NoseUpgrade03 || loadout.NoseUpgrade02))
             {
                 noseTier = 2;
             }
@@ -82,7 +82,7 @@ namespace AsteroidsGoneRogue
             SetTier(DefaultNose, UpgradedNose, UpgradedNose02, noseTier);
 
             int engineTier = 0;
-            if (loadout != null && loadout.EngineUpgrade02)
+            if (loadout != null && (loadout.EngineUpgrade03 || loadout.EngineUpgrade02))
             {
                 engineTier = 2;
             }

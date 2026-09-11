@@ -1573,6 +1573,129 @@ def test_monsters_arenas_040() -> None:
     assert "SwarmHitPitchJitter" in audio
 
 
+def test_weapons_upgrades_040b() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    catalog = (root / "Assets/Scripts/Core/ShopCatalog.cs").read_text(encoding="utf-8")
+    loadout = (root / "Assets/Scripts/Core/LoadoutState.cs").read_text(encoding="utf-8")
+    ids = (root / "Assets/Scripts/Core/UpgradeId.cs").read_text(encoding="utf-8")
+    fire = (root / "Assets/Scripts/Player/FireMode.cs").read_text(encoding="utf-8")
+    shooter = (root / "Assets/Scripts/Player/ShipShooter.cs").read_text(encoding="utf-8")
+    projectile = (root / "Assets/Scripts/Player/Projectile.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    visuals = (root / "Assets/Scripts/Player/ShipVisuals.cs").read_text(encoding="utf-8")
+    health = (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
+    art = (root / "Assets/Scripts/Content/ArtImport.cs").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    credits = (root / "CREDITS.md").read_text(encoding="utf-8")
+    checklist = (root / "MERGE_CHECKLIST.md").read_text(encoding="utf-8")
+
+    assert catalog.count("new ShopItem(") == 17
+    assert catalog.index("ShopGroup.Hull") < catalog.index("ShopGroup.Weapons")
+    assert catalog.index("ShopGroup.Weapons") < catalog.index("ShopGroup.Defense")
+    for token in (
+        "TwinGuns",
+        "Seeker",
+        "Ricochet",
+        "BodyUpgrade02",
+        "NoseUpgrade03",
+        "EngineUpgrade03",
+        "Overcharger",
+        "Afterburner",
+        "ShieldMatrix",
+        "SpreadBolt",
+        "Pierce",
+        "ShieldCell",
+        '"Body Upgrade"',
+        '"Shield Cell"',
+        '"Spread Bolt"',
+        '"Pierce"',
+    ):
+        assert token in catalog
+
+    assert "TwinGuns" in ids and "Seeker" in ids and "Ricochet" in ids
+    assert "Overcharger" in ids and "Afterburner" in ids and "ShieldMatrix" in ids
+    assert "Twin," in fire
+    assert "Seeker," in fire and "Ricochet" in fire
+
+    assert "SpreadPelletCount = 3" in shooter
+    assert "FireTwin" in shooter
+    assert "SpawnStyledShot" in shooter and "SpawnStyledShot" in factory
+    assert "SpawnProjectile(Vector3 origin, Vector3 direction, float speed, int damage, bool pierce)" in factory
+    assert "FireMode.Twin" in shooter and "FireMode.Seeker" in shooter and "FireMode.Ricochet" in shooter
+    assert "TwinOffsetMeters" in loadout and "TwinOffsetMeters" in shooter
+    cycle = shooter.split("CycleOrder")[1].split(";")[0]
+    assert "FireMode.Bolt" in cycle and "FireMode.Spread" in cycle and "FireMode.Twin" in cycle
+    assert "FireMode.Pierce" in cycle and "FireMode.Seeker" in cycle and "FireMode.Ricochet" in cycle
+
+    assert "SeekerCore" in factory and "RicochetFacet" in factory and "TwinCore" in factory
+    assert "PierceNeedle" in factory and "SpreadCore" in factory
+    assert "Mat_Projectile_Seeker" in factory and "Mat_Projectile_Ricochet" in factory
+    assert "SeekerTurnDegrees" in projectile
+    assert "RicochetBounces" in loadout and "RicochetBounces" in factory
+    assert "bool seeker" in projectile and "int ricochetBounces" in projectile
+    assert "BounceOnRim" in projectile
+    assert "FindGameObjectsWithTag" in projectile
+    assert "FindObjectsSortMode" not in projectile
+    assert "GetInstanceID" not in projectile
+    assert "GetEntityId()" in projectile
+    assert "PlayShootSeeker" in audio and "PlayShootSeeker" in shooter
+    assert "PlayShootTwin" in audio and "PlayShootTwin" in shooter
+    assert "PlayShootRicochet" in audio and "PlayShootRicochet" in shooter
+    seeker_fn = audio.split("public void PlayShootSeeker()")[1].split("public void")[0]
+    assert "_shootSeeker" in seeker_fn and "_shootPierce" in seeker_fn
+    assert "_worldChange" not in seeker_fn and "maximize_008" not in seeker_fn
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/phaserUp2")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/twoTone1")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/pepSound1")' in audio
+    for clip in ("phaserUp2.ogg", "twoTone1.ogg", "pepSound1.ogg"):
+        path = root / "Assets/Resources/Audio/Sfx" / clip
+        assert path.is_file() and path.stat().st_size > 1000
+        assert path.read_bytes()[:4] == b"OggS"
+
+    can = loadout.split("public bool CanApply")[1].split("public void Apply")[0]
+    assert "NoseUpgrade03 && !Overcharger && !Afterburner" in can
+    assert "EngineUpgrade03 && !Afterburner && !Overcharger" in can
+    assert "ShieldCharges >= MaxShieldCharges && !ShieldMatrix" in can
+    assert "BodyUpgrade01 && !BodyUpgrade02" in can
+    assert "NoseUpgrade02 && !NoseUpgrade03" in can
+    assert "EngineUpgrade02 && !EngineUpgrade03" in can
+    assert "MatrixMaxShieldCharges = 3" in loadout
+    assert "MaxShieldCharges = 2" in loadout
+    assert "CurrentMaxShield" in loadout and "CurrentMaxShield" in health
+    assert "NoseUpgrade03Damage = 4" in loadout
+    assert "AfterburnerCooldown = 0.075f" in loadout
+    assert "OverchargerDamageBonus" in loadout
+    assert "HasAltFire" in loadout and "HasAltFire" in ui and "HasAltFire" in shooter
+    assert "hullIndex % 4" in ui
+    assert "discover Spread / Pierce when owned" in ui
+    assert '"Body Upgrade"' in catalog
+    shield_cell = catalog.split("UpgradeId.ShieldCell")[1].split("new ShopItem")[0]
+    assert "80," in shield_cell
+    costs = [
+        int(line.strip().rstrip(","))
+        for line in catalog.split("public static readonly ShopItem[] Items")[1].split("};")[0].splitlines()
+        if line.strip().rstrip(",").isdigit()
+    ]
+    assert min(costs) == 80
+    assert "Hull 02" in summary and "Nose 03" in summary and "Engine 03" in summary
+    assert "Overcharger" in summary and "Afterburner" in summary
+    assert "Twin" in summary and "Seeker" in summary and "Ricochet" in summary
+    assert "NoseUpgrade03 || loadout.NoseUpgrade02" in visuals
+    assert "EngineUpgrade03 || loadout.EngineUpgrade02" in visuals
+    warm = art.split("PlayModeAssets")[1].split("};")[0]
+    assert "Ship_Body_Upgrade02" not in warm
+    assert "Twin Guns" in readme and "Seeker" in readme and "Ricochet" in readme
+    assert "Overcharger" in readme and "Afterburner" in readme and "Shield Matrix" in readme
+    assert "twoTone1" in credits and "phaserUp2" in credits and "pepSound1" in credits
+    assert "Twin Guns" in checklist and "Shield Matrix" in checklist
+    assert "AAA" in readme and "look bible" in readme.lower()
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -1597,6 +1720,7 @@ def main() -> int:
     test_steam_world3_038()
     test_ui_fonts_039()
     test_monsters_arenas_040()
+    test_weapons_upgrades_040b()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

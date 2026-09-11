@@ -33,6 +33,8 @@ namespace AsteroidsGoneRogue
         private Material _projectile;
         private Material _projectileSpread;
         private Material _projectilePierce;
+        private Material _projectileSeeker;
+        private Material _projectileRicochet;
         private Material _projectileEnemy;
         private Material _projectileHalo;
         private Material _shield;
@@ -89,6 +91,8 @@ namespace AsteroidsGoneRogue
             _projectile = MakeMaterial("Mat_Projectile", new Color(1f, 0.92f, 0.42f), 0f, 0.35f, new Color(1f, 0.78f, 0.18f) * 3.4f);
             _projectileSpread = MakeMaterial("Mat_Projectile_Spread", new Color(1f, 0.42f, 0.08f), 0f, 0.28f, new Color(1f, 0.32f, 0.02f) * 4.4f);
             _projectilePierce = MakeMaterial("Mat_Projectile_Pierce", new Color(0.28f, 0.95f, 1f), 0f, 0.32f, new Color(0.12f, 0.7f, 1f) * 4.8f);
+            _projectileSeeker = MakeMaterial("Mat_Projectile_Seeker", new Color(0.95f, 0.22f, 0.82f), 0f, 0.3f, new Color(1f, 0.12f, 0.7f) * 4.2f);
+            _projectileRicochet = MakeMaterial("Mat_Projectile_Ricochet", new Color(0.45f, 1f, 0.28f), 0f, 0.32f, new Color(0.3f, 1f, 0.12f) * 3.8f);
             _projectileEnemy = MakeMaterial("Mat_Projectile_Enemy", new Color(1f, 0.28f, 0.22f), 0f, 0.3f, new Color(1f, 0.12f, 0.08f) * 3.4f);
             _projectileHalo = MakeTransparent("Mat_Projectile_Halo", new Color(1f, 0.85f, 0.35f, 0.28f), new Color(1f, 0.7f, 0.15f) * 1.8f);
             _hangarMetal = MakeMaterial("Mat_Hangar_Metal", new Color(0.28f, 0.32f, 0.36f), 0.55f, 0.42f);
@@ -741,7 +745,20 @@ namespace AsteroidsGoneRogue
 
         public Projectile SpawnProjectile(Vector3 origin, Vector3 direction, float speed, int damage, bool pierce, bool spread)
         {
-            return SpawnBolt(origin, direction, speed, damage, pierce, spread, false, EnemyKind.Mid01);
+            FireMode style = pierce ? FireMode.Pierce : (spread ? FireMode.Spread : FireMode.Bolt);
+            return SpawnBolt(origin, direction, speed, damage, pierce, spread, false, EnemyKind.Mid01, style);
+        }
+
+        public Projectile SpawnStyledShot(
+            Vector3 origin,
+            Vector3 direction,
+            float speed,
+            int damage,
+            FireMode mode)
+        {
+            bool pierce = mode == FireMode.Pierce;
+            bool spread = mode == FireMode.Spread;
+            return SpawnBolt(origin, direction, speed, damage, pierce, spread, false, EnemyKind.Mid01, mode);
         }
 
         public Projectile SpawnEnemyProjectile(
@@ -751,7 +768,7 @@ namespace AsteroidsGoneRogue
             int damage,
             EnemyKind kind)
         {
-            return SpawnBolt(origin, direction, speed, damage, false, false, true, kind);
+            return SpawnBolt(origin, direction, speed, damage, false, false, true, kind, FireMode.Bolt);
         }
 
         private Projectile SpawnBolt(
@@ -762,7 +779,8 @@ namespace AsteroidsGoneRogue
             bool pierce,
             bool spread,
             bool hostile,
-            EnemyKind kind)
+            EnemyKind kind,
+            FireMode style)
         {
             GameObject root = new GameObject(hostile ? "EnemyProjectile" : "Projectile");
             root.tag = GameTags.Projectile;
@@ -778,17 +796,27 @@ namespace AsteroidsGoneRogue
             body.useGravity = false;
             body.isKinematic = true;
 
+            bool seeker = !hostile && style == FireMode.Seeker;
+            bool ricochet = !hostile && style == FireMode.Ricochet;
+            bool twin = !hostile && style == FireMode.Twin;
             Material boltMat = hostile
                 ? _projectileEnemy
-                : (pierce ? _projectilePierce : (spread ? _projectileSpread : _projectile));
+                : (pierce ? _projectilePierce
+                    : (spread ? _projectileSpread
+                        : (seeker ? _projectileSeeker
+                            : (ricochet ? _projectileRicochet : _projectile))));
             string visual = hostile ? "Projectile_EnemyBolt" : "Projectile_Bolt";
             GameObject mesh;
             if (!TryVisual(visual, root.transform, boltMat, out mesh))
             {
                 Vector3 fallbackScale = pierce
                     ? new Vector3(0.1f, 0.1f, 1.25f)
-                    : (spread ? new Vector3(0.38f, 0.38f, 0.32f) : new Vector3(0.2f, 0.2f, 0.62f));
-                mesh = CreatePrimitive(PrimitiveType.Sphere, "Mesh", root.transform, boltMat,
+                    : (spread ? new Vector3(0.38f, 0.38f, 0.32f)
+                        : (seeker ? new Vector3(0.28f, 0.28f, 0.72f)
+                            : (twin ? new Vector3(0.14f, 0.14f, 0.55f)
+                                : (ricochet ? new Vector3(0.26f, 0.26f, 0.26f) : new Vector3(0.2f, 0.2f, 0.62f)))));
+                PrimitiveType primitive = ricochet ? PrimitiveType.Cube : PrimitiveType.Sphere;
+                mesh = CreatePrimitive(primitive, "Mesh", root.transform, boltMat,
                     Vector3.zero, fallbackScale, Quaternion.identity);
             }
             else if (mesh != null)
@@ -800,6 +828,18 @@ namespace AsteroidsGoneRogue
                 else if (spread)
                 {
                     mesh.transform.localScale = new Vector3(1.65f, 1.65f, 0.48f);
+                }
+                else if (seeker)
+                {
+                    mesh.transform.localScale = new Vector3(1.15f, 1.15f, 1.45f);
+                }
+                else if (twin)
+                {
+                    mesh.transform.localScale = new Vector3(0.55f, 0.55f, 0.85f);
+                }
+                else if (ricochet)
+                {
+                    mesh.transform.localScale = new Vector3(0.9f, 0.9f, 0.9f);
                 }
             }
 
@@ -813,17 +853,38 @@ namespace AsteroidsGoneRogue
                 CreatePrimitive(PrimitiveType.Sphere, "SpreadCore", root.transform, boltMat,
                     Vector3.zero, new Vector3(0.46f, 0.46f, 0.26f), Quaternion.identity);
             }
+            else if (seeker)
+            {
+                CreatePrimitive(PrimitiveType.Sphere, "SeekerCore", root.transform, boltMat,
+                    Vector3.zero, new Vector3(0.42f, 0.42f, 0.42f), Quaternion.identity);
+            }
+            else if (ricochet)
+            {
+                CreatePrimitive(PrimitiveType.Cube, "RicochetFacet", root.transform, boltMat,
+                    Vector3.zero, new Vector3(0.32f, 0.32f, 0.32f), Quaternion.Euler(45f, 20f, 10f));
+            }
+            else if (twin)
+            {
+                CreatePrimitive(PrimitiveType.Cube, "TwinCore", root.transform, boltMat,
+                    Vector3.zero, new Vector3(0.12f, 0.12f, 0.7f), Quaternion.identity);
+            }
 
-            Material haloMat = pierce ? _projectilePierce : (hostile ? _projectileEnemy : (spread ? _projectileSpread : _projectileHalo));
+            Material haloMat = pierce ? _projectilePierce
+                : (hostile ? _projectileEnemy
+                    : (spread ? _projectileSpread
+                        : (seeker ? _projectileSeeker
+                            : (ricochet ? _projectileRicochet : _projectileHalo))));
             Vector3 haloScale = pierce
                 ? new Vector3(0.18f, 0.18f, 1.55f)
-                : (spread ? new Vector3(0.74f, 0.74f, 0.46f) : new Vector3(0.38f, 0.38f, 0.85f));
+                : (spread ? new Vector3(0.74f, 0.74f, 0.46f)
+                    : (seeker ? new Vector3(0.55f, 0.55f, 0.95f)
+                        : (ricochet ? new Vector3(0.42f, 0.42f, 0.42f) : new Vector3(0.38f, 0.38f, 0.85f))));
             CreatePrimitive(PrimitiveType.Sphere, "BoltHalo", root.transform, haloMat,
                 Vector3.zero, haloScale, Quaternion.identity);
 
             TrailRenderer trail = root.AddComponent<TrailRenderer>();
-            trail.time = pierce ? 0.42f : (spread ? 0.14f : (hostile ? 0.16f : 0.12f));
-            trail.startWidth = spread ? 0.52f : (pierce ? 0.07f : 0.2f);
+            trail.time = pierce ? 0.42f : (spread ? 0.14f : (seeker ? 0.28f : (ricochet ? 0.18f : (hostile ? 0.16f : 0.12f))));
+            trail.startWidth = spread ? 0.52f : (pierce ? 0.07f : (seeker ? 0.28f : (twin ? 0.1f : 0.2f)));
             trail.endWidth = pierce ? 0.005f : (spread ? 0.04f : 0.02f);
             trail.minVertexDistance = 0.12f;
             trail.material = boltMat;
@@ -837,6 +898,21 @@ namespace AsteroidsGoneRogue
                 trail.startColor = new Color(1f, 0.45f, 0.08f, 0.95f);
                 trail.endColor = new Color(1f, 0.2f, 0.02f, 0f);
             }
+            else if (seeker)
+            {
+                trail.startColor = new Color(1f, 0.25f, 0.85f, 0.95f);
+                trail.endColor = new Color(0.55f, 0.05f, 0.45f, 0f);
+            }
+            else if (ricochet)
+            {
+                trail.startColor = new Color(0.45f, 1f, 0.25f, 0.95f);
+                trail.endColor = new Color(0.12f, 0.55f, 0.05f, 0f);
+            }
+            else if (twin)
+            {
+                trail.startColor = new Color(1f, 0.96f, 0.72f, 0.92f);
+                trail.endColor = new Color(0.9f, 0.62f, 0.12f, 0f);
+            }
             else if (hostile)
             {
                 trail.startColor = new Color(1f, 0.25f, 0.18f, 0.9f);
@@ -849,7 +925,8 @@ namespace AsteroidsGoneRogue
             }
 
             Projectile projectile = root.AddComponent<Projectile>();
-            projectile.Launch(direction, speed, damage, pierce, hostile, kind);
+            int bounces = ricochet ? LoadoutState.RicochetBounces : 0;
+            projectile.Launch(direction, speed, damage, pierce, hostile, kind, seeker, bounces);
             _projectiles.Add(projectile);
             return projectile;
         }

@@ -4,6 +4,9 @@ namespace AsteroidsGoneRogue
     {
         Bolt,
         Spread,
-        Pierce
+        Pierce,
+        Twin,
+        Seeker,
+        Ricochet
     }
 }

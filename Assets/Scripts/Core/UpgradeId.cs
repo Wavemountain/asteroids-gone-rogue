@@ -9,6 +9,15 @@ namespace AsteroidsGoneRogue
         NoseUpgrade02,
         EngineUpgrade02,
         SpreadBolt,
-        Pierce
+        Pierce,
+        BodyUpgrade02,
+        NoseUpgrade03,
+        EngineUpgrade03,
+        TwinGuns,
+        Seeker,
+        Ricochet,
+        ShieldMatrix,
+        Overcharger,
+        Afterburner
     }
 }

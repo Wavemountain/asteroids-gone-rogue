@@ -11,6 +11,7 @@ namespace AsteroidsGoneRogue
         private int _hull = LoadoutState.HullHitPoints;
         private int _maxHull = LoadoutState.HullHitPoints;
         private int _shield;
+        private int _maxShield = LoadoutState.MaxShieldCharges;
         private bool _dead;
         private float _invulnerableUntil;
         private DamageCause _lastCause = DamageCause.Unknown;
@@ -52,6 +53,7 @@ namespace AsteroidsGoneRogue
             _dead = false;
             _maxHull = loadout != null ? loadout.CurrentHullHitPoints : LoadoutState.HullHitPoints;
             _hull = _maxHull;
+            _maxShield = loadout != null ? loadout.CurrentMaxShield : LoadoutState.MaxShieldCharges;
             _shield = loadout != null ? loadout.ShieldCharges : 0;
             _lastCause = DamageCause.Unknown;
             _lastEnemyKind = EnemyKind.Mid01;
@@ -80,7 +82,7 @@ namespace AsteroidsGoneRogue
 
         public bool TryAddShield()
         {
-            if (_dead || _shield >= LoadoutState.MaxShieldCharges)
+            if (_dead || _shield >= _maxShield)
             {
                 return false;
             }

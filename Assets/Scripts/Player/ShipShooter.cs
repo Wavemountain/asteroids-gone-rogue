@@ -7,6 +7,16 @@ namespace AsteroidsGoneRogue
         public const int SpreadPelletCount = 3;
         public const float SpreadHalfAngleDegrees = 14f;
 
+        private static readonly FireMode[] CycleOrder =
+        {
+            FireMode.Bolt,
+            FireMode.Spread,
+            FireMode.Twin,
+            FireMode.Pierce,
+            FireMode.Seeker,
+            FireMode.Ricochet
+        };
+
         private PlayerLoadout _loadout;
         private ContentFactory _factory;
         private float _nextFireTime;
@@ -33,27 +43,25 @@ namespace AsteroidsGoneRogue
 
         public void CycleFireMode()
         {
-            bool spread = Owns(UpgradeId.SpreadBolt);
-            bool pierce = Owns(UpgradeId.Pierce);
-            if (!spread && !pierce)
+            if (!OwnsAnyAltFire())
             {
                 _mode = FireMode.Bolt;
                 return;
             }
 
             FireMode current = OwnedMode(_mode);
-            if (current == FireMode.Bolt)
+            int start = ModeIndex(current);
+            for (int step = 1; step <= CycleOrder.Length; step++)
             {
-                _mode = spread ? FireMode.Spread : FireMode.Pierce;
+                FireMode next = CycleOrder[(start + step) % CycleOrder.Length];
+                if (ModeOwned(next))
+                {
+                    _mode = next;
+                    return;
+                }
             }
-            else if (current == FireMode.Spread)
-            {
-                _mode = pierce ? FireMode.Pierce : FireMode.Bolt;
-            }
-            else
-            {
-                _mode = FireMode.Bolt;
-            }
+
+            _mode = FireMode.Bolt;
         }
 
         public void TryFire()
@@ -77,33 +85,22 @@ namespace AsteroidsGoneRogue
             {
                 FireSpread(origin, loadout);
             }
+            else if (mode == FireMode.Twin)
+            {
+                FireTwin(origin, loadout);
+            }
             else
             {
-                bool pierce = mode == FireMode.Pierce;
-                _factory.SpawnProjectile(
+                _factory.SpawnStyledShot(
                     origin,
                     transform.forward,
-                    loadout.ProjectileSpeed,
+                    ShotSpeed(loadout, mode),
                     loadout.ProjectileDamage,
-                    pierce);
+                    mode);
             }
 
             _factory.SpawnVfx("Vfx_MuzzleFlash", origin, 0.12f);
-            if (AudioCues.Instance != null)
-            {
-                if (mode == FireMode.Spread)
-                {
-                    AudioCues.Instance.PlayShootSpread();
-                }
-                else if (mode == FireMode.Pierce)
-                {
-                    AudioCues.Instance.PlayShootPierce();
-                }
-                else
-                {
-                    AudioCues.Instance.PlayShoot();
-                }
-            }
+            PlayShotCue(mode);
         }
 
         private void FireSpread(Vector3 origin, LoadoutState loadout)
@@ -119,24 +116,121 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        private void FireTwin(Vector3 origin, LoadoutState loadout)
+        {
+            Vector3 right = transform.right * LoadoutState.TwinOffsetMeters;
+            Vector3 forward = transform.forward;
+            float speed = loadout.ProjectileSpeed;
+            int damage = loadout.ProjectileDamage;
+            _factory.SpawnStyledShot(origin + right, forward, speed, damage, FireMode.Twin);
+            _factory.SpawnStyledShot(origin - right, forward, speed, damage, FireMode.Twin);
+        }
+
+        private static float ShotSpeed(LoadoutState loadout, FireMode mode)
+        {
+            float speed = loadout.ProjectileSpeed;
+            if (mode == FireMode.Seeker)
+            {
+                return speed * 0.72f;
+            }
+
+            return speed;
+        }
+
+        private void PlayShotCue(FireMode mode)
+        {
+            if (AudioCues.Instance == null)
+            {
+                return;
+            }
+
+            if (mode == FireMode.Spread)
+            {
+                AudioCues.Instance.PlayShootSpread();
+            }
+            else if (mode == FireMode.Pierce)
+            {
+                AudioCues.Instance.PlayShootPierce();
+            }
+            else if (mode == FireMode.Seeker)
+            {
+                AudioCues.Instance.PlayShootSeeker();
+            }
+            else if (mode == FireMode.Twin)
+            {
+                AudioCues.Instance.PlayShootTwin();
+            }
+            else if (mode == FireMode.Ricochet)
+            {
+                AudioCues.Instance.PlayShootRicochet();
+            }
+            else
+            {
+                AudioCues.Instance.PlayShoot();
+            }
+        }
+
         private bool Owns(UpgradeId id)
         {
             return _loadout != null && _loadout.State != null && _loadout.State.Owns(id);
         }
 
+        private bool OwnsAnyAltFire()
+        {
+            return _loadout != null && _loadout.State != null && _loadout.State.HasAltFire;
+        }
+
+        private bool ModeOwned(FireMode mode)
+        {
+            if (mode == FireMode.Bolt)
+            {
+                return true;
+            }
+
+            if (mode == FireMode.Spread)
+            {
+                return Owns(UpgradeId.SpreadBolt);
+            }
+
+            if (mode == FireMode.Pierce)
+            {
+                return Owns(UpgradeId.Pierce);
+            }
+
+            if (mode == FireMode.Twin)
+            {
+                return Owns(UpgradeId.TwinGuns);
+            }
+
+            if (mode == FireMode.Seeker)
+            {
+                return Owns(UpgradeId.Seeker);
+            }
+
+            if (mode == FireMode.Ricochet)
+            {
+                return Owns(UpgradeId.Ricochet);
+            }
+
+            return false;
+        }
+
         private FireMode OwnedMode(FireMode requested)
         {
-            if (requested == FireMode.Spread && Owns(UpgradeId.SpreadBolt))
+            return ModeOwned(requested) ? requested : FireMode.Bolt;
+        }
+
+        private static int ModeIndex(FireMode mode)
+        {
+            for (int i = 0; i < CycleOrder.Length; i++)
             {
-                return FireMode.Spread;
+                if (CycleOrder[i] == mode)
+                {
+                    return i;
+                }
             }
 
-            if (requested == FireMode.Pierce && Owns(UpgradeId.Pierce))
-            {
-                return FireMode.Pierce;
-            }
-
-            return FireMode.Bolt;
+            return 0;
         }
     }
 }
