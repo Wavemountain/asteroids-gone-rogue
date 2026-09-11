@@ -111,11 +111,11 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 | SwarmPod spawn | Kenney Digital Audio | `phaserUp5.ogg` |
 | Brute spawn | Kenney Digital Audio | `lowThreeTone.ogg` |
 | Brute hit (pool) | Kenney Sci-Fi Sounds | `impactMetal_000`–`002.ogg` |
-| Brute death | Kenney Sci-Fi Sounds | `explosionCrunch_003.ogg` |
+| Brute death | Kenney Sci-Fi Sounds | `explosionCrunch_003.ogg` + `lowFrequency_explosion_000.ogg` (unique heavy layer) |
 | Swarm spawn | Kenney Digital Audio | `phaseJump1.ogg` (+ optional `slime_000.ogg`) |
-| Swarm hit (pool) | Kenney Sci-Fi Sounds | `laserSmall_000`–`004.ogg` |
+| Swarm hit (pool) | Kenney Sci-Fi Sounds | `laserSmall_000`–`004.ogg` (pitch ±6%, not player bolt pitch) |
 | Swarm death (pool) | Kenney Digital Audio | `zap1.ogg` / `spaceTrash1`–`3.ogg` |
-| Spike activate | Kenney Sci-Fi Sounds | `forceField_001.ogg` |
+| Spike activate | Kenney Sci-Fi Sounds | `forceField_001.ogg` (hotter + short bed duck) |
 | Spike player hit (pool) | Kenney Sci-Fi Sounds | `laserRetro_000`–`002.ogg` |
 | Player damage | Kenney Sci-Fi Sounds | `forceField_000.ogg` |
 | Arena world swap | Kenney Interface Sounds | `maximize_008.ogg` |

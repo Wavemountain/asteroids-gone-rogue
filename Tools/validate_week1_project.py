@@ -80,6 +80,7 @@ def main() -> int:
     require(ROOT / "Assets/Resources/Audio/Sfx/spaceTrash1.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/spaceTrash3.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/forceField_001.ogg")
+    require(ROOT / "Assets/Resources/Audio/Sfx/lowFrequency_explosion_000.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/laserRetro_002.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/jingles_PIZZA16.ogg")
     require(ROOT / "Assets/Resources/Audio/Music/OutThere.ogg")

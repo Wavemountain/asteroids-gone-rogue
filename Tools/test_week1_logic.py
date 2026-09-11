@@ -1425,20 +1425,29 @@ def test_monsters_arenas_040() -> None:
     assert "_bruteHits" in hit_kind
     assert "_swarmHits" in hit_kind
     assert "PlayPooled" in hit_kind
+    assert "PlayPooledPitched" in hit_kind
+    assert "SwarmHitPitchJitter" in hit_kind
     assert "_uiClick" not in hit_kind
     assert "_purchase" not in hit_kind
+    swarm_hit = hit_kind.split("EnemyKind.Swarm")[1]
+    assert "PlayPooledPitched(_swarmHits" in swarm_hit
+    assert "SwarmHitPitchJitter" in swarm_hit
     death_kind = audio.split("public void PlayEnemyDeath(EnemyKind kind)")[1].split("public static bool")[0]
     assert "_bruteDeath" in death_kind
     assert "_swarmDeaths" in death_kind
-    assert "_bruteDeath" in death_kind.split("EnemyKind.Brute")[1].split("EnemyKind.Swarm")[0]
+    brute_death = death_kind.split("EnemyKind.Brute")[1].split("EnemyKind.Swarm")[0]
+    assert "_bruteDeath" in brute_death
+    assert "_bruteDeathLayer" in brute_death
+    assert "BruteDeathLayerScale" in brute_death
+    assert "_enemyDeathPunch" not in brute_death
     assert "PlayPooled(_swarmDeaths" in death_kind.split("EnemyKind.Swarm")[1]
     assert "_bruteDeath" not in death_kind.split("EnemyKind.Swarm")[1]
-    assert "_enemyDeathPunch" not in death_kind.split("EnemyKind.Brute")[1].split("EnemyKind.Swarm")[0]
     assert "_uiClick" not in death_kind
     monster_loads = audio.split("AtmosBot 0.40 list")[1].split("_arenaLoop")[0]
     assert 'Resources.Load<AudioClip>("Audio/Sfx/lowThreeTone")' in monster_loads
     assert "impactMetal_000" in monster_loads and "impactMetal_002" in monster_loads
     assert 'Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_003")' in monster_loads
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/lowFrequency_explosion_000")' in monster_loads
     assert 'Resources.Load<AudioClip>("Audio/Sfx/phaseJump1")' in monster_loads
     assert 'Resources.Load<AudioClip>("Audio/Sfx/slime_000")' in monster_loads
     assert "laserSmall_000" in monster_loads and "laserSmall_004" in monster_loads
@@ -1451,6 +1460,13 @@ def test_monsters_arenas_040() -> None:
     assert "PlayHazardHit" in audio
     assert "PlayHazardActivate" in factory
     assert "PlayHazardHit" in hazard
+    hazard_act = audio.split("public void PlayHazardActivate()")[1].split("public void")[0]
+    assert "HazardActivateScale" in hazard_act
+    assert "DuckMusic" in hazard_act
+    assert "HazardActivateDuckSeconds" in hazard_act
+    assert "HazardActivateScale = 0.94f" in audio
+    assert "SwarmHitPitchJitter = 0.06f" in audio
+    assert "BruteDeathLayerScale = 1.12f" in audio
     assert "UsesMonsterThreatSfx" in audio
     light = audio.split("public static bool UsesLightThreatSfx")[1].split("public static bool UsesMonsterThreatSfx")[0]
     assert "EnemyKind.Swarmling" in light
@@ -1490,6 +1506,7 @@ def test_monsters_arenas_040() -> None:
         "spaceTrash2.ogg",
         "spaceTrash3.ogg",
         "forceField_001.ogg",
+        "lowFrequency_explosion_000.ogg",
         "laserRetro_001.ogg",
         "laserRetro_002.ogg",
     ):
@@ -1525,6 +1542,8 @@ def test_monsters_arenas_040() -> None:
     assert "MonsterPresence" in checklist
     assert "AAA mix polish" in credits
     assert "AAA mix polish" in audio
+    assert "lowFrequency_explosion_000" in credits
+    assert "SwarmHitPitchJitter" in audio
 
 
 def main() -> int:

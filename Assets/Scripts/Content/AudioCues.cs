@@ -40,14 +40,19 @@ namespace AsteroidsGoneRogue
         public const float BruteHitScale = 1f;
         public const float SwarmHitScale = 0.88f;
         public const float BruteDeathScale = 1.04f;
+        public const float BruteDeathLayerScale = 1.12f;
         public const float SwarmDeathScale = 0.84f;
         public const float SwarmSpawnLayerScale = 0.36f;
-        public const float HazardActivateScale = 0.68f;
+        public const float SwarmHitPitchJitter = 0.06f;
+        public const float HazardActivateScale = 0.94f;
+        public const float HazardActivateDuckSeconds = 0.28f;
+        public const float HazardActivateDuckScale = 0.42f;
         public const float HazardHitScale = 0.72f;
 
         public static AudioCues Instance { get; private set; }
 
         private AudioSource _sfx;
+        private AudioSource _vary;
         private AudioSource _music;
         private AudioSource _hangarLayer;
         private AudioClip _shoot;
@@ -72,6 +77,7 @@ namespace AsteroidsGoneRogue
         private AudioClip _bruteSpawn;
         private AudioClip[] _bruteHits;
         private AudioClip _bruteDeath;
+        private AudioClip _bruteDeathLayer;
         private AudioClip _swarmSpawn;
         private AudioClip _swarmSpawnLayer;
         private AudioClip[] _swarmHits;
@@ -109,6 +115,7 @@ namespace AsteroidsGoneRogue
         {
             Instance = this;
             _sfx = CreateSource("SfxSource", false);
+            _vary = CreateSource("VarySfxSource", false);
             _music = CreateSource("MusicSource", true);
             _hangarLayer = CreateSource("HangarLayerSource", true);
             LoadClips();
@@ -163,7 +170,7 @@ namespace AsteroidsGoneRogue
 
             if (kind == EnemyKind.Swarm)
             {
-                PlayPooled(_swarmHits, SwarmHitScale, _swarmSpawn);
+                PlayPooledPitched(_swarmHits, SwarmHitScale, _swarmSpawn, SwarmHitPitchJitter);
                 return;
             }
 
@@ -200,6 +207,11 @@ namespace AsteroidsGoneRogue
             if (kind == EnemyKind.Brute)
             {
                 Play(_bruteDeath != null ? _bruteDeath : _bruteSpawn, BruteDeathScale);
+                if (_bruteDeathLayer != null)
+                {
+                    Play(_bruteDeathLayer, BruteDeathLayerScale);
+                }
+
                 return;
             }
 
@@ -251,6 +263,7 @@ namespace AsteroidsGoneRogue
         public void PlayHazardActivate()
         {
             Play(_hazardActivate != null ? _hazardActivate : _playerDamage, HazardActivateScale);
+            DuckMusic(HazardActivateDuckSeconds, HazardActivateDuckScale);
         }
 
         public void PlayHazardHit()
@@ -386,6 +399,21 @@ namespace AsteroidsGoneRogue
             Play(clip != null ? clip : fallback, scale);
         }
 
+        private void PlayPooledPitched(AudioClip[] clips, float scale, AudioClip fallback, float pitchJitter)
+        {
+            AudioClip clip = PickClip(clips);
+            PlayPitched(clip != null ? clip : fallback, scale, 1f + Random.Range(-pitchJitter, pitchJitter));
+        }
+
+        private void PlayPitched(AudioClip clip, float scale, float pitch)
+        {
+            if (_vary != null && clip != null && !_muted)
+            {
+                _vary.pitch = Mathf.Clamp(pitch, 0.5f, 1.5f);
+                _vary.PlayOneShot(clip, Mathf.Clamp(scale, 0f, 1.4f));
+            }
+        }
+
         private static AudioClip[] LoadPool(params string[] keys)
         {
             AudioClip[] clips = new AudioClip[keys.Length];
@@ -494,6 +522,11 @@ namespace AsteroidsGoneRogue
                 _sfx.volume = _muted ? 0f : _sfxVolume;
             }
 
+            if (_vary != null)
+            {
+                _vary.volume = _muted ? 0f : _sfxVolume;
+            }
+
             if (_music != null)
             {
                 _music.pitch = _musicPitch;
@@ -571,6 +604,7 @@ namespace AsteroidsGoneRogue
                 "Audio/Sfx/impactMetal_001",
                 "Audio/Sfx/impactMetal_002");
             _bruteDeath = Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_003");
+            _bruteDeathLayer = Resources.Load<AudioClip>("Audio/Sfx/lowFrequency_explosion_000");
             _swarmSpawn = Resources.Load<AudioClip>("Audio/Sfx/phaseJump1");
             _swarmSpawnLayer = Resources.Load<AudioClip>("Audio/Sfx/slime_000");
             _swarmHits = LoadPool(
