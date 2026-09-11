@@ -18,66 +18,68 @@ namespace AsteroidsGoneRogue
             {
                 if (string.IsNullOrEmpty(failReason))
                 {
-                    return "SHIP LOST";
+                    return Loc.T("run.ship_lost", "SHIP LOST");
                 }
 
-                return "SHIP LOST  ·  " + failReason;
+                return Loc.Tf("run.ship_lost_reason", "SHIP LOST  ·  {0}", failReason);
             }
 
             if (phase == GamePhase.WaveClear)
             {
-                return "WAVE CLEAR";
+                return Loc.T("run.wave_clear", "WAVE CLEAR");
             }
 
-            return "RUN";
+            return Loc.T("run.run", "RUN");
         }
 
         public static string StatsLine(int score, int wave, int world)
         {
-            return "Score " + score + "  ·  Wave " + wave + "  ·  World " + world;
+            return Loc.Tf("run.stats", "Score {0}  ·  Wave {1}  ·  World {2}", score, wave, world);
         }
 
         public static string CreditsLine(int credits, int awarded)
         {
             if (awarded > 0)
             {
-                return "Credits " + credits + "  (+" + awarded + ")";
+                return Loc.Tf("run.credits_plus", "Credits {0}  (+{1})", credits, awarded);
             }
 
-            return "Credits " + credits;
+            return Loc.Tf("run.credits", "Credits {0}", credits);
         }
 
         public static string UpgradesLine(LoadoutState loadout)
         {
             if (loadout == null)
             {
-                return "Upgrades —";
+                return Loc.T("run.upgrades_none", "Upgrades —");
             }
 
             string names = string.Empty;
-            AppendOwned(ref names, loadout.BodyUpgrade01, "Body");
-            AppendOwned(ref names, loadout.BodyUpgrade02, "Hull 02");
-            AppendOwned(ref names, loadout.NoseHardpoint, "Nose");
-            AppendOwned(ref names, loadout.NoseUpgrade02, "Nose 02");
-            AppendOwned(ref names, loadout.NoseUpgrade03, "Nose 03");
-            AppendOwned(ref names, loadout.RapidFire, "Rapid Fire");
-            AppendOwned(ref names, loadout.EngineUpgrade02, "Engine 02");
-            AppendOwned(ref names, loadout.EngineUpgrade03, "Engine 03");
-            AppendOwned(ref names, loadout.Overcharger, "Overcharger");
-            AppendOwned(ref names, loadout.Afterburner, "Afterburner");
-            AppendOwned(ref names, loadout.SpreadBolt, "Spread");
-            AppendOwned(ref names, loadout.Pierce, "Pierce");
-            AppendOwned(ref names, loadout.TwinGuns, "Twin");
-            AppendOwned(ref names, loadout.Seeker, "Seeker");
-            AppendOwned(ref names, loadout.Ricochet, "Ricochet");
+            AppendOwned(ref names, loadout.BodyUpgrade01, Loc.T("up.Body", "Body"));
+            AppendOwned(ref names, loadout.BodyUpgrade02, Loc.T("up.Hull02", "Hull 02"));
+            AppendOwned(ref names, loadout.NoseHardpoint, Loc.T("up.Nose", "Nose"));
+            AppendOwned(ref names, loadout.NoseUpgrade02, Loc.T("up.Nose02", "Nose 02"));
+            AppendOwned(ref names, loadout.NoseUpgrade03, Loc.T("up.Nose03", "Nose 03"));
+            AppendOwned(ref names, loadout.RapidFire, Loc.T("up.Rapid", "Rapid Fire"));
+            AppendOwned(ref names, loadout.EngineUpgrade02, Loc.T("up.Engine02", "Engine 02"));
+            AppendOwned(ref names, loadout.EngineUpgrade03, Loc.T("up.Engine03", "Engine 03"));
+            AppendOwned(ref names, loadout.Overcharger, Loc.T("up.Overcharger", "Overcharger"));
+            AppendOwned(ref names, loadout.Afterburner, Loc.T("up.Afterburner", "Afterburner"));
+            AppendOwned(ref names, loadout.SpreadBolt, Loc.T("up.Spread", "Spread"));
+            AppendOwned(ref names, loadout.Pierce, Loc.T("up.Pierce", "Pierce"));
+            AppendOwned(ref names, loadout.TwinGuns, Loc.T("up.Twin", "Twin"));
+            AppendOwned(ref names, loadout.Seeker, Loc.T("up.Seeker", "Seeker"));
+            AppendOwned(ref names, loadout.Ricochet, Loc.T("up.Ricochet", "Ricochet"));
             if (loadout.ShieldCharges > 0)
             {
-                AppendOwned(ref names, true, "Shield x" + loadout.ShieldCharges);
+                AppendOwned(ref names, true, Loc.Tf("up.Shield", "Shield x{0}", loadout.ShieldCharges));
             }
 
-            AppendOwned(ref names, loadout.ShieldMatrix, "Matrix");
+            AppendOwned(ref names, loadout.ShieldMatrix, Loc.T("up.Matrix", "Matrix"));
 
-            return string.IsNullOrEmpty(names) ? "Upgrades —" : "Upgrades  " + names;
+            return string.IsNullOrEmpty(names)
+                ? Loc.T("run.upgrades_none", "Upgrades —")
+                : Loc.Tf("run.upgrades", "Upgrades  {0}", names);
         }
 
         public static bool ShowAfterWave1Hint(int lastResolvedWave, GamePhase phase)
@@ -97,9 +99,11 @@ namespace AsteroidsGoneRogue
 
         public static string FailContinueHint(string failReason, int waveIndex)
         {
-            string reason = string.IsNullOrEmpty(failReason) ? "Unknown cause" : failReason;
+            string reason = string.IsNullOrEmpty(failReason)
+                ? Loc.T("fail.unknown", "Unknown cause")
+                : failReason;
             string tease = MonsterTeaser(waveIndex);
-            string keep = "Your hull. Credits and upgrades stay — Retry Wave.";
+            string keep = Loc.T("run.fail_keep", "Your hull. Credits and upgrades stay — Retry Wave.");
             if (!string.IsNullOrEmpty(tease))
             {
                 return reason + "  ·  " + keep + "\n" + tease;
@@ -112,17 +116,17 @@ namespace AsteroidsGoneRogue
         {
             if (nextWave == 5)
             {
-                return "Watch  ·  Wave 5 Brute — sidestep the charge";
+                return Loc.T("run.tease_brute", "Watch  ·  Wave 5 Brute — sidestep the charge");
             }
 
             if (nextWave == 6)
             {
-                return "Watch  ·  Wave 6 Swarm — break the nest";
+                return Loc.T("run.tease_swarm", "Watch  ·  Wave 6 Swarm — break the nest");
             }
 
             if (nextWave >= 7)
             {
-                return "Watch  ·  Brute charges  ·  Swarm nests drop Swarmlings";
+                return Loc.T("run.tease_both", "Watch  ·  Brute charges  ·  Swarm nests drop Swarmlings");
             }
 
             return string.Empty;
@@ -139,23 +143,29 @@ namespace AsteroidsGoneRogue
             if (lastResolvedWave == 3)
             {
                 return next != null
-                    ? "Buy " + next.Title + " before Gunner"
-                    : "Push for a new best before Gunner";
+                    ? Loc.Tf("run.buy_gunner", "Buy " + next.Title + " before Gunner", next.Title)
+                    : Loc.T("run.push_gunner", "Push for a new best before Gunner");
             }
 
             if (lastResolvedWave == 4 || lastResolvedWave == 5)
             {
                 string tease = DeepOrbitTeaser(lastResolvedWave);
-                return next != null ? tease + "  ·  Buy " + next.Title : tease;
+                return next != null
+                    ? tease + "  ·  " + Loc.Tf("run.buy", "Buy {0}", next.Title)
+                    : tease;
             }
 
             if (lastResolvedWave >= 7 && lastResolvedWave <= 9)
             {
                 string tease = FarDriftTeaser(lastResolvedWave);
-                return next != null ? tease + "  ·  Buy " + next.Title : tease;
+                return next != null
+                    ? tease + "  ·  " + Loc.Tf("run.buy", "Buy {0}", next.Title)
+                    : tease;
             }
 
-            string buy = next != null ? "Buy " + next.Title : "Push for a new best.";
+            string buy = next != null
+                ? Loc.Tf("run.buy", "Buy {0}", next.Title)
+                : Loc.T("run.push_best", "Push for a new best.");
             return NextUnlockLandmark(lastResolvedWave) + "  ·  " + buy;
         }
 
@@ -163,20 +173,34 @@ namespace AsteroidsGoneRogue
         {
             if (lastResolvedWave == 5)
             {
-                return "World 2  ·  ★ " + MedalCatalog.DeepOrbitTitle;
+                return Loc.Tf(
+                    "run.deep_orbit_now",
+                    "World 2  ·  ★ " + MedalCatalog.DeepOrbitTitle,
+                    MedalCatalog.Title(MedalId.DeepOrbit));
             }
 
-            return "★ " + MedalCatalog.DeepOrbitTitle + " at wave " + World2StartsAtWave;
+            return Loc.Tf(
+                "run.deep_orbit_at",
+                "★ " + MedalCatalog.DeepOrbitTitle + " at wave " + World2StartsAtWave,
+                MedalCatalog.Title(MedalId.DeepOrbit),
+                World2StartsAtWave);
         }
 
         public static string FarDriftTeaser(int lastResolvedWave)
         {
             if (lastResolvedWave == 9)
             {
-                return "Clear wave 10  ·  ★ " + MedalCatalog.FarDriftTitle;
+                return Loc.Tf(
+                    "run.far_drift_clear",
+                    "Clear wave 10  ·  ★ " + MedalCatalog.FarDriftTitle,
+                    MedalCatalog.Title(MedalId.FarDrift));
             }
 
-            return "★ " + MedalCatalog.FarDriftTitle + " at wave " + MedalCatalog.FarDriftClearsAtWave;
+            return Loc.Tf(
+                "run.far_drift_at",
+                "★ " + MedalCatalog.FarDriftTitle + " at wave " + MedalCatalog.FarDriftClearsAtWave,
+                MedalCatalog.Title(MedalId.FarDrift),
+                MedalCatalog.FarDriftClearsAtWave);
         }
 
         public static bool ShowWaveMedal(int lastResolvedWave, GamePhase phase)
@@ -214,19 +238,19 @@ namespace AsteroidsGoneRogue
             if (lastResolvedWave == MedalCatalog.ScoutWingClearsAtWave)
             {
                 return MedalCatalog.AwardLine(MedalId.ScoutWing)
-                    + "  ·  World 2 at wave " + World2StartsAtWave;
+                    + "  ·  " + Loc.Tf("run.world2_at", "World 2 at wave {0}", World2StartsAtWave);
             }
 
             if (lastResolvedWave == World2StartsAtWave)
             {
                 return MedalCatalog.AwardLine(MedalId.DeepOrbit)
-                    + "  ·  World 3 at wave " + World3StartsAtWave;
+                    + "  ·  " + Loc.Tf("run.world3_at", "World 3 at wave {0}", World3StartsAtWave);
             }
 
             if (lastResolvedWave == MedalCatalog.FarDriftClearsAtWave)
             {
                 return MedalCatalog.AwardLine(MedalId.FarDrift)
-                    + "  ·  World 3 at wave " + World3StartsAtWave;
+                    + "  ·  " + Loc.Tf("run.world3_at", "World 3 at wave {0}", World3StartsAtWave);
             }
 
             if (lastResolvedWave == World3StartsAtWave)
@@ -244,25 +268,37 @@ namespace AsteroidsGoneRogue
         {
             if (nextWave <= MedalCatalog.ScoutWingClearsAtWave)
             {
-                return "Next  ·  ★ " + MedalCatalog.ScoutWingTitle
-                    + " at wave " + MedalCatalog.ScoutWingClearsAtWave;
+                return Loc.Tf(
+                    "run.next_medal",
+                    "Next  ·  ★ " + MedalCatalog.ScoutWingTitle
+                        + " at wave " + MedalCatalog.ScoutWingClearsAtWave,
+                    MedalCatalog.Title(MedalId.ScoutWing),
+                    MedalCatalog.ScoutWingClearsAtWave);
             }
 
             if (nextWave <= World2StartsAtWave)
             {
-                return "Next  ·  ★ " + MedalCatalog.DeepOrbitTitle
-                    + " at wave " + World2StartsAtWave;
+                return Loc.Tf(
+                    "run.next_medal",
+                    "Next  ·  ★ " + MedalCatalog.DeepOrbitTitle
+                        + " at wave " + World2StartsAtWave,
+                    MedalCatalog.Title(MedalId.DeepOrbit),
+                    World2StartsAtWave);
             }
 
             if (nextWave <= MedalCatalog.FarDriftClearsAtWave)
             {
-                return "Next  ·  ★ " + MedalCatalog.FarDriftTitle
-                    + " at wave " + MedalCatalog.FarDriftClearsAtWave;
+                return Loc.Tf(
+                    "run.next_medal",
+                    "Next  ·  ★ " + MedalCatalog.FarDriftTitle
+                        + " at wave " + MedalCatalog.FarDriftClearsAtWave,
+                    MedalCatalog.Title(MedalId.FarDrift),
+                    MedalCatalog.FarDriftClearsAtWave);
             }
 
             if (nextWave <= World3StartsAtWave)
             {
-                return "Next  ·  World 3 at wave " + World3StartsAtWave;
+                return Loc.Tf("run.next_world3", "Next  ·  World 3 at wave {0}", World3StartsAtWave);
             }
 
             return string.Empty;
@@ -272,12 +308,12 @@ namespace AsteroidsGoneRogue
         {
             if (lastResolvedWave == 2)
             {
-                return "Gunner at wave 4";
+                return Loc.T("run.gunner_wave4", "Gunner at wave 4");
             }
 
             if (lastResolvedWave == 3)
             {
-                return "before Gunner";
+                return Loc.T("run.before_gunner", "before Gunner");
             }
 
             if (lastResolvedWave == 4 || lastResolvedWave == 5)
@@ -292,11 +328,15 @@ namespace AsteroidsGoneRogue
 
             if (lastResolvedWave == 1)
             {
-                return "★ " + MedalCatalog.ScoutWingTitle + " at wave "
-                    + MedalCatalog.ScoutWingClearsAtWave;
+                return Loc.Tf(
+                    "run.star_at",
+                    "★ " + MedalCatalog.ScoutWingTitle + " at wave "
+                        + MedalCatalog.ScoutWingClearsAtWave,
+                    MedalCatalog.Title(MedalId.ScoutWing),
+                    MedalCatalog.ScoutWingClearsAtWave);
             }
 
-            return "World 2 at wave " + World2StartsAtWave;
+            return Loc.Tf("run.world2_at", "World 2 at wave {0}", World2StartsAtWave);
         }
 
         public static ShopItem NextUnlock(int credits, LoadoutState loadout)

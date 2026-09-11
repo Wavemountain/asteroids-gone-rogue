@@ -53,19 +53,19 @@ namespace AsteroidsGoneRogue
             switch (id)
             {
                 case ArenaLayoutId.PylonRing:
-                    return "Pylon ring";
+                    return Loc.T("layout.pylon", "Pylon ring");
                 case ArenaLayoutId.SplitTrench:
-                    return "Split trench";
+                    return Loc.T("layout.trench", "Split trench");
                 case ArenaLayoutId.MineBelt:
-                    return "Mine belt";
+                    return Loc.T("layout.mines", "Mine belt");
                 case ArenaLayoutId.CrossGates:
-                    return "Cross gates";
+                    return Loc.T("layout.cross", "Cross gates");
                 case ArenaLayoutId.DebrisIslands:
-                    return "Debris islands";
+                    return Loc.T("layout.islands", "Debris islands");
                 case ArenaLayoutId.SpokeRing:
-                    return "Spoke ring";
+                    return Loc.T("layout.spokes", "Spoke ring");
                 default:
-                    return "Open";
+                    return Loc.T("layout.open", "Open");
             }
         }
 
@@ -74,19 +74,19 @@ namespace AsteroidsGoneRogue
             switch (id)
             {
                 case ArenaLayoutId.PylonRing:
-                    return "PYLONS";
+                    return Loc.T("badge.pylons", "PYLONS");
                 case ArenaLayoutId.SplitTrench:
-                    return "TRENCH";
+                    return Loc.T("badge.trench", "TRENCH");
                 case ArenaLayoutId.MineBelt:
-                    return "MINES";
+                    return Loc.T("badge.mines", "MINES");
                 case ArenaLayoutId.CrossGates:
-                    return "CROSS";
+                    return Loc.T("badge.cross", "CROSS");
                 case ArenaLayoutId.DebrisIslands:
-                    return "ISLANDS";
+                    return Loc.T("badge.islands", "ISLANDS");
                 case ArenaLayoutId.SpokeRing:
-                    return "SPOKES";
+                    return Loc.T("badge.spokes", "SPOKES");
                 default:
-                    return "OPEN";
+                    return Loc.T("badge.open", "OPEN");
             }
         }
 

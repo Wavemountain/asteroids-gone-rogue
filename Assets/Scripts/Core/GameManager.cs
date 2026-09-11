@@ -171,6 +171,20 @@ namespace AsteroidsGoneRogue
             RaiseStateChanged();
         }
 
+        public void NotifyPlayerDestroyed(DamageCause cause, EnemyKind kind)
+        {
+            if (_session.Phase != GamePhase.Playing)
+            {
+                return;
+            }
+
+            _ship.SetInputEnabled(false);
+            _waves.DespawnAll();
+            _session.FailWave(cause, kind);
+            RecordBest(_session.WaveIndex);
+            RaiseStateChanged();
+        }
+
         public void NotifyLoadoutChanged()
         {
             if (_ship != null)

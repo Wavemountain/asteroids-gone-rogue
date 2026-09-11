@@ -243,6 +243,7 @@ def main() -> int:
         "class ArenaHazard",
         "class MonsterPresence",
         "class TelegraphRing",
+        "class Loc",
         "enum GamePhase",
     ]
     blob = "\n".join(read(p) for p in scripts + editor_scripts)

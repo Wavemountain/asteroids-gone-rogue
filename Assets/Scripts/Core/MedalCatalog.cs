@@ -38,11 +38,11 @@ namespace AsteroidsGoneRogue
             switch (id)
             {
                 case MedalId.DeepOrbit:
-                    return DeepOrbitTitle;
+                    return Loc.T("medal.deep", DeepOrbitTitle);
                 case MedalId.FarDrift:
-                    return FarDriftTitle;
+                    return Loc.T("medal.far", FarDriftTitle);
                 default:
-                    return ScoutWingTitle;
+                    return Loc.T("medal.scout", ScoutWingTitle);
             }
         }
 
@@ -96,7 +96,7 @@ namespace AsteroidsGoneRogue
 
             if (world == World3EntryWorld)
             {
-                return World3EntryTitle;
+                return Loc.T("medal.world3", World3EntryTitle);
             }
 
             return string.Empty;
@@ -104,7 +104,7 @@ namespace AsteroidsGoneRogue
 
         public static string World3HangarLine()
         {
-            return "World 3 online  ·  " + World3EntryTitle;
+            return Loc.Tf("run.world3_online", "World 3 online  ·  {0}", Loc.T("medal.world3", World3EntryTitle));
         }
 
         public static float WorldEntryFlashSeconds(int world)

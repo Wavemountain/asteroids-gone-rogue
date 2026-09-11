@@ -21,9 +21,11 @@ namespace AsteroidsGoneRogue
 
         public static string Body()
         {
-            return "Audio\nKenney.nl + yd\n\n"
+            return Loc.T(
+                "credits.body",
+                "Audio\nKenney.nl + yd\n\n"
                 + "Fonts\nKenney Future\n\n"
-                + "Team\nSpelPM / GameBot / BlenderBot / AtmosBot / Speltest";
+                + "Team\nSpelPM / GameBot / BlenderBot / AtmosBot / Speltest");
         }
     }
 }

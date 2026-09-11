@@ -151,10 +151,7 @@ namespace AsteroidsGoneRogue
                 CombatJuice.PlayerDamaged(true);
                 if (_game != null)
                 {
-                    string reason = cause == DamageCause.EnemyContact
-                        ? DamageCauseText.FailReason(cause, enemyKind)
-                        : DamageCauseText.FailReason(cause);
-                    _game.NotifyPlayerDestroyed(reason);
+                    _game.NotifyPlayerDestroyed(cause, enemyKind);
                 }
             }
             else

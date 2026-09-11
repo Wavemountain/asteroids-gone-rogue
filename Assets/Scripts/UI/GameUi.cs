@@ -53,6 +53,20 @@ namespace AsteroidsGoneRogue
         private GameObject _endCreditsRoot;
         private Text _endCreditsBody;
         private Button _creditsButton;
+        private Text _creditsButtonLabel;
+        private Text _creditsContinueLabel;
+        private Text _firstFlightTitle;
+        private Text _firstFlightBody;
+        private Text _gotItLabel;
+        private Text _sfxLabel;
+        private Text _musicLabel;
+        private Text _hullHeader;
+        private Text _weaponsHeader;
+        private Text _defenseHeader;
+        private GameObject _langPanel;
+        private Text _langTitle;
+        private Image _enBezel;
+        private Image _svBezel;
         private bool _creditsVisible;
         private float _creditsScroll;
 
@@ -135,9 +149,20 @@ namespace AsteroidsGoneRogue
                 _audioPanel.SetActive(!playing);
             }
 
+            if (_langPanel != null)
+            {
+                _langPanel.SetActive(!playing);
+            }
+
+            ApplyLocalizedStaticLabels();
+            RefreshLanguageChrome();
+
             _hint.text = playing
-                ? "WASD move  ·  Mouse aim  ·  LMB / Space fire  ·  Q / RMB fire mode  ·  Esc abort"
-                : "WASD move  ·  Mouse aim  ·  LMB / Space fire  ·  " + HangarControlsHint;
+                ? Loc.T("ui.hint_play", "WASD move  ·  Mouse aim  ·  LMB / Space fire  ·  Q / RMB fire mode  ·  Esc abort")
+                : Loc.Tf(
+                    "ui.hint_hangar",
+                    "WASD move  ·  Mouse aim  ·  LMB / Space fire  ·  {0}",
+                    Loc.T("ui.hangar_controls", HangarControlsHint));
             RefreshWorldBadge();
             RefreshBadgeRow(playing);
             RefreshFirstHangarHint();
@@ -147,20 +172,20 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            _credits.text = "Credits: " + _session.Credits;
+            _credits.text = Loc.Tf("ui.credits_line", "Credits: {0}", _session.Credits);
             switch (_session.Phase)
             {
                 case GamePhase.WaveClear:
-                    _statusBase = HangarControlsHint;
-                    _primaryLabel.text = "Next Wave";
+                    _statusBase = Loc.T("ui.hangar_controls", HangarControlsHint);
+                    _primaryLabel.text = Loc.T("ui.next_wave", "Next Wave");
                     break;
                 case GamePhase.Failed:
                     _statusBase = DamageCauseText.PlayerFaultLine(FailReasonText());
-                    _primaryLabel.text = "Retry Wave";
+                    _primaryLabel.text = Loc.T("ui.retry_wave", "Retry Wave");
                     break;
                 default:
                     _statusBase = HangarReadyStatus();
-                    _primaryLabel.text = "Start Wave";
+                    _primaryLabel.text = Loc.T("ui.start_wave", "Start Wave");
                     break;
             }
 
@@ -178,10 +203,13 @@ namespace AsteroidsGoneRogue
         private string HangarReadyStatus()
         {
             string waveLine = !_tutorialDismissed && _session.WaveIndex == 1
-                ? "Hangar  ·  Clear a wave to earn credits and upgrades."
-                : "Hangar  ·  Wave " + _session.WaveIndex
-                    + "  ·  World " + ContentFactory.WorldIndexForWave(_session.WaveIndex)
-                    + " layout: " + ArenaLayout.Title(ArenaLayout.ForWave(_session.WaveIndex));
+                ? Loc.T("ui.hangar_clear_wave", "Hangar  ·  Clear a wave to earn credits and upgrades.")
+                : Loc.Tf(
+                    "ui.hangar_wave_line",
+                    "Hangar  ·  Wave {0}  ·  World {1} layout: {2}",
+                    _session.WaveIndex,
+                    ContentFactory.WorldIndexForWave(_session.WaveIndex),
+                    ArenaLayout.Title(ArenaLayout.ForWave(_session.WaveIndex)));
             string tease = RunSummary.MonsterTeaser(_session.WaveIndex);
             string hook = RunSummary.NextMedalHook(_session.WaveIndex);
             string extra = string.Empty;
@@ -195,7 +223,7 @@ namespace AsteroidsGoneRogue
                 extra += "\n" + hook;
             }
 
-            return waveLine + extra + "\n" + HangarControlsHint;
+            return waveLine + extra + "\n" + Loc.T("ui.hangar_controls", HangarControlsHint);
         }
 
         private void ApplyStatusText()
@@ -231,6 +259,7 @@ namespace AsteroidsGoneRogue
 
         private void Construct(string productTitle)
         {
+            Loc.EnsureLoaded();
             Font display = UiFonts.Display();
             Font body = UiFonts.Body();
             CreateFill("Scrim", transform, new Color(0.015f, 0.02f, 0.04f, 0.22f), new Vector2(0f, 0f), new Vector2(1f, 1f));
@@ -305,22 +334,25 @@ namespace AsteroidsGoneRogue
             _abortButton.gameObject.SetActive(false);
 
             _creditsButton = CreateButton("OpenCredits", transform, body, new Vector2(0.78f, 0.09f), new Vector2(0.97f, 0.155f));
-            Text creditsLabel = _creditsButton.GetComponentInChildren<Text>();
-            creditsLabel.text = "Credits";
-            creditsLabel.fontSize = 16;
+            _creditsButtonLabel = _creditsButton.GetComponentInChildren<Text>();
+            _creditsButtonLabel.text = "Credits";
+            _creditsButtonLabel.fontSize = 16;
             _creditsButton.onClick.AddListener(ShowEndCredits);
 
             BuildShop(display, body);
             BuildAudioControls(body);
+            BuildLanguagePicker(display, body);
             BuildFirstHangarHint(display, body);
             BuildEndCredits(display, body);
+            ApplyLocalizedStaticLabels();
+            RefreshLanguageChrome();
         }
 
         private void BuildShop(Font display, Font body)
         {
-            BuildGroupHeader(display, ShopCatalog.HullHeader, new Vector2(0.03f, 0.605f), new Vector2(0.60f, 0.66f));
-            BuildGroupHeader(display, ShopCatalog.WeaponsHeader, new Vector2(0.615f, 0.605f), new Vector2(0.80f, 0.66f));
-            BuildGroupHeader(display, ShopCatalog.DefenseHeader, new Vector2(0.815f, 0.605f), new Vector2(0.97f, 0.66f));
+            _hullHeader = BuildGroupHeader(display, ShopCatalog.HullHeader, new Vector2(0.03f, 0.605f), new Vector2(0.60f, 0.66f));
+            _weaponsHeader = BuildGroupHeader(display, ShopCatalog.WeaponsHeader, new Vector2(0.615f, 0.605f), new Vector2(0.80f, 0.66f));
+            _defenseHeader = BuildGroupHeader(display, ShopCatalog.DefenseHeader, new Vector2(0.815f, 0.605f), new Vector2(0.97f, 0.66f));
 
             int shopCount = ShopCatalog.Items.Length;
             _buyButtons = new Button[shopCount];
@@ -381,7 +413,7 @@ namespace AsteroidsGoneRogue
             hullIndex++;
         }
 
-        private void BuildGroupHeader(Font font, string label, Vector2 min, Vector2 max)
+        private Text BuildGroupHeader(Font font, string label, Vector2 min, Vector2 max)
         {
             Text header = CreateText("Group_" + label, _menuRoot.transform, font, 14, TextAnchor.MiddleLeft, FontStyle.Bold);
             Stretch(header.rectTransform, min, max);
@@ -389,6 +421,7 @@ namespace AsteroidsGoneRogue
             header.text = label;
             CreateFill("Rule_" + label, _menuRoot.transform, new Color(1f, 0.7f, 0.28f, 0.7f),
                 new Vector2(min.x, min.y), new Vector2(max.x, min.y + 0.008f));
+            return header;
         }
 
         private void BindShopHover(Button button, ShopItem item)
@@ -504,7 +537,7 @@ namespace AsteroidsGoneRogue
                 + "\n" + RunSummary.UpgradesLine(loadout);
             if (_game != null && _game.LastRunWasNewBest)
             {
-                body += "\nNEW BEST";
+                body += "\n" + Loc.T("ui.new_best", "NEW BEST");
             }
 
             _summaryBody.text = body;
@@ -578,20 +611,21 @@ namespace AsteroidsGoneRogue
             CreateFill("HintRule", _tutorialRoot.transform, new Color(1f, 0.78f, 0.34f, 0.85f),
                 new Vector2(0.08f, 0.932f), new Vector2(0.92f, 0.94f));
 
-            Text title = CreateText("HintTitle", _tutorialRoot.transform, display, 16, TextAnchor.UpperCenter, FontStyle.Bold);
-            Stretch(title.rectTransform, new Vector2(0.06f, 0.86f), new Vector2(0.94f, 0.97f));
-            title.color = new Color(1f, 0.86f, 0.44f);
-            title.text = "First flight";
+            _firstFlightTitle = CreateText("HintTitle", _tutorialRoot.transform, display, 16, TextAnchor.UpperCenter, FontStyle.Bold);
+            Stretch(_firstFlightTitle.rectTransform, new Vector2(0.06f, 0.86f), new Vector2(0.94f, 0.97f));
+            _firstFlightTitle.color = new Color(1f, 0.86f, 0.44f);
+            _firstFlightTitle.text = "First flight";
 
-            Text bodyText = CreateText("HintBody", _tutorialRoot.transform, body, 13, TextAnchor.UpperLeft, FontStyle.Normal);
-            Stretch(bodyText.rectTransform, new Vector2(0.07f, 0.2f), new Vector2(0.93f, 0.85f));
-            bodyText.color = new Color(0.92f, 0.92f, 0.88f);
-            bodyText.text = HangarHintBody;
+            _firstFlightBody = CreateText("HintBody", _tutorialRoot.transform, body, 13, TextAnchor.UpperLeft, FontStyle.Normal);
+            Stretch(_firstFlightBody.rectTransform, new Vector2(0.07f, 0.2f), new Vector2(0.93f, 0.85f));
+            _firstFlightBody.color = new Color(0.92f, 0.92f, 0.88f);
+            _firstFlightBody.text = HangarHintBody;
 
             Button gotIt = CreateButton("DismissHint", _tutorialRoot.transform, display,
                 new Vector2(0.12f, 0.04f), new Vector2(0.88f, 0.18f));
-            gotIt.GetComponentInChildren<Text>().text = "Got it";
-            gotIt.GetComponentInChildren<Text>().fontSize = 15;
+            _gotItLabel = gotIt.GetComponentInChildren<Text>();
+            _gotItLabel.text = "Got it";
+            _gotItLabel.fontSize = 15;
             gotIt.onClick.AddListener(OnDismissHintClicked);
             _tutorialRoot.SetActive(false);
         }
@@ -681,9 +715,9 @@ namespace AsteroidsGoneRogue
 
             Button cont = CreateButton("CreditsContinue", _endCreditsRoot.transform, display,
                 new Vector2(0.34f, 0.045f), new Vector2(0.66f, 0.13f));
-            Text contLabel = cont.GetComponentInChildren<Text>();
-            contLabel.text = "Continue";
-            contLabel.fontSize = 20;
+            _creditsContinueLabel = cont.GetComponentInChildren<Text>();
+            _creditsContinueLabel.text = "Continue";
+            _creditsContinueLabel.fontSize = 20;
             Image contPlate = cont.targetGraphic as Image;
             if (contPlate != null)
             {
@@ -707,6 +741,7 @@ namespace AsteroidsGoneRogue
             _creditsScroll = 0f;
             if (_endCreditsBody != null)
             {
+                _endCreditsBody.text = EndCredits.Body();
                 _endCreditsBody.rectTransform.anchoredPosition = Vector2.zero;
             }
 
@@ -769,12 +804,14 @@ namespace AsteroidsGoneRogue
             _muteLabel = _muteButton.GetComponentInChildren<Text>();
             _muteButton.onClick.AddListener(OnMute);
 
-            CreateText("SfxLabel", panel.transform, font, 16, TextAnchor.MiddleLeft, FontStyle.Normal).text = "SFX";
+            _sfxLabel = CreateText("SfxLabel", panel.transform, font, 16, TextAnchor.MiddleLeft, FontStyle.Normal);
+            _sfxLabel.text = "SFX";
             Stretch(panel.transform.Find("SfxLabel").GetComponent<RectTransform>(), new Vector2(0.4f, 0.55f), new Vector2(0.55f, 0.9f));
             _sfxSlider = CreateSlider("SfxSlider", panel.transform, new Vector2(0.56f, 0.58f), new Vector2(0.96f, 0.88f),
                 AudioCues.Instance != null ? AudioCues.Instance.SfxVolume : AudioCues.DefaultSfxVolume, OnSfxVolume);
 
-            CreateText("MusicLabel", panel.transform, font, 16, TextAnchor.MiddleLeft, FontStyle.Normal).text = "Music";
+            _musicLabel = CreateText("MusicLabel", panel.transform, font, 16, TextAnchor.MiddleLeft, FontStyle.Normal);
+            _musicLabel.text = "Music";
             Stretch(panel.transform.Find("MusicLabel").GetComponent<RectTransform>(), new Vector2(0.04f, 0.08f), new Vector2(0.28f, 0.48f));
             _musicSlider = CreateSlider("MusicSlider", panel.transform, new Vector2(0.3f, 0.1f), new Vector2(0.96f, 0.46f),
                 AudioCues.Instance != null ? AudioCues.Instance.MusicVolume : AudioCues.DefaultMusicVolume, OnMusicVolume);
@@ -826,7 +863,19 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            _muteLabel.text = AudioCues.Instance.Muted ? "Unmute" : "Mute";
+            _muteLabel.text = AudioCues.Instance.Muted
+                ? Loc.T("ui.unmute", "Unmute")
+                : Loc.T("ui.mute", "Mute");
+            if (_sfxLabel != null)
+            {
+                _sfxLabel.text = Loc.T("ui.sfx", "SFX");
+            }
+
+            if (_musicLabel != null)
+            {
+                _musicLabel.text = Loc.T("ui.music", "Music");
+            }
+
             if (_sfxSlider != null)
             {
                 _sfxSlider.SetValueWithoutNotify(AudioCues.Instance.SfxVolume);
@@ -835,6 +884,188 @@ namespace AsteroidsGoneRogue
             if (_musicSlider != null)
             {
                 _musicSlider.SetValueWithoutNotify(AudioCues.Instance.MusicVolume);
+            }
+        }
+
+        private void BuildLanguagePicker(Font display, Font body)
+        {
+            _langPanel = CreatePanel("LanguagePanel", transform, new Color(0.025f, 0.04f, 0.07f, 0.92f),
+                new Vector2(0.475f, 0.72f), new Vector2(0.668f, 0.86f));
+            CreateFill("LangHeader", _langPanel.transform, new Color(1f, 0.58f, 0.16f, 0.3f),
+                new Vector2(0f, 0.78f), new Vector2(1f, 1f));
+            CreateFill("LangRule", _langPanel.transform, new Color(1f, 0.82f, 0.4f, 0.88f),
+                new Vector2(0.08f, 0.76f), new Vector2(0.92f, 0.8f));
+
+            _langTitle = CreateText("LangTitle", _langPanel.transform, display, 13, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Stretch(_langTitle.rectTransform, new Vector2(0.06f, 0.78f), new Vector2(0.94f, 0.98f));
+            _langTitle.color = new Color(1f, 0.84f, 0.42f);
+
+            _enBezel = CreateFlagButton(
+                "UsFlag",
+                _langPanel.transform,
+                new Vector2(0.07f, 0.22f),
+                new Vector2(0.47f, 0.72f),
+                () => OnPickLanguage(GameLanguage.English));
+            BuildUsFlag(_enBezel.transform);
+
+            _svBezel = CreateFlagButton(
+                "SvFlag",
+                _langPanel.transform,
+                new Vector2(0.53f, 0.22f),
+                new Vector2(0.93f, 0.72f),
+                () => OnPickLanguage(GameLanguage.Swedish));
+            BuildSwedishFlag(_svBezel.transform);
+
+            Text enCaption = CreateText("EnCaption", _langPanel.transform, body, 11, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Stretch(enCaption.rectTransform, new Vector2(0.07f, 0.02f), new Vector2(0.47f, 0.2f));
+            enCaption.color = new Color(0.86f, 0.9f, 0.94f);
+            enCaption.text = "EN";
+
+            Text svCaption = CreateText("SvCaption", _langPanel.transform, body, 11, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Stretch(svCaption.rectTransform, new Vector2(0.53f, 0.02f), new Vector2(0.93f, 0.2f));
+            svCaption.color = new Color(0.86f, 0.9f, 0.94f);
+            svCaption.text = "SV";
+        }
+
+        private static Image CreateFlagButton(
+            string name,
+            Transform parent,
+            Vector2 min,
+            Vector2 max,
+            UnityEngine.Events.UnityAction onClick)
+        {
+            GameObject go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            Image image = go.AddComponent<Image>();
+            image.color = new Color(0.28f, 0.24f, 0.14f, 0.95f);
+            image.raycastTarget = true;
+            Button button = go.AddComponent<Button>();
+            ColorBlock colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1f, 0.92f, 0.62f, 1f);
+            colors.pressedColor = new Color(0.95f, 0.7f, 0.28f, 1f);
+            button.colors = colors;
+            button.onClick.AddListener(onClick);
+            Stretch(go.GetComponent<RectTransform>(), min, max);
+            return image;
+        }
+
+        private static void BuildUsFlag(Transform parent)
+        {
+            Color red = new Color(0.7f, 0.07f, 0.16f, 1f);
+            Color white = new Color(0.98f, 0.98f, 0.97f, 1f);
+            Color blue = new Color(0.04f, 0.09f, 0.38f, 1f);
+            const int Stripes = 7;
+            for (int i = 0; i < Stripes; i++)
+            {
+                float y1 = 1f - (i / (float)Stripes);
+                float y0 = 1f - ((i + 1) / (float)Stripes);
+                CreateFill("UsStripe" + i, parent, i % 2 == 0 ? red : white, new Vector2(0.06f, y0 + 0.04f), new Vector2(0.94f, y1 - 0.02f));
+            }
+
+            CreateFill("UsCanton", parent, blue, new Vector2(0.06f, 0.46f), new Vector2(0.46f, 0.96f));
+            for (int row = 0; row < 3; row++)
+            {
+                for (int col = 0; col < 3; col++)
+                {
+                    float x = 0.12f + col * 0.1f;
+                    float y = 0.56f + row * 0.12f;
+                    CreateFill("UsStar" + row + col, parent, white, new Vector2(x, y), new Vector2(x + 0.045f, y + 0.055f));
+                }
+            }
+        }
+
+        private static void BuildSwedishFlag(Transform parent)
+        {
+            Color blue = new Color(0f, 0.416f, 0.655f, 1f);
+            Color yellow = new Color(0.996f, 0.8f, 0f, 1f);
+            CreateFill("SvField", parent, blue, new Vector2(0.06f, 0.06f), new Vector2(0.94f, 0.94f));
+            CreateFill("SvCrossH", parent, yellow, new Vector2(0.06f, 0.38f), new Vector2(0.94f, 0.62f));
+            CreateFill("SvCrossV", parent, yellow, new Vector2(0.30f, 0.06f), new Vector2(0.50f, 0.94f));
+        }
+
+        private void OnPickLanguage(GameLanguage language)
+        {
+            Loc.SetLanguage(language);
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+
+            RefreshLanguageChrome();
+            Refresh();
+        }
+
+        private void RefreshLanguageChrome()
+        {
+            Color selected = new Color(1f, 0.82f, 0.38f, 1f);
+            Color idle = new Color(0.28f, 0.24f, 0.14f, 0.95f);
+            if (_enBezel != null)
+            {
+                _enBezel.color = Loc.Language == GameLanguage.English ? selected : idle;
+            }
+
+            if (_svBezel != null)
+            {
+                _svBezel.color = Loc.Language == GameLanguage.Swedish ? selected : idle;
+            }
+        }
+
+        private void ApplyLocalizedStaticLabels()
+        {
+            if (_abortLabel != null)
+            {
+                _abortLabel.text = Loc.T("ui.abort", "Abort → Hangar");
+            }
+
+            if (_creditsButtonLabel != null)
+            {
+                _creditsButtonLabel.text = Loc.T("ui.credits", "Credits");
+            }
+
+            if (_creditsContinueLabel != null)
+            {
+                _creditsContinueLabel.text = Loc.T("ui.continue", "Continue");
+            }
+
+            if (_endCreditsBody != null)
+            {
+                _endCreditsBody.text = EndCredits.Body();
+            }
+
+            if (_firstFlightTitle != null)
+            {
+                _firstFlightTitle.text = Loc.T("ui.first_flight", "First flight");
+            }
+
+            if (_firstFlightBody != null)
+            {
+                _firstFlightBody.text = Loc.T("ui.hangar_hint_body", HangarHintBody);
+            }
+
+            if (_gotItLabel != null)
+            {
+                _gotItLabel.text = Loc.T("ui.got_it", "Got it");
+            }
+
+            if (_langTitle != null)
+            {
+                _langTitle.text = Loc.T("ui.lang", "LANG");
+            }
+
+            if (_hullHeader != null)
+            {
+                _hullHeader.text = ShopCatalog.HeaderFor(ShopGroup.Hull);
+            }
+
+            if (_weaponsHeader != null)
+            {
+                _weaponsHeader.text = ShopCatalog.HeaderFor(ShopGroup.Weapons);
+            }
+
+            if (_defenseHeader != null)
+            {
+                _defenseHeader.text = ShopCatalog.HeaderFor(ShopGroup.Defense);
             }
         }
 
@@ -905,7 +1136,10 @@ namespace AsteroidsGoneRogue
                 _world.color = world3
                     ? Color.Lerp(new Color(0.82f, 0.94f, 1f), new Color(0.32f, 0.68f, 0.95f), pulse)
                     : Color.Lerp(new Color(1f, 0.92f, 0.62f), new Color(1f, 0.58f, 0.18f), pulse);
-                string flash = "LAYOUT SWAP\nWORLD " + _flashedWorld + "  ONLINE";
+                ArenaLayoutId flashId = ArenaLayout.ForWorld(_flashedWorld);
+                _flashedLayout = ArenaLayout.Title(flashId);
+                _flashedBadge = ArenaLayout.Badge(flashId);
+                string flash = Loc.Tf("ui.layout_swap", "LAYOUT SWAP\nWORLD {0}  ONLINE", _flashedWorld);
                 if (!string.IsNullOrEmpty(_flashedLayout))
                 {
                     string badge = string.IsNullOrEmpty(_flashedBadge)
@@ -940,7 +1174,11 @@ namespace AsteroidsGoneRogue
             }
 
             int world = ContentFactory.WorldIndexForWave(_session.WaveIndex);
-            _world.text = "WORLD " + world + "  ·  " + ArenaLayout.Badge(ArenaLayout.ForWorld(world));
+            _world.text = Loc.Tf(
+                "ui.world_badge",
+                "WORLD {0}  ·  {1}",
+                world,
+                ArenaLayout.Badge(ArenaLayout.ForWorld(world)));
             _world.color = new Color(1f, 0.82f, 0.28f);
         }
 
@@ -957,7 +1195,7 @@ namespace AsteroidsGoneRogue
             _badgeRow.gameObject.SetActive(show);
             if (show)
             {
-                _badgeRow.text = MedalLadderPrefix + "\n" + row;
+                _badgeRow.text = Loc.T("ui.medals", MedalLadderPrefix) + "\n" + row;
                 _badgeRow.fontSize = playing ? 14 : 16;
                 _badgeRow.color = playing
                     ? new Color(1f, 0.84f, 0.38f, 0.92f)
@@ -999,22 +1237,22 @@ namespace AsteroidsGoneRogue
             Color labelColor;
             if (owned)
             {
-                costLine = "OWNED";
+                costLine = Loc.T("ui.owned", "OWNED");
                 labelColor = new Color(0.55f, 0.82f, 0.72f, 0.95f);
             }
             else if (locked)
             {
-                costLine = "LOCKED";
+                costLine = Loc.T("ui.locked", "LOCKED");
                 labelColor = new Color(0.4f, 0.4f, 0.42f, 0.85f);
             }
             else if (tooPoor)
             {
-                costLine = "need " + item.Cost + " cr";
+                costLine = Loc.Tf("ui.need_cr", "need {0} cr", item.Cost);
                 labelColor = new Color(0.62f, 0.54f, 0.46f, 0.92f);
             }
             else
             {
-                costLine = item.Cost + " cr";
+                costLine = Loc.Tf("ui.cost_cr", "{0} cr", item.Cost);
                 labelColor = new Color(1f, 0.93f, 0.78f);
             }
 
@@ -1028,7 +1266,7 @@ namespace AsteroidsGoneRogue
             string line = best.CardLine();
             if (_game != null && _game.LastRunWasNewBest)
             {
-                return line + "  ·  NEW BEST";
+                return line + Loc.T("ui.new_best_dot", "  ·  NEW BEST");
             }
 
             return line;
@@ -1036,9 +1274,21 @@ namespace AsteroidsGoneRogue
 
         private string FailReasonText()
         {
-            if (_session == null || string.IsNullOrEmpty(_session.FailReason))
+            if (_session == null)
             {
-                return "Unknown cause";
+                return Loc.T("fail.unknown", "Unknown cause");
+            }
+
+            if (_session.HasStructuredFail)
+            {
+                return _session.FailCause == DamageCause.EnemyContact
+                    ? DamageCauseText.FailReason(_session.FailCause, _session.FailEnemyKind)
+                    : DamageCauseText.FailReason(_session.FailCause);
+            }
+
+            if (string.IsNullOrEmpty(_session.FailReason))
+            {
+                return Loc.T("fail.unknown", "Unknown cause");
             }
 
             return _session.FailReason;
@@ -1049,18 +1299,21 @@ namespace AsteroidsGoneRogue
             int hull = _ship != null && _ship.Health != null ? _ship.Health.Hull : LoadoutState.HullHitPoints;
             int shield = _ship != null && _ship.Health != null ? _ship.Health.Shield : _loadout.State.ShieldCharges;
             string remaining = playing && _waves != null
-                ? "   ·   Remaining " + _waves.RemainingThreats
+                ? Loc.Tf("ui.hud_remaining", "   ·   Remaining {0}", _waves.RemainingThreats)
                 : string.Empty;
             string fireMode = string.Empty;
             if (playing && _ship != null && _ship.Shooter != null
                 && _loadout != null && _loadout.State != null
                 && _loadout.State.HasAltFire)
             {
-                fireMode = "\nFire " + _ship.Shooter.Mode;
+                fireMode = Loc.Tf("ui.hud_fire", "\nFire {0}", Loc.FireModeName(_ship.Shooter.Mode));
             }
 
-            string scoreLine = "Wave " + _session.WaveIndex
-                + "   ·   Score " + _session.Score;
+            string scoreLine = Loc.Tf(
+                "ui.hud_wave_score",
+                "Wave {0}   ·   Score {1}",
+                _session.WaveIndex,
+                _session.Score);
             if (playing)
             {
                 scoreLine += PlayBestCompare();
@@ -1068,7 +1321,7 @@ namespace AsteroidsGoneRogue
 
             string hangarBest = playing ? string.Empty : "\n" + BestCardLine();
             return scoreLine
-                + "\nHull " + hull + "   ·   Shield " + shield
+                + "\n" + Loc.Tf("ui.hud_hull", "Hull {0}   ·   Shield {1}", hull, shield)
                 + remaining
                 + fireMode
                 + hangarBest;

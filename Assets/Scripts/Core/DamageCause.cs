@@ -18,27 +18,30 @@ namespace AsteroidsGoneRogue
             switch (cause)
             {
                 case DamageCause.AsteroidCollision:
-                    return "Asteroid collision";
+                    return Loc.T("fail.asteroid", "Asteroid collision");
                 case DamageCause.EnemyContact:
-                    return "Enemy contact";
+                    return Loc.T("fail.enemy", "Enemy contact");
                 case DamageCause.HazardContact:
-                    return "Arena hazard";
+                    return Loc.T("fail.hazard", "Arena hazard");
                 default:
-                    return "Unknown cause";
+                    return Loc.T("fail.unknown", "Unknown cause");
             }
         }
 
         public static string PlayerFaultLine(string failReason)
         {
-            string reason = string.IsNullOrEmpty(failReason) ? "Unknown cause" : failReason;
-            return reason + " — that was you. Loadout stays on Retry Wave.";
+            string reason = string.IsNullOrEmpty(failReason)
+                ? Loc.T("fail.unknown", "Unknown cause")
+                : failReason;
+            return Loc.Tf("fail.fault", "{0} — that was you. Loadout stays on Retry Wave.", reason);
         }
 
         public static string FailReason(DamageCause cause, EnemyKind kind)
         {
             if (cause == DamageCause.EnemyContact)
             {
-                return "Enemy contact (" + kind + ")";
+                string name = Loc.T("enemy." + kind, kind.ToString());
+                return Loc.Tf("fail.enemy_kind", "Enemy contact ({0})", name);
             }
 
             return FailReason(cause);

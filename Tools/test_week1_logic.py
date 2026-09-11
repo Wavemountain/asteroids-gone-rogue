@@ -1981,6 +1981,87 @@ def test_end_credits_040d() -> None:
     assert "AAA" in readme and "look bible" in readme.lower()
 
 
+def test_localization_040() -> None:
+    from pathlib import Path
+    import re
+
+    root = Path(__file__).resolve().parents[1]
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    catalog = (root / "Assets/Scripts/Core/ShopCatalog.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    cause = (root / "Assets/Scripts/Core/DamageCause.cs").read_text(encoding="utf-8")
+    medals = (root / "Assets/Scripts/Core/MedalCatalog.cs").read_text(encoding="utf-8")
+    layout = (root / "Assets/Scripts/Core/ArenaLayout.cs").read_text(encoding="utf-8")
+    credits_cs = (root / "Assets/Scripts/Core/EndCredits.cs").read_text(encoding="utf-8")
+    best = (root / "Assets/Scripts/Core/LocalBest.cs").read_text(encoding="utf-8")
+    health = (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
+    loadout = (root / "Assets/Scripts/Core/LoadoutState.cs").read_text(encoding="utf-8")
+    shooter = (root / "Assets/Scripts/Player/ShipShooter.cs").read_text(encoding="utf-8")
+    bootstrap = (root / "Assets/Scripts/Content/GameBootstrap.cs").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    checklist = (root / "MERGE_CHECKLIST.md").read_text(encoding="utf-8")
+    manifest = (root / "Packages/manifest.json").read_text(encoding="utf-8")
+    lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
+
+    assert 'PrefsKey = "agr.ui.language"' in loc
+    assert 'EnglishCode = "en"' in loc and 'SwedishCode = "sv"' in loc
+    assert "SetLanguage" in loc
+    assert "PlayerPrefs.SetString(PrefsKey" in loc
+    assert "PlayerPrefs.GetString(PrefsKey" in loc
+    assert "enum GameLanguage" in loc
+    assert "Starta våg" in loc
+    assert "Medverkande" in loc
+    assert "SKEPP FÖRLORAT" in loc
+    assert "Första flygningen" in loc
+    assert "LAYOUTBYTE" in loc
+    assert "Spejarvinge" in loc
+
+    assert "UsFlag" in ui and "SvFlag" in ui
+    assert "BuildUsFlag" in ui and "BuildSwedishFlag" in ui
+    assert "OnPickLanguage" in ui
+    assert "LanguagePanel" in ui
+    assert "Loc.SetLanguage" in ui
+    assert "ApplyLocalizedStaticLabels" in ui
+
+    assert "Loc.T(" in ui and "Loc.T(" in summary and "Loc.T(" in cause
+    assert "Loc.T(" in catalog and "Loc.T(" in medals and "Loc.T(" in layout
+    assert "Loc.T(" in credits_cs and "Loc.T(" in best
+    assert "HasStructuredFail" in session
+    assert "NotifyPlayerDestroyed(DamageCause cause, EnemyKind kind)" in manager
+    assert "NotifyPlayerDestroyed(cause, enemyKind)" in health
+    assert "FailReasonText" in ui
+
+    keys = set(re.findall(r'Loc\.Tf?\(\s*"([^"]+)"', "\n".join((loc, ui, catalog, summary, cause, medals, layout, credits_cs, best))))
+    swedish = set(re.findall(r'\{\s*"([^"]+)"\s*,', loc.split("private static readonly Dictionary")[1].split("};")[0]))
+    required = {
+        "ui.start_wave", "ui.next_wave", "ui.retry_wave", "ui.abort", "ui.credits",
+        "ui.hangar_hint_body", "ui.layout_swap", "ui.world_badge", "ui.credits_line",
+        "shop.header.hull", "shop.title.Seeker", "run.wave_clear", "run.ship_lost",
+        "fail.asteroid", "fail.hazard", "fail.unknown", "medal.scout", "layout.pylon",
+        "credits.body", "best.card",
+    }
+    missing_required = required - swedish
+    assert not missing_required, missing_required
+    missing_used = keys - swedish - {"shop.title.", "shop.desc.", "enemy.", "mode."}
+    dynamic_ok = {k for k in missing_used if k.startswith("shop.title.") or k.startswith("shop.desc.") or k.startswith("enemy.") or k.startswith("mode.")}
+    missing_used -= dynamic_ok
+    assert not missing_used, missing_used
+
+    assert "SeekerFireCooldown = 0.55f" in loadout
+    assert "SeekerFireCooldown" in shooter
+    assert "forceModuleActive" not in bootstrap
+    assert "com.unity.modules.vr" not in manifest
+    assert "com.unity.modules.xr" not in manifest
+    assert "com.unity.modules.vr" not in lock
+    assert "com.unity.modules.xr" not in lock
+    assert "agr.ui.language" in readme
+    assert "agr.ui.language" in checklist
+    assert "0.41" not in loc and "Release" not in loc
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -2010,6 +2091,7 @@ def main() -> int:
     test_weapons_upgrades_040b()
     test_art_parity_040c()
     test_end_credits_040d()
+    test_localization_040()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

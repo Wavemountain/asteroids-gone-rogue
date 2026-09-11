@@ -10,16 +10,26 @@ namespace AsteroidsGoneRogue
     public sealed class ShopItem
     {
         public readonly UpgradeId Id;
-        public readonly string Title;
-        public readonly string Description;
         public readonly int Cost;
         public readonly ShopGroup Group;
+        private readonly string _title;
+        private readonly string _description;
+
+        public string Title
+        {
+            get { return Loc.T("shop.title." + Id, _title); }
+        }
+
+        public string Description
+        {
+            get { return Loc.T("shop.desc." + Id, _description); }
+        }
 
         public ShopItem(UpgradeId id, string title, string description, int cost, ShopGroup group)
         {
             Id = id;
-            Title = title;
-            Description = description;
+            _title = title;
+            _description = description;
             Cost = cost;
             Group = group;
         }
@@ -142,11 +152,11 @@ namespace AsteroidsGoneRogue
             switch (group)
             {
                 case ShopGroup.Weapons:
-                    return WeaponsHeader;
+                    return Loc.T("shop.header.weapons", WeaponsHeader);
                 case ShopGroup.Defense:
-                    return DefenseHeader;
+                    return Loc.T("shop.header.defense", DefenseHeader);
                 default:
-                    return HullHeader;
+                    return Loc.T("shop.header.hull", HullHeader);
             }
         }
     }

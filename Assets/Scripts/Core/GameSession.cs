@@ -13,6 +13,9 @@ namespace AsteroidsGoneRogue
         public int Score { get; private set; }
         public int Credits { get; private set; }
         public string FailReason { get; private set; } = string.Empty;
+        public DamageCause FailCause { get; private set; }
+        public EnemyKind FailEnemyKind { get; private set; }
+        public bool HasStructuredFail { get; private set; }
         public int LastResolvedWave { get; private set; }
         public int LastCreditsAwarded { get; private set; }
         public int LastRunScore { get; private set; }
@@ -40,6 +43,9 @@ namespace AsteroidsGoneRogue
             }
 
             FailReason = string.Empty;
+            FailCause = DamageCause.Unknown;
+            FailEnemyKind = EnemyKind.Mid01;
+            HasStructuredFail = false;
             LastCreditsAwarded = 0;
             Phase = GamePhase.Playing;
         }
@@ -82,7 +88,29 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            HasStructuredFail = false;
+            FailCause = DamageCause.Unknown;
+            FailEnemyKind = EnemyKind.Mid01;
             FailReason = string.IsNullOrEmpty(reason) ? "Unknown cause" : reason;
+            LastResolvedWave = WaveIndex;
+            LastCreditsAwarded = 0;
+            LastRunScore = Score;
+            Phase = GamePhase.Failed;
+        }
+
+        public void FailWave(DamageCause cause, EnemyKind kind)
+        {
+            if (Phase != GamePhase.Playing)
+            {
+                return;
+            }
+
+            HasStructuredFail = true;
+            FailCause = cause;
+            FailEnemyKind = kind;
+            FailReason = cause == DamageCause.EnemyContact
+                ? DamageCauseText.FailReason(cause, kind)
+                : DamageCauseText.FailReason(cause);
             LastResolvedWave = WaveIndex;
             LastCreditsAwarded = 0;
             LastRunScore = Score;
@@ -105,6 +133,9 @@ namespace AsteroidsGoneRogue
             }
 
             FailReason = string.Empty;
+            FailCause = DamageCause.Unknown;
+            FailEnemyKind = EnemyKind.Mid01;
+            HasStructuredFail = false;
             Phase = GamePhase.Hangar;
         }
 

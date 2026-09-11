@@ -59,10 +59,10 @@ namespace AsteroidsGoneRogue
 
             if (IsBetter(Score, Wave, World, score, wave, world) || score > Score)
             {
-                return "  ·  NEW BEST";
+                return Loc.T("ui.new_best_dot", "  ·  NEW BEST");
             }
 
-            return " / Best " + Score;
+            return Loc.Tf("best.slash", " / Best {0}", Score);
         }
 
         public bool TryRecord(int score, int wave, int world)
@@ -99,10 +99,10 @@ namespace AsteroidsGoneRogue
         {
             if (!HasRecord)
             {
-                return "Best —";
+                return Loc.T("best.empty", "Best —");
             }
 
-            return "Best " + Score + "  ·  Wave " + Wave + "  ·  World " + World;
+            return Loc.Tf("best.card", "Best {0}  ·  Wave {1}  ·  World {2}", Score, Wave, World);
         }
     }
 }
