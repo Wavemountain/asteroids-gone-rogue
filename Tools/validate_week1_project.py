@@ -71,6 +71,8 @@ def main() -> int:
     require(ROOT / "Assets/Resources/Audio/Sfx/explosionCrunch_001.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/phaserUp5.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/phaserUp2.ogg")
+    require(ROOT / "Assets/Resources/Audio/Sfx/phaserDown3.ogg")
+    require(ROOT / "Assets/Resources/Audio/Sfx/forceField_001.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/lowFrequency_explosion_000.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/impactMetal_002.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/explosionCrunch_002.ogg")

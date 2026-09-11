@@ -106,9 +106,11 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 | SwarmPod / Mid death | Kenney Sci-Fi Sounds | `explosionCrunch_001.ogg` (no punch) |
 | SwarmPod spawn | Kenney Digital Audio | `phaserUp5.ogg` |
 | Swarm / Swarmling spawn | Kenney Digital Audio | `phaserUp2.ogg` |
+| Swarm hit | Kenney Sci-Fi Sounds | `forceField_001.ogg` |
+| Swarm death | Kenney Digital Audio | `phaserDown3.ogg` |
 | Brute spawn | Kenney Sci-Fi Sounds | `lowFrequency_explosion_000.ogg` |
-| Monster hit | Kenney Sci-Fi Sounds | `impactMetal_002.ogg` |
-| Brute / Swarm death | Kenney Sci-Fi Sounds | `explosionCrunch_002.ogg` |
+| Brute hit | Kenney Sci-Fi Sounds | `impactMetal_002.ogg` |
+| Brute death | Kenney Sci-Fi Sounds | `explosionCrunch_002.ogg` |
 | Player damage | Kenney Sci-Fi Sounds | `forceField_000.ogg` |
 | Arena world swap | Kenney Interface Sounds | `maximize_008.ogg` |
 | World 3 entry | Kenney Interface Sounds | `maximize_008.ogg` (hotter + short bed duck) |

@@ -20,9 +20,10 @@ Mirror used: https://opengameart.org/content/sci-fi-sounds (`sci-fi_sounds.zip`)
 | Hit | `Assets/Resources/Audio/Sfx/impactMetal_003.ogg` | `Audio/impactMetal_003.ogg` |
 | Hit punch layer | `Assets/Resources/Audio/Sfx/impactMetal_000.ogg` | `Audio/impactMetal_000.ogg` |
 | SwarmPod / Mid hit | `Assets/Resources/Audio/Sfx/impactMetal_001.ogg` | `Audio/impactMetal_001.ogg` (no punch) |
-| Monster hit (Brute / Swarm) | `Assets/Resources/Audio/Sfx/impactMetal_002.ogg` | `Audio/impactMetal_002.ogg` |
+| Brute hit | `Assets/Resources/Audio/Sfx/impactMetal_002.ogg` | `Audio/impactMetal_002.ogg` |
+| Swarm hit | `Assets/Resources/Audio/Sfx/forceField_001.ogg` | `Audio/forceField_001.ogg` |
 | Asteroid split | `Assets/Resources/Audio/Sfx/explosionCrunch_000.ogg` | `Audio/explosionCrunch_000.ogg` |
-| Brute / Swarm death | `Assets/Resources/Audio/Sfx/explosionCrunch_002.ogg` | `Audio/explosionCrunch_002.ogg` |
+| Brute death | `Assets/Resources/Audio/Sfx/explosionCrunch_002.ogg` | `Audio/explosionCrunch_002.ogg` |
 | Enemy death | `Assets/Resources/Audio/Sfx/explosionCrunch_003.ogg` | `Audio/explosionCrunch_003.ogg` |
 | Brute spawn | `Assets/Resources/Audio/Sfx/lowFrequency_explosion_000.ogg` | `Audio/lowFrequency_explosion_000.ogg` |
 | Enemy death punch | `Assets/Resources/Audio/Sfx/impactMetal_000.ogg` | `Audio/impactMetal_000.ogg` (layered; asteroid crunch stays `explosionCrunch_000` only) |
@@ -37,6 +38,7 @@ Source: https://kenney.nl/assets/digital-audio
 | --- | --- | --- |
 | SwarmPod spawn | `Assets/Resources/Audio/Sfx/phaserUp5.ogg` | `Audio/phaserUp5.ogg` |
 | Swarm / Swarmling spawn | `Assets/Resources/Audio/Sfx/phaserUp2.ogg` | `Audio/phaserUp2.ogg` |
+| Swarm death | `Assets/Resources/Audio/Sfx/phaserDown3.ogg` | `Audio/phaserDown3.ogg` |
 
 Pack: **Kenney Interface Sounds** (CC0)  
 Author: Kenney  
@@ -83,7 +85,7 @@ License text from the pack is at `Assets/Resources/Fonts/Kenney_Fonts_License.tx
 | Arena loop | `Assets/Resources/Audio/Music/OutThere.ogg` | Space Music: Out There | yd | CC0 | https://opengameart.org/content/space-music-out-there |
 | Hangar ambience | `Assets/Resources/Audio/Music/spacelifeNo14.ogg` | Spacelife #14 | yd | CC0 | https://opengameart.org/content/spacelife-14 |
 
-Hangar plays `spacelifeNo14` as a denser two-layer bed (pitch 0.94 + 1.02). Arena plays `OutThere` louder at concert pitch so the two beds stay distinct. Abort ducks the current bed under the whoosh. SwarmPod spawn ducks the bed briefly (0.62s gap / 0.86 scale) so `phaserUp5` cuts clutter. Brute spawn plays `lowFrequency_explosion_000` with a short bed duck. Swarm spawn uses `phaserUp2`. Wave 10 Far Drift plays `jingles_PIZZA16` instead of the wave-clear sting. World 3 entry reuses `maximize_008` slightly hotter with a short bed duck (no new jingle).
+Hangar plays `spacelifeNo14` as a denser two-layer bed (pitch 0.94 + 1.02). Arena plays `OutThere` louder at concert pitch so the two beds stay distinct. Abort ducks the current bed under the whoosh. SwarmPod spawn ducks the bed briefly (0.62s gap / 0.86 scale) so `phaserUp5` cuts clutter. Brute uses a heavy bank (`lowFrequency_explosion_000` spawn / `impactMetal_002` hit / `explosionCrunch_002` death). Swarm uses a lighter buzz bank (`phaserUp2` spawn / `forceField_001` hit / `phaserDown3` death) — not UI clicks. Wave 10 Far Drift plays `jingles_PIZZA16` instead of the wave-clear sting. World 3 entry reuses `maximize_008` slightly hotter with a short bed duck (no new jingle).
 
 ## Engine wiring
 

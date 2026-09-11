@@ -1405,10 +1405,27 @@ def test_monsters_arenas_040() -> None:
     assert "BruteSpawnScale" in spawn
     assert "_bruteSpawn" in spawn
     assert "_swarmSpawn" in spawn
+    assert "_worldChange" not in spawn
+    assert "_uiClick" not in spawn
+    assert "_purchase" not in spawn
+    hit_kind = audio.split("public void PlayHit(EnemyKind kind)")[1].split("public void")[0]
+    assert "_bruteHit" in hit_kind
+    assert "_swarmHit" in hit_kind
+    assert "_uiClick" not in hit_kind
+    assert "_purchase" not in hit_kind
+    death_kind = audio.split("public void PlayEnemyDeath(EnemyKind kind)")[1].split("public static bool")[0]
+    assert "_bruteDeath" in death_kind
+    assert "_swarmDeath" in death_kind
+    assert "_bruteDeath" in death_kind.split("EnemyKind.Brute")[1].split("EnemyKind.Swarm")[0]
+    assert "_swarmDeath" in death_kind.split("EnemyKind.Swarm")[1]
+    assert "_bruteDeath" not in death_kind.split("EnemyKind.Swarm")[1]
+    assert "_uiClick" not in death_kind
     assert 'Resources.Load<AudioClip>("Audio/Sfx/lowFrequency_explosion_000")' in audio
     assert 'Resources.Load<AudioClip>("Audio/Sfx/impactMetal_002")' in audio
     assert 'Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_002")' in audio
     assert 'Resources.Load<AudioClip>("Audio/Sfx/phaserUp2")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/forceField_001")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/phaserDown3")' in audio
     assert "UsesMonsterThreatSfx" in audio
     light = audio.split("public static bool UsesLightThreatSfx")[1].split("public static bool UsesMonsterThreatSfx")[0]
     assert "EnemyKind.Swarmling" in light
@@ -1439,6 +1456,8 @@ def test_monsters_arenas_040() -> None:
         "impactMetal_002.ogg",
         "explosionCrunch_002.ogg",
         "phaserUp2.ogg",
+        "forceField_001.ogg",
+        "phaserDown3.ogg",
     ):
         path = root / "Assets/Resources/Audio/Sfx" / clip
         assert path.is_file() and path.stat().st_size > 1000
@@ -1459,6 +1478,8 @@ def test_monsters_arenas_040() -> None:
     assert "Arial.ttf" not in ui
     assert "CC0" in credits
     assert "impactMetal_002" in credits
+    assert "forceField_001" in credits
+    assert "phaserDown3" in credits
 
 
 def main() -> int:
