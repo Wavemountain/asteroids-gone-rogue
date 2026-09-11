@@ -21,8 +21,7 @@ namespace AsteroidsGoneRogue
 
         public static string Body()
         {
-            return "Asteroids gone rogue\n\n"
-                + "Audio\nKenney.nl + yd\n\n"
+            return "Audio\nKenney.nl + yd\n\n"
                 + "Fonts\nKenney Future\n\n"
                 + "Team\nSpelPM / GameBot / BlenderBot / AtmosBot / Speltest";
         }

@@ -687,7 +687,7 @@ namespace AsteroidsGoneRogue
             Image contPlate = cont.targetGraphic as Image;
             if (contPlate != null)
             {
-                contPlate.color = new Color(0.42f, 0.26f, 0.08f, 0.98f);
+                contPlate.color = new Color(1f, 0.82f, 0.44f, 0.98f);
             }
 
             cont.onClick.AddListener(() => HideEndCredits(true));
@@ -719,7 +719,6 @@ namespace AsteroidsGoneRogue
 
             if (AudioCues.Instance != null)
             {
-                AudioCues.Instance.PlayUiClick();
                 AudioCues.Instance.PlayCreditsOpen();
                 AudioCues.Instance.PlayCreditsLoop();
             }

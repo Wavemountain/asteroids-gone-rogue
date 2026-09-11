@@ -1804,7 +1804,9 @@ def test_end_credits_040d() -> None:
     assert "_creditsClose" in close_fn and "_farDriftAward" in close_fn
 
     assert "class EndCredits" in credits_cs
-    assert 'return "Asteroids gone rogue"' in credits_cs
+    assert 'return "Asteroids gone rogue"' in credits_cs.split("public static string Title()")[1].split("public static string Body()")[0]
+    body_fn = credits_cs.split("public static string Body()")[1]
+    assert "Asteroids gone rogue" not in body_fn
     assert "Kenney.nl + yd" in credits_cs
     assert "Kenney Future" in credits_cs
     assert "SpelPM / GameBot / BlenderBot / AtmosBot / Speltest" in credits_cs
@@ -1814,11 +1816,16 @@ def test_end_credits_040d() -> None:
     assert "new UnityEngine.Color32(255, 209, 111, 255)" in credits_cs
     assert "new UnityEngine.Color32(184, 232, 255, 255)" in credits_cs
     assert "ShowEndCredits" in ui and "HideEndCredits" in ui
-    assert "PlayCreditsOpen" in ui and "PlayCreditsLoop" in ui
+    show_fn = ui.split("private void ShowEndCredits()")[1].split("private void HideEndCredits")[0]
+    assert "PlayCreditsOpen" in show_fn and "PlayCreditsLoop" in show_fn
+    assert "PlayUiClick" not in show_fn
     assert "StopCreditsMusic" in ui
     assert "EndCredits" in ui
     assert "RectMask2D" in ui
-    assert "Continue" in ui.split("BuildEndCredits")[1].split("private void ShowEndCredits")[0]
+    continue_fn = ui.split("private void BuildEndCredits")[1].split("private void ShowEndCredits")[0]
+    assert "Continue" in continue_fn
+    assert "new Color(1f, 0.82f, 0.44f, 0.98f)" in continue_fn
+    assert "new Color(0.42f, 0.26f, 0.08f, 0.98f)" not in continue_fn
     assert "OpenCredits" in ui
     assert "SHIP LOST" in summary
 
