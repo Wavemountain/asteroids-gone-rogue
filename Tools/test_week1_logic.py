@@ -2116,7 +2116,14 @@ def test_astro_env_040() -> None:
     assert "HealthRack" in ui
     assert "RefreshHealthBar" in ui
     assert "Image.Type.Filled" in ui
+    assert "fill.fillAmount = 1f" in ui
+    assert "_hullFill.fillAmount" in ui
+    assert "_shieldFill.fillAmount" in ui
+    assert "BarFillSprite" in ui
+    assert "HealthBarFill" in ui
+    assert "_shieldBarRow.SetActive(true)" in ui
     assert 'Loc.T("ui.health", "HEALTH")' in ui
+    assert "ArenaLip" in env
     assert "PlayVignette" in ui
     assert "* 0.35f" in ui
     assert "0.052f, 0.082f, 0.105f" in factory

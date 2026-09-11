@@ -51,6 +51,7 @@ namespace AsteroidsGoneRogue
         private Image _hullFill;
         private Image _shieldFill;
         private GameObject _shieldBarRow;
+        private static Sprite _barFillSprite;
         private bool _tutorialDismissed;
         private float _worldFlashUntil;
         private int _flashedWorld = 1;
@@ -1380,8 +1381,8 @@ namespace AsteroidsGoneRogue
 
         private void BuildHealthRack(Font display, Font body)
         {
-            _healthRoot = CreatePanel("HealthRack", transform, new Color(0.02f, 0.032f, 0.055f, 0.88f),
-                new Vector2(0.012f, 0.168f), new Vector2(0.34f, 0.318f));
+            _healthRoot = CreatePanel("HealthRack", transform, new Color(0.02f, 0.032f, 0.055f, 0.92f),
+                new Vector2(0.012f, 0.105f), new Vector2(0.38f, 0.305f));
             CreateFill("HealthHeader", _healthRoot.transform, new Color(1f, 0.58f, 0.16f, 0.3f),
                 new Vector2(0f, 0.82f), new Vector2(1f, 1f));
             CreateFill("HealthRule", _healthRoot.transform, new Color(1f, 0.82f, 0.4f, 0.9f),
@@ -1397,8 +1398,8 @@ namespace AsteroidsGoneRogue
                 _healthRoot.transform,
                 display,
                 body,
-                new Vector2(0.06f, 0.44f),
-                new Vector2(0.94f, 0.76f),
+                new Vector2(0.05f, 0.42f),
+                new Vector2(0.95f, 0.76f),
                 new Color(0.18f, 0.82f, 1f, 1f),
                 out _shieldBarLabel,
                 out _shieldBarCount,
@@ -1408,8 +1409,8 @@ namespace AsteroidsGoneRogue
                 _healthRoot.transform,
                 display,
                 body,
-                new Vector2(0.06f, 0.06f),
-                new Vector2(0.94f, 0.4f),
+                new Vector2(0.05f, 0.04f),
+                new Vector2(0.95f, 0.38f),
                 new Color(1f, 0.72f, 0.28f, 1f),
                 out _hullBarLabel,
                 out _hullBarCount,
@@ -1469,19 +1470,22 @@ namespace AsteroidsGoneRogue
             row.transform.SetParent(parent, false);
             Stretch(row.AddComponent<RectTransform>(), min, max);
 
-            label = CreateText(name + "Label", row.transform, display, 12, TextAnchor.MiddleLeft, FontStyle.Bold);
-            Stretch(label.rectTransform, new Vector2(0f, 0.52f), new Vector2(0.62f, 1f));
+            label = CreateText(name + "Label", row.transform, display, 13, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Stretch(label.rectTransform, new Vector2(0f, 0.64f), new Vector2(0.58f, 1f));
             label.color = new Color(0.92f, 0.94f, 0.9f);
 
-            count = CreateText(name + "Count", row.transform, body, 13, TextAnchor.MiddleRight, FontStyle.Bold);
-            Stretch(count.rectTransform, new Vector2(0.62f, 0.52f), new Vector2(1f, 1f));
+            count = CreateText(name + "Count", row.transform, body, 14, TextAnchor.MiddleRight, FontStyle.Bold);
+            Stretch(count.rectTransform, new Vector2(0.5f, 0.64f), new Vector2(1f, 1f));
             count.color = new Color(0.95f, 0.96f, 0.92f);
 
-            GameObject track = CreateFill(name + "Track", row.transform, new Color(0.06f, 0.08f, 0.1f, 0.95f),
-                new Vector2(0f, 0.04f), new Vector2(1f, 0.48f));
+            CreateFill(name + "Bezel", row.transform, new Color(0.75f, 0.82f, 0.9f, 0.35f),
+                new Vector2(0f, 0.02f), new Vector2(1f, 0.6f));
+            GameObject track = CreateFill(name + "Track", row.transform, new Color(0.05f, 0.06f, 0.08f, 0.96f),
+                new Vector2(0.012f, 0.07f), new Vector2(0.988f, 0.55f));
             GameObject fillGo = new GameObject(name + "Fill");
             fillGo.transform.SetParent(track.transform, false);
             fill = fillGo.AddComponent<Image>();
+            fill.sprite = BarFillSprite();
             fill.color = fillColor;
             fill.raycastTarget = false;
             fill.type = Image.Type.Filled;
@@ -1490,6 +1494,30 @@ namespace AsteroidsGoneRogue
             fill.fillAmount = 1f;
             Stretch(fill.rectTransform, Vector2.zero, Vector2.one);
             return row;
+        }
+
+        private static Sprite BarFillSprite()
+        {
+            if (_barFillSprite != null)
+            {
+                return _barFillSprite;
+            }
+
+            Texture2D tex = new Texture2D(8, 8, TextureFormat.ARGB32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Point;
+            for (int y = 0; y < 8; y++)
+            {
+                for (int x = 0; x < 8; x++)
+                {
+                    tex.SetPixel(x, y, Color.white);
+                }
+            }
+
+            tex.Apply();
+            tex.name = "HealthBarFill";
+            _barFillSprite = Sprite.Create(tex, new Rect(0f, 0f, 8f, 8f), new Vector2(0.5f, 0.5f), 8f);
+            return _barFillSprite;
         }
 
         private void RefreshHealthBar(bool playing)
@@ -1529,21 +1557,20 @@ namespace AsteroidsGoneRogue
                 _hullBarCount.text = hull + " / " + maxHull;
             }
 
-            bool showShield = maxShield > 0 || shield > 0;
             if (_shieldBarRow != null)
             {
-                _shieldBarRow.SetActive(showShield);
+                _shieldBarRow.SetActive(true);
             }
 
-            if (showShield && _shieldFill != null)
+            if (_shieldFill != null)
             {
                 int cap = Mathf.Max(1, maxShield);
-                _shieldFill.fillAmount = Mathf.Clamp01(shield / (float)cap);
+                _shieldFill.fillAmount = maxShield > 0 ? Mathf.Clamp01(shield / (float)cap) : 0f;
             }
 
             if (_shieldBarCount != null)
             {
-                _shieldBarCount.text = showShield ? shield + " / " + Mathf.Max(maxShield, 1) : string.Empty;
+                _shieldBarCount.text = shield + " / " + maxShield;
             }
         }
 

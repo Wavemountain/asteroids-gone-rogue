@@ -196,6 +196,7 @@ namespace AsteroidsGoneRogue
             CreateDome("NebulaInner", radius * NebulaInnerRadiusScale, _nebulaInner);
             CreateDustRing(radius * 2.35f);
             CreateGrid(radius);
+            CreatePlatformLip(radius);
             CreateBelt(radius * BeltRadiusScale);
             CreateRimLight();
         }
@@ -241,6 +242,41 @@ namespace AsteroidsGoneRogue
                 renderer.sharedMaterial = _grid;
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
+            }
+        }
+
+        private void CreatePlatformLip(float radius)
+        {
+            GameObject go = new GameObject("ArenaLip");
+            go.transform.SetParent(transform, false);
+            LineRenderer line = go.AddComponent<LineRenderer>();
+            line.loop = true;
+            line.useWorldSpace = false;
+            line.positionCount = 72;
+            line.widthMultiplier = 0.38f;
+            line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            line.receiveShadows = false;
+            Shader shader = Shader.Find("Unlit/Color");
+            if (shader == null)
+            {
+                shader = Shader.Find("Particles/Additive");
+            }
+
+            if (shader == null)
+            {
+                shader = Shader.Find("Standard");
+            }
+
+            Material material = new Material(shader);
+            material.name = "Mat_Env_Lip";
+            material.color = new Color(0.42f, 0.88f, 1f, 1f);
+            line.sharedMaterial = material;
+            line.startColor = material.color;
+            line.endColor = material.color;
+            for (int i = 0; i < 72; i++)
+            {
+                float ang = (i / 72f) * Mathf.PI * 2f;
+                line.SetPosition(i, new Vector3(Mathf.Cos(ang) * radius, 0.09f, Mathf.Sin(ang) * radius));
             }
         }
 
