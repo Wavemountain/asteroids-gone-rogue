@@ -32,6 +32,7 @@ namespace AsteroidsGoneRogue
         private Material _asteroid;
         private Material _enemy;
         private Material _arena;
+        private Material _astroRim;
         private Material _projectile;
         private Material _projectileSpread;
         private Material _projectilePierce;
@@ -90,6 +91,7 @@ namespace AsteroidsGoneRogue
             _asteroidB = MakeMaterial("Mat_Asteroid_B", new Color(0.46f, 0.3f, 0.22f), 0.04f, 0.14f);
             _enemy = MakeMaterial("Mat_Enemy", new Color(0.72f, 0.16f, 0.18f), 0.25f, 0.4f, new Color(0.6f, 0.05f, 0.08f));
             _arena = MakeMaterial("Mat_Arena", new Color(0.04f, 0.062f, 0.08f), 0.08f, 0.1f);
+            _astroRim = MakeMaterial("Mat_AstroRim", new Color(0.38f, 0.72f, 0.95f), 0.12f, 0.42f, new Color(0.2f, 0.65f, 1f) * 1.35f);
             _projectile = MakeMaterial("Mat_Projectile", new Color(1f, 0.92f, 0.42f), 0f, 0.35f, new Color(1f, 0.78f, 0.18f) * 3.4f);
             _projectileSpread = MakeMaterial("Mat_Projectile_Spread", new Color(1f, 0.42f, 0.08f), 0f, 0.28f, new Color(1f, 0.32f, 0.02f) * 4.4f);
             _projectilePierce = MakeMaterial("Mat_Projectile_Pierce", new Color(0.28f, 0.95f, 1f), 0f, 0.32f, new Color(0.12f, 0.7f, 1f) * 4.8f);
@@ -1200,6 +1202,11 @@ namespace AsteroidsGoneRogue
                     continue;
                 }
 
+                if (ContainsIgnoreCase(mesh.name, "Rim") || ContainsIgnoreCase(mesh.sharedMaterial != null ? mesh.sharedMaterial.name : string.Empty, "Rim"))
+                {
+                    continue;
+                }
+
                 Bounds local = mesh.localBounds;
                 if (local.size.x < 0.15f && local.size.z < 0.15f)
                 {
@@ -1734,7 +1741,12 @@ namespace AsteroidsGoneRogue
                 return ContainsIgnoreCase(name, "Accent") ? _accentHot : _enemy;
             }
 
-            if (ContainsIgnoreCase(name, "Arena"))
+            if (ContainsIgnoreCase(name, "AstroRim") || name == "Mat_AstroRim")
+            {
+                return _astroRim;
+            }
+
+            if (ContainsIgnoreCase(name, "Astro") || ContainsIgnoreCase(name, "Arena"))
             {
                 return _arena;
             }

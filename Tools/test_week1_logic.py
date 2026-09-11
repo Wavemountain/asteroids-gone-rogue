@@ -2117,6 +2117,8 @@ def test_astro_env_040() -> None:
     assert "DressAstroFloorColliders" in factory
     assert "AstroFloor_v2" in factory
     assert "Arena_AstroFloor_v2" in factory
+    assert 'MakeMaterial("Mat_AstroRim"' in factory
+    assert "AstroRim" in factory
     assert "box.center = new Vector3(0.64f, 1.55f, 0.15f)" in factory
     shooter = (root / "Assets/Scripts/Player/ShipController.cs").read_text(encoding="utf-8")
     assert "PlayHeight = 0.4f" in shooter
@@ -2148,10 +2150,11 @@ def test_astro_env_040() -> None:
     assert warm.count("\n            \"") == 54
     assert "Arena_AstroFloor" not in warm
     assert "AstroFloor_v2" not in warm
+    assert "Arena_AstroFloor_v2" not in warm
     assert "Arena_RockIsland_A" not in warm
 
     lfs_prefix = b"version https://git-lfs.github.com/spec/v1"
-    for name, min_size in (("Arena_AstroFloor", 80000), ("Arena_RockIsland_A", 40000)):
+    for name, min_size in (("Arena_AstroFloor", 80000), ("Arena_AstroFloor_v2", 80000), ("Arena_RockIsland_A", 40000)):
         art_fbx = root / f"Assets/Art/Import/{name}.fbx"
         res_fbx = root / f"Assets/Resources/Art/Import/{name}.fbx"
         assert art_fbx.is_file() and art_fbx.stat().st_size > min_size
