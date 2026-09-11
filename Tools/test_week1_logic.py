@@ -1316,7 +1316,7 @@ def test_steam_world3_038() -> None:
 
 def arena_layout_for_wave(wave: int) -> int:
     wave = max(1, wave)
-    return ((wave - 1) // 5 % 6) + 1
+    return ((wave - 1) // 5 % 7) + 1
 
 
 def test_monsters_arenas_040() -> None:
@@ -1368,6 +1368,14 @@ def test_monsters_arenas_040() -> None:
     assert "class MonsterPresence" in presence
     assert "SetCharging" in presence
     assert "AuraColor" in presence
+    assert "PlaySpawnRing" in presence
+    assert "PulseNest" in presence
+    assert "TelegraphRing" in presence
+    telegraph = (root / "Assets/Scripts/Combat/TelegraphRing.cs").read_text(encoding="utf-8")
+    assert "class TelegraphRing" in telegraph
+    assert "SpawnTelegraphRing" in factory
+    assert "TelegraphNest" in seeker
+    assert "PulseNest" in seeker
 
     roster = waves.split("public static EnemyKind[] RosterForWave")[1].split("public void Register")[0]
     assert "EnemyKind.Brute" in roster
@@ -1381,14 +1389,17 @@ def test_monsters_arenas_040() -> None:
     assert "MineBelt" in layout
     assert "CrossGates" in layout
     assert "DebrisIslands" in layout
+    assert "SpokeRing" in layout
     assert "WavesPerLayout = 5" in layout
+    assert "LayoutCount = 7" in layout
     assert arena_layout_for_wave(1) == 1
     assert arena_layout_for_wave(6) == 2
     assert arena_layout_for_wave(11) == 3
     assert arena_layout_for_wave(16) == 4
     assert arena_layout_for_wave(21) == 5
     assert arena_layout_for_wave(26) == 6
-    assert arena_layout_for_wave(31) == 1
+    assert arena_layout_for_wave(31) == 7
+    assert arena_layout_for_wave(36) == 1
     assert "return ArenaLayout.WorldIndexForWave(waveIndex)" in factory
     assert "BuildArenaLayout" in factory
     assert "PlaceHazardSpike" in factory
@@ -1476,8 +1487,24 @@ def test_monsters_arenas_040() -> None:
     assert "Pylon ring" in layout
     assert "_flashedLayout" in ui
     assert "WORLD " in ui
+    assert "LAYOUT SWAP" in ui
+    assert "layout:" in ui
     assert "PingPong(Time.unscaledTime * 3.2f" in ui
     assert "PingPong(Time.unscaledTime * 7f" not in ui
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    assert "MonsterTeaser" in summary
+    assert "Wave 8 Brute" in summary
+    assert "Wave 9 Swarm" in summary
+    assert "ShowFailContinue" in summary
+    assert "FailContinueHint" in summary
+    assert "Your hull" in summary
+    assert "Retry Wave" in summary
+    assert "MonsterTeaser" in ui
+    assert "FailContinueHint" in ui
+    assert "PlayerFaultLine" in cause
+    assert "PlayerFaultLine" in ui
+    assert "Spoke ring" in layout
+    assert "ArenaLayoutId.SpokeRing" in factory
 
     lfs_prefix = b"version https://git-lfs.github.com/spec/v1"
     for name, min_size in (

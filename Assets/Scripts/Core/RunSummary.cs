@@ -23,6 +23,7 @@ namespace AsteroidsGoneRogue
 
                 return "SHIP LOST  ·  " + failReason;
             }
+            }
 
             if (phase == GamePhase.WaveClear)
             {
@@ -78,6 +79,44 @@ namespace AsteroidsGoneRogue
         public static bool ShowContinueHint(int lastResolvedWave, GamePhase phase)
         {
             return phase == GamePhase.WaveClear && lastResolvedWave >= 1 && lastResolvedWave <= 9;
+        }
+
+        public static bool ShowFailContinue(GamePhase phase)
+        {
+            return phase == GamePhase.Failed;
+        }
+
+        public static string FailContinueHint(string failReason, int waveIndex)
+        {
+            string reason = string.IsNullOrEmpty(failReason) ? "Unknown cause" : failReason;
+            string tease = MonsterTeaser(waveIndex);
+            string keep = "Your hull. Credits and upgrades stay — Retry Wave.";
+            if (!string.IsNullOrEmpty(tease))
+            {
+                return reason + "  ·  " + keep + "\n" + tease;
+            }
+
+            return reason + "  ·  " + keep;
+        }
+
+        public static string MonsterTeaser(int nextWave)
+        {
+            if (nextWave == 7 || nextWave == 8)
+            {
+                return "Watch  ·  Wave 8 Brute — sidestep the charge";
+            }
+
+            if (nextWave == 9)
+            {
+                return "Watch  ·  Wave 9 Swarm — break the nest";
+            }
+
+            if (nextWave >= 10)
+            {
+                return "Watch  ·  Brute charges  ·  Swarm nests drop Swarmlings";
+            }
+
+            return string.Empty;
         }
 
         public static string AfterWave1Hint(int credits, LoadoutState loadout)

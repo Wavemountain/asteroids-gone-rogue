@@ -114,6 +114,7 @@ namespace AsteroidsGoneRogue
             {
                 if (_kind == EnemyKind.Swarm)
                 {
+                    TelegraphNest();
                     TrySpawnMinion();
                 }
 
@@ -136,6 +137,7 @@ namespace AsteroidsGoneRogue
             _body.linearVelocity = dir * speed;
             if (_kind == EnemyKind.Swarm)
             {
+                TelegraphNest();
                 TrySpawnMinion();
             }
             else
@@ -192,6 +194,19 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        private void TelegraphNest()
+        {
+            if (_kind != EnemyKind.Swarm || _presence == null)
+            {
+                return;
+            }
+
+            if (Time.time > _nextSpawn - 0.7f && Time.time < _nextSpawn)
+            {
+                _presence.PulseNest();
+            }
+        }
+
         private void TrySpawnMinion()
         {
             if (_kind != EnemyKind.Swarm || _factory == null || _waves == null)
@@ -209,6 +224,12 @@ namespace AsteroidsGoneRogue
             float angle = Random.Range(0f, Mathf.PI * 2f);
             Vector3 pos = transform.position + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * 1.6f;
             pos.y = 0f;
+            if (_presence != null)
+            {
+                _presence.PulseNest();
+            }
+
+            _factory.SpawnTelegraphRing(pos, new Color(0.12f, 0.88f, 1f), 0.55f);
             EnemySeeker minion = _factory.CreateEnemy(pos, _target, _waves, EnemyCatalog.VisualName(EnemyKind.Swarmling));
             if (minion != null)
             {

@@ -28,6 +28,12 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        public static string PlayerFaultLine(string failReason)
+        {
+            string reason = string.IsNullOrEmpty(failReason) ? "Unknown cause" : failReason;
+            return reason + " — that was you. Loadout stays on Retry Wave.";
+        }
+
         public static string FailReason(DamageCause cause, EnemyKind kind)
         {
             if (cause == DamageCause.EnemyContact)

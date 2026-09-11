@@ -44,6 +44,7 @@ namespace AsteroidsGoneRogue
         private float _worldFlashUntil;
         private int _flashedWorld = 1;
         private string _flashedLayout = string.Empty;
+        private string _flashedBadge = string.Empty;
         private string _medalBeat = string.Empty;
         private string _statusBase = string.Empty;
         private ShopItem _hoveredItem;
@@ -139,7 +140,7 @@ namespace AsteroidsGoneRogue
                     _primaryLabel.text = "Next Wave";
                     break;
                 case GamePhase.Failed:
-                    _statusBase = FailReasonText() + "  ·  Retry the wave";
+                    _statusBase = DamageCauseText.PlayerFaultLine(FailReasonText());
                     _primaryLabel.text = "Retry Wave";
                     break;
                 default:
@@ -165,14 +166,21 @@ namespace AsteroidsGoneRogue
                 ? "Hangar  ·  Clear a wave to earn credits and upgrades."
                 : "Hangar  ·  Wave " + _session.WaveIndex
                     + "  ·  World " + ContentFactory.WorldIndexForWave(_session.WaveIndex)
-                    + " · " + ArenaLayout.Title(ArenaLayout.ForWave(_session.WaveIndex)) + " ready";
+                    + " layout: " + ArenaLayout.Title(ArenaLayout.ForWave(_session.WaveIndex));
+            string tease = RunSummary.MonsterTeaser(_session.WaveIndex);
             string hook = RunSummary.NextMedalHook(_session.WaveIndex);
-            if (!string.IsNullOrEmpty(hook))
+            string extra = string.Empty;
+            if (!string.IsNullOrEmpty(tease))
             {
-                return waveLine + "\n" + hook + "\n" + HangarControlsHint;
+                extra += "\n" + tease;
             }
 
-            return waveLine + "\n" + HangarControlsHint;
+            if (!string.IsNullOrEmpty(hook))
+            {
+                extra += "\n" + hook;
+            }
+
+            return waveLine + extra + "\n" + HangarControlsHint;
         }
 
         private void ApplyStatusText()
@@ -487,7 +495,8 @@ namespace AsteroidsGoneRogue
                 }
             }
 
-            bool hint = RunSummary.ShowContinueHint(_session.LastResolvedWave, _session.Phase);
+            bool hint = RunSummary.ShowContinueHint(_session.LastResolvedWave, _session.Phase)
+                || RunSummary.ShowFailContinue(_session.Phase);
             if (medal)
             {
                 Stretch(_summaryBody.rectTransform, new Vector2(0.04f, 0.28f), new Vector2(0.96f, 0.76f));
@@ -502,7 +511,9 @@ namespace AsteroidsGoneRogue
             _continueHint.gameObject.SetActive(hint);
             if (hint)
             {
-                _continueHint.text = RunSummary.ContinueHint(_session.LastResolvedWave, _session.Credits, loadout);
+                _continueHint.text = _session.Phase == GamePhase.Failed
+                    ? RunSummary.FailContinueHint(FailReasonText(), _session.WaveIndex)
+                    : RunSummary.ContinueHint(_session.LastResolvedWave, _session.Credits, loadout);
             }
         }
 
@@ -685,7 +696,9 @@ namespace AsteroidsGoneRogue
         {
             _flashedWorld = world;
             _flashedLayout = ArenaLayout.Title(ArenaLayout.ForWorld(world));
-            _worldFlashUntil = Time.unscaledTime + 1.6f;
+            _flashedBadge = ArenaLayout.Badge(ArenaLayout.ForWorld(world));
+            _worldFlashUntil = Time.unscaledTime + 2.2f;
+            Stretch(_world.rectTransform, new Vector2(0.48f, 0.72f), new Vector2(0.97f, 0.98f));
             RefreshWorldBadge();
         }
 
@@ -734,10 +747,13 @@ namespace AsteroidsGoneRogue
                 _world.color = world3
                     ? Color.Lerp(new Color(0.82f, 0.94f, 1f), new Color(0.32f, 0.68f, 0.95f), pulse)
                     : Color.Lerp(new Color(1f, 0.92f, 0.62f), new Color(1f, 0.58f, 0.18f), pulse);
-                string flash = "WORLD " + _flashedWorld + "  ONLINE";
+                string flash = "LAYOUT SWAP\nWORLD " + _flashedWorld + "  ONLINE";
                 if (!string.IsNullOrEmpty(_flashedLayout))
                 {
-                    flash += "\n" + _flashedLayout.ToUpperInvariant();
+                    string badge = string.IsNullOrEmpty(_flashedBadge)
+                        ? _flashedLayout.ToUpperInvariant()
+                        : _flashedBadge;
+                    flash += "\n" + badge + "  ·  " + _flashedLayout.ToUpperInvariant();
                 }
 
                 if (!string.IsNullOrEmpty(_medalBeat))

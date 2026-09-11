@@ -11,13 +11,14 @@ namespace AsteroidsGoneRogue
         SplitTrench = 2,
         MineBelt = 3,
         CrossGates = 4,
-        DebrisIslands = 5
+        DebrisIslands = 5,
+        SpokeRing = 6
     }
 
     public static class ArenaLayout
     {
         public const int WavesPerLayout = 5;
-        public const int LayoutCount = 6;
+        public const int LayoutCount = 7;
 
         public static int WorldIndexForWave(int waveIndex)
         {
@@ -61,6 +62,8 @@ namespace AsteroidsGoneRogue
                     return "Cross gates";
                 case ArenaLayoutId.DebrisIslands:
                     return "Debris islands";
+                case ArenaLayoutId.SpokeRing:
+                    return "Spoke ring";
                 default:
                     return "Open";
             }
@@ -80,6 +83,8 @@ namespace AsteroidsGoneRogue
                     return "CROSS";
                 case ArenaLayoutId.DebrisIslands:
                     return "ISLANDS";
+                case ArenaLayoutId.SpokeRing:
+                    return "SPOKES";
                 default:
                     return "OPEN";
             }
@@ -90,7 +95,8 @@ namespace AsteroidsGoneRogue
             return id == ArenaLayoutId.PylonRing
                 || id == ArenaLayoutId.MineBelt
                 || id == ArenaLayoutId.DebrisIslands
-                || id == ArenaLayoutId.CrossGates;
+                || id == ArenaLayoutId.CrossGates
+                || id == ArenaLayoutId.SpokeRing;
         }
     }
 }

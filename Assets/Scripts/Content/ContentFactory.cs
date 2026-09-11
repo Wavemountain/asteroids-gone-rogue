@@ -21,6 +21,8 @@ namespace AsteroidsGoneRogue
         private GameObject _hangarDressing;
         private GameObject _arenaRoot;
         private string _arenaVisualName;
+        private bool _arenaApplied;
+        private ArenaLayoutId _arenaLayout;
         private Material _hull;
         private Material _accent;
         private Material _glass;
@@ -144,7 +146,13 @@ namespace AsteroidsGoneRogue
 
         public static string ArenaVisualForWave(int waveIndex)
         {
-            return ArenaWorlds[WorldIndexForWave(waveIndex) - 1];
+            int index = (WorldIndexForWave(waveIndex) - 1) % ArenaWorlds.Length;
+            if (index < 0)
+            {
+                index += ArenaWorlds.Length;
+            }
+
+            return ArenaWorlds[index];
         }
 
         public void ApplyArenaForWave(int waveIndex)
@@ -155,7 +163,8 @@ namespace AsteroidsGoneRogue
             }
 
             string visualName = ArenaVisualForWave(waveIndex);
-            if (visualName == _arenaVisualName)
+            ArenaLayoutId layout = ArenaLayout.ForWave(waveIndex);
+            if (_arenaApplied && visualName == _arenaVisualName && layout == _arenaLayout)
             {
                 return;
             }
@@ -181,8 +190,10 @@ namespace AsteroidsGoneRogue
                 floor.transform.position = new Vector3(0f, -0.08f, 0f);
             }
 
-            BuildArenaLayout(ArenaLayout.ForWave(waveIndex));
+            BuildArenaLayout(layout);
             _arenaVisualName = visualName;
+            _arenaLayout = layout;
+            _arenaApplied = true;
             if (announce)
             {
                 if (AudioCues.Instance != null)
@@ -955,6 +966,14 @@ namespace AsteroidsGoneRogue
             Destroy(root, lifetime);
         }
 
+        public void SpawnTelegraphRing(Vector3 position, Color color, float seconds)
+        {
+            GameObject root = new GameObject("TelegraphRing");
+            root.transform.position = new Vector3(position.x, 0.04f, position.z);
+            TelegraphRing ring = root.AddComponent<TelegraphRing>();
+            ring.Play(color, seconds);
+        }
+
         public void MaybeDropPickup(Vector3 position)
         {
             if (Random.value > 0.22f)
@@ -1142,6 +1161,19 @@ namespace AsteroidsGoneRogue
                     PlaceDebrisIsland(root, new Vector3(-10.5f, 0f, -11.5f), 1.1f);
                     PlaceHazardSpike(root, new Vector3(0f, 0f, 16.5f), 1.25f, true, 0f);
                     break;
+                case ArenaLayoutId.SpokeRing:
+                    for (int i = 0; i < 4; i++)
+                    {
+                        float angle = (Mathf.PI * 0.5f * i);
+                        Vector3 mid = Ring(11.5f, angle);
+                        Vector3 scale = Mathf.Abs(Mathf.Cos(angle)) > 0.5f
+                            ? new Vector3(10.5f, 1.6f, 1.15f)
+                            : new Vector3(1.15f, 1.6f, 10.5f);
+                        PlaceLayoutWall(root, mid + new Vector3(0f, 0.8f, 0f), scale, _layoutCyan);
+                        PlaceHazardSpike(root, Ring(7.2f, angle + 0.4f), 0.85f, false, angle * Mathf.Rad2Deg);
+                    }
+
+                    break;
                 default:
                     for (int i = 0; i < 8; i++)
                     {
@@ -1240,6 +1272,8 @@ namespace AsteroidsGoneRogue
                     return _washLime;
                 case ArenaLayoutId.DebrisIslands:
                     return _washRust;
+                case ArenaLayoutId.SpokeRing:
+                    return _washCyan;
                 default:
                     return _washCyan;
             }
