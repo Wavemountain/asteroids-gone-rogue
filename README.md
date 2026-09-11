@@ -24,6 +24,10 @@ Product name in Player Settings is exactly **Asteroids gone rogue**.
 
 HUD / hangar typography: bundled **Kenney Future** (titles, world badge, medals) and **Kenney Future Narrow** (HUD, shop, body). CC0, see CREDITS.md. LegacyRuntime is the Unity 6.6 fallback only.
 
+## Look bible (0.40+)
+
+Visuals stay **modern with a bit of retro arcade**. Audio stays **retro-modern chip/arcade** (AtmosBot Kenney list — clip names do not change). 0.40+ **UI, audio mix, and art wire** aim for **AAA / big-studio polish** even while the chip language stays. Monster and hazard presentation is tight and professional — aura, charge glow, spike rings, layout wash/rails — **not prototype-placeholder**.
+
 Editor helpers: menu **Asteroids gone rogue → Open Play Scene** / **Validate Week 1 Setup**.
 
 ## Controls
@@ -128,7 +132,7 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 - **Hangar only:** `Ship_Complete` v4 (parked bay display). **Not in Play:** `Ship_Complete_Upgrade01`, **`Ship_Body_Upgrade02`** (imported only; shop stops at Body Upgrade 01 + Nose/Engine 02).
 - Combat juice: light screen flash + camera shake on hits / explosions. Player death stays quiet.
 - **Ship_*** part slots share origin `0,0,0` so Rapid Fire / Nose Hardpoint / Body Upgrade stay a SetActive swap.
-- No extra ships, no 30-wave campaign, no extra worlds, no large shop, no polish pass, no multiplayer.
+- No extra ships, no 30-wave campaign, no extra worlds, no large shop, no multiplayer. Look-bible polish stays on 0.40+ UI / audio mix / art wire (monsters and hazards), not a new campaign system.
 - No Input System / URP / TextMeshPro (avoids extra first-open prompts). HUD uses bundled Kenney CC0 fonts via `Font` (LegacyRuntime fallback only; never Arial).
 
 `ContentFactory` builds the live ship / rocks / enemy at runtime so Play Mode does not depend on prefab field wiring.

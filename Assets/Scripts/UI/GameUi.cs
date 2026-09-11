@@ -728,12 +728,12 @@ namespace AsteroidsGoneRogue
 
             if (Time.unscaledTime < _worldFlashUntil)
             {
-                float pulse = Mathf.PingPong(Time.unscaledTime * 7f, 1f);
-                _world.fontSize = 32 + (int)(8f * pulse);
+                float pulse = Mathf.PingPong(Time.unscaledTime * 3.2f, 1f);
+                _world.fontSize = 30 + (int)(4f * pulse);
                 bool world3 = _flashedWorld == MedalCatalog.World3EntryWorld;
                 _world.color = world3
-                    ? Color.Lerp(new Color(0.75f, 0.95f, 1f), new Color(0.2f, 0.7f, 1f), pulse)
-                    : Color.Lerp(new Color(1f, 0.95f, 0.5f), new Color(1f, 0.45f, 0.08f), pulse);
+                    ? Color.Lerp(new Color(0.82f, 0.94f, 1f), new Color(0.32f, 0.68f, 0.95f), pulse)
+                    : Color.Lerp(new Color(1f, 0.92f, 0.62f), new Color(1f, 0.58f, 0.18f), pulse);
                 string flash = "WORLD " + _flashedWorld + "  ONLINE";
                 if (!string.IsNullOrEmpty(_flashedLayout))
                 {

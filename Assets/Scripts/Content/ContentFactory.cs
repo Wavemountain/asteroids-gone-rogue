@@ -53,6 +53,12 @@ namespace AsteroidsGoneRogue
         private Material _layoutOrange;
         private Material _layoutLime;
         private Material _layoutRust;
+        private Material _washCyan;
+        private Material _washMagenta;
+        private Material _washOrange;
+        private Material _washLime;
+        private Material _washRust;
+        private Material _layoutRail;
         private static readonly Color HangarAmbient = new Color(0.2f, 0.17f, 0.13f);
         private static readonly Color CombatAmbient = new Color(0.12f, 0.14f, 0.18f);
 
@@ -99,6 +105,12 @@ namespace AsteroidsGoneRogue
             _layoutOrange = MakeMaterial("Mat_Arena_Layout_Orange", new Color(0.72f, 0.28f, 0.08f), 0.12f, 0.18f, new Color(1f, 0.35f, 0.05f) * 1.4f);
             _layoutLime = MakeMaterial("Mat_Arena_Layout_Lime", new Color(0.28f, 0.62f, 0.16f), 0.12f, 0.18f, new Color(0.45f, 1f, 0.2f) * 1.15f);
             _layoutRust = MakeMaterial("Mat_Arena_Layout_Rust", new Color(0.42f, 0.22f, 0.14f), 0.08f, 0.14f, new Color(0.7f, 0.25f, 0.08f) * 0.9f);
+            _washCyan = MakeTransparent("Mat_Arena_Wash_Cyan", new Color(0.1f, 0.55f, 0.78f, 0.16f), new Color(0.08f, 0.55f, 0.95f) * 0.45f);
+            _washMagenta = MakeTransparent("Mat_Arena_Wash_Magenta", new Color(0.62f, 0.1f, 0.48f, 0.16f), new Color(0.85f, 0.08f, 0.62f) * 0.42f);
+            _washOrange = MakeTransparent("Mat_Arena_Wash_Orange", new Color(0.78f, 0.32f, 0.08f, 0.18f), new Color(1f, 0.32f, 0.05f) * 0.5f);
+            _washLime = MakeTransparent("Mat_Arena_Wash_Lime", new Color(0.28f, 0.62f, 0.16f, 0.15f), new Color(0.4f, 0.95f, 0.18f) * 0.4f);
+            _washRust = MakeTransparent("Mat_Arena_Wash_Rust", new Color(0.42f, 0.2f, 0.12f, 0.2f), new Color(0.65f, 0.22f, 0.08f) * 0.35f);
+            _layoutRail = MakeMaterial("Mat_Arena_Layout_Rail", new Color(0.95f, 0.82f, 0.42f), 0.35f, 0.55f, new Color(1f, 0.72f, 0.18f) * 1.8f);
             _shield = MakeTransparent("Mat_Shield", new Color(0.25f, 0.85f, 1f, 0.22f), new Color(0.2f, 0.7f, 1f) * 0.6f);
             ArtImport.WarmPlayModeAssets();
         }
@@ -684,6 +696,11 @@ namespace AsteroidsGoneRogue
                 ScaleImportedVisual(root.transform, 0.45f);
             }
 
+            if (EnemyCatalog.IsMonster(kind) || kind == EnemyKind.Swarmling)
+            {
+                DressMonsterPresence(root, kind);
+            }
+
             EnemySeeker seeker = root.AddComponent<EnemySeeker>();
             seeker.Initialize(player, waves, kind);
             if (AudioCues.Instance != null)
@@ -1024,35 +1041,49 @@ namespace AsteroidsGoneRogue
             if (kind == EnemyKind.Brute)
             {
                 CreatePrimitive(PrimitiveType.Cube, "Hull", parent, _brute,
-                    new Vector3(0f, 0.15f, 0f), new Vector3(1.7f, 1.15f, 1.5f), Quaternion.identity);
+                    new Vector3(0f, 0.22f, 0.05f), new Vector3(1.55f, 1.05f, 1.35f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Cube, "Chest", parent, _accentHot,
+                    new Vector3(0f, 0.38f, 0.55f), new Vector3(0.85f, 0.55f, 0.28f), Quaternion.identity);
                 CreatePrimitive(PrimitiveType.Cube, "Shoulder_L", parent, _accentHot,
-                    new Vector3(-0.85f, 0.55f, 0.1f), new Vector3(0.55f, 0.45f, 0.7f), Quaternion.identity);
+                    new Vector3(-0.92f, 0.62f, 0.08f), new Vector3(0.48f, 0.42f, 0.72f), Quaternion.Euler(0f, 0f, 12f));
                 CreatePrimitive(PrimitiveType.Cube, "Shoulder_R", parent, _accentHot,
-                    new Vector3(0.85f, 0.55f, 0.1f), new Vector3(0.55f, 0.45f, 0.7f), Quaternion.identity);
+                    new Vector3(0.92f, 0.62f, 0.08f), new Vector3(0.48f, 0.42f, 0.72f), Quaternion.Euler(0f, 0f, -12f));
+                CreatePrimitive(PrimitiveType.Cube, "Pauldron", parent, _brute,
+                    new Vector3(0f, 0.78f, -0.15f), new Vector3(1.15f, 0.22f, 0.85f), Quaternion.identity);
                 CreatePrimitive(PrimitiveType.Cube, "Horn", parent, _brute,
-                    new Vector3(0f, 0.85f, 0.55f), new Vector3(0.28f, 0.55f, 0.28f), Quaternion.Euler(25f, 0f, 0f));
+                    new Vector3(0f, 0.98f, 0.52f), new Vector3(0.22f, 0.62f, 0.22f), Quaternion.Euler(22f, 0f, 0f));
+                CreatePrimitive(PrimitiveType.Cube, "Tusk_L", parent, _accentWarm,
+                    new Vector3(-0.28f, 0.55f, 0.78f), new Vector3(0.12f, 0.12f, 0.42f), Quaternion.Euler(12f, -8f, 0f));
+                CreatePrimitive(PrimitiveType.Cube, "Tusk_R", parent, _accentWarm,
+                    new Vector3(0.28f, 0.55f, 0.78f), new Vector3(0.12f, 0.12f, 0.42f), Quaternion.Euler(12f, 8f, 0f));
                 return true;
             }
 
             if (kind == EnemyKind.Swarm)
             {
                 CreatePrimitive(PrimitiveType.Sphere, "Core", parent, _swarm,
-                    new Vector3(0f, 0.25f, 0f), new Vector3(1.35f, 1.35f, 1.35f), Quaternion.identity);
+                    new Vector3(0f, 0.28f, 0f), new Vector3(1.28f, 1.18f, 1.28f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Sphere, "Halo", parent, _swarmling,
+                    new Vector3(0f, 0.42f, 0f), new Vector3(1.62f, 0.22f, 1.62f), Quaternion.identity);
                 CreatePrimitive(PrimitiveType.Sphere, "Nodule_A", parent, _swarmling,
-                    new Vector3(0.7f, 0.45f, 0.2f), new Vector3(0.45f, 0.45f, 0.45f), Quaternion.identity);
+                    new Vector3(0.72f, 0.48f, 0.22f), new Vector3(0.42f, 0.42f, 0.42f), Quaternion.identity);
                 CreatePrimitive(PrimitiveType.Sphere, "Nodule_B", parent, _swarmling,
-                    new Vector3(-0.55f, 0.55f, -0.25f), new Vector3(0.4f, 0.4f, 0.4f), Quaternion.identity);
+                    new Vector3(-0.58f, 0.58f, -0.28f), new Vector3(0.36f, 0.36f, 0.36f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Sphere, "Nodule_C", parent, _swarm,
+                    new Vector3(0.15f, 0.82f, -0.55f), new Vector3(0.32f, 0.32f, 0.32f), Quaternion.identity);
                 CreatePrimitive(PrimitiveType.Cylinder, "Stalk", parent, _swarm,
-                    new Vector3(0f, 0.95f, 0f), new Vector3(0.22f, 0.35f, 0.22f), Quaternion.identity);
+                    new Vector3(0f, 1.02f, 0f), new Vector3(0.18f, 0.32f, 0.18f), Quaternion.identity);
                 return true;
             }
 
             if (kind == EnemyKind.Swarmling)
             {
                 CreatePrimitive(PrimitiveType.Sphere, "Body", parent, _swarmling,
-                    Vector3.zero, new Vector3(0.55f, 0.42f, 0.55f), Quaternion.identity);
+                    Vector3.zero, new Vector3(0.52f, 0.4f, 0.52f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Sphere, "Eye", parent, _swarm,
+                    new Vector3(0f, 0.08f, 0.22f), new Vector3(0.18f, 0.18f, 0.18f), Quaternion.identity);
                 CreatePrimitive(PrimitiveType.Cube, "Fin", parent, _swarm,
-                    new Vector3(0f, 0.12f, -0.22f), new Vector3(0.55f, 0.06f, 0.22f), Quaternion.identity);
+                    new Vector3(0f, 0.1f, -0.24f), new Vector3(0.48f, 0.05f, 0.2f), Quaternion.identity);
                 return true;
             }
 
@@ -1154,6 +1185,10 @@ namespace AsteroidsGoneRogue
             body.isKinematic = true;
             body.constraints = RigidbodyConstraints.FreezeAll;
             wall.AddComponent<ArenaHazard>().Damaging = false;
+            CreatePrimitive(PrimitiveType.Cube, "LayoutRail", parent, _layoutRail,
+                position + new Vector3(0f, scale.y * 0.52f, 0f),
+                new Vector3(scale.x * 1.04f, 0.07f, scale.z * 1.04f),
+                Quaternion.identity);
         }
 
         private void PlaceHazardSpike(Transform parent, Vector3 position, float scale, bool damaging, float yaw)
@@ -1183,6 +1218,7 @@ namespace AsteroidsGoneRogue
             ArenaHazard hazard = root.AddComponent<ArenaHazard>();
             hazard.Damaging = damaging;
             hazard.Damage = 1;
+            DressHazardSpike(root, hazard, damaging);
         }
 
         private static Vector3 Ring(float radius, float angle)
@@ -1195,17 +1231,89 @@ namespace AsteroidsGoneRogue
             switch (layout)
             {
                 case ArenaLayoutId.PylonRing:
-                    return _layoutCyan;
+                    return _washCyan;
                 case ArenaLayoutId.SplitTrench:
-                    return _layoutMagenta;
+                    return _washMagenta;
                 case ArenaLayoutId.MineBelt:
-                    return _layoutOrange;
+                    return _washOrange;
                 case ArenaLayoutId.CrossGates:
-                    return _layoutLime;
+                    return _washLime;
                 case ArenaLayoutId.DebrisIslands:
-                    return _layoutRust;
+                    return _washRust;
                 default:
-                    return _arena;
+                    return _washCyan;
+            }
+        }
+
+        private void DressMonsterPresence(GameObject root, EnemyKind kind)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            Color aura;
+            float range;
+            if (kind == EnemyKind.Brute)
+            {
+                aura = new Color(1f, 0.32f, 0.1f);
+                range = 8.2f;
+            }
+            else if (kind == EnemyKind.Swarmling)
+            {
+                aura = new Color(0.28f, 1f, 0.48f);
+                range = 4.1f;
+            }
+            else
+            {
+                aura = new Color(0.12f, 0.88f, 1f);
+                range = 6.4f;
+            }
+
+            MonsterPresence presence = root.GetComponent<MonsterPresence>();
+            if (presence == null)
+            {
+                presence = root.AddComponent<MonsterPresence>();
+            }
+
+            presence.Configure(aura, range);
+        }
+
+        private void DressHazardSpike(GameObject root, ArenaHazard hazard, bool damaging)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            Material ringMat = damaging ? _accentHot : _layoutRail;
+            CreatePrimitive(PrimitiveType.Cylinder, "SpikeRing", root.transform, ringMat,
+                new Vector3(0f, 0.06f, 0f), new Vector3(1.15f, 0.05f, 1.15f), Quaternion.identity);
+            CreatePrimitive(PrimitiveType.Cylinder, "SpikeWell", root.transform, damaging ? _hazardSpike : _layoutCyan,
+                new Vector3(0f, 0.02f, 0f), new Vector3(0.72f, 0.03f, 0.72f), Quaternion.identity);
+
+            Transform existing = root.transform.Find("SpikeLight");
+            GameObject lightGo = existing != null ? existing.gameObject : new GameObject("SpikeLight");
+            lightGo.transform.SetParent(root.transform, false);
+            lightGo.transform.localPosition = new Vector3(0f, 1.55f, 0f);
+            Light glow = lightGo.GetComponent<Light>();
+            if (glow == null)
+            {
+                glow = lightGo.AddComponent<Light>();
+            }
+
+            glow.type = LightType.Point;
+            glow.shadows = LightShadows.None;
+            glow.color = damaging ? new Color(1f, 0.38f, 0.08f) : new Color(0.35f, 0.78f, 1f);
+            glow.range = damaging ? 6.4f : 4.6f;
+            glow.intensity = damaging ? 1.55f : 0.78f;
+            Color emit = damaging
+                ? new Color(1f, 0.28f, 0.05f) * 2.2f
+                : new Color(0.2f, 0.72f, 1f) * 1.15f;
+            DressEnemyEmission(root.transform, emit);
+            if (hazard != null)
+            {
+                hazard.DressPulse(emit, glow);
             }
         }
 

@@ -1362,6 +1362,12 @@ def test_monsters_arenas_040() -> None:
     assert "EnemyKind.Swarmling" in seeker
     assert "FindAnyObjectByType<ContentFactory>" in seeker
     assert "GetInstanceID" not in seeker
+    assert "SetCharging" in seeker
+    assert "MonsterPresence" in seeker
+    presence = (root / "Assets/Scripts/Combat/MonsterPresence.cs").read_text(encoding="utf-8")
+    assert "class MonsterPresence" in presence
+    assert "SetCharging" in presence
+    assert "AuraColor" in presence
 
     roster = waves.split("public static EnemyKind[] RosterForWave")[1].split("public void Register")[0]
     assert "EnemyKind.Brute" in roster
@@ -1390,8 +1396,15 @@ def test_monsters_arenas_040() -> None:
     assert "BuildMonsterPlaceholder" in factory
     assert "DressBruteMesh" in factory
     assert "DressSwarmMesh" in factory
+    assert "DressMonsterPresence" in factory
+    assert "DressHazardSpike" in factory
+    assert "LayoutRail" in factory
+    assert "Mat_Arena_Wash_Cyan" in factory
+    assert "MakeTransparent(\"Mat_Arena_Wash_Cyan\"" in factory or "Mat_Arena_Wash_Cyan" in factory
     assert "DamageCause.HazardContact" in hazard
     assert "Arena hazard" in cause
+    assert "PulseVisual" in hazard
+    assert "DressPulse" in hazard
 
     warm = art.split("PlayModeAssets")[1].split("};")[0]
     assert warm.count("\n            \"") == 54
@@ -1447,6 +1460,8 @@ def test_monsters_arenas_040() -> None:
     assert "Pylon ring" in layout
     assert "_flashedLayout" in ui
     assert "WORLD " in ui
+    assert "PingPong(Time.unscaledTime * 3.2f" in ui
+    assert "PingPong(Time.unscaledTime * 7f" not in ui
 
     lfs_prefix = b"version https://git-lfs.github.com/spec/v1"
     for name, min_size in (
@@ -1502,6 +1517,14 @@ def test_monsters_arenas_040() -> None:
     assert "forceField_001" in credits
     assert "AtmosBot" in credits
     assert "retro-modern" in credits.lower()
+    assert "AAA" in readme and "big-studio" in readme.lower()
+    assert "look bible" in readme.lower()
+    assert "retro-modern chip" in readme.lower() or "retro-modern chip" in credits.lower()
+    assert "prototype-placeholder" in readme.lower()
+    assert "look bible" in checklist.lower()
+    assert "MonsterPresence" in checklist
+    assert "AAA mix polish" in credits
+    assert "AAA mix polish" in audio
 
 
 def main() -> int:

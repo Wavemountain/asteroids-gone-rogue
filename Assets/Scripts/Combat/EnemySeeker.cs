@@ -18,6 +18,7 @@ namespace AsteroidsGoneRogue
         private bool _dead;
         private Rigidbody _body;
         private ContentFactory _factory;
+        private MonsterPresence _presence;
         private float _nextShot;
         private float _nextSpawn;
         private float _chargeUntil;
@@ -45,6 +46,7 @@ namespace AsteroidsGoneRogue
             _dead = false;
             _body = GetComponent<Rigidbody>();
             _factory = Object.FindAnyObjectByType<ContentFactory>();
+            _presence = GetComponent<MonsterPresence>();
             _nextShot = Time.time + 0.85f;
             _nextSpawn = Time.time + 1.6f;
             _chargeUntil = 0f;
@@ -158,7 +160,17 @@ namespace AsteroidsGoneRogue
             {
                 speed = EnemyCatalog.BruteChargeSpeed;
                 turn = EnemyCatalog.BruteChargeTurn;
+                if (_presence != null)
+                {
+                    _presence.SetCharging(true);
+                }
+
                 return;
+            }
+
+            if (_presence != null)
+            {
+                _presence.SetCharging(false);
             }
 
             if (now < _restUntil)
@@ -173,6 +185,10 @@ namespace AsteroidsGoneRogue
                 _restUntil = _chargeUntil + EnemyCatalog.BruteRestSeconds;
                 speed = EnemyCatalog.BruteChargeSpeed;
                 turn = EnemyCatalog.BruteChargeTurn;
+                if (_presence != null)
+                {
+                    _presence.SetCharging(true);
+                }
             }
         }
 

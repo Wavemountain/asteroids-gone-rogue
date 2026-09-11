@@ -137,6 +137,7 @@ def main() -> int:
         "class MedalCatalog",
         "class ArenaLayout",
         "class ArenaHazard",
+        "class MonsterPresence",
         "enum GamePhase",
     ]
     blob = "\n".join(read(p) for p in scripts + editor_scripts)

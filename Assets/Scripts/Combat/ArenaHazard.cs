@@ -9,6 +9,57 @@ namespace AsteroidsGoneRogue
     {
         public int Damage = 1;
         public bool Damaging;
+        public bool PulseVisual;
+
+        private MeshRenderer[] _renderers;
+        private Light _glow;
+        private MaterialPropertyBlock _block;
+        private Color _baseEmit = new Color(1f, 0.28f, 0.06f);
+        private float _phase;
+
+        public void DressPulse(Color emit, Light glow)
+        {
+            PulseVisual = true;
+            _baseEmit = emit;
+            _glow = glow;
+            _renderers = GetComponentsInChildren<MeshRenderer>(true);
+            _block = new MaterialPropertyBlock();
+        }
+
+        private void Update()
+        {
+            if (!PulseVisual)
+            {
+                return;
+            }
+
+            if (_renderers == null)
+            {
+                _renderers = GetComponentsInChildren<MeshRenderer>(true);
+                _block = new MaterialPropertyBlock();
+            }
+
+            _phase += Time.deltaTime * (Damaging ? 5.4f : 2.1f);
+            float pulse = 0.72f + Mathf.Sin(_phase) * (Damaging ? 0.38f : 0.16f);
+            Color emit = _baseEmit * pulse;
+            for (int i = 0; i < _renderers.Length; i++)
+            {
+                MeshRenderer renderer = _renderers[i];
+                if (renderer == null)
+                {
+                    continue;
+                }
+
+                renderer.GetPropertyBlock(_block);
+                _block.SetColor("_EmissionColor", emit);
+                renderer.SetPropertyBlock(_block);
+            }
+
+            if (_glow != null)
+            {
+                _glow.intensity = Damaging ? 1.55f * pulse : 0.72f * pulse;
+            }
+        }
 
         private void OnCollisionEnter(Collision collision)
         {

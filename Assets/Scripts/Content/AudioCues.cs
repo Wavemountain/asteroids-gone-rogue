@@ -6,7 +6,7 @@ namespace AsteroidsGoneRogue
     /// CC0 clips loaded from Resources/Audio. Mute and volumes persist in PlayerPrefs.
     /// UI click is a distinct Kenney click — not the hangar purchase confirmation.
     /// 0.40 monster / spike banks follow the AtmosBot Kenney CC0 list
-    /// (retro-modern chip/arcade). Distinct from UI clicks.
+    /// (retro-modern chip/arcade, AAA mix polish). Distinct from UI clicks.
     /// </summary>
     public sealed class AudioCues : MonoBehaviour
     {
@@ -33,17 +33,17 @@ namespace AsteroidsGoneRogue
         public const float World3ChangeScale = 1.12f;
         public const float World3DuckSeconds = 0.42f;
         public const float World3DuckScale = 0.4f;
-        public const float BruteSpawnScale = 1.05f;
-        public const float BruteSpawnDuckSeconds = 0.28f;
-        public const float BruteSpawnDuckScale = 0.45f;
-        public const float SwarmSpawnScale = 0.9f;
-        public const float BruteHitScale = 1.08f;
-        public const float SwarmHitScale = 0.95f;
-        public const float BruteDeathScale = 1.12f;
-        public const float SwarmDeathScale = 0.88f;
-        public const float SwarmSpawnLayerScale = 0.42f;
-        public const float HazardActivateScale = 0.82f;
-        public const float HazardHitScale = 0.78f;
+        public const float BruteSpawnScale = 0.98f;
+        public const float BruteSpawnDuckSeconds = 0.32f;
+        public const float BruteSpawnDuckScale = 0.4f;
+        public const float SwarmSpawnScale = 0.82f;
+        public const float BruteHitScale = 1f;
+        public const float SwarmHitScale = 0.88f;
+        public const float BruteDeathScale = 1.04f;
+        public const float SwarmDeathScale = 0.84f;
+        public const float SwarmSpawnLayerScale = 0.36f;
+        public const float HazardActivateScale = 0.68f;
+        public const float HazardHitScale = 0.72f;
 
         public static AudioCues Instance { get; private set; }
 
