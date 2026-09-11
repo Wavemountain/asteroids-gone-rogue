@@ -8,8 +8,9 @@ namespace AsteroidsGoneRogue
     /// </summary>
     public sealed class ArenaEnv : MonoBehaviour
     {
-        public const float NebulaOpacity = 0.52f;
+        public const float NebulaOpacity = 0.34f;
         public const float NebulaInnerOpacity = 0.18f;
+        public const float RetintChroma = 0.55f;
         public const float NebulaRadiusScale = 3.8f;
         public const float NebulaInnerRadiusScale = 2.4f;
         public const float BeltRadiusScale = 1.58f;
@@ -17,10 +18,10 @@ namespace AsteroidsGoneRogue
         public const float BeltSpinDegrees = 6f;
         public const int BeltCount = 22;
         public const float StarFarTint = 0.45f;
-        public const float StarNearTint = 1.38f;
+        public const float StarNearTint = 1.05f;
         public const float StarFarTiling = 3.6f;
         public const float GridFadeRadiusScale = 0.7f;
-        public const float GridAlpha = 0.06f;
+        public const float GridAlpha = 0.045f;
         public const string StarAKey = "Art/Env/Starfield_A";
         public const string StarBKey = "Art/Env/Starfield_B";
         public const string NebulaBlueKey = "Art/Env/Nebula_Blue";
@@ -69,38 +70,38 @@ namespace AsteroidsGoneRogue
         public void Retint(int world)
         {
             int index = world < 1 ? 1 : world;
-            Color star = new Color(0.82f, 0.9f, 1f, 1f);
-            Color nebula = new Color(0.42f, 0.58f, 1f, NebulaOpacity);
-            Color grid = new Color(0.2f, 0.85f, 1f, GridAlpha);
+            Color star = Soften(new Color(0.82f, 0.9f, 1f, 1f));
+            Color nebula = Soften(new Color(0.42f, 0.58f, 1f, NebulaOpacity));
+            Color grid = Soften(new Color(0.2f, 0.85f, 1f, GridAlpha));
             Texture2D nebulaTex = _nebulaBlue;
             switch (index % 7)
             {
                 case 2:
-                    star = new Color(1f, 0.82f, 0.7f, 1f);
-                    nebula = new Color(0.85f, 0.28f, 0.55f, NebulaOpacity);
-                    grid = new Color(1f, 0.45f, 0.18f, GridAlpha);
+                    star = Soften(new Color(0.86f, 0.8f, 0.84f, 1f));
+                    nebula = Soften(new Color(0.46f, 0.4f, 0.5f, NebulaOpacity));
+                    grid = Soften(new Color(0.52f, 0.5f, 0.58f, GridAlpha));
                     nebulaTex = _nebulaPurple != null ? _nebulaPurple : _nebulaBlue;
                     break;
                 case 3:
-                    star = new Color(0.7f, 1f, 0.92f, 1f);
-                    nebula = new Color(0.15f, 0.75f, 0.62f, NebulaOpacity);
-                    grid = new Color(0.2f, 1f, 0.75f, GridAlpha);
+                    star = Soften(new Color(0.72f, 0.88f, 0.9f, 1f));
+                    nebula = Soften(new Color(0.22f, 0.52f, 0.55f, NebulaOpacity));
+                    grid = Soften(new Color(0.32f, 0.62f, 0.68f, GridAlpha));
                     break;
                 case 4:
-                    star = new Color(1f, 0.88f, 0.55f, 1f);
-                    nebula = new Color(0.95f, 0.5f, 0.12f, NebulaOpacity);
-                    grid = new Color(1f, 0.7f, 0.2f, GridAlpha);
+                    star = Soften(new Color(0.92f, 0.84f, 0.7f, 1f));
+                    nebula = Soften(new Color(0.62f, 0.46f, 0.28f, NebulaOpacity));
+                    grid = Soften(new Color(0.7f, 0.58f, 0.38f, GridAlpha));
                     nebulaTex = _nebulaPurple != null ? _nebulaPurple : _nebulaBlue;
                     break;
                 case 5:
-                    star = new Color(0.78f, 1f, 0.7f, 1f);
-                    nebula = new Color(0.35f, 0.9f, 0.28f, NebulaOpacity);
-                    grid = new Color(0.45f, 1f, 0.3f, GridAlpha);
+                    star = Soften(new Color(0.78f, 0.84f, 0.9f, 1f));
+                    nebula = Soften(new Color(0.3f, 0.42f, 0.52f, NebulaOpacity));
+                    grid = Soften(new Color(0.4f, 0.55f, 0.64f, GridAlpha));
                     break;
                 case 6:
-                    star = new Color(1f, 0.72f, 0.62f, 1f);
-                    nebula = new Color(0.62f, 0.22f, 0.12f, NebulaOpacity);
-                    grid = new Color(0.85f, 0.35f, 0.15f, GridAlpha);
+                    star = Soften(new Color(0.9f, 0.78f, 0.72f, 1f));
+                    nebula = Soften(new Color(0.48f, 0.32f, 0.28f, NebulaOpacity));
+                    grid = Soften(new Color(0.58f, 0.42f, 0.36f, GridAlpha));
                     nebulaTex = _nebulaPurple != null ? _nebulaPurple : _nebulaBlue;
                     break;
             }
@@ -360,6 +361,16 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        private static Color Soften(Color color)
+        {
+            float y = 0.2126f * color.r + 0.7152f * color.g + 0.0722f * color.b;
+            return new Color(
+                y + (color.r - y) * RetintChroma,
+                y + (color.g - y) * RetintChroma,
+                y + (color.b - y) * RetintChroma,
+                color.a);
+        }
+
         private void CreateRimLight()
         {
             Transform existing = transform.Find("ArenaRimLight");
@@ -391,7 +402,7 @@ namespace AsteroidsGoneRogue
             glowGo.transform.localPosition = new Vector3(0f, -4.8f, 0f);
             Light glow = glowGo.AddComponent<Light>();
             glow.type = LightType.Point;
-            glow.color = new Color(0.32f, 0.62f, 1f);
+            glow.color = new Color(0.78f, 0.88f, 1f);
             glow.intensity = 2.1f;
             glow.range = radius * 1.35f;
             glow.shadows = LightShadows.None;

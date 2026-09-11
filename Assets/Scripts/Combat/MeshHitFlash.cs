@@ -11,8 +11,8 @@ namespace AsteroidsGoneRogue
 
         private static readonly int ColorId = Shader.PropertyToID("_Color");
         private static readonly int EmissionId = Shader.PropertyToID("_EmissionColor");
-        private static readonly Color FlashColor = new Color(1f, 0.92f, 0.82f, 1f);
-        private static readonly Color FlashEmission = new Color(1.4f, 1.1f, 0.7f, 1f);
+        private static readonly Color FlashColor = new Color(1f, 0.96f, 0.92f, 1f);
+        private static readonly Color FlashEmission = new Color(1.15f, 1.1f, 1.02f, 1f);
 
         private float _until;
         private Renderer[] _renderers;

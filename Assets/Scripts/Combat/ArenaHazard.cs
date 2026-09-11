@@ -15,7 +15,7 @@ namespace AsteroidsGoneRogue
         private MeshRenderer[] _renderers;
         private Light _glow;
         private MaterialPropertyBlock _block;
-        private Color _baseEmit = new Color(1f, 0.28f, 0.06f);
+        private Color _baseEmit = new Color(0.722f, 0.353f, 0.157f);
         private float _phase;
 
         public void DressPulse(Color emit, Light glow)

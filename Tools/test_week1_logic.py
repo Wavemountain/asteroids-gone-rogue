@@ -2093,10 +2093,15 @@ def test_astro_env_040() -> None:
     assert "BeltSpinDegrees = 6f" in env
     assert "BeltCount = 22" in env
     assert "StarFarTint = 0.45f" in env
-    assert "StarNearTint = 1.38f" in env
+    assert "StarNearTint = 1.05f" in env
     assert "StarFarTiling = 3.6f" in env
     assert "GridFadeRadiusScale = 0.7f" in env
-    assert "GridAlpha = 0.06f" in env
+    assert "GridAlpha = 0.045f" in env
+    assert "NebulaOpacity = 0.34f" in env
+    assert "RetintChroma = 0.55f" in env
+    assert "0.78f, 0.88f, 1f" in env
+    assert "0.85f, 0.28f, 0.55f" not in env
+    assert "0.35f, 0.9f, 0.28f" not in env
     assert 'Shader.Find("Particles/Additive")' in env
     assert "ArenaRimLight" in env
     assert "ArenaUnderGlow" in env
@@ -2145,7 +2150,16 @@ def test_astro_env_040() -> None:
     assert "ArenaLip" in env
     assert "PlayVignette" in ui
     assert "* 0.35f" in ui
-    assert "0.04f, 0.062f, 0.08f" in factory
+    assert "0.039f, 0.063f, 0.086f" in factory
+    assert "0.357f, 0.561f, 0.659f" in factory
+    assert "TrailScale = 0.75f" in factory
+    assert "0.722f, 0.353f, 0.157f" in factory
+    assert "UiAmber" in ui
+    assert "UiHull" in ui
+    assert "UiShield" in ui
+    assert "1f, 0.96f, 0.92f" in ui
+    flash = (root / "Assets/Scripts/Combat/MeshHitFlash.cs").read_text(encoding="utf-8")
+    assert "1f, 0.96f, 0.92f" in flash
     assert "fieldOfView = 54f" in bootstrap
     assert "public int MaxHull" in (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
     assert '"Arena_AstroFloor"' in art

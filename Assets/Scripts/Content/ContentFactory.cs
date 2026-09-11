@@ -89,16 +89,16 @@ namespace AsteroidsGoneRogue
             _glow = MakeMaterial("Mat_Ship_Glow", new Color(1f, 0.55f, 0.15f), 0f, 0.15f, new Color(1f, 0.45f, 0.05f) * 2.2f);
             _asteroid = MakeMaterial("Mat_Asteroid", new Color(0.38f, 0.32f, 0.28f), 0.05f, 0.18f);
             _asteroidB = MakeMaterial("Mat_Asteroid_B", new Color(0.46f, 0.3f, 0.22f), 0.04f, 0.14f);
-            _enemy = MakeMaterial("Mat_Enemy", new Color(0.72f, 0.16f, 0.18f), 0.25f, 0.4f, new Color(0.6f, 0.05f, 0.08f));
-            _arena = MakeMaterial("Mat_Arena", new Color(0.04f, 0.062f, 0.08f), 0.08f, 0.1f);
-            _astroRim = MakeMaterial("Mat_AstroRim", new Color(0.38f, 0.72f, 0.95f), 0.12f, 0.42f, new Color(0.2f, 0.65f, 1f) * 1.35f);
-            _projectile = MakeMaterial("Mat_Projectile", new Color(1f, 0.92f, 0.42f), 0f, 0.35f, new Color(1f, 0.78f, 0.18f) * 3.4f);
-            _projectileSpread = MakeMaterial("Mat_Projectile_Spread", new Color(1f, 0.42f, 0.08f), 0f, 0.28f, new Color(1f, 0.32f, 0.02f) * 4.4f);
-            _projectilePierce = MakeMaterial("Mat_Projectile_Pierce", new Color(0.28f, 0.95f, 1f), 0f, 0.32f, new Color(0.12f, 0.7f, 1f) * 4.8f);
-            _projectileSeeker = MakeMaterial("Mat_Projectile_Seeker", new Color(0.95f, 0.22f, 0.82f), 0f, 0.3f, new Color(1f, 0.12f, 0.7f) * 4.2f);
-            _projectileRicochet = MakeMaterial("Mat_Projectile_Ricochet", new Color(0.45f, 1f, 0.28f), 0f, 0.32f, new Color(0.3f, 1f, 0.12f) * 3.8f);
-            _projectileEnemy = MakeMaterial("Mat_Projectile_Enemy", new Color(1f, 0.28f, 0.22f), 0f, 0.3f, new Color(1f, 0.12f, 0.08f) * 3.4f);
-            _projectileHalo = MakeTransparent("Mat_Projectile_Halo", new Color(1f, 0.85f, 0.35f, 0.28f), new Color(1f, 0.7f, 0.15f) * 1.8f);
+            _enemy = MakeMaterial("Mat_Enemy", new Color(0.5f, 0.3f, 0.32f), 0.22f, 0.35f, new Color(0.42f, 0.08f, 0.1f) * 0.42f);
+            _arena = MakeMaterial("Mat_Arena", new Color(0.039f, 0.063f, 0.086f), 0.08f, 0.1f);
+            _astroRim = MakeMaterial("Mat_AstroRim", new Color(0.357f, 0.561f, 0.659f), 0.12f, 0.38f, new Color(0.357f, 0.561f, 0.659f) * 0.55f);
+            _projectile = MakeMaterial("Mat_Projectile", new Color(0.831f, 0.627f, 0.29f), 0f, 0.32f, new Color(0.831f, 0.627f, 0.29f) * 1.6f);
+            _projectileSpread = MakeMaterial("Mat_Projectile_Spread", new Color(0.788f, 0.537f, 0.227f), 0f, 0.28f, new Color(0.788f, 0.537f, 0.227f) * 1.5f);
+            _projectilePierce = MakeMaterial("Mat_Projectile_Pierce", new Color(0.373f, 0.627f, 0.722f), 0f, 0.3f, new Color(0.373f, 0.627f, 0.722f) * 1.7f);
+            _projectileSeeker = MakeMaterial("Mat_Projectile_Seeker", new Color(0.4f, 0.58f, 0.68f), 0f, 0.28f, new Color(0.373f, 0.627f, 0.722f) * 1.4f);
+            _projectileRicochet = MakeMaterial("Mat_Projectile_Ricochet", new Color(0.78f, 0.6f, 0.32f), 0f, 0.3f, new Color(0.831f, 0.627f, 0.29f) * 1.4f);
+            _projectileEnemy = MakeMaterial("Mat_Projectile_Enemy", new Color(0.722f, 0.353f, 0.157f), 0f, 0.28f, new Color(0.722f, 0.353f, 0.157f) * 1.2f);
+            _projectileHalo = MakeTransparent("Mat_Projectile_Halo", new Color(0.831f, 0.627f, 0.29f, 0.26f), new Color(0.831f, 0.627f, 0.29f) * 0.9f);
             _hangarMetal = MakeMaterial("Mat_Hangar_Metal", new Color(0.28f, 0.32f, 0.36f), 0.55f, 0.42f);
             _hangarAmber = MakeMaterial("Mat_Hangar_Amber", new Color(1f, 0.58f, 0.16f), 0.2f, 0.5f, new Color(1f, 0.42f, 0.06f) * 1.6f);
             _hangarCyan = MakeMaterial("Mat_Hangar_Cyan", new Color(0.22f, 0.72f, 0.88f), 0.15f, 0.45f, new Color(0.15f, 0.55f, 0.8f) * 1.4f);
@@ -106,10 +106,10 @@ namespace AsteroidsGoneRogue
             _launchAmber = MakeMaterial("Mat_LaunchSign_Amber", new Color(1f, 0.62f, 0.14f), 0.12f, 0.42f, new Color(1f, 0.48f, 0.06f) * 3.8f);
             _launchGlow = MakeMaterial("Mat_LaunchSign_Glow", new Color(1f, 0.86f, 0.32f), 0f, 0.18f, new Color(1f, 0.7f, 0.12f) * 5.2f);
             _launchDecal = MakeMaterial("Mat_LaunchSign_Decal", new Color(1f, 0.94f, 0.42f), 0f, 0.12f, new Color(1f, 0.82f, 0.18f) * 6.4f);
-            _brute = MakeMaterial("Mat_Monster_Brute", new Color(0.92f, 0.22f, 0.55f), 0.28f, 0.42f, new Color(1f, 0.28f, 0.08f) * 1.8f);
-            _swarm = MakeMaterial("Mat_Monster_Swarm", new Color(0.18f, 0.78f, 0.62f), 0.2f, 0.4f, new Color(0.12f, 0.85f, 1f) * 1.6f);
-            _swarmling = MakeMaterial("Mat_Monster_Swarmling", new Color(0.35f, 1f, 0.45f), 0.12f, 0.35f, new Color(0.2f, 1f, 0.55f) * 2.2f);
-            _hazardSpike = MakeMaterial("Mat_Arena_Hazard", new Color(1f, 0.42f, 0.12f), 0.35f, 0.28f, new Color(1f, 0.22f, 0.04f) * 2.4f);
+            _brute = MakeMaterial("Mat_Monster_Brute", new Color(0.58f, 0.34f, 0.36f), 0.22f, 0.36f, new Color(0.7f, 0.28f, 0.18f) * 0.42f);
+            _swarm = MakeMaterial("Mat_Monster_Swarm", new Color(0.28f, 0.44f, 0.46f), 0.18f, 0.35f, new Color(0.2f, 0.45f, 0.55f) * 0.42f);
+            _swarmling = MakeMaterial("Mat_Monster_Swarmling", new Color(0.36f, 0.46f, 0.4f), 0.12f, 0.32f, new Color(0.28f, 0.5f, 0.38f) * 0.42f);
+            _hazardSpike = MakeMaterial("Mat_Arena_Hazard", new Color(0.722f, 0.353f, 0.157f), 0.28f, 0.24f, new Color(0.722f, 0.353f, 0.157f) * 0.45f);
             _layoutCyan = MakeMaterial("Mat_Arena_Layout_Cyan", new Color(0.12f, 0.55f, 0.72f), 0.15f, 0.2f, new Color(0.1f, 0.7f, 1f) * 1.3f);
             _layoutMagenta = MakeMaterial("Mat_Arena_Layout_Magenta", new Color(0.62f, 0.12f, 0.48f), 0.15f, 0.2f, new Color(0.9f, 0.1f, 0.7f) * 1.2f);
             _layoutOrange = MakeMaterial("Mat_Arena_Layout_Orange", new Color(0.72f, 0.28f, 0.08f), 0.12f, 0.18f, new Color(1f, 0.35f, 0.05f) * 1.4f);
@@ -915,45 +915,26 @@ namespace AsteroidsGoneRogue
                 Vector3.zero, haloScale, Quaternion.identity);
 
             TrailRenderer trail = root.AddComponent<TrailRenderer>();
-            trail.time = pierce ? 0.42f : (spread ? 0.14f : (seeker ? 0.28f : (ricochet ? 0.18f : (hostile ? 0.16f : 0.12f))));
-            trail.startWidth = spread ? 0.52f : (pierce ? 0.07f : (seeker ? 0.28f : (twin ? 0.1f : 0.2f)));
+            const float TrailScale = 0.75f;
+            trail.time = (pierce ? 0.42f : (spread ? 0.14f : (seeker ? 0.28f : (ricochet ? 0.18f : (hostile ? 0.16f : 0.12f))))) * TrailScale;
+            trail.startWidth = (spread ? 0.52f : (pierce ? 0.07f : (seeker ? 0.28f : (twin ? 0.1f : 0.2f)))) * TrailScale;
             trail.endWidth = pierce ? 0.005f : (spread ? 0.04f : 0.02f);
             trail.minVertexDistance = 0.12f;
             trail.material = boltMat;
-            if (pierce)
+            if (pierce || seeker)
             {
-                trail.startColor = new Color(0.35f, 0.9f, 1f, 0.95f);
-                trail.endColor = new Color(0.1f, 0.45f, 1f, 0f);
-            }
-            else if (spread)
-            {
-                trail.startColor = new Color(1f, 0.45f, 0.08f, 0.95f);
-                trail.endColor = new Color(1f, 0.2f, 0.02f, 0f);
-            }
-            else if (seeker)
-            {
-                trail.startColor = new Color(1f, 0.25f, 0.85f, 0.95f);
-                trail.endColor = new Color(0.55f, 0.05f, 0.45f, 0f);
-            }
-            else if (ricochet)
-            {
-                trail.startColor = new Color(0.45f, 1f, 0.25f, 0.95f);
-                trail.endColor = new Color(0.12f, 0.55f, 0.05f, 0f);
-            }
-            else if (twin)
-            {
-                trail.startColor = new Color(1f, 0.96f, 0.72f, 0.92f);
-                trail.endColor = new Color(0.9f, 0.62f, 0.12f, 0f);
+                trail.startColor = new Color(0.373f, 0.627f, 0.722f, 0.9f);
+                trail.endColor = new Color(0.18f, 0.38f, 0.48f, 0f);
             }
             else if (hostile)
             {
-                trail.startColor = new Color(1f, 0.25f, 0.18f, 0.9f);
-                trail.endColor = new Color(0.6f, 0.02f, 0.02f, 0f);
+                trail.startColor = new Color(0.722f, 0.353f, 0.157f, 0.88f);
+                trail.endColor = new Color(0.4f, 0.16f, 0.08f, 0f);
             }
             else
             {
-                trail.startColor = new Color(1f, 0.85f, 0.3f, 0.9f);
-                trail.endColor = new Color(1f, 0.7f, 0.15f, 0f);
+                trail.startColor = new Color(0.831f, 0.627f, 0.29f, 0.9f);
+                trail.endColor = new Color(0.55f, 0.38f, 0.14f, 0f);
             }
 
             Projectile projectile = root.AddComponent<Projectile>();

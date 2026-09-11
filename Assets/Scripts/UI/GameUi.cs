@@ -82,6 +82,11 @@ namespace AsteroidsGoneRogue
         private bool _creditsVisible;
         private float _creditsScroll;
 
+        private static readonly Color UiAmber = new Color(0.831f, 0.627f, 0.29f, 1f);
+        private static readonly Color UiBody = new Color(0.784f, 0.808f, 0.839f, 1f);
+        private static readonly Color UiHull = new Color(0.788f, 0.537f, 0.227f, 1f);
+        private static readonly Color UiShield = new Color(0.373f, 0.627f, 0.722f, 1f);
+
         public const string FirstHangarHintKey = "agr.ui.firstHangarHint";
         public const string HangarControlsHint =
             "Abort (Esc)  ·  Q / RMB fire modes (discover Spread / Pierce when owned)";
@@ -286,7 +291,7 @@ namespace AsteroidsGoneRogue
             Font body = UiFonts.Body();
             _scrim = CreateFill("Scrim", transform, new Color(0.015f, 0.02f, 0.04f, 0.22f), new Vector2(0f, 0f), new Vector2(1f, 1f));
             _vignette = BuildPlayVignette();
-            _hitFlash = CreateFill("ScreenFlash", transform, new Color(1f, 0.88f, 0.72f, 0f),
+            _hitFlash = CreateFill("ScreenFlash", transform, new Color(1f, 0.96f, 0.92f, 0f),
                 new Vector2(0f, 0f), new Vector2(1f, 1f)).GetComponent<Image>();
 
             _hudPlate = CreatePanel("HudPlate", transform, new Color(0.02f, 0.035f, 0.06f, 0.72f),
@@ -297,23 +302,23 @@ namespace AsteroidsGoneRogue
             _title = CreateText("Title", transform, display, 46, TextAnchor.UpperCenter, FontStyle.Bold);
             Stretch(_title.rectTransform, new Vector2(0.16f, 0.875f), new Vector2(0.84f, 0.985f));
             _title.text = productTitle;
-            _title.color = new Color(1f, 0.82f, 0.38f);
+            _title.color = UiAmber;
             AddReadability(_title, true);
 
             _world = CreateText("WorldBadge", transform, display, 30, TextAnchor.UpperRight, FontStyle.Bold);
             Stretch(_world.rectTransform, new Vector2(0.62f, 0.86f), new Vector2(0.97f, 0.98f));
-            _world.color = new Color(1f, 0.84f, 0.32f);
+            _world.color = UiAmber;
             AddReadability(_world, true);
 
             _hud = CreateText("Hud", transform, body, 22, TextAnchor.UpperLeft, FontStyle.Normal);
             Stretch(_hud.rectTransform, new Vector2(0.03f, 0.62f), new Vector2(0.5f, 0.775f));
-            _hud.color = new Color(0.96f, 0.97f, 0.94f);
+            _hud.color = UiBody;
             AddReadability(_hud, false);
             BuildHealthRack(display, body);
 
             _badgeRow = CreateText("BadgeRow", transform, display, 16, TextAnchor.UpperLeft, FontStyle.Bold);
             Stretch(_badgeRow.rectTransform, new Vector2(0.03f, 0.775f), new Vector2(0.62f, 0.86f));
-            _badgeRow.color = new Color(1f, 0.86f, 0.42f);
+            _badgeRow.color = UiAmber;
             AddReadability(_badgeRow, false);
 
             _hint = CreateText("Hint", transform, body, 18, TextAnchor.LowerCenter, FontStyle.Normal);
@@ -441,7 +446,7 @@ namespace AsteroidsGoneRogue
         {
             Text header = CreateText("Group_" + label, _menuRoot.transform, font, 14, TextAnchor.MiddleLeft, FontStyle.Bold);
             Stretch(header.rectTransform, min, max);
-            header.color = new Color(1f, 0.84f, 0.46f);
+            header.color = UiAmber;
             header.text = label;
             CreateFill("Rule_" + label, _menuRoot.transform, new Color(1f, 0.7f, 0.28f, 0.7f),
                 new Vector2(min.x, min.y), new Vector2(max.x, min.y + 0.008f));
@@ -616,13 +621,13 @@ namespace AsteroidsGoneRogue
 
             if (Time.unscaledTime >= _hitFlashUntil || _hitFlashStrength <= 0.01f)
             {
-                _hitFlash.color = new Color(1f, 0.88f, 0.72f, 0f);
+                _hitFlash.color = new Color(1f, 0.96f, 0.92f, 0f);
                 _hitFlashStrength = 0f;
                 return;
             }
 
             float pulse = Mathf.Clamp01((_hitFlashUntil - Time.unscaledTime) / 0.12f);
-            _hitFlash.color = new Color(1f, 0.82f, 0.62f, _hitFlashStrength * pulse);
+            _hitFlash.color = new Color(1f, 0.96f, 0.92f, _hitFlashStrength * pulse);
         }
 
         private void BuildFirstHangarHint(Font display, Font body)
@@ -1381,16 +1386,16 @@ namespace AsteroidsGoneRogue
 
         private void BuildHealthRack(Font display, Font body)
         {
-            _healthRoot = CreatePanel("HealthRack", transform, new Color(0.02f, 0.032f, 0.055f, 0.92f),
+            _healthRoot = CreatePanel("HealthRack", transform, new Color(0.02f, 0.032f, 0.055f, 0.72f),
                 new Vector2(0.012f, 0.105f), new Vector2(0.38f, 0.305f));
-            CreateFill("HealthHeader", _healthRoot.transform, new Color(1f, 0.58f, 0.16f, 0.3f),
+            CreateFill("HealthHeader", _healthRoot.transform, new Color(0.831f, 0.627f, 0.29f, 0.3f),
                 new Vector2(0f, 0.82f), new Vector2(1f, 1f));
-            CreateFill("HealthRule", _healthRoot.transform, new Color(1f, 0.82f, 0.4f, 0.9f),
+            CreateFill("HealthRule", _healthRoot.transform, new Color(0.831f, 0.627f, 0.29f, 0.88f),
                 new Vector2(0.06f, 0.8f), new Vector2(0.94f, 0.84f));
 
             _healthTitle = CreateText("HealthTitle", _healthRoot.transform, display, 15, TextAnchor.MiddleLeft, FontStyle.Bold);
             Stretch(_healthTitle.rectTransform, new Vector2(0.07f, 0.8f), new Vector2(0.94f, 0.98f));
-            _healthTitle.color = new Color(1f, 0.84f, 0.42f);
+            _healthTitle.color = UiAmber;
             AddReadability(_healthTitle, true);
 
             _shieldBarRow = CreateBarRow(
@@ -1400,7 +1405,7 @@ namespace AsteroidsGoneRogue
                 body,
                 new Vector2(0.05f, 0.42f),
                 new Vector2(0.95f, 0.76f),
-                new Color(0.18f, 0.82f, 1f, 1f),
+                UiShield,
                 out _shieldBarLabel,
                 out _shieldBarCount,
                 out _shieldFill);
@@ -1411,7 +1416,7 @@ namespace AsteroidsGoneRogue
                 body,
                 new Vector2(0.05f, 0.04f),
                 new Vector2(0.95f, 0.38f),
-                new Color(1f, 0.72f, 0.28f, 1f),
+                UiHull,
                 out _hullBarLabel,
                 out _hullBarCount,
                 out _hullFill);
@@ -1472,11 +1477,11 @@ namespace AsteroidsGoneRogue
 
             label = CreateText(name + "Label", row.transform, display, 13, TextAnchor.MiddleLeft, FontStyle.Bold);
             Stretch(label.rectTransform, new Vector2(0f, 0.64f), new Vector2(0.58f, 1f));
-            label.color = new Color(0.92f, 0.94f, 0.9f);
+            label.color = UiAmber;
 
             count = CreateText(name + "Count", row.transform, body, 14, TextAnchor.MiddleRight, FontStyle.Bold);
             Stretch(count.rectTransform, new Vector2(0.5f, 0.64f), new Vector2(1f, 1f));
-            count.color = new Color(0.95f, 0.96f, 0.92f);
+            count.color = UiBody;
 
             CreateFill(name + "Bezel", row.transform, new Color(0.75f, 0.82f, 0.9f, 0.35f),
                 new Vector2(0f, 0.02f), new Vector2(1f, 0.6f));
@@ -1548,8 +1553,8 @@ namespace AsteroidsGoneRogue
             {
                 _hullFill.fillAmount = Mathf.Clamp01(hull / (float)maxHull);
                 _hullFill.color = hull <= 1
-                    ? new Color(1f, 0.32f, 0.18f, 1f)
-                    : new Color(1f, 0.72f, 0.28f, 1f);
+                    ? new Color(0.72f, 0.35f, 0.16f, 1f)
+                    : UiHull;
             }
 
             if (_hullBarCount != null)
