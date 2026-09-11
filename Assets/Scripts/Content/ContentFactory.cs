@@ -13,6 +13,7 @@ namespace AsteroidsGoneRogue
         public const float LargeAsteroidMeters = 4.8f;
         public const float SmallAsteroidMeters = 1.8f;
         public const float EnemyMeters = 2f;
+        public const float ArenaPlaySurfaceY = -0.08f;
 
         private readonly List<Projectile> _projectiles = new List<Projectile>();
         private Transform _threatRoot;
@@ -192,12 +193,17 @@ namespace AsteroidsGoneRogue
             {
                 float scale = WaveManager.ArenaRadius / WaveManager.ArenaDesignRadius;
                 visual.transform.localScale = Vector3.one * scale;
+                if (IsAstroPlayFloor(visualName))
+                {
+                    SinkPlaySurface(visual, ArenaPlaySurfaceY);
+                    DressArenaFloorRenderers(visual);
+                }
             }
             else
             {
                 GameObject floor = CreatePrimitive(PrimitiveType.Cylinder, "Arena_Floor", _arenaRoot.transform, _arena);
                 floor.transform.localScale = new Vector3(WaveManager.ArenaRadius * 2f, 0.04f, WaveManager.ArenaRadius * 2f);
-                floor.transform.position = new Vector3(0f, -0.08f, 0f);
+                floor.transform.position = new Vector3(0f, ArenaPlaySurfaceY, 0f);
             }
 
             BuildArenaLayout(layout);
@@ -487,7 +493,7 @@ namespace AsteroidsGoneRogue
         {
             GameObject root = new GameObject("Ship");
             root.tag = GameTags.Player;
-            root.transform.position = Vector3.zero;
+            root.transform.position = new Vector3(0f, ShipController.PlayHeight, 0f);
 
             Rigidbody body = root.AddComponent<Rigidbody>();
             body.useGravity = false;
@@ -1106,6 +1112,62 @@ namespace AsteroidsGoneRogue
             return TryVisual(visualName, parent, _enemy);
         }
 
+        private static bool IsAstroPlayFloor(string visualName)
+        {
+            return visualName == "Arena_AstroFloor" || visualName == "Arena_Blockout";
+        }
+
+        private static void SinkPlaySurface(GameObject visual, float surfaceY)
+        {
+            if (visual == null)
+            {
+                return;
+            }
+
+            Renderer[] renderers = visual.GetComponentsInChildren<Renderer>(true);
+            if (renderers == null || renderers.Length == 0)
+            {
+                return;
+            }
+
+            Bounds bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++)
+            {
+                if (renderers[i] != null)
+                {
+                    bounds.Encapsulate(renderers[i].bounds);
+                }
+            }
+
+            float delta = bounds.max.y - surfaceY;
+            if (delta > 0.001f)
+            {
+                visual.transform.position += new Vector3(0f, -delta, 0f);
+            }
+        }
+
+        private static void DressArenaFloorRenderers(GameObject visual)
+        {
+            if (visual == null)
+            {
+                return;
+            }
+
+            Renderer[] renderers = visual.GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null)
+                {
+                    continue;
+                }
+
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                renderer.receiveShadows = true;
+                renderer.sortingOrder = -2;
+            }
+        }
+
         private bool TryVisual(string assetName, Transform parent, Material fallback)
         {
             GameObject instance;
@@ -1306,8 +1368,9 @@ namespace AsteroidsGoneRogue
             GameObject island;
             if (TryVisual("Arena_RockIsland_A", parent, _layoutRust, out island))
             {
-                island.transform.localPosition = position;
+                island.transform.localPosition = new Vector3(position.x, 0f, position.z);
                 island.transform.localScale = Vector3.one * (1.15f * scale);
+                DressArenaFloorRenderers(island);
                 BoxCollider box = island.GetComponent<BoxCollider>();
                 if (box == null)
                 {
@@ -1315,8 +1378,8 @@ namespace AsteroidsGoneRogue
                 }
 
                 box.enabled = true;
-                box.center = new Vector3(0f, 0.55f, 0f);
-                box.size = new Vector3(3.1f, 1.3f, 2.5f);
+                box.center = new Vector3(0.64f, 1.55f, 0.15f);
+                box.size = new Vector3(6.8f, 3.1f, 4.36f);
                 Rigidbody body = island.GetComponent<Rigidbody>();
                 if (body == null)
                 {

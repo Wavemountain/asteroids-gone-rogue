@@ -2088,6 +2088,15 @@ def test_astro_env_040() -> None:
     assert "ArenaEnv.Ensure" in factory
     assert 'child.name == "ArenaEnv"' in factory
     assert 'TryVisual("Arena_RockIsland_A"' in factory
+    assert "SinkPlaySurface" in factory
+    assert "IsAstroPlayFloor" in factory
+    assert "ArenaPlaySurfaceY = -0.08f" in factory
+    assert "DressArenaFloorRenderers" in factory
+    assert "box.center = new Vector3(0.64f, 1.55f, 0.15f)" in factory
+    shooter = (root / "Assets/Scripts/Player/ShipController.cs").read_text(encoding="utf-8")
+    assert "PlayHeight = 0.4f" in shooter
+    assert "new Vector3(0f, PlayHeight, 0f)" in shooter
+    assert "pos.y = PlayHeight" in shooter
     assert '"Arena_AstroFloor"' in art
     blockout = art.split('case "Arena_Blockout":')[1].split("case ")[0]
     assert "Arena_AstroFloor" in blockout

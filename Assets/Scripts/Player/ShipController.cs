@@ -8,6 +8,7 @@ namespace AsteroidsGoneRogue
         public const float Thrust = 28f;
         public const float MaxSpeed = 16f;
         public const float TurnDegreesPerSecond = 540f;
+        public const float PlayHeight = 0.4f;
 
         private Rigidbody _body;
         private ShipShooter _shooter;
@@ -40,7 +41,7 @@ namespace AsteroidsGoneRogue
 
         public void ResetForWave(LoadoutState loadout)
         {
-            transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+            transform.SetPositionAndRotation(new Vector3(0f, PlayHeight, 0f), Quaternion.identity);
             if (_body != null)
             {
                 _body.linearVelocity = Vector3.zero;
@@ -127,20 +128,22 @@ namespace AsteroidsGoneRogue
         private void ClampToArena()
         {
             Vector3 pos = transform.position;
-            pos.y = 0f;
+            pos.y = PlayHeight;
+            Vector3 planar = new Vector3(pos.x, 0f, pos.z);
             float limit = WaveManager.ArenaRadius - 1.4f;
-            if (pos.sqrMagnitude > limit * limit)
+            if (planar.sqrMagnitude > limit * limit)
             {
-                pos = pos.normalized * limit;
+                planar = planar.normalized * limit;
+                pos.x = planar.x;
+                pos.z = planar.z;
                 transform.position = pos;
                 Vector3 vel = _body.linearVelocity;
-                vel += -pos.normalized * 2f;
+                vel += -planar.normalized * 2f;
                 vel.y = 0f;
                 _body.linearVelocity = vel;
             }
-            else if (Mathf.Abs(transform.position.y) > 0.01f)
+            else if (Mathf.Abs(transform.position.y - PlayHeight) > 0.01f)
             {
-                pos.y = 0f;
                 transform.position = pos;
             }
         }
