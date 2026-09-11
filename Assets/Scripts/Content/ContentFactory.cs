@@ -259,8 +259,9 @@ namespace AsteroidsGoneRogue
             GameObject launchSign = PlaceHangarProp("Hangar_LaunchSign", "Hangar_LaunchSign", new Vector3(1.95f, 0f, -2.55f), _launchAmber, PrimitiveType.Cube,
                 new Vector3(1.28f, 2.05f, 0.2f), 2.05f, new Color(1f, 0.78f, 0.22f), 2.65f, 198f);
             DressLaunchSign(launchSign);
-            PlaceHangarProp("Hangar_ShipComplete", "Ship_Complete", new Vector3(8.2f, 0f, 7.4f), _hull, PrimitiveType.Cube,
+            GameObject hangarShip = PlaceHangarProp("Hangar_ShipComplete", "Ship_Complete", new Vector3(8.2f, 0f, 7.4f), _hull, PrimitiveType.Cube,
                 new Vector3(1.1f, 0.55f, 2.4f), 0.55f, new Color(1f, 0.55f, 0.16f), 0.7f);
+            DressShipComplete(hangarShip);
 
             CreatePrimitive(PrimitiveType.Cylinder, "Hangar_ShipPad", _hangarDressing.transform, _hangarAmber,
                 new Vector3(0f, 0.02f, 0f), new Vector3(4.6f, 0.04f, 4.6f), Quaternion.identity);
@@ -697,6 +698,10 @@ namespace AsteroidsGoneRogue
             {
                 DressSniperMesh(root.transform);
             }
+            else if (kind == EnemyKind.Bomber)
+            {
+                DressBomberMesh(root.transform);
+            }
             else if (kind == EnemyKind.Brute)
             {
                 DressBruteMesh(root.transform);
@@ -1110,6 +1115,21 @@ namespace AsteroidsGoneRogue
             DressEnemyEmission(root, new Color(0.18f, 0.72f, 1f));
         }
 
+        private void DressBomberMesh(Transform root)
+        {
+            DressEnemyEmission(root, new Color(1f, 0.42f, 0.08f) * 1.45f);
+        }
+
+        private void DressShipComplete(GameObject root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            DressEnemyEmission(root.transform, new Color(1f, 0.58f, 0.18f) * 1.25f);
+        }
+
         private void DressBruteMesh(Transform root)
         {
             DressEnemyEmission(root, new Color(1f, 0.28f, 0.08f) * 1.6f);
@@ -1487,8 +1507,42 @@ namespace AsteroidsGoneRogue
                     : _brute;
             }
 
+            if (ContainsIgnoreCase(name, "Bomber"))
+            {
+                if (ContainsIgnoreCase(name, "Accent") || ContainsIgnoreCase(name, "Canopy")
+                    || ContainsIgnoreCase(name, "Eye") || ContainsIgnoreCase(name, "Stripe")
+                    || ContainsIgnoreCase(name, "Glow") || ContainsIgnoreCase(name, "Engine")
+                    || ContainsIgnoreCase(name, "Bay"))
+                {
+                    return _accentHot;
+                }
+
+                return _enemy;
+            }
+
+            if (ContainsIgnoreCase(name, "Complete"))
+            {
+                if (ContainsIgnoreCase(name, "Engine") || ContainsIgnoreCase(name, "Glow"))
+                {
+                    return _glow;
+                }
+
+                if (ContainsIgnoreCase(name, "Nose") || ContainsIgnoreCase(name, "Accent")
+                    || ContainsIgnoreCase(name, "Canopy"))
+                {
+                    return _accent;
+                }
+
+                if (ContainsIgnoreCase(name, "Glass"))
+                {
+                    return _glass;
+                }
+
+                return _hull;
+            }
+
             if (ContainsIgnoreCase(name, "Enemy") || ContainsIgnoreCase(name, "Mid")
-                || ContainsIgnoreCase(name, "Swarm") || ContainsIgnoreCase(name, "Bomber")
+                || ContainsIgnoreCase(name, "Swarm")
                 || ContainsIgnoreCase(name, "Scout") || ContainsIgnoreCase(name, "Gunner")
                 || ContainsIgnoreCase(name, "Drone") || ContainsIgnoreCase(name, "Sniper"))
             {

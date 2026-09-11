@@ -37,7 +37,7 @@ These filenames are instantiated by `ContentFactory` / `ArtImport` when the file
 - `Ship_Engine_Upgrade01.fbx` — hangar **Rapid Fire**
 
 `Ship_Body_Upgrade01.fbx` is the hangar **Body Upgrade** slot swap.
-`Ship_Complete.fbx` (Buffer v4) is a hangar bay display via `ContentFactory`.
+`Ship_Complete.fbx` (Buffer v5) is a hangar bay display via `ContentFactory`.
 `Ship_Complete_Upgrade01.fbx` stays a reference assemble only.
 
 ### Combat / arena
@@ -46,7 +46,7 @@ These filenames are instantiated by `ContentFactory` / `ArtImport` when the file
 - `Asteroid_VariantB_Large.fbx` / `Asteroid_VariantB_Small.fbx` — type B visual only (~45% mix)
 - `Enemy_01.fbx` — wave 1 Mid mesh (Buffer v8 bytes; also accepts `Enemy_01_Buffer_v8`)
 - `Enemy_Scout.fbx` / `Enemy_Gunner.fbx` (Buffer v7 bytes under the canonical names) — Play waves 2+ via `CreateEnemy` / `EnemyCatalog.VisualName` (primary name first; also accepts `Enemy_*_Buffer_v7` then `Enemy_*_Buffer_v6` / `Enemy_*_Buffer_v5` / `Enemy_*_Buffer_v4`)
-- `Enemy_Bomber.fbx` / `Enemy_Sniper.fbx` — Play waves 7+ via `CreateEnemy` / `EnemyCatalog.VisualName` (Bomber Buffer v6 then v5; Sniper Buffer v8 then v5). Sniper gets the same spawn-fallback + palette remap as Scout/Gunner, plus a cyan emission dress on the v8 mesh.
+- `Enemy_Bomber.fbx` / `Enemy_Sniper.fbx` — Play waves 7+ via `CreateEnemy` / `EnemyCatalog.VisualName` (Bomber Buffer v8 then v6/v5; Sniper Buffer v8 then v5). Bomber gets a warm emission dress on the v8 mesh. Sniper gets the same spawn-fallback + palette remap as Scout/Gunner, plus a cyan emission dress on the v8 mesh.
 - `Enemy_SwarmPod.fbx` (Buffer v6 bytes under the canonical name) — Play waves 9+ (also accepts `Enemy_SwarmPod_Buffer_v6`)
 - `Enemy_Drone.fbx` (Buffer v6 bytes under the canonical name) — waves 5+ via `CreateEnemy` / `EnemyCatalog.VisualName` (also accepts `Enemy_Drone_Buffer_v6` then `Enemy_Drone_Buffer_v5` / `Enemy_Drone_Buffer_v4`)
 - `Monster_Brute.fbx` — wave 8+ close-range charge tank. `DressMonsterPresence` adds idle aura + charge glow (AAA read, not a raw FBX drop). Sculpted primitive fallback if missing.

@@ -242,6 +242,7 @@ namespace AsteroidsGoneRogue
             }
 
             if (visualName == "Enemy_Bomber"
+                || visualName == "Enemy_Bomber_Buffer_v8"
                 || visualName == "Enemy_Bomber_Buffer_v6"
                 || visualName == "Enemy_Bomber_Buffer_v5")
             {

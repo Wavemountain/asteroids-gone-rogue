@@ -14,7 +14,7 @@ FBX in this folder are instantiated on Press Play by `ArtImport` / `ContentFacto
 - [x] `Ship_Nose` — Play Mode
 - [x] `Ship_Body` — Play Mode
 - [x] `Ship_Engine` — Play Mode
-- [x] `Ship_Complete` (hangar bay display, Buffer v4 bytes)
+- [x] `Ship_Complete` (hangar bay display, Buffer v5 bytes)
 - [x] `Ship_Nose_Upgrade01` (hangar nose slot)
 - [x] `Ship_Engine_Upgrade01` (hangar engine slot)
 - [x] `Ship_Body_Upgrade01` (imported, no shop swap)
@@ -42,7 +42,7 @@ FBX in this folder are instantiated on Press Play by `ArtImport` / `ContentFacto
 ## Present but not Week 1 gameplay
 
 - [x] `Enemy_Scout` / `Enemy_Gunner` (Play waves 2+, Buffer v7 bytes under canonical names)
-- [x] `Enemy_Bomber` / `Enemy_Sniper` (Play waves 7+, Bomber Buffer v6 / Sniper Buffer v8 under canonical names)
+- [x] `Enemy_Bomber` / `Enemy_Sniper` (Play waves 7+, Bomber Buffer v8 / Sniper Buffer v8 under canonical names)
 - [x] `Enemy_SwarmPod` (Play waves 9+, Buffer v6 bytes under the canonical name)
 - [x] `Enemy_Drone` (Play waves 5+, Buffer v6 bytes under the canonical name)
 - [x] `Monster_Brute` (Play waves 8+, close-range brute)

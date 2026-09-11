@@ -1696,6 +1696,74 @@ def test_weapons_upgrades_040b() -> None:
     assert "AAA" in readme and "look bible" in readme.lower()
 
 
+def test_art_parity_040c() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    art = (root / "Assets/Scripts/Content/ArtImport.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    enemies = (root / "Assets/Scripts/Combat/EnemyKind.cs").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    checklist = (root / "MERGE_CHECKLIST.md").read_text(encoding="utf-8")
+    manifest = (root / "Packages/manifest.json").read_text(encoding="utf-8")
+    lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
+
+    bomber_names = art.split('case "Enemy_Bomber":')[1].split("case ")[0]
+    assert '"Enemy_Bomber"' in bomber_names
+    assert "Enemy_Bomber_Buffer_v8" in bomber_names
+    assert bomber_names.index("Enemy_Bomber_Buffer_v8") < bomber_names.index("Enemy_Bomber_Buffer_v6")
+    assert bomber_names.index("Enemy_Bomber_Buffer_v6") < bomber_names.index("Enemy_Bomber_Buffer_v5")
+    ship_names = art.split('case "Ship_Complete":')[1].split("case ")[0]
+    assert '"Ship_Complete"' in ship_names
+    assert "Ship_Complete_Buffer_v5" in ship_names
+    assert ship_names.index("Ship_Complete_Buffer_v5") < ship_names.index("Ship_Complete_Buffer_v4")
+
+    assert "Enemy_Bomber_Buffer_v8" in enemies
+    assert "Enemy_Bomber_Buffer_v6" in enemies
+    assert 'return "Enemy_Bomber"' in enemies
+    assert 'PlaceHangarProp("Hangar_ShipComplete", "Ship_Complete"' in factory
+    assert "DressBomberMesh" in factory
+    assert "DressShipComplete" in factory
+    assert "Enemy_Bomber_Buffer_v8" not in factory
+    assert "Ship_Complete_Buffer_v5" not in factory
+    assert "EnemyCatalog.VisualName" in (root / "Assets/Scripts/Core/WaveManager.cs").read_text(
+        encoding="utf-8"
+    )
+    require_mesh = enemies.split("public static bool RequiresImportedMesh")[1].split("public static")[0]
+    assert "EnemyKind.Bomber" in require_mesh
+    warm = art.split("PlayModeAssets")[1].split("};")[0]
+    assert warm.count("\n            \"") == 54
+    assert "Ship_Complete" in warm and "Enemy_Bomber" in warm
+    assert "Ship_Body_Upgrade02" not in warm
+
+    lfs_prefix = b"version https://git-lfs.github.com/spec/v1"
+    for folder in (
+        root / "Assets/Art/Import",
+        root / "Assets/Resources/Art/Import",
+    ):
+        for fbx in sorted(folder.glob("*.fbx")):
+            data = fbx.read_bytes()
+            assert not data[:64].startswith(lfs_prefix), f"{fbx} is an LFS pointer"
+            assert data[:8] == b"Kaydara ", f"{fbx} is not an FBX binary"
+
+    for name, min_size in (("Ship_Complete", 220000), ("Enemy_Bomber", 270000)):
+        art_fbx = root / f"Assets/Art/Import/{name}.fbx"
+        res_fbx = root / f"Assets/Resources/Art/Import/{name}.fbx"
+        assert art_fbx.is_file() and art_fbx.stat().st_size > min_size
+        assert res_fbx.is_file() and res_fbx.stat().st_size > min_size
+        assert art_fbx.read_bytes() == res_fbx.read_bytes()
+
+    assert "Ship_Complete` v5" in readme or "Ship_Complete v5" in readme or "parked `Ship_Complete` v5" in readme
+    assert "Bomber v8" in readme
+    assert "Ship_Complete v5" in checklist or "Ship_Complete** v5" in checklist
+    assert "Bomber v8" in checklist
+    assert "com.unity.modules.vr" not in manifest
+    assert "com.unity.modules.xr" not in manifest
+    assert "com.unity.modules.vr" not in lock
+    assert "com.unity.modules.xr" not in lock
+    assert "AAA" in readme and "look bible" in readme.lower()
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -1721,6 +1789,7 @@ def main() -> int:
     test_ui_fonts_039()
     test_monsters_arenas_040()
     test_weapons_upgrades_040b()
+    test_art_parity_040c()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

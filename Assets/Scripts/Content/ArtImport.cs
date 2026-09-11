@@ -103,11 +103,11 @@ namespace AsteroidsGoneRogue
                 case "Enemy_01":
                     return new[] { "Enemy_01", "Enemy_01_Buffer_v8" };
                 case "Enemy_Bomber":
-                    return new[] { "Enemy_Bomber", "Enemy_Bomber_Buffer_v6", "Enemy_Bomber_Buffer_v5" };
+                    return new[] { "Enemy_Bomber", "Enemy_Bomber_Buffer_v8", "Enemy_Bomber_Buffer_v6", "Enemy_Bomber_Buffer_v5" };
                 case "Enemy_SwarmPod":
                     return new[] { "Enemy_SwarmPod", "Enemy_SwarmPod_Buffer_v6" };
                 case "Ship_Complete":
-                    return new[] { "Ship_Complete", "Ship_Complete_Buffer_v4" };
+                    return new[] { "Ship_Complete", "Ship_Complete_Buffer_v5", "Ship_Complete_Buffer_v4" };
                 case "Enemy_Sniper":
                     return new[] { "Enemy_Sniper", "Enemy_Sniper_Buffer_v8", "Enemy_Sniper_Buffer_v5" };
                 case "Monster_Brute":
