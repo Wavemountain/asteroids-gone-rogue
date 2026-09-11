@@ -31,6 +31,12 @@ namespace AsteroidsGoneRogue
         public const float World3ChangeScale = 1.12f;
         public const float World3DuckSeconds = 0.42f;
         public const float World3DuckScale = 0.4f;
+        public const float BruteSpawnScale = 1.05f;
+        public const float BruteSpawnDuckSeconds = 0.28f;
+        public const float BruteSpawnDuckScale = 0.45f;
+        public const float SwarmSpawnScale = 0.9f;
+        public const float MonsterHitScale = 1.08f;
+        public const float BruteDeathScale = 1.12f;
 
         public static AudioCues Instance { get; private set; }
 
@@ -56,6 +62,10 @@ namespace AsteroidsGoneRogue
         private AudioClip _waveClear;
         private AudioClip _farDriftAward;
         private AudioClip _swarmPodSpawn;
+        private AudioClip _bruteSpawn;
+        private AudioClip _monsterHit;
+        private AudioClip _bruteDeath;
+        private AudioClip _swarmSpawn;
         private AudioClip _arenaLoop;
         private AudioClip _hangarAmbience;
         private bool _muted;
@@ -133,6 +143,12 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (UsesMonsterThreatSfx(kind))
+            {
+                Play(_monsterHit != null ? _monsterHit : _hit, MonsterHitScale);
+                return;
+            }
+
             PlayHit();
         }
 
@@ -163,12 +179,55 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (kind == EnemyKind.Brute)
+            {
+                Play(_bruteDeath != null ? _bruteDeath : _enemyDeath, BruteDeathScale);
+                if (_enemyDeathPunch != null)
+                {
+                    Play(_enemyDeathPunch, EnemyDeathPunchScale);
+                }
+
+                return;
+            }
+
+            if (kind == EnemyKind.Swarm)
+            {
+                Play(_bruteDeath != null ? _bruteDeath : _enemyDeath, 0.82f);
+                return;
+            }
+
             PlayEnemyDeath();
         }
 
         public static bool UsesLightThreatSfx(EnemyKind kind)
         {
-            return kind == EnemyKind.Mid01 || kind == EnemyKind.SwarmPod;
+            return kind == EnemyKind.Mid01 || kind == EnemyKind.SwarmPod || kind == EnemyKind.Swarmling;
+        }
+
+        public static bool UsesMonsterThreatSfx(EnemyKind kind)
+        {
+            return kind == EnemyKind.Brute || kind == EnemyKind.Swarm;
+        }
+
+        public void PlayMonsterSpawn(EnemyKind kind)
+        {
+            if (kind == EnemyKind.Brute)
+            {
+                Play(_bruteSpawn != null ? _bruteSpawn : _worldChange, BruteSpawnScale);
+                DuckMusic(BruteSpawnDuckSeconds, BruteSpawnDuckScale);
+                return;
+            }
+
+            if (kind == EnemyKind.Swarm)
+            {
+                Play(_swarmSpawn != null ? _swarmSpawn : _swarmPodSpawn, SwarmSpawnScale);
+                return;
+            }
+
+            if (kind == EnemyKind.Swarmling)
+            {
+                Play(_swarmSpawn != null ? _swarmSpawn : _swarmPodSpawn, 0.42f);
+            }
         }
 
         public void PlayPlayerDamage()
@@ -420,6 +479,10 @@ namespace AsteroidsGoneRogue
             _waveClear = Resources.Load<AudioClip>("Audio/Sfx/jingles_PIZZA07");
             _farDriftAward = Resources.Load<AudioClip>("Audio/Sfx/jingles_PIZZA16");
             _swarmPodSpawn = Resources.Load<AudioClip>("Audio/Sfx/phaserUp5");
+            _bruteSpawn = Resources.Load<AudioClip>("Audio/Sfx/lowFrequency_explosion_000");
+            _monsterHit = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_002");
+            _bruteDeath = Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_002");
+            _swarmSpawn = Resources.Load<AudioClip>("Audio/Sfx/phaserUp2");
             _arenaLoop = Resources.Load<AudioClip>("Audio/Music/OutThere");
             _hangarAmbience = Resources.Load<AudioClip>("Audio/Music/spacelifeNo14");
         }

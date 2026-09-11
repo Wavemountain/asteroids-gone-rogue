@@ -70,6 +70,10 @@ def main() -> int:
     require(ROOT / "Assets/Resources/Audio/Sfx/impactMetal_001.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/explosionCrunch_001.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/phaserUp5.ogg")
+    require(ROOT / "Assets/Resources/Audio/Sfx/phaserUp2.ogg")
+    require(ROOT / "Assets/Resources/Audio/Sfx/lowFrequency_explosion_000.ogg")
+    require(ROOT / "Assets/Resources/Audio/Sfx/impactMetal_002.ogg")
+    require(ROOT / "Assets/Resources/Audio/Sfx/explosionCrunch_002.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/jingles_PIZZA16.ogg")
     require(ROOT / "Assets/Resources/Audio/Music/OutThere.ogg")
     require(ROOT / "Assets/Resources/Audio/Music/spacelifeNo14.ogg")
@@ -124,6 +128,8 @@ def main() -> int:
         "class UiFonts",
         "class HangarPersist",
         "class MedalCatalog",
+        "class ArenaLayout",
+        "class ArenaHazard",
         "enum GamePhase",
     ]
     blob = "\n".join(read(p) for p in scripts + editor_scripts)
@@ -193,6 +199,9 @@ def main() -> int:
         "Enemy_Drone",
         "Enemy_Bomber",
         "Enemy_Sniper",
+        "Monster_Brute",
+        "Monster_Swarm",
+        "Arena_Hazard_Spike",
         "Asteroid_Large",
         "Asteroid_Small",
         "Asteroid_VariantB_Large",

@@ -7,7 +7,8 @@ namespace AsteroidsGoneRogue
     {
         Unknown,
         AsteroidCollision,
-        EnemyContact
+        EnemyContact,
+        HazardContact
     }
 
     public static class DamageCauseText
@@ -20,6 +21,8 @@ namespace AsteroidsGoneRogue
                     return "Asteroid collision";
                 case DamageCause.EnemyContact:
                     return "Enemy contact";
+                case DamageCause.HazardContact:
+                    return "Arena hazard";
                 default:
                     return "Unknown cause";
             }

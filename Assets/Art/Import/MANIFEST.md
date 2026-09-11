@@ -45,6 +45,9 @@ FBX in this folder are instantiated on Press Play by `ArtImport` / `ContentFacto
 - [x] `Enemy_Bomber` / `Enemy_Sniper` (Play waves 7+, Bomber Buffer v6 / Sniper Buffer v8 under canonical names)
 - [x] `Enemy_SwarmPod` (Play waves 9+, Buffer v6 bytes under the canonical name)
 - [x] `Enemy_Drone` (Play waves 5+, Buffer v6 bytes under the canonical name)
+- [x] `Monster_Brute` (Play waves 8+, close-range brute)
+- [x] `Monster_Swarm` (Play waves 9+, swarm/spawner; Swarmling alias)
+- [x] `Arena_Hazard_Spike` (layout hazards)
 - [x] `Arena_World2_Blockout` / `Arena_World3_Blockout`
 - [x] `Pickup_Score` / `Pickup_Shield` (`CreatePickup` only)
 

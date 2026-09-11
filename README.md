@@ -47,7 +47,7 @@ Editor helpers: menu **Asteroids gone rogue → Open Play Scene** / **Validate W
 3. **Wave Clear** — short **Run summary** card (score / wave / world / credits / upgrades) plus **150 credits**, then shop. After waves 1–9, one short continue line (★ Scout Wing at 3 / Gunner at 4 / **Buy X before Gunner** / **★ Deep Orbit** teaser before wave 6 / **★ Far Drift** teaser before wave 10). Wave 3 awards **★ Scout Wing**. Entering World 2 (wave 6) is a short **WORLD 2 ONLINE · ★ Deep Orbit** beat **and** the hangar summary announces it. Wave 10 awards **★ Far Drift** (jingle `PIZZA16`, not the wave-clear sting) and points at World 3 at wave 11. World 3 entry (wave 11) is a short **WORLD 3 ONLINE · New sector** beat **without a medal**; hangar summary says **World 3 online · New sector**. Hangar HUD always shows **Best** score / wave / world. During play the score line compares against Best (`/ Best N` or `NEW BEST`) without a fourth HUD line.
 4. **Fail** — ship destroyed; retry the same wave. Bought upgrades stay. Fail uses the same summary card. Hangar HUD keeps **Best** visible.
 
-Wave 1: 4 large asteroids + 1 `Enemy_01` (Mid v8 mesh). Waves 2–10 add Scout v7 / Gunner v7 / Drone v6, then Bomber v6 / Sniper v8 / SwarmPod v6 when those FBX are present. Sniper uses the same spawn fallback as Scout/Gunner. After wave 10 the roster plateaus and large asteroids tick +1 per wave (7 → 8… cap 10). After every 5 cleared waves the arena mesh swaps World 1→6 (loop). Radius 30 (first world-scale pass; same wrap / roster rules).
+Wave 1: 4 large asteroids + 1 `Enemy_01` (Mid v8 mesh). Waves 2–10 add Scout v7 / Gunner v7 / Drone v6, then Bomber v6 / Sniper v8 / SwarmPod v6 when those FBX are present. Wave 8 adds **Brute** (`Monster_Brute`, close-range charge tank). Wave 9 adds **Swarm** (`Monster_Swarm`, spawner that drops Swarmling minions). Sniper uses the same spawn fallback as Scout/Gunner. After wave 10 the roster plateaus (Brute + Swarm stay) and large asteroids tick +1 per wave (7 → 8… cap 10). After every 5 cleared waves the arena mesh **and layout** swap World 1→6 (Open / Pylon ring / Split trench / Mine belt / Cross gates / Debris islands). Radius 30 (same wrap / roster rules).
 
 ## Shop
 
@@ -66,7 +66,7 @@ Upgrades persist into the next wave.
 | Spread Bolt | 110 | Second shot mode: 3 lower-damage amber pellets (fat silhouette + SpreadCore). Q / RMB to switch |
 | Pierce | 130 | Second shot mode: cyan needle that passes through targets (PierceNeedle). Q / RMB to switch |
 
-Hull is 3 hits. Large asteroids take 2 hits then split into 3 small shards. Small shards and enemies are destroyable. Gunner is 4 HP, Bomber is 5 HP. Fail screen names the enemy kind (`Enemy contact (Scout)`).
+Hull is 3 hits. Large asteroids take 2 hits then split into 3 small shards. Small shards and enemies are destroyable. Gunner is 4 HP, Bomber is 5 HP, Brute is 8 HP, Swarm is 6 HP. Fail screen names the enemy kind (`Enemy contact (Scout)` / `Enemy contact (Brute)`). Arena spike contact reads `Arena hazard`.
 
 ## Project layout
 
@@ -105,6 +105,10 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 | Enemy death | Kenney Sci-Fi Sounds | `explosionCrunch_003.ogg` + `impactMetal_000.ogg` punch |
 | SwarmPod / Mid death | Kenney Sci-Fi Sounds | `explosionCrunch_001.ogg` (no punch) |
 | SwarmPod spawn | Kenney Digital Audio | `phaserUp5.ogg` |
+| Swarm / Swarmling spawn | Kenney Digital Audio | `phaserUp2.ogg` |
+| Brute spawn | Kenney Sci-Fi Sounds | `lowFrequency_explosion_000.ogg` |
+| Monster hit | Kenney Sci-Fi Sounds | `impactMetal_002.ogg` |
+| Brute / Swarm death | Kenney Sci-Fi Sounds | `explosionCrunch_002.ogg` |
 | Player damage | Kenney Sci-Fi Sounds | `forceField_000.ogg` |
 | Arena world swap | Kenney Interface Sounds | `maximize_008.ogg` |
 | World 3 entry | Kenney Interface Sounds | `maximize_008.ogg` (hotter + short bed duck) |
@@ -116,7 +120,7 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 ## What is stubbed
 
 - **Meshes** come from `Assets/Art/Import/` FBX on Press Play (`ArtImport` loads by path — no Inspector mesh swap). Primitive fallbacks stay if an FBX is missing.
-- **Arena World 2–6** meshes **do spawn** — after every 5 cleared waves the floor swaps `Arena_Blockout` → World2 → … → World6 (then loops). Same wrap / roster rules; floor scales with arena radius 30.
+- **Arena World 2–6** meshes **do spawn** — after every 5 cleared waves the floor swaps `Arena_Blockout` → World2 → … → World6 (then loops) **and** the layout changes (pylons / trench / mine belt / cross / islands). `Arena_Hazard_Spike` FBX marks hazards. Same wrap / roster rules; floor scales with arena radius 30.
 - **Hangar only:** `Ship_Complete` v4 (parked bay display). **Not in Play:** `Ship_Complete_Upgrade01`, **`Ship_Body_Upgrade02`** (imported only; shop stops at Body Upgrade 01 + Nose/Engine 02).
 - Combat juice: light screen flash + camera shake on hits / explosions. Player death stays quiet.
 - **Ship_*** part slots share origin `0,0,0` so Rapid Fire / Nose Hardpoint / Body Upgrade stay a SetActive swap.
@@ -149,4 +153,4 @@ See **[MERGE_CHECKLIST.md](MERGE_CHECKLIST.md)**. Do **not** merge PR #1 until W
 
 ## Success check
 
-Press Play → hangar FBX (crate/terminal/pillar + workbench/kiosk/banner/ammo rack + Console/PowerBox/extinguisher/Locker/LaunchSign GO + parked `Ship_Complete` v4). Wave 1 `Enemy_01` v8 → later Scout/Gunner v7 / Drone v6 / Bomber v6 + Sniper v8 / SwarmPod v6. Gunner/Sniper fire `Projectile_EnemyBolt`. Shop Body + Nose/Engine 02 + Spread/Pierce. Worlds 2–6 swap every 5 clears (World 2: ★ Deep Orbit; wave 10: ★ Far Drift; World 3: New sector beat, no medal). Play HUD compares score vs Best; **MEDALS** ladder stays visible (★ / ○). Clear/fail show the run summary card (wave 3: Buy X before Gunner + ★ Scout Wing; wave 6: ★ Deep Orbit; waves 8–9: Far Drift teaser; wave 10: ★ Far Drift · World 3 at 11; wave 11: World 3 online · New sector). Kenney Future HUD/hangar type, arena radius 30, Mute click. Pickups, muzzle/explosion VFX, hit flash + light shake.
+Press Play → hangar FBX (crate/terminal/pillar + workbench/kiosk/banner/ammo rack + Console/PowerBox/extinguisher/Locker/LaunchSign GO + parked `Ship_Complete` v4). Wave 1 `Enemy_01` v8 → later Scout/Gunner v7 / Drone v6 / Bomber v6 + Sniper v8 / SwarmPod v6 + wave 8 `Monster_Brute` / wave 9 `Monster_Swarm`. Gunner/Sniper fire `Projectile_EnemyBolt`. Shop Body + Nose/Engine 02 + Spread/Pierce. Worlds 2–6 swap every 5 clears with a new layout (World 2: ★ Deep Orbit + pylon ring; wave 10: ★ Far Drift; World 3: New sector beat + split trench, no medal). Play HUD compares score vs Best; **MEDALS** ladder stays visible (★ / ○). Clear/fail show the run summary card (wave 3: Buy X before Gunner + ★ Scout Wing; wave 6: ★ Deep Orbit; waves 8–9: Far Drift teaser; wave 10: ★ Far Drift · World 3 at 11; wave 11: World 3 online · New sector). Kenney Future HUD/hangar type, arena radius 30, Mute click. Pickups, muzzle/explosion VFX, hit flash + light shake.

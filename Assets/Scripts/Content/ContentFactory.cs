@@ -44,6 +44,15 @@ namespace AsteroidsGoneRogue
         private Material _launchAmber;
         private Material _launchGlow;
         private Material _launchDecal;
+        private Material _brute;
+        private Material _swarm;
+        private Material _swarmling;
+        private Material _hazardSpike;
+        private Material _layoutCyan;
+        private Material _layoutMagenta;
+        private Material _layoutOrange;
+        private Material _layoutLime;
+        private Material _layoutRust;
         private static readonly Color HangarAmbient = new Color(0.2f, 0.17f, 0.13f);
         private static readonly Color CombatAmbient = new Color(0.12f, 0.14f, 0.18f);
 
@@ -81,6 +90,15 @@ namespace AsteroidsGoneRogue
             _launchAmber = MakeMaterial("Mat_LaunchSign_Amber", new Color(1f, 0.62f, 0.14f), 0.12f, 0.42f, new Color(1f, 0.48f, 0.06f) * 3.8f);
             _launchGlow = MakeMaterial("Mat_LaunchSign_Glow", new Color(1f, 0.86f, 0.32f), 0f, 0.18f, new Color(1f, 0.7f, 0.12f) * 5.2f);
             _launchDecal = MakeMaterial("Mat_LaunchSign_Decal", new Color(1f, 0.94f, 0.42f), 0f, 0.12f, new Color(1f, 0.82f, 0.18f) * 6.4f);
+            _brute = MakeMaterial("Mat_Monster_Brute", new Color(0.92f, 0.22f, 0.55f), 0.28f, 0.42f, new Color(1f, 0.28f, 0.08f) * 1.8f);
+            _swarm = MakeMaterial("Mat_Monster_Swarm", new Color(0.18f, 0.78f, 0.62f), 0.2f, 0.4f, new Color(0.12f, 0.85f, 1f) * 1.6f);
+            _swarmling = MakeMaterial("Mat_Monster_Swarmling", new Color(0.35f, 1f, 0.45f), 0.12f, 0.35f, new Color(0.2f, 1f, 0.55f) * 2.2f);
+            _hazardSpike = MakeMaterial("Mat_Arena_Hazard", new Color(1f, 0.42f, 0.12f), 0.35f, 0.28f, new Color(1f, 0.22f, 0.04f) * 2.4f);
+            _layoutCyan = MakeMaterial("Mat_Arena_Layout_Cyan", new Color(0.12f, 0.55f, 0.72f), 0.15f, 0.2f, new Color(0.1f, 0.7f, 1f) * 1.3f);
+            _layoutMagenta = MakeMaterial("Mat_Arena_Layout_Magenta", new Color(0.62f, 0.12f, 0.48f), 0.15f, 0.2f, new Color(0.9f, 0.1f, 0.7f) * 1.2f);
+            _layoutOrange = MakeMaterial("Mat_Arena_Layout_Orange", new Color(0.72f, 0.28f, 0.08f), 0.12f, 0.18f, new Color(1f, 0.35f, 0.05f) * 1.4f);
+            _layoutLime = MakeMaterial("Mat_Arena_Layout_Lime", new Color(0.28f, 0.62f, 0.16f), 0.12f, 0.18f, new Color(0.45f, 1f, 0.2f) * 1.15f);
+            _layoutRust = MakeMaterial("Mat_Arena_Layout_Rust", new Color(0.42f, 0.22f, 0.14f), 0.08f, 0.14f, new Color(0.7f, 0.25f, 0.08f) * 0.9f);
             _shield = MakeTransparent("Mat_Shield", new Color(0.25f, 0.85f, 1f, 0.22f), new Color(0.2f, 0.7f, 1f) * 0.6f);
             ArtImport.WarmPlayModeAssets();
         }
@@ -109,7 +127,7 @@ namespace AsteroidsGoneRogue
 
         public static int WorldIndexForWave(int waveIndex)
         {
-            return ((Mathf.Max(1, waveIndex) - 1) / 5 % ArenaWorlds.Length) + 1;
+            return ArenaLayout.WorldIndexForWave(waveIndex);
         }
 
         public static string ArenaVisualForWave(int waveIndex)
@@ -151,6 +169,7 @@ namespace AsteroidsGoneRogue
                 floor.transform.position = new Vector3(0f, -0.08f, 0f);
             }
 
+            BuildArenaLayout(ArenaLayout.ForWave(waveIndex));
             _arenaVisualName = visualName;
             if (announce)
             {
@@ -627,16 +646,20 @@ namespace AsteroidsGoneRogue
             collider.radius = EnemyCatalog.ColliderRadius(kind);
             collider.height = EnemyCatalog.ColliderHeight(kind);
 
-            if (!TryEnemyVisual(visualName, root.transform))
+            if (!TryEnemyVisual(visualName, root.transform)
+                && !(kind == EnemyKind.Swarmling && TryEnemyVisual("Monster_Swarm", root.transform)))
             {
-                CreatePrimitive(PrimitiveType.Capsule, "Mesh", root.transform, _enemy,
-                    Vector3.zero, new Vector3(0.7f, 0.7f, 0.7f), Quaternion.Euler(90f, 0f, 0f));
-                CreatePrimitive(PrimitiveType.Cube, "Canard", root.transform, _accent,
-                    new Vector3(0f, 0.15f, -0.35f), new Vector3(1.4f, 0.08f, 0.35f), Quaternion.identity);
-                if (kind == EnemyKind.Sniper)
+                if (!BuildMonsterPlaceholder(kind, root.transform))
                 {
-                    CreatePrimitive(PrimitiveType.Cylinder, "Scope", root.transform, _accentHot,
-                        new Vector3(0f, 0.22f, 0.42f), new Vector3(0.16f, 0.28f, 0.16f), Quaternion.identity);
+                    CreatePrimitive(PrimitiveType.Capsule, "Mesh", root.transform, _enemy,
+                        Vector3.zero, new Vector3(0.7f, 0.7f, 0.7f), Quaternion.Euler(90f, 0f, 0f));
+                    CreatePrimitive(PrimitiveType.Cube, "Canard", root.transform, _accent,
+                        new Vector3(0f, 0.15f, -0.35f), new Vector3(1.4f, 0.08f, 0.35f), Quaternion.identity);
+                    if (kind == EnemyKind.Sniper)
+                    {
+                        CreatePrimitive(PrimitiveType.Cylinder, "Scope", root.transform, _accentHot,
+                            new Vector3(0f, 0.22f, 0.42f), new Vector3(0.16f, 0.28f, 0.16f), Quaternion.identity);
+                    }
                 }
             }
             else if (kind == EnemyKind.Mid01)
@@ -647,12 +670,32 @@ namespace AsteroidsGoneRogue
             {
                 DressSniperMesh(root.transform);
             }
+            else if (kind == EnemyKind.Brute)
+            {
+                DressBruteMesh(root.transform);
+            }
+            else if (kind == EnemyKind.Swarm || kind == EnemyKind.Swarmling)
+            {
+                DressSwarmMesh(root.transform, kind == EnemyKind.Swarmling);
+            }
+
+            if (kind == EnemyKind.Swarmling)
+            {
+                ScaleImportedVisual(root.transform, 0.45f);
+            }
 
             EnemySeeker seeker = root.AddComponent<EnemySeeker>();
             seeker.Initialize(player, waves, kind);
-            if (kind == EnemyKind.SwarmPod && AudioCues.Instance != null)
+            if (AudioCues.Instance != null)
             {
-                AudioCues.Instance.PlaySwarmPodSpawn();
+                if (kind == EnemyKind.SwarmPod)
+                {
+                    AudioCues.Instance.PlaySwarmPodSpawn();
+                }
+                else if (EnemyCatalog.IsMonster(kind) || kind == EnemyKind.Swarmling)
+                {
+                    AudioCues.Instance.PlayMonsterSpawn(kind);
+                }
             }
 
             return seeker;
@@ -954,6 +997,213 @@ namespace AsteroidsGoneRogue
             DressEnemyEmission(root, new Color(0.18f, 0.72f, 1f));
         }
 
+        private void DressBruteMesh(Transform root)
+        {
+            DressEnemyEmission(root, new Color(1f, 0.28f, 0.08f) * 1.6f);
+        }
+
+        private void DressSwarmMesh(Transform root, bool swarmling)
+        {
+            DressEnemyEmission(root, swarmling
+                ? new Color(0.25f, 1f, 0.45f) * 1.8f
+                : new Color(0.12f, 0.85f, 1f) * 1.5f);
+        }
+
+        private static void ScaleImportedVisual(Transform root, float scale)
+        {
+            if (root == null || root.childCount == 0)
+            {
+                return;
+            }
+
+            root.GetChild(0).localScale = Vector3.one * scale;
+        }
+
+        private bool BuildMonsterPlaceholder(EnemyKind kind, Transform parent)
+        {
+            if (kind == EnemyKind.Brute)
+            {
+                CreatePrimitive(PrimitiveType.Cube, "Hull", parent, _brute,
+                    new Vector3(0f, 0.15f, 0f), new Vector3(1.7f, 1.15f, 1.5f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Cube, "Shoulder_L", parent, _accentHot,
+                    new Vector3(-0.85f, 0.55f, 0.1f), new Vector3(0.55f, 0.45f, 0.7f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Cube, "Shoulder_R", parent, _accentHot,
+                    new Vector3(0.85f, 0.55f, 0.1f), new Vector3(0.55f, 0.45f, 0.7f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Cube, "Horn", parent, _brute,
+                    new Vector3(0f, 0.85f, 0.55f), new Vector3(0.28f, 0.55f, 0.28f), Quaternion.Euler(25f, 0f, 0f));
+                return true;
+            }
+
+            if (kind == EnemyKind.Swarm)
+            {
+                CreatePrimitive(PrimitiveType.Sphere, "Core", parent, _swarm,
+                    new Vector3(0f, 0.25f, 0f), new Vector3(1.35f, 1.35f, 1.35f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Sphere, "Nodule_A", parent, _swarmling,
+                    new Vector3(0.7f, 0.45f, 0.2f), new Vector3(0.45f, 0.45f, 0.45f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Sphere, "Nodule_B", parent, _swarmling,
+                    new Vector3(-0.55f, 0.55f, -0.25f), new Vector3(0.4f, 0.4f, 0.4f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Cylinder, "Stalk", parent, _swarm,
+                    new Vector3(0f, 0.95f, 0f), new Vector3(0.22f, 0.35f, 0.22f), Quaternion.identity);
+                return true;
+            }
+
+            if (kind == EnemyKind.Swarmling)
+            {
+                CreatePrimitive(PrimitiveType.Sphere, "Body", parent, _swarmling,
+                    Vector3.zero, new Vector3(0.55f, 0.42f, 0.55f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Cube, "Fin", parent, _swarm,
+                    new Vector3(0f, 0.12f, -0.22f), new Vector3(0.55f, 0.06f, 0.22f), Quaternion.identity);
+                return true;
+            }
+
+            return false;
+        }
+
+        private void BuildArenaLayout(ArenaLayoutId layout)
+        {
+            if (_arenaRoot == null)
+            {
+                return;
+            }
+
+            Transform root = new GameObject("Arena_Layout").transform;
+            root.SetParent(_arenaRoot.transform, false);
+            Material wash = LayoutWash(layout);
+            CreatePrimitive(PrimitiveType.Cylinder, "LayoutWash", root, wash,
+                new Vector3(0f, -0.02f, 0f),
+                new Vector3(WaveManager.ArenaRadius * 1.92f, 0.03f, WaveManager.ArenaRadius * 1.92f),
+                Quaternion.identity);
+
+            switch (layout)
+            {
+                case ArenaLayoutId.PylonRing:
+                    for (int i = 0; i < 6; i++)
+                    {
+                        float angle = (Mathf.PI * 2f * i) / 6f;
+                        PlaceHazardSpike(root, Ring(14f, angle), 1.35f, false, angle * Mathf.Rad2Deg);
+                    }
+
+                    break;
+                case ArenaLayoutId.SplitTrench:
+                    PlaceLayoutWall(root, new Vector3(-8.2f, 1.4f, 0f), new Vector3(1.3f, 2.8f, 22f), _layoutMagenta);
+                    PlaceLayoutWall(root, new Vector3(8.2f, 1.4f, 0f), new Vector3(1.3f, 2.8f, 22f), _layoutMagenta);
+                    break;
+                case ArenaLayoutId.MineBelt:
+                    for (int i = 0; i < 8; i++)
+                    {
+                        float angle = (Mathf.PI * 2f * i) / 8f + 0.2f;
+                        PlaceHazardSpike(root, Ring(18.5f, angle), 1.15f, true, angle * Mathf.Rad2Deg + 180f);
+                    }
+
+                    break;
+                case ArenaLayoutId.CrossGates:
+                    PlaceLayoutWall(root, new Vector3(-11f, 1.3f, 0f), new Vector3(10f, 2.6f, 1.4f), _layoutLime);
+                    PlaceLayoutWall(root, new Vector3(11f, 1.3f, 0f), new Vector3(10f, 2.6f, 1.4f), _layoutLime);
+                    PlaceLayoutWall(root, new Vector3(0f, 1.3f, -11f), new Vector3(1.4f, 2.6f, 10f), _layoutLime);
+                    PlaceLayoutWall(root, new Vector3(0f, 1.3f, 11f), new Vector3(1.4f, 2.6f, 10f), _layoutLime);
+                    PlaceHazardSpike(root, new Vector3(7.5f, 0f, 7.5f), 1.05f, false, 45f);
+                    PlaceHazardSpike(root, new Vector3(-7.5f, 0f, -7.5f), 1.05f, false, 225f);
+                    break;
+                case ArenaLayoutId.DebrisIslands:
+                    PlaceDebrisIsland(root, new Vector3(12.5f, 0f, 10.5f), 1f);
+                    PlaceDebrisIsland(root, new Vector3(-13f, 0f, 9f), 0.85f);
+                    PlaceDebrisIsland(root, new Vector3(11f, 0f, -12f), 0.95f);
+                    PlaceDebrisIsland(root, new Vector3(-10.5f, 0f, -11.5f), 1.1f);
+                    PlaceHazardSpike(root, new Vector3(0f, 0f, 16.5f), 1.25f, true, 0f);
+                    break;
+                default:
+                    for (int i = 0; i < 8; i++)
+                    {
+                        float angle = (Mathf.PI * 2f * i) / 8f;
+                        CreatePrimitive(PrimitiveType.Cylinder, "RimLight", root, _layoutCyan,
+                            Ring(WaveManager.ArenaRadius - 0.8f, angle) + new Vector3(0f, 0.35f, 0f),
+                            new Vector3(0.22f, 0.35f, 0.22f), Quaternion.identity);
+                    }
+
+                    break;
+            }
+        }
+
+        private void PlaceDebrisIsland(Transform parent, Vector3 position, float scale)
+        {
+            PlaceLayoutWall(parent, position + new Vector3(0f, 0.7f * scale, 0f),
+                new Vector3(3.2f * scale, 1.4f * scale, 2.6f * scale), _layoutRust);
+            PlaceHazardSpike(parent, position + new Vector3(1.4f * scale, 0f, 0.6f * scale), 0.85f * scale, false, 25f);
+        }
+
+        private void PlaceLayoutWall(Transform parent, Vector3 position, Vector3 scale, Material material)
+        {
+            GameObject wall = CreatePrimitive(PrimitiveType.Cube, "LayoutWall", parent, material,
+                position, scale, Quaternion.identity);
+            Collider existing = wall.GetComponent<Collider>();
+            if (existing != null)
+            {
+                Destroy(existing);
+            }
+
+            BoxCollider box = wall.AddComponent<BoxCollider>();
+            box.center = Vector3.zero;
+            box.size = Vector3.one;
+            Rigidbody body = wall.AddComponent<Rigidbody>();
+            body.useGravity = false;
+            body.isKinematic = true;
+            body.constraints = RigidbodyConstraints.FreezeAll;
+            wall.AddComponent<ArenaHazard>().Damaging = false;
+        }
+
+        private void PlaceHazardSpike(Transform parent, Vector3 position, float scale, bool damaging, float yaw)
+        {
+            GameObject root = new GameObject(damaging ? "Arena_Hazard_Spike" : "Arena_Pylon_Spike");
+            root.transform.SetParent(parent, false);
+            root.transform.position = position;
+            root.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+            GameObject visual;
+            if (!TryVisual("Arena_Hazard_Spike", root.transform, _hazardSpike, out visual))
+            {
+                CreatePrimitive(PrimitiveType.Cylinder, "SpikeStem", root.transform, _hazardSpike,
+                    new Vector3(0f, 1.4f, 0f), new Vector3(0.45f, 1.4f, 0.45f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Cube, "SpikeTip", root.transform, _accentHot,
+                    new Vector3(0f, 3.05f, 0f), new Vector3(0.55f, 0.7f, 0.55f), Quaternion.identity);
+            }
+
+            root.transform.localScale = Vector3.one * Mathf.Max(0.35f, scale);
+            CapsuleCollider collider = root.AddComponent<CapsuleCollider>();
+            collider.center = new Vector3(0f, 1.4f, 0f);
+            collider.radius = 0.55f;
+            collider.height = 3.2f;
+            Rigidbody body = root.AddComponent<Rigidbody>();
+            body.useGravity = false;
+            body.isKinematic = true;
+            body.constraints = RigidbodyConstraints.FreezeAll;
+            ArenaHazard hazard = root.AddComponent<ArenaHazard>();
+            hazard.Damaging = damaging;
+            hazard.Damage = 1;
+        }
+
+        private static Vector3 Ring(float radius, float angle)
+        {
+            return new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
+        }
+
+        private Material LayoutWash(ArenaLayoutId layout)
+        {
+            switch (layout)
+            {
+                case ArenaLayoutId.PylonRing:
+                    return _layoutCyan;
+                case ArenaLayoutId.SplitTrench:
+                    return _layoutMagenta;
+                case ArenaLayoutId.MineBelt:
+                    return _layoutOrange;
+                case ArenaLayoutId.CrossGates:
+                    return _layoutLime;
+                case ArenaLayoutId.DebrisIslands:
+                    return _layoutRust;
+                default:
+                    return _arena;
+            }
+        }
+
         private static void DressEnemyEmission(Transform root, Color emission)
         {
             if (root == null)
@@ -992,6 +1242,25 @@ namespace AsteroidsGoneRogue
                 }
 
                 return _launchAmber;
+            }
+
+            if (ContainsIgnoreCase(name, "Hazard") || ContainsIgnoreCase(name, "Spike"))
+            {
+                return _hazardSpike;
+            }
+
+            if (ContainsIgnoreCase(name, "Monster") || ContainsIgnoreCase(name, "Brute"))
+            {
+                if (ContainsIgnoreCase(name, "Swarm") || ContainsIgnoreCase(name, "Swarmling"))
+                {
+                    return ContainsIgnoreCase(name, "Accent") || ContainsIgnoreCase(name, "Glow")
+                        ? _swarmling
+                        : _swarm;
+                }
+
+                return ContainsIgnoreCase(name, "Accent") || ContainsIgnoreCase(name, "Glow")
+                    ? _accentHot
+                    : _brute;
             }
 
             if (ContainsIgnoreCase(name, "Enemy") || ContainsIgnoreCase(name, "Mid")

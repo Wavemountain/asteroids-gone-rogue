@@ -35,6 +35,9 @@ namespace AsteroidsGoneRogue
             "Enemy_Bomber",
             "Enemy_Sniper",
             "Enemy_SwarmPod",
+            "Monster_Brute",
+            "Monster_Swarm",
+            "Arena_Hazard_Spike",
             "Asteroid_Large",
             "Asteroid_Small",
             "Asteroid_VariantB_Large",
@@ -107,6 +110,14 @@ namespace AsteroidsGoneRogue
                     return new[] { "Ship_Complete", "Ship_Complete_Buffer_v4" };
                 case "Enemy_Sniper":
                     return new[] { "Enemy_Sniper", "Enemy_Sniper_Buffer_v8", "Enemy_Sniper_Buffer_v5" };
+                case "Monster_Brute":
+                    return new[] { "Monster_Brute" };
+                case "Monster_Swarm":
+                    return new[] { "Monster_Swarm" };
+                case "Monster_Swarmling":
+                    return new[] { "Monster_Swarmling", "Monster_Swarm" };
+                case "Arena_Hazard_Spike":
+                    return new[] { "Arena_Hazard_Spike" };
                 case "Hangar_LaunchSign":
                     return new[] { "Hangar_LaunchSign", "Hangar_LaunchSign_Buffer_v2" };
                 case "Projectile_Bolt":

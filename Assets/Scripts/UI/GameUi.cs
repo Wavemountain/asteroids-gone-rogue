@@ -43,6 +43,7 @@ namespace AsteroidsGoneRogue
         private bool _tutorialDismissed;
         private float _worldFlashUntil;
         private int _flashedWorld = 1;
+        private string _flashedLayout = string.Empty;
         private string _medalBeat = string.Empty;
         private string _statusBase = string.Empty;
         private ShopItem _hoveredItem;
@@ -163,7 +164,8 @@ namespace AsteroidsGoneRogue
             string waveLine = !_tutorialDismissed && _session.WaveIndex == 1
                 ? "Hangar  ·  Clear a wave to earn credits and upgrades."
                 : "Hangar  ·  Wave " + _session.WaveIndex
-                    + "  ·  World " + ContentFactory.WorldIndexForWave(_session.WaveIndex) + " ready";
+                    + "  ·  World " + ContentFactory.WorldIndexForWave(_session.WaveIndex)
+                    + " · " + ArenaLayout.Title(ArenaLayout.ForWave(_session.WaveIndex)) + " ready";
             string hook = RunSummary.NextMedalHook(_session.WaveIndex);
             if (!string.IsNullOrEmpty(hook))
             {
@@ -682,6 +684,7 @@ namespace AsteroidsGoneRogue
         public void AnnounceWorldChange(int world)
         {
             _flashedWorld = world;
+            _flashedLayout = ArenaLayout.Title(ArenaLayout.ForWorld(world));
             _worldFlashUntil = Time.unscaledTime + 1.6f;
             RefreshWorldBadge();
         }
@@ -732,6 +735,11 @@ namespace AsteroidsGoneRogue
                     ? Color.Lerp(new Color(0.75f, 0.95f, 1f), new Color(0.2f, 0.7f, 1f), pulse)
                     : Color.Lerp(new Color(1f, 0.95f, 0.5f), new Color(1f, 0.45f, 0.08f), pulse);
                 string flash = "WORLD " + _flashedWorld + "  ONLINE";
+                if (!string.IsNullOrEmpty(_flashedLayout))
+                {
+                    flash += "\n" + _flashedLayout.ToUpperInvariant();
+                }
+
                 if (!string.IsNullOrEmpty(_medalBeat))
                 {
                     flash += "\n" + _medalBeat;
@@ -758,7 +766,7 @@ namespace AsteroidsGoneRogue
             }
 
             int world = ContentFactory.WorldIndexForWave(_session.WaveIndex);
-            _world.text = "WORLD " + world;
+            _world.text = "WORLD " + world + "  ·  " + ArenaLayout.Badge(ArenaLayout.ForWorld(world));
             _world.color = new Color(1f, 0.82f, 0.28f);
         }
 

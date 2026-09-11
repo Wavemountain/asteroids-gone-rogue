@@ -8,11 +8,22 @@ namespace AsteroidsGoneRogue
         Drone,
         Bomber,
         Sniper,
-        SwarmPod
+        SwarmPod,
+        Brute,
+        Swarm,
+        Swarmling
     }
 
     public static class EnemyCatalog
     {
+        public const float BruteChargeRange = 13f;
+        public const float BruteChargeSpeed = 15f;
+        public const float BruteChargeTurn = 210f;
+        public const float BruteChargeSeconds = 0.95f;
+        public const float BruteRestSeconds = 2.4f;
+        public const float NestSpawnSeconds = 4.8f;
+        public const int NestMaxMinions = 3;
+
         public static string VisualName(EnemyKind kind)
         {
             switch (kind)
@@ -29,6 +40,12 @@ namespace AsteroidsGoneRogue
                     return "Enemy_Sniper";
                 case EnemyKind.SwarmPod:
                     return "Enemy_SwarmPod";
+                case EnemyKind.Brute:
+                    return "Monster_Brute";
+                case EnemyKind.Swarm:
+                    return "Monster_Swarm";
+                case EnemyKind.Swarmling:
+                    return "Monster_Swarmling";
                 default:
                     return "Enemy_01";
             }
@@ -50,6 +67,12 @@ namespace AsteroidsGoneRogue
                     return 3;
                 case EnemyKind.SwarmPod:
                     return 2;
+                case EnemyKind.Brute:
+                    return 8;
+                case EnemyKind.Swarm:
+                    return 6;
+                case EnemyKind.Swarmling:
+                    return 1;
                 default:
                     return 3;
             }
@@ -71,6 +94,12 @@ namespace AsteroidsGoneRogue
                     return 5.4f;
                 case EnemyKind.SwarmPod:
                     return 9.4f;
+                case EnemyKind.Brute:
+                    return 3.4f;
+                case EnemyKind.Swarm:
+                    return 1.6f;
+                case EnemyKind.Swarmling:
+                    return 11.5f;
                 default:
                     return 6.5f;
             }
@@ -92,6 +121,12 @@ namespace AsteroidsGoneRogue
                     return 180f;
                 case EnemyKind.SwarmPod:
                     return 300f;
+                case EnemyKind.Brute:
+                    return 90f;
+                case EnemyKind.Swarm:
+                    return 80f;
+                case EnemyKind.Swarmling:
+                    return 340f;
                 default:
                     return 220f;
             }
@@ -113,6 +148,12 @@ namespace AsteroidsGoneRogue
                     return 70;
                 case EnemyKind.SwarmPod:
                     return 30;
+                case EnemyKind.Brute:
+                    return 120;
+                case EnemyKind.Swarm:
+                    return 100;
+                case EnemyKind.Swarmling:
+                    return 12;
                 default:
                     return ScoreValues.Enemy;
             }
@@ -134,6 +175,12 @@ namespace AsteroidsGoneRogue
                     return 0.4f;
                 case EnemyKind.SwarmPod:
                     return 0.26f;
+                case EnemyKind.Brute:
+                    return 1.05f;
+                case EnemyKind.Swarm:
+                    return 0.85f;
+                case EnemyKind.Swarmling:
+                    return 0.2f;
                 default:
                     return 0.45f;
             }
@@ -155,6 +202,12 @@ namespace AsteroidsGoneRogue
                     return 2.2f;
                 case EnemyKind.SwarmPod:
                     return 1f;
+                case EnemyKind.Brute:
+                    return 3.8f;
+                case EnemyKind.Swarm:
+                    return 2.6f;
+                case EnemyKind.Swarmling:
+                    return 0.75f;
                 default:
                     return ContentFactory.EnemyMeters;
             }
@@ -207,6 +260,21 @@ namespace AsteroidsGoneRogue
                 return EnemyKind.SwarmPod;
             }
 
+            if (visualName == "Monster_Brute")
+            {
+                return EnemyKind.Brute;
+            }
+
+            if (visualName == "Monster_Swarmling")
+            {
+                return EnemyKind.Swarmling;
+            }
+
+            if (visualName == "Monster_Swarm")
+            {
+                return EnemyKind.Swarm;
+            }
+
             if (visualName == "Enemy_01" || visualName == "Enemy_01_Buffer_v8")
             {
                 return EnemyKind.Mid01;
@@ -219,6 +287,11 @@ namespace AsteroidsGoneRogue
         {
             return kind == EnemyKind.Bomber
                 || kind == EnemyKind.SwarmPod;
+        }
+
+        public static bool IsMonster(EnemyKind kind)
+        {
+            return kind == EnemyKind.Brute || kind == EnemyKind.Swarm;
         }
 
         public static bool FiresBolts(EnemyKind kind)

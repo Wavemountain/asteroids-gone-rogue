@@ -49,6 +49,9 @@ These filenames are instantiated by `ContentFactory` / `ArtImport` when the file
 - `Enemy_Bomber.fbx` / `Enemy_Sniper.fbx` — Play waves 7+ via `CreateEnemy` / `EnemyCatalog.VisualName` (Bomber Buffer v6 then v5; Sniper Buffer v8 then v5). Sniper gets the same spawn-fallback + palette remap as Scout/Gunner, plus a cyan emission dress on the v8 mesh.
 - `Enemy_SwarmPod.fbx` (Buffer v6 bytes under the canonical name) — Play waves 9+ (also accepts `Enemy_SwarmPod_Buffer_v6`)
 - `Enemy_Drone.fbx` (Buffer v6 bytes under the canonical name) — waves 5+ via `CreateEnemy` / `EnemyCatalog.VisualName` (also accepts `Enemy_Drone_Buffer_v6` then `Enemy_Drone_Buffer_v5` / `Enemy_Drone_Buffer_v4`)
+- `Monster_Brute.fbx` — wave 8+ close-range charge tank (magenta/orange). Placeholder mesh if missing.
+- `Monster_Swarm.fbx` — wave 9+ swarm/spawner (green/cyan). Spawned Swarmlings reuse this mesh at 0.45 scale (`Monster_Swarmling` alias).
+- `Arena_Hazard_Spike.fbx` — layout pylons / mine-belt / island spikes (damaging on the mine belt + one debris spike)
 - `Arena_Blockout.fbx` — World 1 hangar / arena
 - `Projectile_Bolt.fbx` — player shot visual (GameBot Bolt Buffer v2; also accepted as `Projectile_Bolt_Buffer_v2`)
 - `Projectile_EnemyBolt.fbx` — Gunner / Sniper shot visual (also accepted as `Projectile_EnemyBolt_Buffer`)

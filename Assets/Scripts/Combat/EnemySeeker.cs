@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace AsteroidsGoneRogue
@@ -18,6 +19,10 @@ namespace AsteroidsGoneRogue
         private Rigidbody _body;
         private ContentFactory _factory;
         private float _nextShot;
+        private float _nextSpawn;
+        private float _chargeUntil;
+        private float _restUntil;
+        private readonly List<EnemySeeker> _minions = new List<EnemySeeker>();
 
         public EnemyKind Kind
         {
@@ -41,6 +46,9 @@ namespace AsteroidsGoneRogue
             _body = GetComponent<Rigidbody>();
             _factory = Object.FindAnyObjectByType<ContentFactory>();
             _nextShot = Time.time + 0.85f;
+            _nextSpawn = Time.time + 1.6f;
+            _chargeUntil = 0f;
+            _restUntil = 0f;
         }
 
         public void ApplyDamage(int amount)
@@ -102,17 +110,36 @@ namespace AsteroidsGoneRogue
             toPlayer.y = 0f;
             if (toPlayer.sqrMagnitude < 0.01f)
             {
+                if (_kind == EnemyKind.Swarm)
+                {
+                    TrySpawnMinion();
+                }
+
                 return;
             }
 
             Vector3 dir = toPlayer.normalized;
+            float speed = _speed;
+            float turn = _turn;
+            if (_kind == EnemyKind.Brute)
+            {
+                TuneBrute(toPlayer.magnitude, ref speed, ref turn);
+            }
+
             Quaternion look = Quaternion.LookRotation(dir, Vector3.up);
             transform.rotation = Quaternion.RotateTowards(
                 transform.rotation,
                 look,
-                _turn * Time.fixedDeltaTime);
-            _body.linearVelocity = dir * _speed;
-            TryFireBolt(dir);
+                turn * Time.fixedDeltaTime);
+            _body.linearVelocity = dir * speed;
+            if (_kind == EnemyKind.Swarm)
+            {
+                TrySpawnMinion();
+            }
+            else
+            {
+                TryFireBolt(dir);
+            }
 
             Vector3 pos = transform.position;
             pos.y = 0f;
@@ -121,6 +148,67 @@ namespace AsteroidsGoneRogue
             {
                 pos = pos.normalized * limit;
                 transform.position = pos;
+            }
+        }
+
+        private void TuneBrute(float distance, ref float speed, ref float turn)
+        {
+            float now = Time.time;
+            if (now < _chargeUntil)
+            {
+                speed = EnemyCatalog.BruteChargeSpeed;
+                turn = EnemyCatalog.BruteChargeTurn;
+                return;
+            }
+
+            if (now < _restUntil)
+            {
+                speed = _speed * 0.45f;
+                return;
+            }
+
+            if (distance < EnemyCatalog.BruteChargeRange && distance > 2.2f)
+            {
+                _chargeUntil = now + EnemyCatalog.BruteChargeSeconds;
+                _restUntil = _chargeUntil + EnemyCatalog.BruteRestSeconds;
+                speed = EnemyCatalog.BruteChargeSpeed;
+                turn = EnemyCatalog.BruteChargeTurn;
+            }
+        }
+
+        private void TrySpawnMinion()
+        {
+            if (_kind != EnemyKind.Swarm || _factory == null || _waves == null)
+            {
+                return;
+            }
+
+            PruneMinions();
+            if (_minions.Count >= EnemyCatalog.NestMaxMinions || Time.time < _nextSpawn)
+            {
+                return;
+            }
+
+            _nextSpawn = Time.time + EnemyCatalog.NestSpawnSeconds;
+            float angle = Random.Range(0f, Mathf.PI * 2f);
+            Vector3 pos = transform.position + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * 1.6f;
+            pos.y = 0f;
+            EnemySeeker minion = _factory.CreateEnemy(pos, _target, _waves, EnemyCatalog.VisualName(EnemyKind.Swarmling));
+            if (minion != null)
+            {
+                _minions.Add(minion);
+                _waves.Register(minion);
+            }
+        }
+
+        private void PruneMinions()
+        {
+            for (int i = _minions.Count - 1; i >= 0; i--)
+            {
+                if (_minions[i] == null)
+                {
+                    _minions.RemoveAt(i);
+                }
             }
         }
 

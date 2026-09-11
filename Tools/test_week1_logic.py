@@ -1177,7 +1177,7 @@ def test_ui_fonts_039() -> None:
     assert "com.unity.modules.xr" not in lock
     assert "com.unity.textmeshpro" not in lock
     assert "0.39-ui-fonts" in checklist
-    assert "no 0.40" in checklist
+    assert "no 0.41" in checklist
     assert "Hub-open smoke" in checklist
     assert "Kenney Future" in readme
     assert "Kenney Future" in credits
@@ -1314,6 +1314,153 @@ def test_steam_world3_038() -> None:
     assert "Fonts/KenneyFuture" in fonts
 
 
+def arena_layout_for_wave(wave: int) -> int:
+    wave = max(1, wave)
+    return ((wave - 1) // 5 % 6) + 1
+
+
+def test_monsters_arenas_040() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    enemies = (root / "Assets/Scripts/Combat/EnemyKind.cs").read_text(encoding="utf-8")
+    seeker = (root / "Assets/Scripts/Combat/EnemySeeker.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+    layout = (root / "Assets/Scripts/Core/ArenaLayout.cs").read_text(encoding="utf-8")
+    hazard = (root / "Assets/Scripts/Combat/ArenaHazard.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    art = (root / "Assets/Scripts/Content/ArtImport.cs").read_text(encoding="utf-8")
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    cause = (root / "Assets/Scripts/Core/DamageCause.cs").read_text(encoding="utf-8")
+    manifest = (root / "Packages/manifest.json").read_text(encoding="utf-8")
+    lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    checklist = (root / "MERGE_CHECKLIST.md").read_text(encoding="utf-8")
+    credits = (root / "CREDITS.md").read_text(encoding="utf-8")
+
+    assert "Brute," in enemies or "Brute\n" in enemies
+    assert "Swarm," in enemies or "Swarm\n" in enemies
+    assert "Swarmling" in enemies
+    assert 'return "Monster_Brute"' in enemies
+    assert 'return "Monster_Swarm"' in enemies
+    assert 'return "Monster_Swarmling"' in enemies
+    assert "case EnemyKind.Brute:\n                    return 8;" in enemies
+    assert "case EnemyKind.Swarm:\n                    return 6;" in enemies
+    assert "BruteChargeRange" in enemies
+    assert "NestSpawnSeconds" in enemies
+    assert "IsMonster" in enemies
+    require_mesh = enemies.split("RequiresImportedMesh")[1].split("public static bool IsMonster")[0]
+    assert "EnemyKind.Bomber" in require_mesh
+    assert "EnemyKind.SwarmPod" in require_mesh
+    assert "EnemyKind.Brute" not in require_mesh
+    assert "EnemyKind.Swarmling" not in require_mesh
+    assert "kind == EnemyKind.Swarm\n" not in require_mesh and "kind == EnemyKind.Swarm;" not in require_mesh
+
+    assert "TuneBrute" in seeker
+    assert "TrySpawnMinion" in seeker
+    assert "EnemyKind.Swarmling" in seeker
+    assert "FindAnyObjectByType<ContentFactory>" in seeker
+    assert "GetInstanceID" not in seeker
+
+    roster = waves.split("public static EnemyKind[] RosterForWave")[1].split("public void Register")[0]
+    assert "EnemyKind.Brute" in roster
+    assert "EnemyKind.Swarm" in roster
+    assert "EnemyKind.Brute" in roster.split("case 8:")[1].split("case 9:")[0]
+    assert "EnemyKind.SwarmPod, EnemyKind.Swarm" in roster.split("case 9:")[1].split("default:")[0]
+
+    assert "enum ArenaLayoutId" in layout
+    assert "PylonRing" in layout
+    assert "SplitTrench" in layout
+    assert "MineBelt" in layout
+    assert "CrossGates" in layout
+    assert "DebrisIslands" in layout
+    assert "WavesPerLayout = 5" in layout
+    assert arena_layout_for_wave(1) == 1
+    assert arena_layout_for_wave(6) == 2
+    assert arena_layout_for_wave(11) == 3
+    assert arena_layout_for_wave(16) == 4
+    assert arena_layout_for_wave(21) == 5
+    assert arena_layout_for_wave(26) == 6
+    assert arena_layout_for_wave(31) == 1
+    assert "return ArenaLayout.WorldIndexForWave(waveIndex)" in factory
+    assert "BuildArenaLayout" in factory
+    assert "PlaceHazardSpike" in factory
+    assert 'TryVisual("Arena_Hazard_Spike"' in factory
+    assert "BuildMonsterPlaceholder" in factory
+    assert "DressBruteMesh" in factory
+    assert "DressSwarmMesh" in factory
+    assert "DamageCause.HazardContact" in hazard
+    assert "Arena hazard" in cause
+
+    warm = art.split("PlayModeAssets")[1].split("};")[0]
+    assert warm.count("\n            \"") == 54
+    assert "Monster_Brute" in warm
+    assert "Monster_Swarm" in warm
+    assert "Arena_Hazard_Spike" in warm
+    assert '"Monster_Swarmling"' in art
+    assert art.index('"Monster_Swarmling"') < art.index('"Monster_Swarm"') or "Monster_Swarmling" in art
+
+    spawn = audio.split("public void PlayMonsterSpawn(EnemyKind kind)")[1].split("public void")[0]
+    assert "BruteSpawnScale" in spawn
+    assert "_bruteSpawn" in spawn
+    assert "_swarmSpawn" in spawn
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/lowFrequency_explosion_000")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/impactMetal_002")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_002")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/phaserUp2")' in audio
+    assert "UsesMonsterThreatSfx" in audio
+    light = audio.split("public static bool UsesLightThreatSfx")[1].split("public static bool UsesMonsterThreatSfx")[0]
+    assert "EnemyKind.Swarmling" in light
+    assert "EnemyKind.SwarmPod" in light
+
+    assert "ArenaLayout.Badge" in ui
+    assert "Pylon ring" in layout
+    assert "_flashedLayout" in ui
+    assert "WORLD " in ui
+
+    lfs_prefix = b"version https://git-lfs.github.com/spec/v1"
+    for name, min_size in (
+        ("Monster_Brute", 80000),
+        ("Monster_Swarm", 120000),
+        ("Arena_Hazard_Spike", 50000),
+    ):
+        art_fbx = root / f"Assets/Art/Import/{name}.fbx"
+        res_fbx = root / f"Assets/Resources/Art/Import/{name}.fbx"
+        assert art_fbx.is_file() and art_fbx.stat().st_size > min_size
+        assert res_fbx.is_file() and res_fbx.stat().st_size > min_size
+        assert not art_fbx.read_bytes()[:64].startswith(lfs_prefix)
+        assert art_fbx.read_bytes()[:8] == b"Kaydara "
+        assert not res_fbx.read_bytes()[:64].startswith(lfs_prefix)
+        assert art_fbx.read_bytes() == res_fbx.read_bytes()
+
+    for clip in (
+        "lowFrequency_explosion_000.ogg",
+        "impactMetal_002.ogg",
+        "explosionCrunch_002.ogg",
+        "phaserUp2.ogg",
+    ):
+        path = root / "Assets/Resources/Audio/Sfx" / clip
+        assert path.is_file() and path.stat().st_size > 1000
+        assert path.read_bytes()[:4] == b"OggS"
+
+    assert "com.unity.modules.vr" not in manifest
+    assert "com.unity.modules.xr" not in manifest
+    assert "com.unity.modules.vr" not in lock
+    assert "com.unity.modules.xr" not in lock
+    assert "0.40-monsters-arenas" in checklist
+    assert "no 0.41" in checklist
+    assert "Hub-open smoke" in checklist
+    assert "Monster_Brute" in readme
+    assert "Monster_Swarm" in readme
+    assert "Pylon ring" in readme or "pylon ring" in readme.lower()
+    assert "GetEntityId" in readme or "GetEntityId" in checklist
+    assert "Arial.ttf" not in factory
+    assert "Arial.ttf" not in ui
+    assert "CC0" in credits
+    assert "impactMetal_002" in credits
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -1337,6 +1484,7 @@ def main() -> int:
     test_sniper_fardrift_037()
     test_steam_world3_038()
     test_ui_fonts_039()
+    test_monsters_arenas_040()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
