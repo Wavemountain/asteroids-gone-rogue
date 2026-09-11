@@ -1216,6 +1216,7 @@ namespace AsteroidsGoneRogue
                 BoxCollider box = mesh.gameObject.AddComponent<BoxCollider>();
                 box.center = new Vector3(local.center.x, local.max.y - 0.06f, local.center.z);
                 box.size = new Vector3(local.size.x, 0.12f, local.size.z);
+                box.isTrigger = true;
             }
         }
 

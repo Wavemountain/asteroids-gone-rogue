@@ -2115,6 +2115,9 @@ def test_astro_env_040() -> None:
     assert "AstroFloorVisualScale = 0.88f" in factory
     assert "DressArenaFloorRenderers" in factory
     assert "DressAstroFloorColliders" in factory
+    dress = factory.split("DressAstroFloorColliders")[1].split("private bool TryVisual")[0]
+    assert "AddComponent<BoxCollider>" in dress
+    assert "box.isTrigger = true" in dress
     assert "AstroFloor_v2" in factory
     assert "Arena_AstroFloor_v2" in factory
     assert 'MakeMaterial("Mat_AstroRim"' in factory
@@ -2124,6 +2127,10 @@ def test_astro_env_040() -> None:
     assert "PlayHeight = 0.4f" in shooter
     assert "new Vector3(0f, PlayHeight, 0f)" in shooter
     assert "pos.y = PlayHeight" in shooter
+    seeker = (root / "Assets/Scripts/Combat/EnemySeeker.cs").read_text(encoding="utf-8")
+    assert "_body.linearVelocity = dir * speed" in seeker
+    assert "FreezePositionY" in factory
+    assert "collider.direction = 2" in factory
     ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
     assert "HealthRack" in ui
     assert "RefreshHealthBar" in ui
