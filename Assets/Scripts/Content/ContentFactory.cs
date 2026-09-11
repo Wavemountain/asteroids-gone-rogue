@@ -177,7 +177,13 @@ namespace AsteroidsGoneRogue
 
             for (int i = _arenaRoot.transform.childCount - 1; i >= 0; i--)
             {
-                Destroy(_arenaRoot.transform.GetChild(i).gameObject);
+                Transform child = _arenaRoot.transform.GetChild(i);
+                if (child.name == "ArenaEnv")
+                {
+                    continue;
+                }
+
+                Destroy(child.gameObject);
             }
 
             _arenaRoot.name = visualName;
@@ -195,6 +201,12 @@ namespace AsteroidsGoneRogue
             }
 
             BuildArenaLayout(layout);
+            ArenaEnv env = ArenaEnv.Ensure(_arenaRoot.transform);
+            if (env != null)
+            {
+                env.Retint(WorldIndexForWave(waveIndex));
+            }
+
             _arenaVisualName = visualName;
             _arenaLayout = layout;
             _arenaApplied = true;
@@ -1291,8 +1303,40 @@ namespace AsteroidsGoneRogue
 
         private void PlaceDebrisIsland(Transform parent, Vector3 position, float scale)
         {
-            PlaceLayoutWall(parent, position + new Vector3(0f, 0.7f * scale, 0f),
-                new Vector3(3.2f * scale, 1.4f * scale, 2.6f * scale), _layoutRust);
+            GameObject island;
+            if (TryVisual("Arena_RockIsland_A", parent, _layoutRust, out island))
+            {
+                island.transform.localPosition = position;
+                island.transform.localScale = Vector3.one * (1.15f * scale);
+                BoxCollider box = island.GetComponent<BoxCollider>();
+                if (box == null)
+                {
+                    box = island.AddComponent<BoxCollider>();
+                }
+
+                box.enabled = true;
+                box.center = new Vector3(0f, 0.55f, 0f);
+                box.size = new Vector3(3.1f, 1.3f, 2.5f);
+                Rigidbody body = island.GetComponent<Rigidbody>();
+                if (body == null)
+                {
+                    body = island.AddComponent<Rigidbody>();
+                }
+
+                body.useGravity = false;
+                body.isKinematic = true;
+                body.constraints = RigidbodyConstraints.FreezeAll;
+                if (island.GetComponent<ArenaHazard>() == null)
+                {
+                    island.AddComponent<ArenaHazard>().Damaging = false;
+                }
+            }
+            else
+            {
+                PlaceLayoutWall(parent, position + new Vector3(0f, 0.7f * scale, 0f),
+                    new Vector3(3.2f * scale, 1.4f * scale, 2.6f * scale), _layoutRust);
+            }
+
             PlaceHazardSpike(parent, position + new Vector3(1.4f * scale, 0f, 0.6f * scale), 0.85f * scale, false, 25f);
         }
 

@@ -103,6 +103,22 @@ License text from the pack is at `Assets/Resources/Fonts/Kenney_Fonts_License.tx
 
 Hangar plays `spacelifeNo14` as a denser two-layer bed (pitch 0.94 + 1.02). Arena plays `OutThere` louder at concert pitch so the two beds stay distinct. Credits play `SpaceCadet` at 0.55 with `jingles_NES07` open (bed duck 0.35s @ 0.4) and `jingles_NES12` close (PIZZA16 fallback); Continue restores hangar. Abort ducks the current bed under the whoosh. SwarmPod spawn ducks the bed briefly (0.62s gap / 0.86 scale) so `phaserUp5` cuts clutter. 0.40 AtmosBot monster/spike list (Kenney CC0, retro-modern chip/arcade, AAA mix polish, not UI clicks): Brute `lowThreeTone` / `impactMetal_000`–`002` / `explosionCrunch_003` + unique `lowFrequency_explosion_000` death layer; Swarm `phaseJump1` (+ `slime_000`) / `laserSmall_000`–`004` pitched ±6% / `zap1`+`spaceTrash1`–`3`; spike activate `forceField_001` (0.94 + short bed duck), spike hit `laserRetro_000`–`002`. Wave 10 Far Drift plays `jingles_PIZZA16` instead of the wave-clear sting. World 3 entry reuses `maximize_008` slightly hotter with a short bed duck (no new jingle).
 
+## Environment art
+
+Pack: **Seamless Space Backgrounds** (CC0 / public domain)  
+Author: Screaming Brain Studios  
+Source: https://opengameart.org/content/seamless-space-backgrounds  
+Official: https://screamingbrainstudios.com/dl-seamless-space-backgrounds/
+
+| Use | File in repo | Original pack file |
+| --- | --- | --- |
+| Parallax star layer A | `Assets/Resources/Art/Env/Starfield_A.png` | `512x512 Starfield 1.png` |
+| Parallax star layer B | `Assets/Resources/Art/Env/Starfield_B.png` | `512x512 Starfield 2.png` |
+| Nebula dome (cool worlds) | `Assets/Resources/Art/Env/Nebula_Blue.png` | `512x512 Blue Nebula 1.png` |
+| Nebula dome (warm worlds) | `Assets/Resources/Art/Env/Nebula_Purple.png` | `512x512 Purple Nebula 1.png` |
+
+Credit is optional; included because the skybox is player-visible.
+
 ## Engine wiring
 
-`AudioCues` loads these clips from `Resources/Audio` at runtime (so Play Mode does not depend on Inspector references). Hangar UI has **Mute** plus **SFX** and **Music** sliders; Mute also plays the UI click. Values persist in PlayerPrefs. Local best score / wave / world persist under `agr.best.*`. Hangar medals persist under `agr.hangar.medals`. `UiFonts` loads Kenney Future / Future Narrow from `Resources/Fonts` (LegacyRuntime fallback; never Arial).
+`AudioCues` loads these clips from `Resources/Audio` at runtime (so Play Mode does not depend on Inspector references). Hangar UI has **Mute** plus **SFX** and **Music** sliders; Mute also plays the UI click. Values persist in PlayerPrefs. Local best score / wave / world persist under `agr.best.*`. Hangar medals persist under `agr.hangar.medals`. Language is `agr.ui.language`. `UiFonts` loads Kenney Future / Future Narrow from `Resources/Fonts` (LegacyRuntime fallback; never Arial). `ArenaEnv` loads SBS star/nebula textures from `Resources/Art/Env`.

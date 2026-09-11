@@ -118,6 +118,12 @@ namespace AsteroidsGoneRogue
                     return new[] { "Monster_Swarmling", "Monster_Swarm" };
                 case "Arena_Hazard_Spike":
                     return new[] { "Arena_Hazard_Spike" };
+                case "Arena_Blockout":
+                    return new[] { "Arena_AstroFloor", "Arena_Blockout" };
+                case "Arena_AstroFloor":
+                    return new[] { "Arena_AstroFloor", "Arena_Blockout" };
+                case "Arena_RockIsland_A":
+                    return new[] { "Arena_RockIsland_A" };
                 case "Hangar_LaunchSign":
                     return new[] { "Hangar_LaunchSign", "Hangar_LaunchSign_Buffer_v2" };
                 case "Projectile_Bolt":

@@ -2062,6 +2062,66 @@ def test_localization_040() -> None:
     assert "0.41" not in loc and "Release" not in loc
 
 
+def test_astro_env_040() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    env = (root / "Assets/Scripts/Content/ArenaEnv.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    art = (root / "Assets/Scripts/Content/ArtImport.cs").read_text(encoding="utf-8")
+    credits = (root / "CREDITS.md").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    checklist = (root / "MERGE_CHECKLIST.md").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    loadout = (root / "Assets/Scripts/Core/LoadoutState.cs").read_text(encoding="utf-8")
+    bootstrap = (root / "Assets/Scripts/Content/GameBootstrap.cs").read_text(encoding="utf-8")
+    manifest = (root / "Packages/manifest.json").read_text(encoding="utf-8")
+    lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
+
+    assert "class ArenaEnv" in env
+    assert "NebulaRadiusScale = 3f" in env
+    assert "BeltRadiusScale = 1.35f" in env
+    assert "Starfield_A" in env and "Starfield_B" in env
+    assert "Nebula_Blue" in env
+    assert "CreateBelt" in env and "AstroGrid" in env
+    assert "Retint" in env
+    assert "ArenaEnv.Ensure" in factory
+    assert 'child.name == "ArenaEnv"' in factory
+    assert 'TryVisual("Arena_RockIsland_A"' in factory
+    assert '"Arena_AstroFloor"' in art
+    blockout = art.split('case "Arena_Blockout":')[1].split("case ")[0]
+    assert "Arena_AstroFloor" in blockout
+    warm = art.split("PlayModeAssets")[1].split("};")[0]
+    assert warm.count("\n            \"") == 54
+    assert "Arena_AstroFloor" not in warm
+    assert "Arena_RockIsland_A" not in warm
+
+    lfs_prefix = b"version https://git-lfs.github.com/spec/v1"
+    for name, min_size in (("Arena_AstroFloor", 80000), ("Arena_RockIsland_A", 40000)):
+        art_fbx = root / f"Assets/Art/Import/{name}.fbx"
+        res_fbx = root / f"Assets/Resources/Art/Import/{name}.fbx"
+        assert art_fbx.is_file() and art_fbx.stat().st_size > min_size
+        assert res_fbx.is_file() and res_fbx.stat().st_size > min_size
+        assert art_fbx.read_bytes() == res_fbx.read_bytes()
+        assert not art_fbx.read_bytes()[:64].startswith(lfs_prefix)
+        assert art_fbx.read_bytes()[:8] == b"Kaydara "
+
+    for name in ("Starfield_A.png", "Starfield_B.png", "Nebula_Blue.png", "Nebula_Purple.png"):
+        path = root / "Assets/Resources/Art/Env" / name
+        assert path.is_file() and path.stat().st_size > 1000
+        assert path.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+
+    assert "Screaming Brain Studios" in credits
+    assert "Seamless Space Backgrounds" in credits
+    assert "ArenaEnv" in readme and "Arena_AstroFloor" in readme
+    assert "ArenaEnv" in checklist and "Arena_AstroFloor" in checklist
+    assert 'PrefsKey = "agr.ui.language"' in loc
+    assert "SeekerFireCooldown = 0.55f" in loadout
+    assert "forceModuleActive" not in bootstrap
+    assert "com.unity.modules.vr" not in manifest
+    assert "com.unity.modules.xr" not in lock
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -2092,6 +2152,7 @@ def main() -> int:
     test_art_parity_040c()
     test_end_credits_040d()
     test_localization_040()
+    test_astro_env_040()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
