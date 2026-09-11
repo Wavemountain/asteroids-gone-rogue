@@ -119,9 +119,12 @@ namespace AsteroidsGoneRogue
                 case "Arena_Hazard_Spike":
                     return new[] { "Arena_Hazard_Spike" };
                 case "Arena_Blockout":
-                    return new[] { "Arena_AstroFloor", "Arena_Blockout" };
+                    return new[] { "AstroFloor_v2", "Arena_AstroFloor_v2", "Arena_AstroFloor", "Arena_Blockout" };
                 case "Arena_AstroFloor":
-                    return new[] { "Arena_AstroFloor", "Arena_Blockout" };
+                    return new[] { "AstroFloor_v2", "Arena_AstroFloor_v2", "Arena_AstroFloor", "Arena_Blockout" };
+                case "AstroFloor_v2":
+                case "Arena_AstroFloor_v2":
+                    return new[] { "AstroFloor_v2", "Arena_AstroFloor_v2", "Arena_AstroFloor", "Arena_Blockout" };
                 case "Arena_RockIsland_A":
                     return new[] { "Arena_RockIsland_A" };
                 case "Hangar_LaunchSign":

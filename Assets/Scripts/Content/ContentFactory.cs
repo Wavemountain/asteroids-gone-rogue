@@ -14,6 +14,7 @@ namespace AsteroidsGoneRogue
         public const float SmallAsteroidMeters = 1.8f;
         public const float EnemyMeters = 2f;
         public const float ArenaPlaySurfaceY = -0.08f;
+        public const float AstroFloorVisualScale = 0.88f;
 
         private readonly List<Projectile> _projectiles = new List<Projectile>();
         private Transform _threatRoot;
@@ -88,7 +89,7 @@ namespace AsteroidsGoneRogue
             _asteroid = MakeMaterial("Mat_Asteroid", new Color(0.38f, 0.32f, 0.28f), 0.05f, 0.18f);
             _asteroidB = MakeMaterial("Mat_Asteroid_B", new Color(0.46f, 0.3f, 0.22f), 0.04f, 0.14f);
             _enemy = MakeMaterial("Mat_Enemy", new Color(0.72f, 0.16f, 0.18f), 0.25f, 0.4f, new Color(0.6f, 0.05f, 0.08f));
-            _arena = MakeMaterial("Mat_Arena", new Color(0.052f, 0.082f, 0.105f), 0.1f, 0.12f);
+            _arena = MakeMaterial("Mat_Arena", new Color(0.04f, 0.062f, 0.08f), 0.08f, 0.1f);
             _projectile = MakeMaterial("Mat_Projectile", new Color(1f, 0.92f, 0.42f), 0f, 0.35f, new Color(1f, 0.78f, 0.18f) * 3.4f);
             _projectileSpread = MakeMaterial("Mat_Projectile_Spread", new Color(1f, 0.42f, 0.08f), 0f, 0.28f, new Color(1f, 0.32f, 0.02f) * 4.4f);
             _projectilePierce = MakeMaterial("Mat_Projectile_Pierce", new Color(0.28f, 0.95f, 1f), 0f, 0.32f, new Color(0.12f, 0.7f, 1f) * 4.8f);
@@ -192,11 +193,17 @@ namespace AsteroidsGoneRogue
             if (TryVisual(visualName, _arenaRoot.transform, _arena, out visual))
             {
                 float scale = WaveManager.ArenaRadius / WaveManager.ArenaDesignRadius;
+                if (IsAstroPlayFloor(visualName))
+                {
+                    scale *= AstroFloorVisualScale;
+                }
+
                 visual.transform.localScale = Vector3.one * scale;
                 if (IsAstroPlayFloor(visualName))
                 {
                     SinkPlaySurface(visual, ArenaPlaySurfaceY);
                     DressArenaFloorRenderers(visual);
+                    DressAstroFloorColliders(visual);
                 }
             }
             else
@@ -1114,7 +1121,10 @@ namespace AsteroidsGoneRogue
 
         private static bool IsAstroPlayFloor(string visualName)
         {
-            return visualName == "Arena_AstroFloor" || visualName == "Arena_Blockout";
+            return visualName == "Arena_AstroFloor"
+                || visualName == "Arena_Blockout"
+                || visualName == "AstroFloor_v2"
+                || visualName == "Arena_AstroFloor_v2";
         }
 
         private static void SinkPlaySurface(GameObject visual, float surfaceY)
@@ -1165,6 +1175,40 @@ namespace AsteroidsGoneRogue
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
                 renderer.receiveShadows = true;
                 renderer.sortingOrder = -2;
+            }
+        }
+
+        private static void DressAstroFloorColliders(GameObject visual)
+        {
+            if (visual == null)
+            {
+                return;
+            }
+
+            Collider[] existing = visual.GetComponentsInChildren<Collider>(true);
+            for (int i = 0; i < existing.Length; i++)
+            {
+                Object.Destroy(existing[i]);
+            }
+
+            Renderer[] renderers = visual.GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                MeshRenderer mesh = renderers[i] as MeshRenderer;
+                if (mesh == null)
+                {
+                    continue;
+                }
+
+                Bounds local = mesh.localBounds;
+                if (local.size.x < 0.15f && local.size.z < 0.15f)
+                {
+                    continue;
+                }
+
+                BoxCollider box = mesh.gameObject.AddComponent<BoxCollider>();
+                box.center = new Vector3(local.center.x, local.max.y - 0.06f, local.center.z);
+                box.size = new Vector3(local.size.x, 0.12f, local.size.z);
             }
         }
 

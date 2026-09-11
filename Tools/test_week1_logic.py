@@ -2086,17 +2086,23 @@ def test_astro_env_040() -> None:
     assert "Starfield_A" in env and "Starfield_B" in env
     assert "Nebula_Blue" in env
     assert "CreateBelt" in env and "AstroGrid" in env
-    assert "NebulaInner" in env and "DustRing" in env
+    assert "NebulaInner" in env
+    assert "DustRing" not in env
+    assert "CreateDustRing" not in env
     assert "BeltOuterRadiusScale = 1.68f" in env
     assert "BeltSpinDegrees = 6f" in env
     assert "BeltCount = 22" in env
     assert "StarFarTint = 0.45f" in env
-    assert "StarNearTint = 1.15f" in env
+    assert "StarNearTint = 1.38f" in env
+    assert "StarFarTiling = 3.6f" in env
     assert "GridFadeRadiusScale = 0.7f" in env
+    assert "GridAlpha = 0.06f" in env
     assert 'Shader.Find("Particles/Additive")' in env
     assert "ArenaRimLight" in env
+    assert "ArenaUnderGlow" in env
+    assert "LightType.Point" in env
     assert "DarkBeltMaterial" in env
-    assert "0.2f, 3.5f" in env
+    assert "-0.5f, 3.2f" in env
     assert "0.7f, 1.4f" in env
     assert "mainTextureScale" in env
     assert "Retint" in env
@@ -2106,7 +2112,11 @@ def test_astro_env_040() -> None:
     assert "SinkPlaySurface" in factory
     assert "IsAstroPlayFloor" in factory
     assert "ArenaPlaySurfaceY = -0.08f" in factory
+    assert "AstroFloorVisualScale = 0.88f" in factory
     assert "DressArenaFloorRenderers" in factory
+    assert "DressAstroFloorColliders" in factory
+    assert "AstroFloor_v2" in factory
+    assert "Arena_AstroFloor_v2" in factory
     assert "box.center = new Vector3(0.64f, 1.55f, 0.15f)" in factory
     shooter = (root / "Assets/Scripts/Player/ShipController.cs").read_text(encoding="utf-8")
     assert "PlayHeight = 0.4f" in shooter
@@ -2126,15 +2136,18 @@ def test_astro_env_040() -> None:
     assert "ArenaLip" in env
     assert "PlayVignette" in ui
     assert "* 0.35f" in ui
-    assert "0.052f, 0.082f, 0.105f" in factory
+    assert "0.04f, 0.062f, 0.08f" in factory
     assert "fieldOfView = 54f" in bootstrap
     assert "public int MaxHull" in (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
     assert '"Arena_AstroFloor"' in art
     blockout = art.split('case "Arena_Blockout":')[1].split("case ")[0]
+    assert "AstroFloor_v2" in blockout
+    assert "Arena_AstroFloor_v2" in blockout
     assert "Arena_AstroFloor" in blockout
     warm = art.split("PlayModeAssets")[1].split("};")[0]
     assert warm.count("\n            \"") == 54
     assert "Arena_AstroFloor" not in warm
+    assert "AstroFloor_v2" not in warm
     assert "Arena_RockIsland_A" not in warm
 
     lfs_prefix = b"version https://git-lfs.github.com/spec/v1"

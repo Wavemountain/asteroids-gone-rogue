@@ -17,8 +17,10 @@ namespace AsteroidsGoneRogue
         public const float BeltSpinDegrees = 6f;
         public const int BeltCount = 22;
         public const float StarFarTint = 0.45f;
-        public const float StarNearTint = 1.15f;
+        public const float StarNearTint = 1.38f;
+        public const float StarFarTiling = 3.6f;
         public const float GridFadeRadiusScale = 0.7f;
+        public const float GridAlpha = 0.06f;
         public const string StarAKey = "Art/Env/Starfield_A";
         public const string StarBKey = "Art/Env/Starfield_B";
         public const string NebulaBlueKey = "Art/Env/Nebula_Blue";
@@ -38,7 +40,6 @@ namespace AsteroidsGoneRogue
         private Material _nebula;
         private Material _nebulaInner;
         private Material _grid;
-        private Material _dust;
         private Transform _belt;
         private Transform[] _beltSlots;
         private Material _beltTint;
@@ -70,36 +71,36 @@ namespace AsteroidsGoneRogue
             int index = world < 1 ? 1 : world;
             Color star = new Color(0.82f, 0.9f, 1f, 1f);
             Color nebula = new Color(0.42f, 0.58f, 1f, NebulaOpacity);
-            Color grid = new Color(0.2f, 0.85f, 1f, 0.09f);
+            Color grid = new Color(0.2f, 0.85f, 1f, GridAlpha);
             Texture2D nebulaTex = _nebulaBlue;
             switch (index % 7)
             {
                 case 2:
                     star = new Color(1f, 0.82f, 0.7f, 1f);
                     nebula = new Color(0.85f, 0.28f, 0.55f, NebulaOpacity);
-                    grid = new Color(1f, 0.45f, 0.18f, 0.09f);
+                    grid = new Color(1f, 0.45f, 0.18f, GridAlpha);
                     nebulaTex = _nebulaPurple != null ? _nebulaPurple : _nebulaBlue;
                     break;
                 case 3:
                     star = new Color(0.7f, 1f, 0.92f, 1f);
                     nebula = new Color(0.15f, 0.75f, 0.62f, NebulaOpacity);
-                    grid = new Color(0.2f, 1f, 0.75f, 0.09f);
+                    grid = new Color(0.2f, 1f, 0.75f, GridAlpha);
                     break;
                 case 4:
                     star = new Color(1f, 0.88f, 0.55f, 1f);
                     nebula = new Color(0.95f, 0.5f, 0.12f, NebulaOpacity);
-                    grid = new Color(1f, 0.7f, 0.2f, 0.09f);
+                    grid = new Color(1f, 0.7f, 0.2f, GridAlpha);
                     nebulaTex = _nebulaPurple != null ? _nebulaPurple : _nebulaBlue;
                     break;
                 case 5:
                     star = new Color(0.78f, 1f, 0.7f, 1f);
                     nebula = new Color(0.35f, 0.9f, 0.28f, NebulaOpacity);
-                    grid = new Color(0.45f, 1f, 0.3f, 0.09f);
+                    grid = new Color(0.45f, 1f, 0.3f, GridAlpha);
                     break;
                 case 6:
                     star = new Color(1f, 0.72f, 0.62f, 1f);
                     nebula = new Color(0.62f, 0.22f, 0.12f, NebulaOpacity);
-                    grid = new Color(0.85f, 0.35f, 0.15f, 0.09f);
+                    grid = new Color(0.85f, 0.35f, 0.15f, GridAlpha);
                     nebulaTex = _nebulaPurple != null ? _nebulaPurple : _nebulaBlue;
                     break;
             }
@@ -132,11 +133,6 @@ namespace AsteroidsGoneRogue
             if (_grid != null)
             {
                 _grid.color = grid;
-            }
-
-            if (_dust != null)
-            {
-                _dust.color = new Color(star.r, star.g, star.b, 0.1f);
             }
         }
 
@@ -173,9 +169,9 @@ namespace AsteroidsGoneRogue
             _nebulaBlue = Resources.Load<Texture2D>(NebulaBlueKey);
             _nebulaPurple = Resources.Load<Texture2D>(NebulaPurpleKey);
 
-            _starFar = UnlitLayer("Mat_Env_StarFar", starA != null ? starA : starB, new Color(StarFarTint, StarFarTint, StarFarTint, 0.85f), 3000, 3.2f);
+            _starFar = UnlitLayer("Mat_Env_StarFar", starA != null ? starA : starB, new Color(StarFarTint, StarFarTint, StarFarTint, 0.85f), 3000, StarFarTiling);
             _starMid = UnlitLayer("Mat_Env_StarMid", starB != null ? starB : starA, new Color(0.72f, 0.78f, 0.92f, 0.9f), 3010, 1.65f);
-            _starNear = UnlitLayer("Mat_Env_StarNear", starA != null ? starA : starB, new Color(StarNearTint, StarNearTint, StarNearTint, 1f), 3020, 1.12f);
+            _starNear = UnlitLayer("Mat_Env_StarNear", starA != null ? starA : starB, new Color(StarNearTint, StarNearTint, StarNearTint, 1f), 3020, 1.05f);
             _nebula = UnlitTransparent(
                 "Mat_Env_Nebula",
                 _nebulaBlue,
@@ -186,19 +182,18 @@ namespace AsteroidsGoneRogue
                 _nebulaPurple != null ? _nebulaPurple : _nebulaBlue,
                 new Color(0.7f, 0.35f, 0.95f, NebulaInnerOpacity),
                 3110);
-            _grid = UnlitTransparent("Mat_Env_Grid", MakeGridTexture(), new Color(0.2f, 0.85f, 1f, 0.1f), 2900);
-            _dust = UnlitTransparent("Mat_Env_Dust", starB != null ? starB : starA, new Color(0.7f, 0.8f, 1f, 0.1f), 3050);
+            _grid = UnlitTransparent("Mat_Env_Grid", MakeGridTexture(), new Color(0.2f, 0.85f, 1f, GridAlpha), 2900);
 
             CreateDome("StarFar", radius * 8.8f, _starFar);
             CreateDome("StarMid", radius * 7.5f, _starMid);
             CreateDome("StarNear", radius * 6.4f, _starNear);
             CreateDome("NebulaDome", radius * NebulaRadiusScale, _nebula);
             CreateDome("NebulaInner", radius * NebulaInnerRadiusScale, _nebulaInner);
-            CreateDustRing(radius * 2.35f);
             CreateGrid(radius);
             CreatePlatformLip(radius);
             CreateBelt(radius * BeltRadiusScale);
             CreateRimLight();
+            CreateUnderGlow(radius);
         }
 
         private void CreateDome(string name, float radius, Material material)
@@ -291,7 +286,7 @@ namespace AsteroidsGoneRogue
             {
                 float ring = (i % 2 == 0) ? radius : radius * (BeltOuterRadiusScale / BeltRadiusScale);
                 float angle = (Mathf.PI * 2f * i) / count + (i % 2) * 0.18f;
-                float y = Mathf.Lerp(0.2f, 3.5f, ((i * 3) % 11) / 10f);
+                float y = Mathf.Lerp(-0.5f, 3.2f, ((i * 3) % 11) / 10f);
                 Vector3 pos = new Vector3(Mathf.Cos(angle) * ring, y, Mathf.Sin(angle) * ring);
                 string rock = BeltRocks[i % BeltRocks.Length];
                 Transform slot = new GameObject("Belt_" + i).transform;
@@ -365,27 +360,6 @@ namespace AsteroidsGoneRogue
             }
         }
 
-        private void CreateDustRing(float radius)
-        {
-            GameObject ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            ring.name = "DustRing";
-            ring.transform.SetParent(transform, false);
-            ring.transform.localScale = new Vector3(radius * 2f, 0.08f, radius * 2f);
-            Collider collider = ring.GetComponent<Collider>();
-            if (collider != null)
-            {
-                Destroy(collider);
-            }
-
-            MeshRenderer renderer = ring.GetComponent<MeshRenderer>();
-            if (renderer != null)
-            {
-                renderer.sharedMaterial = _dust;
-                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                renderer.receiveShadows = false;
-            }
-        }
-
         private void CreateRimLight()
         {
             Transform existing = transform.Find("ArenaRimLight");
@@ -402,6 +376,25 @@ namespace AsteroidsGoneRogue
             rim.intensity = 0.32f;
             rim.shadows = LightShadows.None;
             rimGo.transform.rotation = Quaternion.Euler(16f, 214f, 0f);
+        }
+
+        private void CreateUnderGlow(float radius)
+        {
+            Transform existing = transform.Find("ArenaUnderGlow");
+            if (existing != null)
+            {
+                return;
+            }
+
+            GameObject glowGo = new GameObject("ArenaUnderGlow");
+            glowGo.transform.SetParent(transform, false);
+            glowGo.transform.localPosition = new Vector3(0f, -4.8f, 0f);
+            Light glow = glowGo.AddComponent<Light>();
+            glow.type = LightType.Point;
+            glow.color = new Color(0.32f, 0.62f, 1f);
+            glow.intensity = 2.1f;
+            glow.range = radius * 1.35f;
+            glow.shadows = LightShadows.None;
         }
 
         private static Material UnlitLayer(string name, Texture2D texture, Color tint, int queue, float tiling)
@@ -457,6 +450,7 @@ namespace AsteroidsGoneRogue
             }
 
             material.renderQueue = queue;
+            material.SetInt("_ZWrite", 0);
             return material;
         }
 
