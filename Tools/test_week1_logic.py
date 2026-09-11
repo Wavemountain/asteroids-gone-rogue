@@ -2038,6 +2038,7 @@ def test_localization_040() -> None:
     swedish = set(re.findall(r'\{\s*"([^"]+)"\s*,', loc.split("private static readonly Dictionary")[1].split("};")[0]))
     required = {
         "ui.start_wave", "ui.next_wave", "ui.retry_wave", "ui.abort", "ui.credits",
+        "ui.health", "ui.hull_label", "ui.shield_label",
         "ui.hangar_hint_body", "ui.layout_swap", "ui.world_badge", "ui.credits_line",
         "shop.header.hull", "shop.title.Seeker", "run.wave_clear", "run.ship_lost",
         "fail.asteroid", "fail.hazard", "fail.unknown", "medal.scout", "layout.pylon",
@@ -2084,6 +2085,10 @@ def test_astro_env_040() -> None:
     assert "Starfield_A" in env and "Starfield_B" in env
     assert "Nebula_Blue" in env
     assert "CreateBelt" in env and "AstroGrid" in env
+    assert "NebulaInner" in env and "DustRing" in env
+    assert "BeltOuterRadiusScale = 1.52f" in env
+    assert "BeltSpinDegrees = 3.8f" in env
+    assert "mainTextureScale" in env
     assert "Retint" in env
     assert "ArenaEnv.Ensure" in factory
     assert 'child.name == "ArenaEnv"' in factory
@@ -2097,6 +2102,12 @@ def test_astro_env_040() -> None:
     assert "PlayHeight = 0.4f" in shooter
     assert "new Vector3(0f, PlayHeight, 0f)" in shooter
     assert "pos.y = PlayHeight" in shooter
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    assert "HealthRack" in ui
+    assert "RefreshHealthBar" in ui
+    assert "Image.Type.Filled" in ui
+    assert 'Loc.T("ui.health", "HEALTH")' in ui
+    assert "public int MaxHull" in (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
     assert '"Arena_AstroFloor"' in art
     blockout = art.split('case "Arena_Blockout":')[1].split("case ")[0]
     assert "Arena_AstroFloor" in blockout

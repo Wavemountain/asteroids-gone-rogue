@@ -27,6 +27,16 @@ namespace AsteroidsGoneRogue
             get { return _shield; }
         }
 
+        public int MaxHull
+        {
+            get { return _maxHull; }
+        }
+
+        public int MaxShield
+        {
+            get { return _maxShield; }
+        }
+
         public bool IsInvulnerable
         {
             get { return !_dead && Time.time < _invulnerableUntil; }

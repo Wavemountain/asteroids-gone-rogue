@@ -40,6 +40,15 @@ namespace AsteroidsGoneRogue
         private Text _badgeRow;
         private Image _hitFlash;
         private GameObject _hudPlate;
+        private GameObject _healthRoot;
+        private Text _healthTitle;
+        private Text _hullBarLabel;
+        private Text _shieldBarLabel;
+        private Text _hullBarCount;
+        private Text _shieldBarCount;
+        private Image _hullFill;
+        private Image _shieldFill;
+        private GameObject _shieldBarRow;
         private bool _tutorialDismissed;
         private float _worldFlashUntil;
         private int _flashedWorld = 1;
@@ -144,6 +153,7 @@ namespace AsteroidsGoneRogue
 
             _hud.gameObject.SetActive(true);
             _hud.text = BuildHud(playing);
+            RefreshHealthBar(playing);
             if (_audioPanel != null)
             {
                 _audioPanel.SetActive(!playing);
@@ -286,6 +296,7 @@ namespace AsteroidsGoneRogue
             Stretch(_hud.rectTransform, new Vector2(0.03f, 0.62f), new Vector2(0.5f, 0.775f));
             _hud.color = new Color(0.96f, 0.97f, 0.94f);
             AddReadability(_hud, false);
+            BuildHealthRack(display, body);
 
             _badgeRow = CreateText("BadgeRow", transform, display, 16, TextAnchor.UpperLeft, FontStyle.Bold);
             Stretch(_badgeRow.rectTransform, new Vector2(0.03f, 0.775f), new Vector2(0.62f, 0.86f));
@@ -1053,6 +1064,21 @@ namespace AsteroidsGoneRogue
                 _langTitle.text = Loc.T("ui.lang", "LANG");
             }
 
+            if (_healthTitle != null)
+            {
+                _healthTitle.text = Loc.T("ui.health", "HEALTH");
+            }
+
+            if (_hullBarLabel != null)
+            {
+                _hullBarLabel.text = Loc.T("ui.hull_label", "HULL");
+            }
+
+            if (_shieldBarLabel != null)
+            {
+                _shieldBarLabel.text = Loc.T("ui.shield_label", "SHIELD");
+            }
+
             if (_hullHeader != null)
             {
                 _hullHeader.text = ShopCatalog.HeaderFor(ShopGroup.Hull);
@@ -1119,6 +1145,7 @@ namespace AsteroidsGoneRogue
             if (_session != null && _session.Phase == GamePhase.Playing && _hud != null)
             {
                 _hud.text = BuildHud(true);
+                RefreshHealthBar(true);
             }
 
             ApplyHitFlash();
@@ -1337,6 +1364,139 @@ namespace AsteroidsGoneRogue
 
             int world = ContentFactory.WorldIndexForWave(_session.WaveIndex);
             return best.PlayCompare(_session.Score, _session.WaveIndex, world);
+        }
+
+        private void BuildHealthRack(Font display, Font body)
+        {
+            _healthRoot = CreatePanel("HealthRack", transform, new Color(0.02f, 0.032f, 0.055f, 0.88f),
+                new Vector2(0.012f, 0.168f), new Vector2(0.34f, 0.318f));
+            CreateFill("HealthHeader", _healthRoot.transform, new Color(1f, 0.58f, 0.16f, 0.3f),
+                new Vector2(0f, 0.82f), new Vector2(1f, 1f));
+            CreateFill("HealthRule", _healthRoot.transform, new Color(1f, 0.82f, 0.4f, 0.9f),
+                new Vector2(0.06f, 0.8f), new Vector2(0.94f, 0.84f));
+
+            _healthTitle = CreateText("HealthTitle", _healthRoot.transform, display, 15, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Stretch(_healthTitle.rectTransform, new Vector2(0.07f, 0.8f), new Vector2(0.94f, 0.98f));
+            _healthTitle.color = new Color(1f, 0.84f, 0.42f);
+            AddReadability(_healthTitle, true);
+
+            _shieldBarRow = CreateBarRow(
+                "ShieldBar",
+                _healthRoot.transform,
+                display,
+                body,
+                new Vector2(0.06f, 0.44f),
+                new Vector2(0.94f, 0.76f),
+                new Color(0.18f, 0.82f, 1f, 1f),
+                out _shieldBarLabel,
+                out _shieldBarCount,
+                out _shieldFill);
+            CreateBarRow(
+                "HullBar",
+                _healthRoot.transform,
+                display,
+                body,
+                new Vector2(0.06f, 0.06f),
+                new Vector2(0.94f, 0.4f),
+                new Color(1f, 0.72f, 0.28f, 1f),
+                out _hullBarLabel,
+                out _hullBarCount,
+                out _hullFill);
+            _healthRoot.SetActive(false);
+        }
+
+        private GameObject CreateBarRow(
+            string name,
+            Transform parent,
+            Font display,
+            Font body,
+            Vector2 min,
+            Vector2 max,
+            Color fillColor,
+            out Text label,
+            out Text count,
+            out Image fill)
+        {
+            GameObject row = new GameObject(name);
+            row.transform.SetParent(parent, false);
+            Stretch(row.AddComponent<RectTransform>(), min, max);
+
+            label = CreateText(name + "Label", row.transform, display, 12, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Stretch(label.rectTransform, new Vector2(0f, 0.52f), new Vector2(0.62f, 1f));
+            label.color = new Color(0.92f, 0.94f, 0.9f);
+
+            count = CreateText(name + "Count", row.transform, body, 13, TextAnchor.MiddleRight, FontStyle.Bold);
+            Stretch(count.rectTransform, new Vector2(0.62f, 0.52f), new Vector2(1f, 1f));
+            count.color = new Color(0.95f, 0.96f, 0.92f);
+
+            GameObject track = CreateFill(name + "Track", row.transform, new Color(0.06f, 0.08f, 0.1f, 0.95f),
+                new Vector2(0f, 0.04f), new Vector2(1f, 0.48f));
+            GameObject fillGo = new GameObject(name + "Fill");
+            fillGo.transform.SetParent(track.transform, false);
+            fill = fillGo.AddComponent<Image>();
+            fill.color = fillColor;
+            fill.raycastTarget = false;
+            fill.type = Image.Type.Filled;
+            fill.fillMethod = Image.FillMethod.Horizontal;
+            fill.fillOrigin = (int)Image.OriginHorizontal.Left;
+            fill.fillAmount = 1f;
+            Stretch(fill.rectTransform, Vector2.zero, Vector2.one);
+            return row;
+        }
+
+        private void RefreshHealthBar(bool playing)
+        {
+            if (_healthRoot == null)
+            {
+                return;
+            }
+
+            _healthRoot.SetActive(playing);
+            if (!playing)
+            {
+                return;
+            }
+
+            int hull = _ship != null && _ship.Health != null ? _ship.Health.Hull : LoadoutState.HullHitPoints;
+            int maxHull = _ship != null && _ship.Health != null ? _ship.Health.MaxHull : LoadoutState.HullHitPoints;
+            int shield = _ship != null && _ship.Health != null ? _ship.Health.Shield : 0;
+            int maxShield = _ship != null && _ship.Health != null
+                ? Mathf.Max(_ship.Health.MaxShield, _loadout != null && _loadout.State != null ? _loadout.State.CurrentMaxShield : 0)
+                : (_loadout != null && _loadout.State != null ? _loadout.State.CurrentMaxShield : LoadoutState.MaxShieldCharges);
+            if (maxHull < 1)
+            {
+                maxHull = LoadoutState.HullHitPoints;
+            }
+
+            if (_hullFill != null)
+            {
+                _hullFill.fillAmount = Mathf.Clamp01(hull / (float)maxHull);
+                _hullFill.color = hull <= 1
+                    ? new Color(1f, 0.32f, 0.18f, 1f)
+                    : new Color(1f, 0.72f, 0.28f, 1f);
+            }
+
+            if (_hullBarCount != null)
+            {
+                _hullBarCount.text = hull + " / " + maxHull;
+            }
+
+            bool showShield = maxShield > 0 || shield > 0;
+            if (_shieldBarRow != null)
+            {
+                _shieldBarRow.SetActive(showShield);
+            }
+
+            if (showShield && _shieldFill != null)
+            {
+                int cap = Mathf.Max(1, maxShield);
+                _shieldFill.fillAmount = Mathf.Clamp01(shield / (float)cap);
+            }
+
+            if (_shieldBarCount != null)
+            {
+                _shieldBarCount.text = showShield ? shield + " / " + Mathf.Max(maxShield, 1) : string.Empty;
+            }
         }
 
         private static void AddReadability(Text text, bool strong)

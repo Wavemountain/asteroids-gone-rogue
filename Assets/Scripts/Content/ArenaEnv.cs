@@ -8,10 +8,13 @@ namespace AsteroidsGoneRogue
     /// </summary>
     public sealed class ArenaEnv : MonoBehaviour
     {
-        public const float NebulaOpacity = 0.32f;
+        public const float NebulaOpacity = 0.38f;
+        public const float NebulaInnerOpacity = 0.2f;
         public const float NebulaRadiusScale = 3f;
+        public const float NebulaInnerRadiusScale = 2.15f;
         public const float BeltRadiusScale = 1.35f;
-        public const float BeltSpinDegrees = 2.2f;
+        public const float BeltOuterRadiusScale = 1.52f;
+        public const float BeltSpinDegrees = 3.8f;
         public const string StarAKey = "Art/Env/Starfield_A";
         public const string StarBKey = "Art/Env/Starfield_B";
         public const string NebulaBlueKey = "Art/Env/Nebula_Blue";
@@ -29,8 +32,11 @@ namespace AsteroidsGoneRogue
         private Material _starMid;
         private Material _starNear;
         private Material _nebula;
+        private Material _nebulaInner;
         private Material _grid;
+        private Material _dust;
         private Transform _belt;
+        private Transform[] _beltSlots;
         private Texture2D _nebulaBlue;
         private Texture2D _nebulaPurple;
 
@@ -58,8 +64,8 @@ namespace AsteroidsGoneRogue
         {
             int index = world < 1 ? 1 : world;
             Color star = new Color(0.82f, 0.9f, 1f, 1f);
-            Color nebula = new Color(0.35f, 0.55f, 1f, NebulaOpacity);
-            Color grid = new Color(0.2f, 0.85f, 1f, 0.16f);
+            Color nebula = new Color(0.42f, 0.58f, 1f, NebulaOpacity);
+            Color grid = new Color(0.2f, 0.85f, 1f, 0.1f);
             Texture2D nebulaTex = _nebulaBlue;
             switch (index % 7)
             {
@@ -93,9 +99,9 @@ namespace AsteroidsGoneRogue
                     break;
             }
 
-            ApplyTint(_starFar, star * 0.65f);
-            ApplyTint(_starMid, star * 0.85f);
-            ApplyTint(_starNear, star);
+            ApplyTint(_starFar, star * 0.55f);
+            ApplyTint(_starMid, star * 0.88f);
+            ApplyTint(_starNear, star * 1.08f);
             if (_nebula != null)
             {
                 _nebula.color = nebula;
@@ -105,21 +111,52 @@ namespace AsteroidsGoneRogue
                 }
             }
 
+            if (_nebulaInner != null)
+            {
+                Color inner = nebula;
+                inner.a = NebulaInnerOpacity;
+                inner.r = Mathf.Clamp01(inner.r + 0.12f);
+                _nebulaInner.color = inner;
+                Texture2D innerTex = nebulaTex == _nebulaBlue ? _nebulaPurple : _nebulaBlue;
+                if (innerTex != null)
+                {
+                    _nebulaInner.mainTexture = innerTex;
+                }
+            }
+
             if (_grid != null)
             {
                 _grid.color = grid;
+            }
+
+            if (_dust != null)
+            {
+                _dust.color = new Color(star.r, star.g, star.b, 0.1f);
             }
         }
 
         private void LateUpdate()
         {
-            Scroll(_starFar, 0.004f, 0.0015f);
-            Scroll(_starMid, -0.008f, 0.003f);
-            Scroll(_starNear, 0.014f, -0.002f);
-            Scroll(_nebula, -0.0035f, 0.0022f);
+            Scroll(_starFar, 0.007f, 0.0024f);
+            Scroll(_starMid, -0.016f, 0.006f);
+            Scroll(_starNear, 0.032f, -0.007f);
+            Scroll(_nebula, -0.008f, 0.0045f);
+            Scroll(_nebulaInner, 0.011f, -0.006f);
             if (_belt != null)
             {
                 _belt.Rotate(0f, BeltSpinDegrees * Time.unscaledDeltaTime, 0f, Space.World);
+            }
+
+            if (_beltSlots != null)
+            {
+                float tumble = 18f * Time.unscaledDeltaTime;
+                for (int i = 0; i < _beltSlots.Length; i++)
+                {
+                    if (_beltSlots[i] != null)
+                    {
+                        _beltSlots[i].Rotate(tumble * (0.4f + (i % 3) * 0.25f), tumble, -tumble * 0.35f, Space.Self);
+                    }
+                }
             }
         }
 
@@ -131,20 +168,28 @@ namespace AsteroidsGoneRogue
             _nebulaBlue = Resources.Load<Texture2D>(NebulaBlueKey);
             _nebulaPurple = Resources.Load<Texture2D>(NebulaPurpleKey);
 
-            _starFar = UnlitLayer("Mat_Env_StarFar", starA != null ? starA : starB, new Color(0.7f, 0.78f, 0.9f, 1f), 3000);
-            _starMid = UnlitLayer("Mat_Env_StarMid", starB != null ? starB : starA, new Color(0.85f, 0.9f, 1f, 1f), 3010);
-            _starNear = UnlitLayer("Mat_Env_StarNear", starA != null ? starA : starB, Color.white, 3020);
+            _starFar = UnlitLayer("Mat_Env_StarFar", starA != null ? starA : starB, new Color(0.62f, 0.72f, 0.92f, 1f), 3000, 2.35f);
+            _starMid = UnlitLayer("Mat_Env_StarMid", starB != null ? starB : starA, new Color(0.88f, 0.92f, 1f, 1f), 3010, 1.65f);
+            _starNear = UnlitLayer("Mat_Env_StarNear", starA != null ? starA : starB, Color.white, 3020, 1.12f);
             _nebula = UnlitTransparent(
                 "Mat_Env_Nebula",
                 _nebulaBlue,
-                new Color(0.35f, 0.55f, 1f, NebulaOpacity),
+                new Color(0.42f, 0.58f, 1f, NebulaOpacity),
                 3100);
-            _grid = UnlitTransparent("Mat_Env_Grid", MakeGridTexture(), new Color(0.2f, 0.85f, 1f, 0.16f), 2900);
+            _nebulaInner = UnlitTransparent(
+                "Mat_Env_NebulaInner",
+                _nebulaPurple != null ? _nebulaPurple : _nebulaBlue,
+                new Color(0.7f, 0.35f, 0.95f, NebulaInnerOpacity),
+                3110);
+            _grid = UnlitTransparent("Mat_Env_Grid", MakeGridTexture(), new Color(0.2f, 0.85f, 1f, 0.1f), 2900);
+            _dust = UnlitTransparent("Mat_Env_Dust", starB != null ? starB : starA, new Color(0.7f, 0.8f, 1f, 0.1f), 3050);
 
-            CreateDome("StarFar", radius * 8.4f, _starFar);
-            CreateDome("StarMid", radius * 7.4f, _starMid);
-            CreateDome("StarNear", radius * 6.5f, _starNear);
+            CreateDome("StarFar", radius * 8.8f, _starFar);
+            CreateDome("StarMid", radius * 7.5f, _starMid);
+            CreateDome("StarNear", radius * 6.4f, _starNear);
             CreateDome("NebulaDome", radius * NebulaRadiusScale, _nebula);
+            CreateDome("NebulaInner", radius * NebulaInnerRadiusScale, _nebulaInner);
+            CreateDustRing(radius * 2.35f);
             CreateGrid(radius);
             CreateBelt(radius * BeltRadiusScale);
         }
@@ -197,17 +242,20 @@ namespace AsteroidsGoneRogue
             GameObject root = new GameObject("AsteroidBelt");
             root.transform.SetParent(transform, false);
             _belt = root.transform;
-            int count = 10;
+            int count = 16;
+            _beltSlots = new Transform[count];
             for (int i = 0; i < count; i++)
             {
-                float angle = (Mathf.PI * 2f * i) / count;
-                Vector3 pos = new Vector3(Mathf.Cos(angle) * radius, 1.1f + Mathf.Sin(i * 1.7f) * 0.8f, Mathf.Sin(angle) * radius);
+                float ring = (i % 2 == 0) ? radius : radius * (BeltOuterRadiusScale / BeltRadiusScale);
+                float angle = (Mathf.PI * 2f * i) / count + (i % 2) * 0.18f;
+                Vector3 pos = new Vector3(Mathf.Cos(angle) * ring, 0.4f + Mathf.Sin(i * 1.35f) * 2.2f, Mathf.Sin(angle) * ring);
                 string rock = BeltRocks[i % BeltRocks.Length];
                 Transform slot = new GameObject("Belt_" + i).transform;
                 slot.SetParent(_belt, false);
                 slot.position = pos;
                 slot.localRotation = Quaternion.Euler(18f * i, 40f * i, 12f * i);
-                slot.localScale = Vector3.one * (0.55f + (i % 3) * 0.12f);
+                slot.localScale = Vector3.one * (0.72f + (i % 4) * 0.14f);
+                _beltSlots[i] = slot;
                 GameObject instance;
                 if (!ArtImport.TryInstantiate(rock, slot, KeepImported, null, out instance))
                 {
@@ -250,7 +298,28 @@ namespace AsteroidsGoneRogue
             }
         }
 
-        private static Material UnlitLayer(string name, Texture2D texture, Color tint, int queue)
+        private void CreateDustRing(float radius)
+        {
+            GameObject ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            ring.name = "DustRing";
+            ring.transform.SetParent(transform, false);
+            ring.transform.localScale = new Vector3(radius * 2f, 0.08f, radius * 2f);
+            Collider collider = ring.GetComponent<Collider>();
+            if (collider != null)
+            {
+                Destroy(collider);
+            }
+
+            MeshRenderer renderer = ring.GetComponent<MeshRenderer>();
+            if (renderer != null)
+            {
+                renderer.sharedMaterial = _dust;
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+            }
+        }
+
+        private static Material UnlitLayer(string name, Texture2D texture, Color tint, int queue, float tiling)
         {
             Shader shader = Shader.Find("Unlit/Texture");
             if (shader == null)
@@ -264,6 +333,7 @@ namespace AsteroidsGoneRogue
             if (texture != null)
             {
                 material.mainTexture = texture;
+                material.mainTextureScale = new Vector2(tiling, tiling);
             }
 
             material.renderQueue = queue;

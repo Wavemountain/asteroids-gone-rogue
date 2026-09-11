@@ -40,6 +40,7 @@ Editor helpers: menu **Asteroids gone rogue → Open Play Scene** / **Validate W
 | Cycle fire mode | **Q** or **right mouse** (after buying Spread / Twin / Pierce / Seeker / Ricochet) |
 | Abort wave | **Abort → Hangar** or **Esc** (Playing only; keeps loadout, no clear bonus) |
 | Start / next / retry wave | Hangar **Start Wave** / **Next Wave** / **Retry Wave** |
+| Health | Play **HEALTH** rack (HULL + SHIELD bars, Kenney Future) |
 | Language | Hangar **US flag** → English, **Swedish flag** → Swedish (PlayerPrefs `agr.ui.language`) |
 | Buy upgrade | Hangar shop buttons |
 
