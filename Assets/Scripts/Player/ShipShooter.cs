@@ -72,15 +72,19 @@ namespace AsteroidsGoneRogue
             }
 
             LoadoutState loadout = _loadout.State;
+            FireMode mode = OwnedMode(_mode);
             float cooldown = loadout.FireCooldown;
-            if (Time.time < _boostUntil)
+            if (mode == FireMode.Seeker)
+            {
+                cooldown = LoadoutState.SeekerFireCooldown;
+            }
+            else if (Time.time < _boostUntil)
             {
                 cooldown = Mathf.Min(cooldown, LoadoutState.RapidFireCooldown);
             }
 
             _nextFireTime = Time.time + cooldown;
             Vector3 origin = _muzzle != null ? _muzzle.position : transform.position + transform.forward * 1.6f;
-            FireMode mode = OwnedMode(_mode);
             if (mode == FireMode.Spread)
             {
                 FireSpread(origin, loadout);

@@ -11,6 +11,7 @@ namespace AsteroidsGoneRogue
         public const int MatrixMaxShieldCharges = 3;
         public const int HullHitPoints = 3;
         public const float BaseFireCooldown = 0.38f;
+        public const float SeekerFireCooldown = 0.55f;
         public const float RapidFireCooldown = 0.16f;
         public const float EngineUpgrade02Cooldown = 0.12f;
         public const float EngineUpgrade03Cooldown = 0.09f;

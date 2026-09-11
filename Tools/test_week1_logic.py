@@ -1619,6 +1619,8 @@ def test_monsters_arenas_040() -> None:
     assert "Wave 6 Swarm" in summary
     assert "DamagingSpikeDamage = 2" in hazard
     assert "damaging ? ArenaHazard.DamagingSpikeDamage" in factory
+    assert "NestSpawnSeconds = 3.5f" in enemies
+    assert "case EnemyKind.Brute:\n                    return 10;" in enemies
     assert "forceModuleActive" not in (root / "Assets/Scripts/Content/GameBootstrap.cs").read_text(encoding="utf-8")
     assert "ShowFailContinue" in summary
     assert "FailContinueHint" in summary
@@ -1794,6 +1796,10 @@ def test_weapons_upgrades_040b() -> None:
     assert "CurrentMaxShield" in loadout and "CurrentMaxShield" in health
     assert "NoseUpgrade03Damage = 4" in loadout
     assert "AfterburnerCooldown = 0.075f" in loadout
+    assert "SeekerFireCooldown = 0.55f" in loadout
+    assert "SeekerFireCooldown" in shooter
+    assert "mode == FireMode.Seeker" in shooter.split("public void TryFire()")[1].split("if (mode == FireMode.Spread)")[0]
+    assert 0.55 >= 0.38 * 1.44
     assert "OverchargerDamageBonus" in loadout
     assert "HasAltFire" in loadout and "HasAltFire" in ui and "HasAltFire" in shooter
     assert "hullIndex % 4" in ui

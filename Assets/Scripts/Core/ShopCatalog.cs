@@ -114,7 +114,7 @@ namespace AsteroidsGoneRogue
             new ShopItem(
                 UpgradeId.Seeker,
                 "Seeker",
-                "Shot mode: magenta missile that homes on the nearest threat.",
+                "Shot mode: magenta missile that homes on the nearest threat. Slower cadence than bolt.",
                 145,
                 ShopGroup.Weapons),
             new ShopItem(
