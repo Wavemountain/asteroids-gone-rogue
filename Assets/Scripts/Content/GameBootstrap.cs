@@ -72,14 +72,28 @@ namespace AsteroidsGoneRogue
 
         private static void EnsureEventSystem()
         {
-            if (FindAnyObjectByType<EventSystem>() != null)
+            EventSystem eventSystem = FindAnyObjectByType<EventSystem>();
+            GameObject eventGo = eventSystem != null ? eventSystem.gameObject : new GameObject("EventSystem");
+            eventGo.name = "EventSystem";
+            if (eventSystem == null)
             {
-                return;
+                eventSystem = eventGo.AddComponent<EventSystem>();
             }
 
-            GameObject eventSystem = new GameObject("EventSystem");
-            eventSystem.AddComponent<EventSystem>();
-            eventSystem.AddComponent<StandaloneInputModule>();
+            eventSystem.enabled = true;
+
+            StandaloneInputModule module = eventGo.GetComponent<StandaloneInputModule>();
+            if (module == null)
+            {
+                module = eventGo.AddComponent<StandaloneInputModule>();
+            }
+
+            module.enabled = true;
+            module.horizontalAxis = "Horizontal";
+            module.verticalAxis = "Vertical";
+            module.submitButton = "Submit";
+            module.cancelButton = "Cancel";
+            module.forceModuleActive = true;
         }
 
         private static void EnsureLight()

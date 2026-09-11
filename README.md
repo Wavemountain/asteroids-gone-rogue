@@ -84,7 +84,7 @@ Hull is 3 hits. Large asteroids take 2 hits then split into 3 small shards. Smal
 ## Project layout
 
 ```
-Assets/Scenes/Play.unity          Play scene (camera, light, EventSystem, GameBootstrap)
+Assets/Scenes/Play.unity          Play scene (camera, light, EventSystem + StandaloneInputModule, GameBootstrap)
 Assets/Scripts/Core/              GameSession, GameManager, WaveManager
 Assets/Scripts/Player/            Ship fly / aim / shoot / health
 Assets/Scripts/Combat/            Asteroid split, enemy seeker

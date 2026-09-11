@@ -7,7 +7,7 @@ This is the Week 1–2 playable core for **Asteroids gone rogue**. Branch: `0.40
 ## Unity
 
 - **Unity 6.6** (`6000.6.0f1`, changeset `f7f8ed4d1e24`)
-- Built-in RP, old Input Manager (no Input System / URP / TMP)
+- Built-in RP, old Input Manager (no Input System / URP / TMP). `Play.unity` persists EventSystem + `StandaloneInputModule` (ugui package guid `4f231c4fb786f3946a6b90b886c48677`); GameBootstrap repairs a missing module. Do not leave the Input Module empty after Hub open / Library wipe.
 - Product name must stay exactly `Asteroids gone rogue`
 - `Packages/manifest.json` is slim (ugui + IDE + used builtins only). No `modules.vr` / `modules.xr` (Hub must open without Continue). No `com.unity.textmeshpro`.
 - Keep Unity 6.6 APIs: `GetEntityId` (not `GetInstanceID`); bundled Kenney Future / Future Narrow via `Font` (LegacyRuntime fallback only; never Arial). Do not assign a target-typed `?:` to `Shader` / `new Material` (CS1503); use explicit `Shader` locals or if/else.

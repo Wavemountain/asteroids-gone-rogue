@@ -271,6 +271,27 @@ def main() -> int:
         err("Play.unity missing Main Camera")
     if "EventSystem" not in scene:
         err("Play.unity missing EventSystem")
+    if "76c392e42b5098c458856cdf6ecaaaa1" not in scene:
+        err("Play.unity EventSystem must reference ugui EventSystem script guid")
+    if "4f231c4fb786f3946a6b90b886c48677" not in scene:
+        err("Play.unity must persist StandaloneInputModule (ugui package guid) so Hub open has an Input Module")
+    if "4f231eb8fc47f54ca11b152d6d181d1e" in scene:
+        err("Play.unity still uses the old UnityEngine.UI.dll StandaloneInputModule guid (missing script after Library wipe)")
+    if "m_HorizontalAxis: Horizontal" not in scene or "m_VerticalAxis: Vertical" not in scene:
+        err("Play.unity StandaloneInputModule must bind Horizontal / Vertical Input Manager axes")
+    if "m_SubmitButton: Submit" not in scene or "m_CancelButton: Cancel" not in scene:
+        err("Play.unity StandaloneInputModule must bind Submit / Cancel Input Manager buttons")
+    if "InputSystemUIInputModule" in scene:
+        err("Play.unity must stay on StandaloneInputModule (no Input System UI module)")
+    bootstrap_src = read(ROOT / "Assets/Scripts/Content/GameBootstrap.cs")
+    if "EnsureEventSystem" not in bootstrap_src:
+        err("GameBootstrap must EnsureEventSystem")
+    if "GetComponent<StandaloneInputModule>" not in bootstrap_src:
+        err("GameBootstrap must repair a scene EventSystem that is missing StandaloneInputModule")
+    if "AddComponent<StandaloneInputModule>" not in bootstrap_src:
+        err("GameBootstrap must AddComponent StandaloneInputModule")
+    if "horizontalAxis" not in bootstrap_src or "forceModuleActive" not in bootstrap_src:
+        err("GameBootstrap must wire StandaloneInputModule Input Manager axes")
 
     for mat in (
         "Mat_Ship_Hull",

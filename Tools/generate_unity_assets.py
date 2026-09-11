@@ -426,7 +426,8 @@ MeshRenderer:
 def play_scene(bootstrap_guid: str) -> str:
     # Eventsystem built-in script GUIDs (com.unity.ugui / UnityEngine.UI)
     event_system = "76c392e42b5098c458856cdf6ecaaaa1"
-    standalone = "4f231eb8fc47f54ca11b152d6d181d1e"
+    # ugui package StandaloneInputModule.cs.meta (not the old UnityEngine.UI.dll guid)
+    standalone = "4f231c4fb786f3946a6b90b886c48677"
     return f"""%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!29 &1
@@ -825,7 +826,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {{fileID: 11500000, guid: {event_system}, type: 3}}
   m_Name: 
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.EventSystems.EventSystem
   m_FirstSelected: {{fileID: 0}}
   m_sendNavigationEvents: 1
   m_DragThreshold: 10
@@ -840,7 +841,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {{fileID: 11500000, guid: {standalone}, type: 3}}
   m_Name: 
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.EventSystems.StandaloneInputModule
   m_SendPointerHoverToParent: 1
   m_HorizontalAxis: Horizontal
   m_VerticalAxis: Vertical
@@ -848,7 +849,7 @@ MonoBehaviour:
   m_CancelButton: Cancel
   m_InputActionsPerSecond: 10
   m_RepeatDelay: 0.5
-  m_ForceModuleActive: 0
+  m_ForceModuleActive: 1
 """
 
 

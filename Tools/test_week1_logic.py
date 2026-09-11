@@ -1305,6 +1305,8 @@ def test_steam_world3_038() -> None:
     assert "FindAnyObjectByType<ContentFactory>" in seeker
     assert "FindAnyObjectByType<GameManager>" in pickup
     assert "FindAnyObjectByType<EventSystem>" in bootstrap
+    assert "GetComponent<StandaloneInputModule>" in bootstrap
+    assert "AddComponent<StandaloneInputModule>" in bootstrap
     assert "FindObjectsSortMode" not in bootstrap
     assert "FindObjectsByType<Light>()" in bootstrap
     assert "Arial.ttf" not in factory
@@ -1329,6 +1331,54 @@ def _load_week1_validator():
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
+
+
+def test_event_system_persist() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    scene = (root / "Assets/Scenes/Play.unity").read_text(encoding="utf-8")
+    bootstrap = (root / "Assets/Scripts/Content/GameBootstrap.cs").read_text(encoding="utf-8")
+    settings = (root / "ProjectSettings/ProjectSettings.asset").read_text(encoding="utf-8")
+    inputs = (root / "ProjectSettings/InputManager.asset").read_text(encoding="utf-8")
+    manifest = (root / "Packages/manifest.json").read_text(encoding="utf-8")
+    lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
+    generator = (root / "Tools/generate_unity_assets.py").read_text(encoding="utf-8")
+
+    assert "m_Name: EventSystem" in scene
+    assert "76c392e42b5098c458856cdf6ecaaaa1" in scene
+    assert "4f231c4fb786f3946a6b90b886c48677" in scene
+    assert "4f231eb8fc47f54ca11b152d6d181d1e" not in scene
+    assert "m_HorizontalAxis: Horizontal" in scene
+    assert "m_VerticalAxis: Vertical" in scene
+    assert "m_SubmitButton: Submit" in scene
+    assert "m_CancelButton: Cancel" in scene
+    assert "m_ForceModuleActive: 1" in scene
+    assert "InputSystemUIInputModule" not in scene
+    assert "UnityEngine.EventSystems.StandaloneInputModule" in scene
+
+    ensure = bootstrap.split("private static void EnsureEventSystem()")[1].split("private static void EnsureLight")[0]
+    assert "FindAnyObjectByType<EventSystem>" in ensure
+    assert "GetComponent<StandaloneInputModule>" in ensure
+    assert "AddComponent<StandaloneInputModule>" in ensure
+    assert "horizontalAxis = \"Horizontal\"" in ensure
+    assert "verticalAxis = \"Vertical\"" in ensure
+    assert "submitButton = \"Submit\"" in ensure
+    assert "cancelButton = \"Cancel\"" in ensure
+    assert "forceModuleActive = true" in ensure
+    assert "if (FindAnyObjectByType<EventSystem>() != null)\n            {\n                return;" not in ensure
+
+    assert "activeInputHandler: 0" in settings
+    assert "m_Name: Horizontal" in inputs
+    assert "m_Name: Vertical" in inputs
+    assert "m_Name: Submit" in inputs
+    assert "m_Name: Cancel" in inputs
+    assert "4f231c4fb786f3946a6b90b886c48677" in generator
+    assert "com.unity.inputsystem" not in manifest
+    assert "com.unity.modules.vr" not in manifest
+    assert "com.unity.modules.xr" not in manifest
+    assert "com.unity.modules.vr" not in lock
+    assert "com.unity.modules.xr" not in lock
 
 
 def test_shader_cs1503_gate() -> None:
@@ -1936,6 +1986,7 @@ def main() -> int:
     test_sniper_fardrift_037()
     test_steam_world3_038()
     test_ui_fonts_039()
+    test_event_system_persist()
     test_shader_cs1503_gate()
     test_monsters_arenas_040()
     test_weapons_upgrades_040b()
