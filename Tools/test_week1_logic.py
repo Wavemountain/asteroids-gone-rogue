@@ -2080,14 +2080,24 @@ def test_astro_env_040() -> None:
     lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
 
     assert "class ArenaEnv" in env
-    assert "NebulaRadiusScale = 3f" in env
-    assert "BeltRadiusScale = 1.35f" in env
+    assert "NebulaRadiusScale = 3.8f" in env
+    assert "NebulaInnerOpacity = 0.18f" in env
+    assert "BeltRadiusScale = 1.58f" in env
     assert "Starfield_A" in env and "Starfield_B" in env
     assert "Nebula_Blue" in env
     assert "CreateBelt" in env and "AstroGrid" in env
     assert "NebulaInner" in env and "DustRing" in env
-    assert "BeltOuterRadiusScale = 1.52f" in env
-    assert "BeltSpinDegrees = 3.8f" in env
+    assert "BeltOuterRadiusScale = 1.68f" in env
+    assert "BeltSpinDegrees = 6f" in env
+    assert "BeltCount = 22" in env
+    assert "StarFarTint = 0.45f" in env
+    assert "StarNearTint = 1.15f" in env
+    assert "GridFadeRadiusScale = 0.7f" in env
+    assert 'Shader.Find("Particles/Additive")' in env
+    assert "ArenaRimLight" in env
+    assert "DarkBeltMaterial" in env
+    assert "0.2f, 3.5f" in env
+    assert "0.7f, 1.4f" in env
     assert "mainTextureScale" in env
     assert "Retint" in env
     assert "ArenaEnv.Ensure" in factory
@@ -2107,6 +2117,10 @@ def test_astro_env_040() -> None:
     assert "RefreshHealthBar" in ui
     assert "Image.Type.Filled" in ui
     assert 'Loc.T("ui.health", "HEALTH")' in ui
+    assert "PlayVignette" in ui
+    assert "* 0.35f" in ui
+    assert "0.052f, 0.082f, 0.105f" in factory
+    assert "fieldOfView = 54f" in bootstrap
     assert "public int MaxHull" in (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
     assert '"Arena_AstroFloor"' in art
     blockout = art.split('case "Arena_Blockout":')[1].split("case ")[0]

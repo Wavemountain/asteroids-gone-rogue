@@ -39,6 +39,8 @@ namespace AsteroidsGoneRogue
         private Text _continueHint;
         private Text _badgeRow;
         private Image _hitFlash;
+        private GameObject _scrim;
+        private GameObject _vignette;
         private GameObject _hudPlate;
         private GameObject _healthRoot;
         private Text _healthTitle;
@@ -154,6 +156,15 @@ namespace AsteroidsGoneRogue
             _hud.gameObject.SetActive(true);
             _hud.text = BuildHud(playing);
             RefreshHealthBar(playing);
+            if (_scrim != null)
+            {
+                _scrim.SetActive(!playing);
+            }
+
+            if (_vignette != null)
+            {
+                _vignette.SetActive(playing);
+            }
             if (_audioPanel != null)
             {
                 _audioPanel.SetActive(!playing);
@@ -272,7 +283,8 @@ namespace AsteroidsGoneRogue
             Loc.EnsureLoaded();
             Font display = UiFonts.Display();
             Font body = UiFonts.Body();
-            CreateFill("Scrim", transform, new Color(0.015f, 0.02f, 0.04f, 0.22f), new Vector2(0f, 0f), new Vector2(1f, 1f));
+            _scrim = CreateFill("Scrim", transform, new Color(0.015f, 0.02f, 0.04f, 0.22f), new Vector2(0f, 0f), new Vector2(1f, 1f));
+            _vignette = BuildPlayVignette();
             _hitFlash = CreateFill("ScreenFlash", transform, new Color(1f, 0.88f, 0.72f, 0f),
                 new Vector2(0f, 0f), new Vector2(1f, 1f)).GetComponent<Image>();
 
@@ -1403,6 +1415,42 @@ namespace AsteroidsGoneRogue
                 out _hullBarCount,
                 out _hullFill);
             _healthRoot.SetActive(false);
+        }
+
+        private GameObject BuildPlayVignette()
+        {
+            GameObject go = CreateFill("PlayVignette", transform, Color.white, Vector2.zero, Vector2.one);
+            Image image = go.GetComponent<Image>();
+            image.sprite = MakeVignetteSprite();
+            image.type = Image.Type.Simple;
+            image.raycastTarget = false;
+            go.SetActive(false);
+            go.transform.SetSiblingIndex(1);
+            return go;
+        }
+
+        private static Sprite MakeVignetteSprite()
+        {
+            const int Size = 64;
+            Texture2D tex = new Texture2D(Size, Size, TextureFormat.ARGB32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+            Vector2 center = new Vector2(0.5f, 0.5f);
+            for (int y = 0; y < Size; y++)
+            {
+                for (int x = 0; x < Size; x++)
+                {
+                    float nx = (x + 0.5f) / Size;
+                    float ny = (y + 0.5f) / Size;
+                    float d = Vector2.Distance(new Vector2(nx, ny), center) * 2f;
+                    float a = Mathf.Clamp01((d - 0.55f) / 0.7f) * 0.35f;
+                    tex.SetPixel(x, y, new Color(0f, 0f, 0.04f, a));
+                }
+            }
+
+            tex.Apply();
+            tex.name = "PlayVignette";
+            return Sprite.Create(tex, new Rect(0f, 0f, Size, Size), new Vector2(0.5f, 0.5f), 64f);
         }
 
         private GameObject CreateBarRow(
