@@ -1462,10 +1462,10 @@ def test_monsters_arenas_040() -> None:
     assert 'return "Monster_Brute"' in enemies
     assert 'return "Monster_Swarm"' in enemies
     assert 'return "Monster_Swarmling"' in enemies
-    assert "case EnemyKind.Brute:\n                    return 8;" in enemies
+    assert "case EnemyKind.Brute:\n                    return 10;" in enemies
     assert "case EnemyKind.Swarm:\n                    return 6;" in enemies
     assert "BruteChargeRange" in enemies
-    assert "NestSpawnSeconds" in enemies
+    assert "NestSpawnSeconds = 3.5f" in enemies
     assert "IsMonster" in enemies
     require_mesh = enemies.split("RequiresImportedMesh")[1].split("public static bool IsMonster")[0]
     assert "EnemyKind.Bomber" in require_mesh
@@ -1497,11 +1497,12 @@ def test_monsters_arenas_040() -> None:
     roster = waves.split("public static EnemyKind[] RosterForWave")[1].split("public void Register")[0]
     assert "EnemyKind.Brute" in roster
     assert "EnemyKind.Swarm" in roster
-    assert "EnemyKind.Brute" in roster.split("case 4:")[1].split("case 5:")[0]
+    assert "EnemyKind.Brute" not in roster.split("case 4:")[1].split("case 5:")[0]
     assert "EnemyKind.Brute" in roster.split("case 5:")[1].split("case 6:")[0]
     assert "EnemyKind.Swarm" in roster.split("case 6:")[1].split("case 7:")[0]
-    assert "EnemyKind.Swarm" in roster.split("case 7:")[1].split("case 8:")[0]
+    assert "EnemyKind.Swarm" not in roster.split("case 7:")[1].split("case 8:")[0]
     assert "EnemyKind.Brute" in roster.split("case 8:")[1].split("case 9:")[0]
+    assert "EnemyKind.Swarm" in roster.split("case 8:")[1].split("case 9:")[0]
     assert "EnemyKind.SwarmPod, EnemyKind.Swarm" in roster.split("case 9:")[1].split("default:")[0]
 
     assert "enum ArenaLayoutId" in layout
@@ -1614,8 +1615,11 @@ def test_monsters_arenas_040() -> None:
     assert "PingPong(Time.unscaledTime * 7f" not in ui
     summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
     assert "MonsterTeaser" in summary
-    assert "Wave 4 Brute" in summary
+    assert "Wave 5 Brute" in summary
     assert "Wave 6 Swarm" in summary
+    assert "DamagingSpikeDamage = 2" in hazard
+    assert "damaging ? ArenaHazard.DamagingSpikeDamage" in factory
+    assert "forceModuleActive" not in (root / "Assets/Scripts/Content/GameBootstrap.cs").read_text(encoding="utf-8")
     assert "ShowFailContinue" in summary
     assert "FailContinueHint" in summary
     assert "Your hull" in summary

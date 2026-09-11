@@ -1346,7 +1346,7 @@ namespace AsteroidsGoneRogue
             body.constraints = RigidbodyConstraints.FreezeAll;
             ArenaHazard hazard = root.AddComponent<ArenaHazard>();
             hazard.Damaging = damaging;
-            hazard.Damage = 1;
+            hazard.Damage = damaging ? ArenaHazard.DamagingSpikeDamage : 1;
             DressHazardSpike(root, hazard, damaging);
         }
 

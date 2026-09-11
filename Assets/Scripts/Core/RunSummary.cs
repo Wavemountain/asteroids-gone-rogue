@@ -110,9 +110,9 @@ namespace AsteroidsGoneRogue
 
         public static string MonsterTeaser(int nextWave)
         {
-            if (nextWave == 4 || nextWave == 5)
+            if (nextWave == 5)
             {
-                return "Watch  ·  Wave 4 Brute — sidestep the charge";
+                return "Watch  ·  Wave 5 Brute — sidestep the charge";
             }
 
             if (nextWave == 6)

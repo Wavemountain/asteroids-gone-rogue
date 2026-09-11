@@ -108,15 +108,15 @@ namespace AsteroidsGoneRogue
                 case 3:
                     return new[] { EnemyKind.Mid01, EnemyKind.Scout, EnemyKind.Drone };
                 case 4:
-                    return new[] { EnemyKind.Gunner, EnemyKind.Brute };
+                    return new[] { EnemyKind.Gunner };
                 case 5:
                     return new[] { EnemyKind.Scout, EnemyKind.Drone, EnemyKind.Brute };
                 case 6:
                     return new[] { EnemyKind.Gunner, EnemyKind.Scout, EnemyKind.Swarm };
                 case 7:
-                    return new[] { EnemyKind.Gunner, EnemyKind.Drone, EnemyKind.Scout, EnemyKind.Bomber, EnemyKind.Swarm };
+                    return new[] { EnemyKind.Gunner, EnemyKind.Drone, EnemyKind.Scout, EnemyKind.Bomber };
                 case 8:
-                    return new[] { EnemyKind.Gunner, EnemyKind.Scout, EnemyKind.Drone, EnemyKind.Sniper, EnemyKind.Brute };
+                    return new[] { EnemyKind.Gunner, EnemyKind.Scout, EnemyKind.Drone, EnemyKind.Sniper, EnemyKind.Brute, EnemyKind.Swarm };
                 case 9:
                     return new[] { EnemyKind.Gunner, EnemyKind.Mid01, EnemyKind.Drone, EnemyKind.SwarmPod, EnemyKind.Swarm };
                 default:

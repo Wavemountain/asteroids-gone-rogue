@@ -21,7 +21,7 @@ namespace AsteroidsGoneRogue
         public const float BruteChargeTurn = 210f;
         public const float BruteChargeSeconds = 0.95f;
         public const float BruteRestSeconds = 2.4f;
-        public const float NestSpawnSeconds = 4.8f;
+        public const float NestSpawnSeconds = 3.5f;
         public const int NestMaxMinions = 3;
 
         public static string VisualName(EnemyKind kind)
@@ -68,7 +68,7 @@ namespace AsteroidsGoneRogue
                 case EnemyKind.SwarmPod:
                     return 2;
                 case EnemyKind.Brute:
-                    return 8;
+                    return 10;
                 case EnemyKind.Swarm:
                     return 6;
                 case EnemyKind.Swarmling:

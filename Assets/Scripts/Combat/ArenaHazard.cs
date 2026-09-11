@@ -7,6 +7,7 @@ namespace AsteroidsGoneRogue
     /// </summary>
     public sealed class ArenaHazard : MonoBehaviour
     {
+        public const int DamagingSpikeDamage = 2;
         public int Damage = 1;
         public bool Damaging;
         public bool PulseVisual;
