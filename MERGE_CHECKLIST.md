@@ -10,7 +10,7 @@ This is the Week 1–2 playable core for **Asteroids gone rogue**. Branch: `0.40
 - Built-in RP, old Input Manager (no Input System / URP / TMP)
 - Product name must stay exactly `Asteroids gone rogue`
 - `Packages/manifest.json` is slim (ugui + IDE + used builtins only). No `modules.vr` / `modules.xr` (Hub must open without Continue). No `com.unity.textmeshpro`.
-- Keep Unity 6.6 APIs: `GetEntityId` (not `GetInstanceID`); bundled Kenney Future / Future Narrow via `Font` (LegacyRuntime fallback only; never Arial).
+- Keep Unity 6.6 APIs: `GetEntityId` (not `GetInstanceID`); bundled Kenney Future / Future Narrow via `Font` (LegacyRuntime fallback only; never Arial). Do not assign a target-typed `?:` to `Shader` / `new Material` (CS1503); use explicit `Shader` locals or if/else.
 - **Hub-open smoke:** Add this folder in Unity Hub → project opens without a Continue / VR-XR dialog → `Assets/Scenes/Play.unity` → Press Play.
 
 ## After `git pull`

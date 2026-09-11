@@ -1319,6 +1319,69 @@ def arena_layout_for_wave(wave: int) -> int:
     return ((wave - 1) // 5 % 7) + 1
 
 
+def _load_week1_validator():
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parent / "validate_week1_project.py"
+    spec = importlib.util.spec_from_file_location("validate_week1_project", path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_shader_cs1503_gate() -> None:
+    validator = _load_week1_validator()
+    violations = validator.shader_conditional_violations
+
+    bad_assign = 'Shader shader = ok ? Shader.Find("Standard") : Shader.Find("Unlit/Color");'
+    assert violations(bad_assign), "ternary→Shader must fail the CS1503 gate"
+
+    bad_reassign = """
+        Shader shader = Shader.Find("Standard");
+        shader = lit ? Shader.Find("Standard") : Shader.Find("Unlit/Color");
+    """
+    assert violations(bad_reassign), "reassigned Shader ternary must fail the CS1503 gate"
+
+    bad_material = "_mat = new Material(shader != null ? shader : renderer.sharedMaterial);"
+    assert violations(bad_material), "target-typed Material ?: must fail the CS1503 gate"
+
+    good_find = 'Shader shader = Shader.Find(useUnlit ? "Unlit/Color" : "Standard");'
+    assert not violations(good_find)
+
+    good_if = """
+        Shader shader = Shader.Find("Standard");
+        if (shader != null)
+        {
+            _mat = new Material(shader);
+        }
+        else
+        {
+            _mat = new Material(renderer.sharedMaterial);
+        }
+    """
+    assert not violations(good_if)
+
+    good_factory = 'Shader shader = Shader.Find("Standard"); Material material = new Material(shader);'
+    assert not violations(good_factory)
+
+    comment = '// Shader shader = ok ? Shader.Find("Standard") : Shader.Find("Unlit/Color");'
+    assert not violations(comment)
+
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    for rel in (
+        "Assets/Scripts/Combat/TelegraphRing.cs",
+        "Assets/Scripts/Combat/MonsterPresence.cs",
+    ):
+        source = (root / rel).read_text(encoding="utf-8")
+        assert not violations(source), f"{rel} still has a Shader / Material ternary (CS1503)"
+        assert "new Material(shader);" in source
+        assert "new Material(" in source and "? shader :" not in source
+
+
 def test_monsters_arenas_040() -> None:
     from pathlib import Path
 
@@ -1873,6 +1936,7 @@ def main() -> int:
     test_sniper_fardrift_037()
     test_steam_world3_038()
     test_ui_fonts_039()
+    test_shader_cs1503_gate()
     test_monsters_arenas_040()
     test_weapons_upgrades_040b()
     test_art_parity_040c()

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import sys
 from pathlib import Path
 
@@ -27,6 +28,106 @@ def require(path: Path, hint: str = "") -> None:
 
 def read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+_CS_BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
+_CS_LINE_COMMENT = re.compile(r"//.*?$", re.MULTILINE)
+_CS_STRING = re.compile(r'"(?:\\.|[^"\\])*"')
+_SHADER_DECL = re.compile(r"\bShader\s+(\w+)\b")
+_MATERIAL_CTOR = re.compile(r"\bnew\s+Material\s*\(")
+
+
+def strip_cs_noise(source: str) -> str:
+    """Drop comments and string literals so static C# scans stay structural."""
+    cleaned = _CS_BLOCK_COMMENT.sub(" ", source)
+    cleaned = _CS_LINE_COMMENT.sub(" ", cleaned)
+    return _CS_STRING.sub('""', cleaned)
+
+
+def _split_cs_statements(source: str) -> list[str]:
+    statements: list[str] = []
+    buf: list[str] = []
+    depth = 0
+    for ch in source:
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth = max(0, depth - 1)
+        if ch == ";" and depth == 0:
+            stmt = "".join(buf).strip()
+            if stmt:
+                statements.append(stmt)
+            buf = []
+            continue
+        buf.append(ch)
+    tail = "".join(buf).strip()
+    if tail:
+        statements.append(tail)
+    return statements
+
+
+def _paren_args(source: str, open_index: int) -> str | None:
+    if open_index < 0 or open_index >= len(source) or source[open_index] != "(":
+        return None
+    depth = 0
+    for i in range(open_index, len(source)):
+        ch = source[i]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return source[open_index + 1 : i]
+    return None
+
+
+def _has_toplevel_ternary(expr: str) -> bool:
+    """True when `?:` is the top-level operator (Unity 6000.6 CS1503 / target-typed ?:)."""
+    depth = 0
+    i = 0
+    while i < len(expr):
+        ch = expr[i]
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth = max(0, depth - 1)
+        elif ch == "?" and depth == 0:
+            nxt = expr[i + 1] if i + 1 < len(expr) else ""
+            if nxt not in ".?":
+                return True
+        i += 1
+    return False
+
+
+def shader_conditional_violations(source: str) -> list[str]:
+    """Flag ternary→Shader and target-typed `?:` passed to Material(Shader) (CS1503)."""
+    hits: list[str] = []
+    cleaned = strip_cs_noise(source)
+    shader_names: set[str] = set()
+    for stmt in _split_cs_statements(cleaned):
+        for match in _SHADER_DECL.finditer(stmt):
+            shader_names.add(match.group(1))
+
+        decl = re.search(r"\bShader\s+(\w+)\s*=\s*(.*)$", stmt, re.DOTALL)
+        if decl and _has_toplevel_ternary(decl.group(2)):
+            hits.append(f"ternary assigned to Shader {decl.group(1)}")
+
+        assign = re.search(r"^(\w+)\s*=\s*(.*)$", stmt, re.DOTALL)
+        if assign and assign.group(1) in shader_names and _has_toplevel_ternary(assign.group(2)):
+            label = f"ternary assigned to Shader {assign.group(1)}"
+            if label not in hits:
+                hits.append(label)
+
+        search_from = 0
+        while True:
+            ctor = _MATERIAL_CTOR.search(stmt, search_from)
+            if not ctor:
+                break
+            args = _paren_args(stmt, ctor.end() - 1)
+            if args is not None and _has_toplevel_ternary(args):
+                hits.append("target-typed ternary passed to new Material")
+            search_from = ctor.end()
+    return hits
 
 
 LFS_POINTER_PREFIX = b"version https://git-lfs.github.com/spec/v1"
@@ -300,6 +401,10 @@ def main() -> int:
         err("UiFonts should load bundled Kenney Future / Future Narrow")
     if 'GetBuiltinResource<Font>(LegacyBuiltin)' not in fonts and 'GetBuiltinResource<Font>("LegacyRuntime.ttf")' not in fonts:
         err("UiFonts should fall back to builtin LegacyRuntime.ttf")
+    for path in scripts + editor_scripts:
+        for hit in shader_conditional_violations(read(path)):
+            err(f"{path.relative_to(ROOT)}: {hit} (Unity 6000.6 CS1503)")
+
     if "FindObjectOfType" in blob or "FindObjectsOfType" in blob:
         err("scripts still call obsolete FindObjectOfType / FindObjectsOfType")
     if "GetInstanceID" in blob:

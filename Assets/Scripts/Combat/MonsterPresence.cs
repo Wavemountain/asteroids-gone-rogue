@@ -139,7 +139,15 @@ namespace AsteroidsGoneRogue
             if (_ringMat == null)
             {
                 Shader shader = Shader.Find("Standard");
-                _ringMat = new Material(shader != null ? shader : _ringRenderer.sharedMaterial);
+                if (shader != null)
+                {
+                    _ringMat = new Material(shader);
+                }
+                else
+                {
+                    _ringMat = new Material(_ringRenderer.sharedMaterial);
+                }
+
                 _ringMat.name = "Mat_Monster_Telegraph";
                 _ringMat.SetFloat("_Mode", 3f);
                 _ringMat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);

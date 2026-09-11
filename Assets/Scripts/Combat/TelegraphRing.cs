@@ -66,7 +66,15 @@ namespace AsteroidsGoneRogue
             _mesh = ring.transform;
             Renderer renderer = ring.GetComponent<Renderer>();
             Shader shader = Shader.Find("Standard");
-            _mat = new Material(shader != null ? shader : renderer.sharedMaterial);
+            if (shader != null)
+            {
+                _mat = new Material(shader);
+            }
+            else
+            {
+                _mat = new Material(renderer.sharedMaterial);
+            }
+
             _mat.name = "Mat_TelegraphRing";
             _mat.SetFloat("_Mode", 3f);
             _mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
