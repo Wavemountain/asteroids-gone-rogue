@@ -199,7 +199,7 @@ def test_body_upgrade_adds_hull() -> None:
 
 
 def large_asteroid_count(wave: int) -> int:
-    count = min(max(4 + (wave - 1), 4), 7)
+    count = min(max(5 + (wave - 1), 5), 7)
     if wave > 10:
         count = min(count + (wave - 10), 10)
     return count
@@ -229,7 +229,9 @@ def test_wave_ladder_rises() -> None:
     assert "Hangar_Locker" in factory
     assert "PlateauWave" in text
     assert "PlateauAsteroidCap" in text
-    assert large_asteroid_count(1) == 4
+    assert large_asteroid_count(1) == 5
+    assert large_asteroid_count(2) == 6
+    assert large_asteroid_count(3) == 7
     assert large_asteroid_count(4) == 7
     assert large_asteroid_count(10) == 7
     assert large_asteroid_count(11) == 8
@@ -1353,7 +1355,9 @@ def test_event_system_persist() -> None:
     assert "m_VerticalAxis: Vertical" in scene
     assert "m_SubmitButton: Submit" in scene
     assert "m_CancelButton: Cancel" in scene
-    assert "m_ForceModuleActive: 1" in scene
+    assert "m_ForceModuleActive: 1" not in scene
+    assert "forceModuleActive" not in scene
+    assert "forceModuleActive" not in bootstrap
     assert "InputSystemUIInputModule" not in scene
     assert "UnityEngine.EventSystems.StandaloneInputModule" in scene
 
@@ -1365,7 +1369,7 @@ def test_event_system_persist() -> None:
     assert "verticalAxis = \"Vertical\"" in ensure
     assert "submitButton = \"Submit\"" in ensure
     assert "cancelButton = \"Cancel\"" in ensure
-    assert "forceModuleActive = true" in ensure
+    assert "forceModuleActive" not in ensure
     assert "if (FindAnyObjectByType<EventSystem>() != null)\n            {\n                return;" not in ensure
 
     assert "activeInputHandler: 0" in settings
@@ -1493,6 +1497,10 @@ def test_monsters_arenas_040() -> None:
     roster = waves.split("public static EnemyKind[] RosterForWave")[1].split("public void Register")[0]
     assert "EnemyKind.Brute" in roster
     assert "EnemyKind.Swarm" in roster
+    assert "EnemyKind.Brute" in roster.split("case 4:")[1].split("case 5:")[0]
+    assert "EnemyKind.Brute" in roster.split("case 5:")[1].split("case 6:")[0]
+    assert "EnemyKind.Swarm" in roster.split("case 6:")[1].split("case 7:")[0]
+    assert "EnemyKind.Swarm" in roster.split("case 7:")[1].split("case 8:")[0]
     assert "EnemyKind.Brute" in roster.split("case 8:")[1].split("case 9:")[0]
     assert "EnemyKind.SwarmPod, EnemyKind.Swarm" in roster.split("case 9:")[1].split("default:")[0]
 
@@ -1606,8 +1614,8 @@ def test_monsters_arenas_040() -> None:
     assert "PingPong(Time.unscaledTime * 7f" not in ui
     summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
     assert "MonsterTeaser" in summary
-    assert "Wave 8 Brute" in summary
-    assert "Wave 9 Swarm" in summary
+    assert "Wave 4 Brute" in summary
+    assert "Wave 6 Swarm" in summary
     assert "ShowFailContinue" in summary
     assert "FailContinueHint" in summary
     assert "Your hull" in summary

@@ -290,8 +290,12 @@ def main() -> int:
         err("GameBootstrap must repair a scene EventSystem that is missing StandaloneInputModule")
     if "AddComponent<StandaloneInputModule>" not in bootstrap_src:
         err("GameBootstrap must AddComponent StandaloneInputModule")
-    if "horizontalAxis" not in bootstrap_src or "forceModuleActive" not in bootstrap_src:
+    if "horizontalAxis" not in bootstrap_src:
         err("GameBootstrap must wire StandaloneInputModule Input Manager axes")
+    if "forceModuleActive" in bootstrap_src or "forceModuleActive" in blob:
+        err("scripts must not set obsolete StandaloneInputModule.forceModuleActive (CS0619)")
+    if "m_ForceModuleActive: 1" in scene:
+        err("Play.unity must not force StandaloneInputModule (m_ForceModuleActive: 1)")
 
     for mat in (
         "Mat_Ship_Hull",

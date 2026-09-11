@@ -8,7 +8,7 @@ namespace AsteroidsGoneRogue
         public const float ArenaRadius = 30f;
         public const float ArenaDesignRadius = 22f;
         public const int LadderWaves = 8;
-        private const int BaseLargeAsteroids = 4;
+        private const int BaseLargeAsteroids = 5;
         private const int MaxLargeAsteroids = 7;
         private const int PlateauWave = 10;
         private const int PlateauAsteroidCap = 10;
@@ -102,19 +102,19 @@ namespace AsteroidsGoneRogue
             switch (rung)
             {
                 case 1:
-                    return new[] { EnemyKind.Mid01 };
+                    return new[] { EnemyKind.Mid01, EnemyKind.Mid01 };
                 case 2:
-                    return new[] { EnemyKind.Scout };
+                    return new[] { EnemyKind.Scout, EnemyKind.Mid01 };
                 case 3:
-                    return new[] { EnemyKind.Mid01, EnemyKind.Scout };
+                    return new[] { EnemyKind.Mid01, EnemyKind.Scout, EnemyKind.Drone };
                 case 4:
-                    return new[] { EnemyKind.Gunner };
+                    return new[] { EnemyKind.Gunner, EnemyKind.Brute };
                 case 5:
-                    return new[] { EnemyKind.Scout, EnemyKind.Drone };
+                    return new[] { EnemyKind.Scout, EnemyKind.Drone, EnemyKind.Brute };
                 case 6:
-                    return new[] { EnemyKind.Gunner, EnemyKind.Scout };
+                    return new[] { EnemyKind.Gunner, EnemyKind.Scout, EnemyKind.Swarm };
                 case 7:
-                    return new[] { EnemyKind.Gunner, EnemyKind.Drone, EnemyKind.Scout, EnemyKind.Bomber };
+                    return new[] { EnemyKind.Gunner, EnemyKind.Drone, EnemyKind.Scout, EnemyKind.Bomber, EnemyKind.Swarm };
                 case 8:
                     return new[] { EnemyKind.Gunner, EnemyKind.Scout, EnemyKind.Drone, EnemyKind.Sniper, EnemyKind.Brute };
                 case 9:

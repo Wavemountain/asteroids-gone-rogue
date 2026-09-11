@@ -56,11 +56,11 @@ namespace AsteroidsGoneRogue
             switch (kind)
             {
                 case EnemyKind.Scout:
-                    return 2;
+                    return 3;
                 case EnemyKind.Gunner:
                     return 4;
                 case EnemyKind.Drone:
-                    return 2;
+                    return 3;
                 case EnemyKind.Bomber:
                     return 5;
                 case EnemyKind.Sniper:
@@ -74,7 +74,7 @@ namespace AsteroidsGoneRogue
                 case EnemyKind.Swarmling:
                     return 1;
                 default:
-                    return 3;
+                    return 4;
             }
         }
 

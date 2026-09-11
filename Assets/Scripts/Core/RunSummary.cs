@@ -110,17 +110,17 @@ namespace AsteroidsGoneRogue
 
         public static string MonsterTeaser(int nextWave)
         {
-            if (nextWave == 7 || nextWave == 8)
+            if (nextWave == 4 || nextWave == 5)
             {
-                return "Watch  ·  Wave 8 Brute — sidestep the charge";
+                return "Watch  ·  Wave 4 Brute — sidestep the charge";
             }
 
-            if (nextWave == 9)
+            if (nextWave == 6)
             {
-                return "Watch  ·  Wave 9 Swarm — break the nest";
+                return "Watch  ·  Wave 6 Swarm — break the nest";
             }
 
-            if (nextWave >= 10)
+            if (nextWave >= 7)
             {
                 return "Watch  ·  Brute charges  ·  Swarm nests drop Swarmlings";
             }

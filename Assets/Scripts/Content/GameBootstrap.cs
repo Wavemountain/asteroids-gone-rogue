@@ -93,7 +93,6 @@ namespace AsteroidsGoneRogue
             module.verticalAxis = "Vertical";
             module.submitButton = "Submit";
             module.cancelButton = "Cancel";
-            module.forceModuleActive = true;
         }
 
         private static void EnsureLight()
