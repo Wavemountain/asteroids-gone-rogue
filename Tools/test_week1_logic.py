@@ -1392,6 +1392,8 @@ def test_event_system_persist() -> None:
     assert "m_Name: Submit" in inputs
     assert "m_Name: Cancel" in inputs
     assert "m_Name: AimX" in inputs
+    assert "m_Name: AimY" in inputs
+    assert "m_Name: FireTrigger" in inputs
     assert "m_Name: FirePad" in inputs
     assert "m_Name: Pause" in inputs
     assert "4f231c4fb786f3946a6b90b886c48677" in generator
@@ -2535,14 +2537,21 @@ def test_difficulty_economy_043() -> None:
     assert "ClearUpgradePreview" in manager
     assert "0.018f, 0.035f" in ui and "0.658f, 0.725f" in ui
     assert "SetHangarFraming" in follow and "SetHangarFraming" in manager
+    assert "UnityEngine.Object.FindAnyObjectByType<FollowCamera>" in manager
+    assert manager.count("UnityEngine.Object.FindAnyObjectByType<FollowCamera>") == 2
     assert "class GamepadInput" in pad
-    assert "AimX" in pad and "FireTrigger" in pad and "FirePad" in pad
+    assert "AimX" in pad and "AimY" in pad and "FireTrigger" in pad and "FirePad" in pad
     assert "PausePressed" in pad
+    assert "ConfirmPressed" in pad and "CancelPressed" in pad
     assert "GamepadInput.FireHeld" in ship
     assert "GamepadInput.AimStick" in ship
     assert "GamepadInput.MoveStick" in ship
     assert "SyncHangarPadSelection" in ui
+    assert "Navigation.Mode.Automatic" in ui
+    assert "GamepadInput.CancelPressed" in ui
     assert "m_Name: AimX" in inputs
+    assert "m_Name: AimY" in inputs
+    assert "m_Name: FireTrigger" in inputs
     assert "m_Name: FirePad" in inputs
     assert "m_Name: Pause" in inputs
     assert "joystick button 0" in inputs

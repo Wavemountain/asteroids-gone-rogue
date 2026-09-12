@@ -45,7 +45,7 @@ namespace AsteroidsGoneRogue
             _factory = factory;
             _ship = ship;
             _hangarPreview = ship != null ? ship.GetComponent<HangarShipPreview>() : null;
-            _follow = Object.FindAnyObjectByType<FollowCamera>();
+            _follow = UnityEngine.Object.FindAnyObjectByType<FollowCamera>();
             Best = LocalBest.Load();
             Persist = HangarPersist.Load();
             LastRunWasNewBest = false;
@@ -450,7 +450,7 @@ namespace AsteroidsGoneRogue
 
             if (_follow == null)
             {
-                _follow = Object.FindAnyObjectByType<FollowCamera>();
+                _follow = UnityEngine.Object.FindAnyObjectByType<FollowCamera>();
             }
 
             if (_follow != null)

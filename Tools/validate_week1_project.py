@@ -446,6 +446,15 @@ def main() -> int:
         err("scripts still call obsolete GetInstanceID; use GetEntityId")
     if "FindFirstObjectByType" in blob:
         err("scripts still call FindFirstObjectByType; use FindAnyObjectByType")
+    for path in scripts:
+        src = read(path)
+        if "using System;" not in src:
+            continue
+        for i, line in enumerate(src.splitlines(), 1):
+            if "Object.FindAnyObjectByType" in line and "UnityEngine.Object.FindAnyObjectByType" not in line:
+                err(
+                    f"{path.relative_to(ROOT)}:{i} CS0104: qualify UnityEngine.Object.FindAnyObjectByType"
+                )
     if "FindObjectsSortMode" in blob:
         err("scripts still pass FindObjectsSortMode to FindObjectsByType")
     if "body.velocity" in blob or "_body.velocity" in blob:
