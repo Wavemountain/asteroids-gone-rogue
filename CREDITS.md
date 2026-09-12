@@ -44,8 +44,9 @@ Source: https://kenney.nl/assets/digital-audio
 | Shoot (twin) | `Assets/Resources/Audio/Sfx/twoTone1.ogg` | `Audio/twoTone1.ogg` |
 | Shoot (seeker) | `Assets/Resources/Audio/Sfx/phaserUp2.ogg` | `Audio/phaserUp2.ogg` |
 | Shoot (ricochet) | `Assets/Resources/Audio/Sfx/pepSound1.ogg` | `Audio/pepSound1.ogg` |
-| Fail sting | `Assets/Resources/Audio/Sfx/phaserDown3.ogg` | `Audio/phaserDown3.ogg` |
-| Fail layer | `Assets/Resources/Audio/Sfx/lowDown.ogg` | `Audio/lowDown.ogg` |
+| Fail sting | `Assets/Resources/Audio/Sfx/phaserDown3.ogg` | `Audio/phaserDown3.ogg` (scale 0.9, duck 0.4s @ 0.35) |
+| Fail layer | `Assets/Resources/Audio/Sfx/lowDown.ogg` | `Audio/lowDown.ogg` (optional, 0.55) |
+| Retry Wave | `Assets/Resources/Audio/Sfx/twoTone1.ogg` | `Audio/twoTone1.ogg` (same clip as twin, scale 0.75, no duck) |
 
 Pack: **Kenney Interface Sounds** (CC0)  
 Author: Kenney  
@@ -59,7 +60,6 @@ Mirror used: https://opengameart.org/content/interface-sounds (`kenney_interface
 | Abort whoosh | `Assets/Resources/Audio/Sfx/minimize_005.ogg` | `Audio/minimize_005.ogg` |
 | Arena world swap | `Assets/Resources/Audio/Sfx/maximize_008.ogg` | `Audio/maximize_008.ogg` |
 | World 3 entry | `Assets/Resources/Audio/Sfx/maximize_008.ogg` | same clip, hotter + short bed duck |
-| Retry Wave | `Assets/Resources/Audio/Sfx/twoTone1.ogg` | `Audio/twoTone1.ogg` (same clip as twin, scale 0.75, no duck) |
 
 Pack: **Kenney Music Jingles** (CC0)  
 Author: Kenney  
