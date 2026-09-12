@@ -2541,20 +2541,28 @@ def test_difficulty_economy_043() -> None:
     assert manager.count("UnityEngine.Object.FindAnyObjectByType<FollowCamera>") == 2
     assert "class GamepadInput" in pad
     assert "AimX" in pad and "AimY" in pad and "FireTrigger" in pad and "FirePad" in pad
+    assert "PadMoveX" in pad and "PadMoveY" in pad
+    assert "FireTrigger3" in pad and "FireTrigger6" in pad
     assert "PausePressed" in pad
     assert "ConfirmPressed" in pad and "CancelPressed" in pad
     assert "GamepadInput.FireHeld" in ship
     assert "GamepadInput.AimStick" in ship
     assert "GamepadInput.MoveStick" in ship
+    assert "GamepadInput.PadMoveStick" in ship
     assert "SyncHangarPadSelection" in ui
     assert "Navigation.Mode.Automatic" in ui
     assert "GamepadInput.CancelPressed" in ui
     assert "m_Name: AimX" in inputs
     assert "m_Name: AimY" in inputs
     assert "m_Name: FireTrigger" in inputs
+    assert "m_Name: FireTrigger3" in inputs
+    assert "m_Name: FireTrigger6" in inputs
     assert "m_Name: FirePad" in inputs
     assert "m_Name: Pause" in inputs
+    assert "m_Name: PadMoveX" in inputs
+    assert "m_Name: PadMoveY" in inputs
     assert "joystick button 0" in inputs
+    assert "joystick button 4" in inputs
     assert "joystick button 7" in inputs
     assert "com.unity.inputsystem" not in manifest
     assert "MissionPlausible" in credits and "TimeDriving" in credits
@@ -2642,6 +2650,79 @@ def test_hotfix_042_flags_colliders() -> None:
     assert "com.unity.modules.xr" not in lock
 
 
+def _input_axis_blocks(text: str) -> list[dict[str, str]]:
+    blocks: list[dict[str, str]] = []
+    current: dict[str, str] | None = None
+    for line in text.splitlines():
+        if line.startswith("  - serializedVersion:"):
+            if current is not None:
+                blocks.append(current)
+            current = {}
+            continue
+        if current is None or ":" not in line:
+            continue
+        key, value = line.strip().split(":", 1)
+        current[key.strip()] = value.strip()
+    if current:
+        blocks.append(current)
+    return blocks
+
+
+def test_hotfix_043_gamepad() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    pad = (root / "Assets/Scripts/Core/GamepadInput.cs").read_text(encoding="utf-8")
+    ship = (root / "Assets/Scripts/Player/ShipController.cs").read_text(encoding="utf-8")
+    inputs = (root / "ProjectSettings/InputManager.asset").read_text(encoding="utf-8")
+    manifest = (root / "Packages/manifest.json").read_text(encoding="utf-8")
+    lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
+    settings = (root / "ProjectSettings/ProjectSettings.asset").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    checklist = (root / "MERGE_CHECKLIST.md").read_text(encoding="utf-8")
+
+    axes = _input_axis_blocks(inputs)
+    by_name: dict[str, list[dict[str, str]]] = {}
+    for axis in axes:
+        by_name.setdefault(axis.get("m_Name", ""), []).append(axis)
+
+    joy_move_x = [a for a in by_name["Horizontal"] if a.get("type") == "2"]
+    joy_move_y = [a for a in by_name["Vertical"] if a.get("type") == "2"]
+    assert len(joy_move_x) == 1 and joy_move_x[0]["axis"] == "0"
+    assert len(joy_move_y) == 1 and joy_move_y[0]["axis"] == "1" and joy_move_y[0]["invert"] == "1"
+    assert by_name["PadMoveX"][0]["type"] == "2" and by_name["PadMoveX"][0]["axis"] == "0"
+    assert by_name["PadMoveY"][0]["type"] == "2" and by_name["PadMoveY"][0]["axis"] == "1"
+    assert by_name["PadMoveY"][0]["invert"] == "1"
+
+    fire = by_name["FireTrigger"][0]
+    assert fire["type"] == "2" and fire["axis"] == "9"
+    assert by_name["FireTrigger3"][0]["type"] == "2" and by_name["FireTrigger3"][0]["axis"] == "2"
+    assert by_name["FireTrigger6"][0]["type"] == "2" and by_name["FireTrigger6"][0]["axis"] == "5"
+    assert by_name["AimX"][0]["type"] == "2" and by_name["AimX"][0]["axis"] == "3"
+    assert by_name["AimY"][0]["type"] == "2" and by_name["AimY"][0]["axis"] == "4"
+    assert by_name["AimY"][0]["invert"] == "1"
+    assert by_name["CycleFire"][0]["positiveButton"] == "joystick button 4"
+    assert by_name["FirePad"][0]["positiveButton"] == "joystick button 0"
+    assert by_name["Pause"][0]["positiveButton"] == "joystick button 7"
+
+    assert "TriggerHeld(FireTrigger)" in pad
+    assert "TriggerHeld(FireTrigger3)" in pad
+    assert "TriggerHeld(FireTrigger6)" in pad
+    assert "KeyCode.JoystickButton4" in pad
+    assert "PadMoveStick" in pad
+    aim = ship.split("private void Aim()")[1].split("private void AimDirection")[0]
+    assert "GamepadInput.AimStick" in aim
+    assert "GamepadInput.PadMoveStick" in aim
+    assert "activeInputHandler: 0" in settings
+    assert "com.unity.inputsystem" not in manifest
+    assert "com.unity.modules.vr" not in manifest
+    assert "com.unity.modules.xr" not in lock
+    assert "left stick" in readme.lower()
+    assert "joystick button 4" in readme
+    assert "FireTrigger" in checklist and "PadMoveX" in checklist
+    assert "no 0.44" in checklist
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -2676,6 +2757,7 @@ def main() -> int:
     test_fair_death_042()
     test_hotfix_042_flags_colliders()
     test_difficulty_economy_043()
+    test_hotfix_043_gamepad()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

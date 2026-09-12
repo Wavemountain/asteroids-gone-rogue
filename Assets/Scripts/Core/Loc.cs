@@ -49,8 +49,8 @@ namespace AsteroidsGoneRogue
             { "ui.hint_play", "WASD / LS styr  ·  Mus / RS sikte  ·  VMB / Mellanslag / RT / A skjut  ·  Q / HMB / LB eldläge  ·  Esc / Start avbryt" },
             { "ui.hint_hangar", "WASD / LS styr  ·  Mus / RS sikte  ·  VMB / Mellanslag / RT / A skjut  ·  {0}" },
             { "ui.hangar_controls", "Avbryt (Esc / Start)  ·  Q / HMB / LB eldlägen (upptäck Spread / Pierce när du äger dem)  ·  A bekräfta" },
-            { "ui.hangar_hint_body", "WASD styr · mus sikte\nVMB / Mellanslag skjut\nAvbryt (Esc) lämnar vågen\n"
-                + "Q / HMB eldlägen\n(upptäck Spread / Pierce när du äger dem)\n\n"
+            { "ui.hangar_hint_body", "WASD / LS styr · mus / RS sikte\nVMB / Mellanslag / RT skjut · LB byter\nAvbryt (Esc) lämnar vågen\n"
+                + "Q / HMB / LB eldlägen\n(upptäck Spread / Pierce när du äger dem)\n\n"
                 + "Rensa en våg för kredit och uppgraderingar.\n"
                 + "Medaljstege (uppe till vänster): ★ Spejarvinge på våg 3.\n\n"
                 + "Shoppen köper uppgraderingar för den krediten.\nStarta våg för att flyga." },

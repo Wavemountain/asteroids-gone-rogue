@@ -99,11 +99,19 @@ namespace AsteroidsGoneRogue
 
         private void Aim()
         {
-            Vector2 pad = GamepadInput.AimStick();
-            if (pad.sqrMagnitude > 0.01f)
+            Vector2 padAim = GamepadInput.AimStick();
+            if (padAim.sqrMagnitude > 0.01f)
             {
                 _padAim = true;
-                AimDirection(new Vector3(pad.x, 0f, pad.y));
+                AimDirection(new Vector3(padAim.x, 0f, padAim.y));
+                return;
+            }
+
+            Vector2 padMove = GamepadInput.PadMoveStick();
+            if (padMove.sqrMagnitude > 0.01f)
+            {
+                _padAim = true;
+                AimDirection(new Vector3(padMove.x, 0f, padMove.y));
                 return;
             }
 

@@ -4,7 +4,8 @@ namespace AsteroidsGoneRogue
 {
     /// <summary>
     /// Legacy Input Manager Xbox / pad map. Keyboard and mouse stay live (hot-plug).
-    /// Left stick + D-pad move. Right stick aims. RT or A fires. Start pauses.
+    /// Left stick flies. RT fires (axes read separately so they cannot cancel).
+    /// LB cycles. Right stick aims; otherwise face the left-stick fly vector.
     /// </summary>
     public static class GamepadInput
     {
@@ -12,9 +13,13 @@ namespace AsteroidsGoneRogue
         public const float TriggerFire = 0.45f;
         public const string MoveX = "Horizontal";
         public const string MoveY = "Vertical";
+        public const string PadMoveX = "PadMoveX";
+        public const string PadMoveY = "PadMoveY";
         public const string AimX = "AimX";
         public const string AimY = "AimY";
         public const string FireTrigger = "FireTrigger";
+        public const string FireTrigger3 = "FireTrigger3";
+        public const string FireTrigger6 = "FireTrigger6";
         public const string FirePad = "FirePad";
         public const string CycleFire = "CycleFire";
         public const string Pause = "Pause";
@@ -22,6 +27,11 @@ namespace AsteroidsGoneRogue
         public static Vector2 MoveStick()
         {
             return Deadzone(new Vector2(Axis(MoveX), Axis(MoveY)));
+        }
+
+        public static Vector2 PadMoveStick()
+        {
+            return Deadzone(new Vector2(Axis(PadMoveX), Axis(PadMoveY)));
         }
 
         public static Vector2 AimStick()
@@ -41,13 +51,14 @@ namespace AsteroidsGoneRogue
                 return true;
             }
 
-            return Axis(FireTrigger) >= TriggerFire;
+            return TriggerHeld(FireTrigger) || TriggerHeld(FireTrigger3) || TriggerHeld(FireTrigger6);
         }
 
         public static bool CyclePressed()
         {
             return Input.GetKeyDown(KeyCode.Q)
                 || Input.GetMouseButtonDown(1)
+                || Input.GetKeyDown(KeyCode.JoystickButton4)
                 || ButtonDown(CycleFire);
         }
 
@@ -69,6 +80,11 @@ namespace AsteroidsGoneRogue
         public static Vector2 MouseDelta()
         {
             return new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"));
+        }
+
+        private static bool TriggerHeld(string name)
+        {
+            return Axis(name) >= TriggerFire;
         }
 
         private static float Axis(string name)

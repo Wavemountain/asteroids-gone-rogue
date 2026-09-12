@@ -6,7 +6,7 @@ Week 1 playable Unity core: one solid wave loop (hangar → fight → clear or f
 
 **Unity 6.6** (`6000.6.0f1`, changeset `f7f8ed4d1e24`)
 
-Built-in render pipeline. Old Input Manager (no Input System package, so first open should not show the Input System dialog). Xbox pad uses Legacy axes (`Horizontal`/`Vertical`/`AimX`/`AimY`/`FireTrigger`/`FirePad`/`CycleFire`/`Pause`) in parallel with WASD/mouse. Package manifest is slim — no VR/XR modules — so Hub should open without Continue.
+Built-in render pipeline. Old Input Manager (no Input System package, so first open should not show the Input System dialog). Xbox pad uses Legacy axes (`Horizontal`/`Vertical`/`PadMoveX`/`PadMoveY`/`AimX`/`AimY`/`FireTrigger`/`FireTrigger3`/`FireTrigger6`/`FirePad`/`CycleFire`/`Pause`) in parallel with WASD/mouse. Package manifest is slim — no VR/XR modules — so Hub should open without Continue.
 
 **Hub-open smoke:** Add this folder in Unity Hub → opens without Continue → `Assets/Scenes/Play.unity` → Press Play.
 
@@ -34,12 +34,12 @@ Editor helpers: menu **Asteroids gone rogue → Open Play Scene** / **Validate W
 
 | Action | Input |
 | --- | --- |
-| Thrust / strafe | **WASD** / arrows, or Xbox **left stick** / **D-pad** |
-| Aim | Mouse (on the play plane), or Xbox **right stick** |
-| Fire | **Left mouse** / **Space**, or Xbox **RT** / **A** |
-| Cycle fire mode | **Q** / **right mouse**, or Xbox **LB** / **X** (after buying Spread / Twin / Pierce / Seeker / Ricochet) |
+| Thrust / strafe | **WASD** / arrows, or Xbox **left stick** |
+| Aim | Mouse (on the play plane), or Xbox **right stick**. Pad flight with no RS faces the left-stick vector (shots go forward). |
+| Fire | **Left mouse** / **Space**, or Xbox **RT** (Windows 10th axis / combined 3rd / Linux 6th). **A** still fires. |
+| Cycle fire mode | **Q** / **right mouse**, or Xbox **LB** (`joystick button 4`; **X** still cycles) after buying Spread / Twin / Pierce / Seeker / Ricochet |
 | Abort / menu | **Abort → Hangar** / **Esc**, or Xbox **Start** (Playing abort; hangar Start Wave) |
-| Hangar UI | Mouse, or pad **left stick / D-pad** + **A** confirm / **B** cancel |
+| Hangar UI | Mouse, or pad **left stick** + **A** confirm / **B** cancel |
 | Start / next / retry wave | Hangar **Start Wave** / **Next Wave** / **Retry Wave** |
 | Health | Play **HEALTH** rack — real HULL + SHIELD `fillAmount` bars (Kenney Future, EN/SV) |
 | Language | Hangar **US flag** → English, **Swedish flag** → Swedish (PlayerPrefs `agr.ui.language`) |

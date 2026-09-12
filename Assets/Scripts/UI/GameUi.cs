@@ -107,8 +107,8 @@ namespace AsteroidsGoneRogue
             "Abort (Esc / Start)  ·  Q / RMB / LB fire modes (discover Spread / Pierce when owned)  ·  A confirm";
         public const string MedalLadderPrefix = "MEDALS";
         public const string HangarHintBody =
-            "WASD move · mouse aim\nLMB / Space shoot\nAbort (Esc) leaves the wave\n"
-            + "Q / RMB fire modes\n(discover Spread / Pierce when owned)\n\n"
+            "WASD / LS move · mouse / RS aim\nLMB / Space / RT shoot · LB cycles\nAbort (Esc) leaves the wave\n"
+            + "Q / RMB / LB fire modes\n(discover Spread / Pierce when owned)\n\n"
             + "Clear a wave to earn credits and upgrades.\n"
             + "Medal ladder (top-left): ★ Scout Wing at wave 3.\n\n"
             + "Shop buys upgrades with those credits.\nStart Wave to fly.";
@@ -355,7 +355,7 @@ namespace AsteroidsGoneRogue
             _hint = CreateText("Hint", transform, body, 18, TextAnchor.LowerCenter, FontStyle.Normal);
             Stretch(_hint.rectTransform, new Vector2(0.1f, 0.018f), new Vector2(0.9f, 0.078f));
             _hint.color = new Color(0.82f, 0.88f, 0.92f);
-            _hint.text = "WASD move  ·  Mouse aim  ·  Left mouse / Space fire";
+            _hint.text = "WASD / LS move  ·  Mouse / RS aim  ·  LMB / Space / RT fire";
             AddReadability(_hint, false);
 
             _menuRoot = CreatePanel("HangarPanel", transform, new Color(0.025f, 0.038f, 0.06f, 0.94f),
