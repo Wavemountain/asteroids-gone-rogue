@@ -33,7 +33,7 @@ namespace AsteroidsGoneRogue
             string reason = string.IsNullOrEmpty(failReason)
                 ? Loc.T("fail.unknown", "Unknown cause")
                 : failReason;
-            return Loc.Tf("fail.fault", "{0} — that was you. Loadout stays on Retry Wave.", reason);
+            return Loc.Tf("fail.fault", "{0} — that was you. Run over — start from the hangar.", reason);
         }
 
         public static string FailReason(DamageCause cause, EnemyKind kind)

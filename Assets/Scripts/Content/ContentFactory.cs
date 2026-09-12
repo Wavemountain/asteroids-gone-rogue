@@ -1086,21 +1086,16 @@ namespace AsteroidsGoneRogue
             {
                 fallback = MakeMaterial(
                     "Mat_Pickup_ExtraLife",
-                    new Color(1f, 0.82f, 0.28f),
-                    0.12f,
-                    0.74f,
-                    new Color(1f, 0.68f, 0.18f));
+                    new Color(0.92f, 0.16f, 0.28f),
+                    0.1f,
+                    0.62f,
+                    new Color(1f, 0.22f, 0.38f));
             }
             if (kind == Pickup.Kind.ExtraLife || !TryVisual(visualName, root.transform, fallback))
             {
                 if (kind == Pickup.Kind.ExtraLife)
                 {
-                    CreatePrimitive(PrimitiveType.Sphere, "Mesh", root.transform, fallback,
-                        Vector3.zero, new Vector3(0.82f, 0.82f, 0.82f), Quaternion.identity);
-                    CreatePrimitive(PrimitiveType.Cube, "PlusH", root.transform, fallback,
-                        new Vector3(0f, 0.02f, 0f), new Vector3(0.55f, 0.16f, 0.16f), Quaternion.identity);
-                    CreatePrimitive(PrimitiveType.Cube, "PlusV", root.transform, fallback,
-                        new Vector3(0f, 0.02f, 0f), new Vector3(0.16f, 0.55f, 0.16f), Quaternion.identity);
+                    DressExtraLifeHeart(root.transform, fallback);
                 }
                 else
                 {
@@ -1163,6 +1158,16 @@ namespace AsteroidsGoneRogue
 
             string[] kinds = { "Pickup_Score", "Pickup_Shield", "Pickup_Health", "Pickup_RapidFire" };
             CreatePickup(kinds[Random.Range(0, kinds.Length)], position);
+        }
+
+        private static void DressExtraLifeHeart(Transform parent, Material material)
+        {
+            CreatePrimitive(PrimitiveType.Sphere, "HeartLobeL", parent, material,
+                new Vector3(-0.20f, 0.18f, 0f), new Vector3(0.50f, 0.48f, 0.28f), Quaternion.identity);
+            CreatePrimitive(PrimitiveType.Sphere, "HeartLobeR", parent, material,
+                new Vector3(0.20f, 0.18f, 0f), new Vector3(0.50f, 0.48f, 0.28f), Quaternion.identity);
+            CreatePrimitive(PrimitiveType.Cube, "HeartPoint", parent, material,
+                new Vector3(0f, -0.10f, 0f), new Vector3(0.56f, 0.56f, 0.24f), Quaternion.Euler(0f, 0f, 45f));
         }
 
         public void MaybeDropExtraLife(Vector3 position, EnemyKind kind)

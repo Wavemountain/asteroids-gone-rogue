@@ -50,6 +50,27 @@ namespace AsteroidsGoneRogue
         public bool Overcharger { get; private set; }
         public bool Afterburner { get; private set; }
 
+        public void Reset()
+        {
+            RapidFire = false;
+            ShieldCharges = 0;
+            NoseHardpoint = false;
+            BodyUpgrade01 = false;
+            BodyUpgrade02 = false;
+            NoseUpgrade02 = false;
+            NoseUpgrade03 = false;
+            EngineUpgrade02 = false;
+            EngineUpgrade03 = false;
+            SpreadBolt = false;
+            Pierce = false;
+            TwinGuns = false;
+            Seeker = false;
+            Ricochet = false;
+            ShieldMatrix = false;
+            Overcharger = false;
+            Afterburner = false;
+        }
+
         public int CurrentMaxShield
         {
             get { return ShieldMatrix ? MatrixMaxShieldCharges : MaxShieldCharges; }

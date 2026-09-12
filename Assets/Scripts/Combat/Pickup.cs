@@ -45,7 +45,8 @@ namespace AsteroidsGoneRogue
             }
 
             if (visualName.IndexOf("ExtraLife", System.StringComparison.OrdinalIgnoreCase) >= 0
-                || visualName.IndexOf("1UP", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                || visualName.IndexOf("1UP", System.StringComparison.OrdinalIgnoreCase) >= 0
+                || visualName.IndexOf("Heart", System.StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 return Kind.ExtraLife;
             }

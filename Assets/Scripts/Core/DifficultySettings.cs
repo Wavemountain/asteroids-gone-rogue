@@ -21,7 +21,8 @@ namespace AsteroidsGoneRogue
         public const string NormalCode = "normal";
         public const string HardCode = "hard";
         public const int MaxLives = 5;
-        public const int EasyStartLives = 4;
+        public const int StartLivesCount = 3;
+        public const int EasyStartLives = 3;
         public const int NormalStartLives = 3;
         public const int HardStartLives = 3;
         public const float EasyExtraLifeChance = 0.10f;
@@ -107,11 +108,9 @@ namespace AsteroidsGoneRogue
             switch (grade)
             {
                 case DifficultyGrade.Easy:
-                    return EasyStartLives;
                 case DifficultyGrade.Hard:
-                    return HardStartLives;
                 default:
-                    return NormalStartLives;
+                    return StartLivesCount;
             }
         }
 

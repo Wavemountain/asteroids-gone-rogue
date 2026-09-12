@@ -45,9 +45,9 @@ Source: https://kenney.nl/assets/digital-audio
 | Shoot (twin layer) | `Assets/Resources/Audio/Sfx/twoTone1.ogg` | `Audio/twoTone1.ogg` (layer @ 0.45; Retry Wave solo @ 0.75) |
 | Shoot (seeker) | `Assets/Resources/Audio/Sfx/phaserUp5.ogg` | `Audio/phaserUp5.ogg` (0.72; also SwarmPod spawn) |
 | Shoot (ricochet) | `Assets/Resources/Audio/Sfx/zap1.ogg` | `Audio/zap1.ogg` (0.88 ±4% pitch) |
-| Fail sting | `Assets/Resources/Audio/Sfx/phaserDown3.ogg` | `Audio/phaserDown3.ogg` (scale 0.9, duck 0.4s @ 0.35) |
-| Fail layer | `Assets/Resources/Audio/Sfx/lowDown.ogg` | `Audio/lowDown.ogg` (optional, 0.55) |
-| Retry Wave | `Assets/Resources/Audio/Sfx/twoTone1.ogg` | `Audio/twoTone1.ogg` (same clip as twin, scale 0.75, no duck) |
+| Fail sting fallback | `Assets/Resources/Audio/Sfx/phaserDown3.ogg` | `Audio/phaserDown3.ogg` (fallback only if GameOver is missing) |
+| Fail layer | `Assets/Resources/Audio/Sfx/lowDown.ogg` | `Audio/lowDown.ogg` (0.4 under GameOver) |
+| Retry / fail confirm | `Assets/Resources/Audio/Sfx/twoTone1.ogg` | `Audio/twoTone1.ogg` (same clip as twin, scale 0.75, no duck) |
 
 Pack: **Kenney Interface Sounds** (CC0)  
 Author: Kenney  
@@ -69,8 +69,9 @@ Mirror used: https://opengameart.org/content/85-short-music-jingles (`jingleSoun
 
 | Cue | File in repo | Original pack file |
 | --- | --- | --- |
-| Wave clear | `Assets/Resources/Audio/Sfx/jingles_PIZZA07.ogg` | `OGG/jingles_PIZZA/jingles_PIZZA07.ogg` |
-| Far Drift award | `Assets/Resources/Audio/Sfx/jingles_PIZZA16.ogg` | `Audio/Pizzicato jingles/jingles_PIZZI16.ogg` |
+| Wave clear | `Assets/Resources/Audio/Sfx/jingles_HIT07.ogg` | `OGG/jingles_HIT/jingles_HIT07.ogg` (scale 0.88; alt `jingles_HIT04.ogg`) |
+| Wave clear fallback | `Assets/Resources/Audio/Sfx/jingles_PIZZA07.ogg` | `OGG/jingles_PIZZA/jingles_PIZZA07.ogg` |
+| Far Drift award | `Assets/Resources/Audio/Sfx/jingles_PIZZA16.ogg` | `Audio/Pizzicato jingles/jingles_PIZZI16.ogg` (`jingles_HIT12.ogg` fallback) |
 | Credits open | `Assets/Resources/Audio/Sfx/jingles_NES07.ogg` | `Audio/8-Bit jingles/jingles_NES07.ogg` |
 | Credits close | `Assets/Resources/Audio/Sfx/jingles_NES12.ogg` | `Audio/8-Bit jingles/jingles_NES12.ogg` (fallback: PIZZA16) |
 
@@ -81,6 +82,7 @@ Source: https://kenney.nl/assets/music-loops
 | Cue | File in repo | Original pack file |
 | --- | --- | --- |
 | Credits loop | `Assets/Resources/Audio/Music/SpaceCadet.ogg` | `Loops/Space Cadet.ogg` |
+| Fail sting | `Assets/Resources/Audio/Music/GameOver.ogg` | `Loops/Game Over.ogg` (one-shot @ 0.78, duck 0.55s @ 0.3) |
 
 Kenney license text (from the Sci-Fi Sounds pack) is kept at `Assets/Audio/Kenney_License.txt`.
 
@@ -106,8 +108,9 @@ License text from the pack is at `Assets/Resources/Fonts/Kenney_Fonts_License.tx
 | Arena fallback | `Assets/Resources/Audio/Music/OutThere.ogg` | Space Music: Out There | yd | CC0 | https://opengameart.org/content/space-music-out-there |
 | Hangar ambience | `Assets/Resources/Audio/Music/spacelifeNo14.ogg` | Spacelife #14 | yd | CC0 | https://opengameart.org/content/spacelife-14 |
 | Credits loop | `Assets/Resources/Audio/Music/SpaceCadet.ogg` | Space Cadet | Kenney | CC0 | https://kenney.nl/assets/music-loops |
+| Fail sting | `Assets/Resources/Audio/Music/GameOver.ogg` | Game Over | Kenney | CC0 | https://kenney.nl/assets/music-loops |
 
-Hangar plays `spacelifeNo14` as a denser two-layer bed (pitch 0.94 + 1.02). Arena plays `MissionPlausible` at `ArenaMusicScale` 0.65 (`TimeDriving` from wave 8; `OutThere` fallback). Credits play `SpaceCadet` at 0.55 with `jingles_NES07` open (bed duck 0.35s @ 0.4) and `jingles_NES12` close (PIZZA16 fallback); Continue restores hangar. Abort ducks the current bed under the whoosh. SwarmPod spawn ducks the bed briefly (0.62s gap / 0.86 scale) so `phaserUp5` cuts clutter. 0.40 AtmosBot monster/spike list (Kenney CC0, retro-modern chip/arcade, AAA mix polish, not UI clicks): Brute `lowThreeTone` / `impactMetal_000`–`002` / `explosionCrunch_003` + unique `lowFrequency_explosion_000` death layer; Swarm `phaseJump1` (+ `slime_000`) / `laserSmall_000`–`004` pitched ±6% / `zap1`+`spaceTrash1`–`3`; spike activate `forceField_001` (0.94 + short bed duck), spike hit `laserRetro_000`–`002`. Wave 10 Far Drift plays `jingles_PIZZA16` instead of the wave-clear sting. World 3 entry reuses `maximize_008` slightly hotter with a short bed duck (no new jingle). Fail plays `phaserDown3` + optional `lowDown` @ 0.55 (bed duck 0.4s @ 0.35, scale 0.9 — not explosionCrunch / NES). Retry Wave plays `twoTone1` @ 0.75 (no duck; not click / wave-clear).
+Hangar plays `spacelifeNo14` as a denser two-layer bed (pitch 0.94 + 1.02). Arena plays `MissionPlausible` at `ArenaMusicScale` 0.65 (`TimeDriving` from wave 8; `OutThere` fallback). Credits play `SpaceCadet` at 0.55 with `jingles_NES07` open (bed duck 0.35s @ 0.4) and `jingles_NES12` close (PIZZA16 fallback); Continue restores hangar. Abort ducks the current bed under the whoosh. SwarmPod spawn ducks the bed briefly (0.62s gap / 0.86 scale) so `phaserUp5` cuts clutter. 0.40 AtmosBot monster/spike list (Kenney CC0, retro-modern chip/arcade, AAA mix polish, not UI clicks): Brute `lowThreeTone` / `impactMetal_000`–`002` / `explosionCrunch_003` + unique `lowFrequency_explosion_000` death layer; Swarm `phaseJump1` (+ `slime_000`) / `laserSmall_000`–`004` pitched ±6% / `zap1`+`spaceTrash1`–`3`; spike activate `forceField_001` (0.94 + short bed duck), spike hit `laserRetro_000`–`002`. Wave 10 Far Drift plays `jingles_PIZZA16` instead of the wave-clear sting. World 3 entry reuses `maximize_008` slightly hotter with a short bed duck (no new jingle). Wave clear plays glad `jingles_HIT07` @ 0.88 (`HIT04` alt, `PIZZA07` fallback). Fail plays sad `GameOver` one-shot @ 0.78 + `lowDown` @ 0.4 (bed duck 0.55s @ 0.3; `phaserDown3` fallback only — not explosionCrunch / NES). Fail-confirm plays `twoTone1` @ 0.75 (no duck; not click / wave-clear).
 
 ## Environment art
 

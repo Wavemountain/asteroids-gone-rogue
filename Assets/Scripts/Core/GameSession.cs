@@ -72,6 +72,25 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
+        /// Full run reset back to hangar / start. Wave 1, empty score and credits.
+        /// LastResolvedWave / LastRunScore stay so the fail card can still read the run.
+        /// </summary>
+        public void ResetRun()
+        {
+            WaveIndex = 1;
+            Score = 0;
+            Credits = 0;
+            LastCreditsAwarded = 0;
+            FailReason = string.Empty;
+            FailCause = DamageCause.Unknown;
+            FailEnemyKind = EnemyKind.Mid01;
+            HasStructuredFail = false;
+            FailRemainingThreats = 0;
+            ResetLives(DifficultySettings.StartLives);
+            Phase = GamePhase.Hangar;
+        }
+
+        /// <summary>
         /// Spend one life. True when the run continues (lives remain).
         /// </summary>
         public bool TryLoseLife()

@@ -106,7 +106,7 @@ namespace AsteroidsGoneRogue
         public static string FailContinueHint(string failReason, int waveIndex, int remainingThreats)
         {
             string almost = AlmostHadIt(remainingThreats);
-            string keep = Loc.T("run.fail_keep", "Your hull. Credits and upgrades stay — Retry Wave.");
+            string keep = Loc.T("run.fail_keep", "Your hull. Run over — start from the hangar.");
             string tease = MonsterTeaser(waveIndex);
             string line = string.IsNullOrEmpty(almost) ? keep : almost + "  ·  " + keep;
             if (!string.IsNullOrEmpty(tease))

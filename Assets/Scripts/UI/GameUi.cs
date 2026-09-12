@@ -231,7 +231,7 @@ namespace AsteroidsGoneRogue
                     break;
                 case GamePhase.Failed:
                     _statusBase = DamageCauseText.PlayerFaultLine(FailReasonText());
-                    _primaryLabel.text = Loc.T("ui.retry_wave", "Retry Wave");
+                    _primaryLabel.text = Loc.T("ui.start_wave", "Start Wave");
                     break;
                 default:
                     _statusBase = HangarReadyStatus();

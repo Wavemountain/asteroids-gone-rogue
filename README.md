@@ -40,12 +40,12 @@ Editor helpers: menu **Asteroids gone rogue → Open Play Scene** / **Validate W
 | Cycle fire mode | **Q** / **right mouse**, or Xbox **LB** (`joystick button 4`; **X** still cycles) after buying Spread / Twin / Pierce / Seeker / Ricochet |
 | Abort / menu | **Abort → Hangar** / **Esc**, or Xbox **Start** (Playing abort; hangar Start Wave) |
 | Hangar UI | Mouse, or pad **left stick** + **A** confirm / **B** cancel |
-| Start / next / retry wave | Hangar **Start Wave** / **Next Wave** / **Retry Wave** |
+| Start / next / retry wave | Hangar **Start Wave** / **Next Wave**. 0 lives returns to hangar / start (full run reset), not Retry Wave |
 | Health | Play **HEALTH** rack — real HULL + SHIELD `fillAmount` bars (Kenney Future, EN/SV) |
 | Language | Hangar **US flag** → English, **Swedish flag** → Swedish (PlayerPrefs `agr.ui.language`) |
 | Difficulty | Hangar **Easy / Normal / Hard** (SV: Easy / Normal / Svår). PlayerPrefs `agr.difficulty`. Scales HP / spawn / damage / credits / lives |
-| Lives | Start 4/3/3 by difficulty, cap 5. Extra-life pickups on enemy kills (sparse, timeout). HUD + hangar |
-| Buy upgrade | Hangar shop buttons. Ship sits on the **right**, idle-spins, shows bought parts; hover / pad-focus previews the upgrade |
+| Lives | Start **3** on all difficulties, cap **5**. Extra-life drops are a **heart** pickup (sparse, timeout). 0 lives = full hangar / start reset. Mid-run respawn while lives remain. HUD + hangar |
+| Buy upgrade | Hangar shop buttons. Ship sits on the **right** at hero / showcase scale (`ShowcaseScale` 2.25), idle-spins, shows bought parts; hover / pad-focus previews the upgrade |
 
 ## Week 1 loop
 
@@ -84,7 +84,7 @@ Upgrades persist into the next wave.
 | Ricochet | 170 | Shot mode: lime bolt bounces off the arena rim |
 | Shield Matrix | 185 | Requires two Shield Cells; shield cap 3 |
 
-Hull is 3 hits. Large asteroids take 2 hits then split into 3 small shards. Small shards and enemies are destroyable. Mid is 4 HP, Scout/Drone are 3 HP, Gunner is 4 HP, Bomber is 5 HP, Brute is 10 HP, Swarm is 6 HP. Damaging arena spikes deal 2. Fail screen names the enemy kind (`Enemy contact (Scout)` / `Enemy contact (Brute)`) and frames it as **your hull** — credits and upgrades stay on **Retry Wave**. When 1–3 threats remain it adds **Almost had it**. Arena spike contact reads `Arena hazard`. Hangar status teases **Wave 5 Brute** (sidestep the charge) and **Wave 6 Swarm** (break the nest).
+Hull is 3 hits. Large asteroids take 2 hits then split into 3 small shards. Small shards and enemies are destroyable. Mid is 4 HP, Scout/Drone are 3 HP, Gunner is 4 HP, Bomber is 5 HP, Brute is 10 HP, Swarm is 6 HP. Damaging arena spikes deal 2. Fail screen names the enemy kind (`Enemy contact (Scout)` / `Enemy contact (Brute)`) and frames it as **your hull**. 0 lives is a full run reset (hangar / start, wave 1, empty loadout) — not Retry Wave. Mid-run death with lives left respawns in-wave. When 1–3 threats remain it adds **Almost had it**. Arena spike contact reads `Arena hazard`. Hangar status teases **Wave 5 Brute** (sidestep the charge) and **Wave 6 Swarm** (break the nest).
 
 ## Project layout
 
@@ -135,11 +135,11 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 | Spike activate | Kenney Sci-Fi Sounds | `forceField_001.ogg` (hotter + short bed duck) |
 | Spike player hit (pool) | Kenney Sci-Fi Sounds | `laserRetro_000`–`002.ogg` |
 | Player damage | Kenney Sci-Fi Sounds | `forceField_000.ogg` |
-| Fail | Kenney Digital Audio | `phaserDown3.ogg` + `lowDown.ogg` @ 0.55 |
-| Retry Wave | Kenney Digital Audio | `twoTone1.ogg` (0.75, no duck) |
+| Fail | Kenney Music Loops | `GameOver.ogg` @ 0.78 + `lowDown` @ 0.4 (duck 0.55s @ 0.3; `phaserDown3` fallback only) |
+| Retry / fail confirm | Kenney Digital Audio | `twoTone1.ogg` (0.75, no duck) |
 | Arena world swap | Kenney Interface Sounds | `maximize_008.ogg` |
 | World 3 entry | Kenney Interface Sounds | `maximize_008.ogg` (hotter + short bed duck) |
-| Wave clear | Kenney Music Jingles | `jingles_PIZZA07.ogg` |
+| Wave clear | Kenney Music Jingles | `jingles_HIT07.ogg` @ 0.88 (`HIT04` alt, `PIZZA07` fallback) |
 | Far Drift award | Kenney Music Jingles | `jingles_PIZZA16.ogg` |
 | Arena loop | Kenney Music Loops | `MissionPlausible.ogg` (`_arenaLoop`, scale 0.65). Optional `TimeDriving` from wave 8. `OutThere` fallback |
 | Hangar ambience | yd — Spacelife #14 | `spacelifeNo14.ogg` (denser layered bed, pitch 0.94 + 1.02) |
@@ -152,7 +152,7 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 - **Meshes** come from `Assets/Art/Import/` FBX on Press Play (`ArtImport` loads by path — no Inspector mesh swap). Primitive fallbacks stay if an FBX is missing.
 - **Arena World 2–7** meshes **do spawn** — after every 5 cleared waves the floor swaps `Arena_AstroFloor_v2` (World 1 / 7, Play Mode alias of `Arena_Blockout`; 7 plates + `Mat_AstroRim`) → World2 → … → World6, then World 7 **Spoke ring** reuses that v2 floor with a new layout (pylons / trench / mine belt / cross / islands / spokes). `ArenaEnv` keeps additive parallax (Far tile 3.6 / Near 1.05), dual nebula (opacity 0.34, chroma ×0.55), a 22-rock belt (Y −0.5…3.2), a 0.045 grid, cool-white underside glow, and no DustRing disk so stars leak between chunks. Debris islands prefer `Arena_RockIsland_A`. `Arena_Hazard_Spike` FBX marks hazards. Same wrap / roster rules; `ArenaBounds` stays radius 30. FOV stays 54.
 - **Hangar only:** `Ship_Complete` v5 (parked bay display). **Not in Play:** `Ship_Complete_Upgrade01`, **`Ship_Body_Upgrade02`** (imported only, not warmed). Shop **Hull Plate 02** / Nose 03 / Engine 03 reuse the prior meshes.
-- Combat juice: light screen flash + camera shake on hits / explosions. Player death stays quiet on flash/shake; fail plays `phaserDown3` + `lowDown`.
+- Combat juice: light screen flash + camera shake on hits / explosions. Player death stays quiet on flash/shake; fail plays `GameOver` + `lowDown` (`phaserDown3` fallback).
 - **Ship_*** part slots share origin `0,0,0` so Rapid Fire / Nose Hardpoint / Body Upgrade stay a SetActive swap.
 - No extra ships, no 30-wave campaign, no extra worlds, no multiplayer. Hangar shop is the 0.40 Step B tree (hull tiers + weapon modes + defense branch), not a separate campaign system. Look-bible polish stays on 0.40+ UI / audio mix / art wire (monsters and hazards).
 - No Input System / URP / TextMeshPro (avoids extra first-open prompts). HUD uses bundled Kenney CC0 fonts via `Font` (LegacyRuntime fallback only; never Arial).
@@ -183,4 +183,4 @@ See **[MERGE_CHECKLIST.md](MERGE_CHECKLIST.md)**. Do **not** merge PR #1 until W
 
 ## Success check
 
-Press Play → hangar FBX (crate/terminal/pillar + workbench/kiosk/banner/ammo rack + Console/PowerBox/extinguisher/Locker/LaunchSign GO + parked `Ship_Complete` v5). Hangar **Credits** opens the end-credits roll (`SpaceCadet` + NES07/NES12). Wave 1 `Enemy_01` v8 → later Scout/Gunner v7 / Drone v6 / Bomber v8 + Sniper v8 / SwarmPod v6 + wave 5 `Monster_Brute` / wave 6 `Monster_Swarm`. Gunner/Sniper fire `Projectile_EnemyBolt`. Shop Body/Hull 02 + Nose/Engine 03 + Overcharger/Afterburner + Spread/Twin/Pierce/Seeker/Ricochet + Shield Matrix. Worlds 2–7 swap every 5 clears with a new layout (World 2: ★ Deep Orbit + pylon ring; wave 10: ★ Far Drift; World 3: New sector beat + split trench, no medal; World 7: spoke ring). Play HUD compares score vs Best; **MEDALS** ladder stays visible (★ / ○). Clear/fail show the run summary card (wave 3: Buy X before Gunner + ★ Scout Wing; wave 6: ★ Deep Orbit; waves 8–9: Far Drift teaser; wave 10: ★ Far Drift · World 3 at 11; wave 11: World 3 online · New sector). Fail names the cause as your hull, shows Almost had it when close, and keeps the HEALTH rack; Retry Wave keeps loadout. Kenney Future HUD/hangar type, arena radius 30, Mute click. Pickups, muzzle/explosion VFX, hit flash + light shake.
+Press Play → hangar FBX (crate/terminal/pillar + workbench/kiosk/banner/ammo rack + Console/PowerBox/extinguisher/Locker/LaunchSign GO + parked `Ship_Complete` v5). Hangar **Credits** opens the end-credits roll (`SpaceCadet` + NES07/NES12). Wave 1 `Enemy_01` v8 → later Scout/Gunner v7 / Drone v6 / Bomber v8 + Sniper v8 / SwarmPod v6 + wave 5 `Monster_Brute` / wave 6 `Monster_Swarm`. Gunner/Sniper fire `Projectile_EnemyBolt`. Shop Body/Hull 02 + Nose/Engine 03 + Overcharger/Afterburner + Spread/Twin/Pierce/Seeker/Ricochet + Shield Matrix. Worlds 2–7 swap every 5 clears with a new layout (World 2: ★ Deep Orbit + pylon ring; wave 10: ★ Far Drift; World 3: New sector beat + split trench, no medal; World 7: spoke ring). Play HUD compares score vs Best; **MEDALS** ladder stays visible (★ / ○). Clear/fail show the run summary card (wave 3: Buy X before Gunner + ★ Scout Wing; wave 6: ★ Deep Orbit; waves 8–9: Far Drift teaser; wave 10: ★ Far Drift · World 3 at 11; wave 11: World 3 online · New sector). Fail names the cause as your hull, shows Almost had it when close, and keeps the HEALTH rack; 0 lives resets the run at hangar / start. Kenney Future HUD/hangar type, arena radius 30, Mute click. Pickups, muzzle/explosion VFX, hit flash + light shake.

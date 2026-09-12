@@ -52,10 +52,11 @@ namespace AsteroidsGoneRogue
         public const float CreditsLoopScale = 0.55f;
         public const float CreditsOpenDuckSeconds = 0.35f;
         public const float CreditsOpenDuckScale = 0.4f;
-        public const float FailScale = 0.9f;
-        public const float FailLayerScale = 0.55f;
-        public const float FailDuckSeconds = 0.4f;
-        public const float FailDuckScale = 0.35f;
+        public const float WaveClearScale = 0.88f;
+        public const float FailScale = 0.78f;
+        public const float FailLayerScale = 0.4f;
+        public const float FailDuckSeconds = 0.55f;
+        public const float FailDuckScale = 0.3f;
         public const float RetryScale = 0.75f;
         public const float BoltPitchJitter = 0.03f;
         public const float SpreadShotScale = 1.05f;
@@ -393,7 +394,7 @@ namespace AsteroidsGoneRogue
 
         public void PlayWaveClear()
         {
-            Play(_waveClear);
+            Play(_waveClear, WaveClearScale);
         }
 
         public void PlayFarDriftAward()
@@ -713,8 +714,22 @@ namespace AsteroidsGoneRogue
             _uiClick = Resources.Load<AudioClip>("Audio/Sfx/click_002");
             _abort = Resources.Load<AudioClip>("Audio/Sfx/minimize_005");
             _worldChange = Resources.Load<AudioClip>("Audio/Sfx/maximize_008");
-            _waveClear = Resources.Load<AudioClip>("Audio/Sfx/jingles_PIZZA07");
+            _waveClear = Resources.Load<AudioClip>("Audio/Sfx/jingles_HIT07");
+            if (_waveClear == null)
+            {
+                _waveClear = Resources.Load<AudioClip>("Audio/Sfx/jingles_HIT04");
+            }
+
+            if (_waveClear == null)
+            {
+                _waveClear = Resources.Load<AudioClip>("Audio/Sfx/jingles_PIZZA07");
+            }
+
             _farDriftAward = Resources.Load<AudioClip>("Audio/Sfx/jingles_PIZZA16");
+            if (_farDriftAward == null)
+            {
+                _farDriftAward = Resources.Load<AudioClip>("Audio/Sfx/jingles_HIT12");
+            }
             _swarmPodSpawn = Resources.Load<AudioClip>("Audio/Sfx/phaserUp5");
             // AtmosBot 0.40 list — Kenney CC0, distinct from UI clicks.
             _bruteSpawn = Resources.Load<AudioClip>("Audio/Sfx/lowThreeTone");
@@ -753,8 +768,18 @@ namespace AsteroidsGoneRogue
             _creditsLoop = Resources.Load<AudioClip>("Audio/Music/SpaceCadet");
             _creditsOpen = Resources.Load<AudioClip>("Audio/Sfx/jingles_NES07");
             _creditsClose = Resources.Load<AudioClip>("Audio/Sfx/jingles_NES12");
-            // Atmos 0.42 fail / retry — Kenney Digital, anti-epa.
-            _fail = Resources.Load<AudioClip>("Audio/Sfx/phaserDown3");
+            // Atmos fail — Kenney Music Loops Game Over one-shot; phaserDown3 fallback only.
+            _fail = Resources.Load<AudioClip>("Audio/Music/GameOver");
+            if (_fail == null)
+            {
+                _fail = Resources.Load<AudioClip>("Audio/Sfx/GameOver");
+            }
+
+            if (_fail == null)
+            {
+                _fail = Resources.Load<AudioClip>("Audio/Sfx/phaserDown3");
+            }
+
             _failLayer = Resources.Load<AudioClip>("Audio/Sfx/lowDown");
             _retry = Resources.Load<AudioClip>("Audio/Sfx/twoTone1");
             if (_creditsClose == null)

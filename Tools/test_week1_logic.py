@@ -1644,7 +1644,7 @@ def test_monsters_arenas_040() -> None:
     assert "ShowFailContinue" in summary
     assert "FailContinueHint" in summary
     assert "Your hull" in summary
-    assert "Retry Wave" in summary
+    assert "start from the hangar" in summary
     assert "MonsterTeaser" in ui
     assert "FailContinueHint" in ui
     assert "PlayerFaultLine" in cause
@@ -1942,7 +1942,10 @@ def test_end_credits_040d() -> None:
     stop_fn = audio.split("public void StopCreditsMusic()")[1].split("public void")[0]
     assert "SyncMusicToPhase(GamePhase.Hangar)" in stop_fn
     wave_fn = audio.split("public void PlayWaveClear()")[1].split("public void")[0]
-    assert "Play(_waveClear)" in wave_fn
+    assert "Play(_waveClear, WaveClearScale)" in wave_fn
+    assert "WaveClearScale = 0.88f" in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/jingles_HIT07")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Music/GameOver")' in audio
     assert "PlayCredits" not in wave_fn
     assert 'Resources.Load<AudioClip>("Audio/Music/OutThere")' in audio
     assert 'Resources.Load<AudioClip>("Audio/Music/spacelifeNo14")' in audio
@@ -2278,9 +2281,9 @@ def test_fair_death_042() -> None:
     assert "One left. Almost had it." in summary
     assert "Almost had it — {0} left." in summary
     assert "{0} left." in summary
-    assert "Your hull. Credits and upgrades stay — Retry Wave." in summary
+    assert "Your hull. Run over — start from the hangar." in summary
     assert "FailContinueHint(string failReason, int waveIndex, int remainingThreats)" in summary
-    assert "that was you. Loadout stays on Retry Wave." in cause
+    assert "that was you. Run over — start from the hangar." in cause
     assert "PlayerFaultLine" in cause
     assert "PlayerFaultLine" in ui
     assert "FailContinueHint" in ui
@@ -2322,19 +2325,26 @@ def test_fair_death_042() -> None:
     assert 'Resources.Load<AudioClip>("Audio/Sfx/phaserDown3")' in audio
     assert 'Resources.Load<AudioClip>("Audio/Sfx/lowDown")' in audio
     assert 'Resources.Load<AudioClip>("Audio/Sfx/twoTone1")' in audio
-    assert "FailScale = 0.9f" in audio
-    assert "FailLayerScale = 0.55f" in audio
-    assert "FailDuckSeconds = 0.4f" in audio
-    assert "FailDuckScale = 0.35f" in audio
+    assert "FailScale = 0.78f" in audio
+    assert "FailLayerScale = 0.4f" in audio
+    assert "FailDuckSeconds = 0.55f" in audio
+    assert "FailDuckScale = 0.3f" in audio
     assert "RetryScale = 0.75f" in audio
 
     for clip, min_size in (
         ("phaserDown3.ogg", 8000),
         ("lowDown.ogg", 4000),
         ("twoTone1.ogg", 4000),
+        ("jingles_HIT07.ogg", 4000),
+        ("jingles_HIT04.ogg", 4000),
+        ("jingles_HIT12.ogg", 4000),
     ):
         path = root / "Assets/Resources/Audio/Sfx" / clip
         assert path.is_file() and path.stat().st_size > min_size
+
+    game_over = root / "Assets/Resources/Audio/Music/GameOver.ogg"
+    assert game_over.is_file() and game_over.stat().st_size > 20000
+    assert game_over.read_bytes()[:4] == b"OggS"
 
     assert "En kvar. Nästan!" in loc
     assert "Nästan — {0} kvar." in loc
@@ -2397,10 +2407,12 @@ def test_difficulty_economy_043() -> None:
 
     assert 'PrefsKey = "agr.difficulty"' in settings
     assert "enum DifficultyGrade" in settings
-    assert "EasyStartLives = 4" in settings
+    assert "StartLivesCount = 3" in settings
+    assert "EasyStartLives = 3" in settings
     assert "NormalStartLives = 3" in settings
     assert "HardStartLives = 3" in settings
     assert "MaxLives = 5" in settings
+    assert "return StartLivesCount" in settings
     assert "EasyExtraLifeChance = 0.10f" in settings
     assert "NormalExtraLifeChance = 0.045f" in settings
     assert "HardExtraLifeChance = 0.02f" in settings
@@ -2414,8 +2426,17 @@ def test_difficulty_economy_043() -> None:
 
     assert "TryLoseLife" in session and "TryGainLife" in session
     assert "ResetLives" in session
+    assert "ResetRun" in session
+    assert "ResetFullRun" in manager
     assert "TryRespawnAfterLifeLoss" in manager
     assert "FailRun" in manager
+    assert "ResetFullRun()" in manager.split("public void StartWave()")[1].split("if (_hangarPreview")[0]
+    assert "HeartLobeL" in factory and "HeartPoint" in factory
+    assert "DressExtraLifeHeart" in factory
+    heart_fn = factory.split("private static void DressExtraLifeHeart")[1].split("public void")[0]
+    assert "HeartLobeL" in heart_fn and "HeartLobeR" in heart_fn
+    assert "PlusH" not in heart_fn
+    assert 'CreatePrimitive(PrimitiveType.Sphere, "Mesh"' not in heart_fn
     assert "DespawnAll" not in manager.split("private bool TryRespawnAfterLifeLoss()")[1].split("private void")[0]
     assert "GrantRespawnIFrames" in health and "GrantRespawnIFrames" in manager
     assert "AnnounceLifeLost" in ui and "AnnounceLifeLost" in manager
@@ -2530,6 +2551,9 @@ def test_difficulty_economy_043() -> None:
     inputs = (root / "ProjectSettings/InputManager.asset").read_text(encoding="utf-8")
     assert "IdleSpinDegrees = 18f" in preview
     assert "PreviewX = 6.35f" in preview
+    assert "ShowcaseScale = 2.25f" in preview
+    assert "PlayScale = 1f" in preview
+    assert "ApplyPreviewScale" in preview
     assert "HangarShipPreview" in factory
     assert "PreviewGhostMaterial" in visuals
     assert "WithPreview" in loadout

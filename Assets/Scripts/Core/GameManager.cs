@@ -56,7 +56,7 @@ namespace AsteroidsGoneRogue
             DifficultySettings.EnsureLoaded();
             if (_session.Lives <= 0)
             {
-                _session.ResetLives(DifficultySettings.StartLives);
+                ResetFullRun();
             }
 
             _session.ReturnToHangar();
@@ -124,7 +124,16 @@ namespace AsteroidsGoneRogue
 
             if (_session.Phase == GamePhase.Failed || _session.Lives <= 0)
             {
-                _session.ResetLives(DifficultySettings.StartLives);
+                ResetFullRun();
+                if (_ship != null)
+                {
+                    _ship.SetInputEnabled(false);
+                    _ship.ResetForWave(_loadout.State);
+                    _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
+                }
+
+                RaiseStateChanged();
+                return;
             }
 
             if (_hangarPreview != null)
@@ -318,6 +327,19 @@ namespace AsteroidsGoneRogue
 
             RecordBest(_session.WaveIndex);
             RaiseStateChanged();
+        }
+
+        private void ResetFullRun()
+        {
+            if (_loadout != null && _loadout.State != null)
+            {
+                _loadout.State.Reset();
+            }
+
+            if (_session != null)
+            {
+                _session.ResetRun();
+            }
         }
 
         public void NotifyLoadoutChanged()
