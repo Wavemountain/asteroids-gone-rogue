@@ -108,7 +108,7 @@ namespace AsteroidsGoneRogue
         public const string MedalLadderPrefix = "MEDALS";
         public const string HangarHintBody =
             "WASD / LS move · mouse / RS aim\nLMB / Space / RT shoot · LB cycles\nAbort (Esc) leaves the wave\n"
-            + "Q / RMB / LB fire modes\n(discover Spread / Pierce when owned)\n\n"
+            + "Q / RMB fire modes\n(discover Spread / Pierce when owned)\n\n"
             + "Clear a wave to earn credits and upgrades.\n"
             + "Medal ladder (top-left): ★ Scout Wing at wave 3.\n\n"
             + "Shop buys upgrades with those credits.\nStart Wave to fly.";

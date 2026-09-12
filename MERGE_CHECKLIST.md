@@ -2,7 +2,7 @@
 
 **Do not merge until Wagge says yes.**
 
-This is the Week 1–2 playable core for **Asteroids gone rogue**. Branch: `0.43-hotfix-gamepad` (from `0.43-difficulty-economy` / tip of `main`; skip 0.41 / no 0.41; no 0.44; do not merge into older version tags; no tag/Release yet — future tag is `0.43` after Speltest PASS + SpelPM).
+This is the Week 1–2 playable core for **Asteroids gone rogue**. Branch: `0.43-hotfix-gamepad` (from `0.43-difficulty-economy` / tip of `main`; base tag `0.42` / tip of `0.42-fair-death`, from `0.40-monsters-arenas` / `0.39-ui-fonts` / tag `0.39`; skip 0.41 / no 0.41; no 0.44; do not merge into older version tags; no tag/Release yet — future tag is `0.43` after Speltest PASS + SpelPM).
 
 ## Unity
 
