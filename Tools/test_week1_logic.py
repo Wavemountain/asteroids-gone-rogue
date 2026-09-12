@@ -2340,6 +2340,57 @@ def test_fair_death_042() -> None:
     assert "PlayWaveFail" in audio
 
 
+def test_hotfix_042_flags_colliders() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    enemies = (root / "Assets/Scripts/Combat/EnemyKind.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    manifest = (root / "Packages/manifest.json").read_text(encoding="utf-8")
+    lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
+
+    assert "LanguageFlagScale = 0.48f" in ui
+    assert "LanguageFlagRect" in ui
+    assert "0.548f, 0.778f" in ui
+    assert "0.475f, 0.72f" not in ui
+    assert "raycastTarget = true" in ui.split("private static Image CreateFlagButton")[1].split("private static void")[0]
+    assert "0.55f, 0.12f, 0.16f, 0.78f" in ui
+    assert "0.08f, 0.36f, 0.52f, 0.78f" in ui
+
+    assert "ColliderCenter" in enemies
+    assert "ColliderRadialKeep" in enemies
+    assert "ColliderLengthKeep" in enemies
+    assert "new Vector3(0f, 0.42f, 1.35f)" in enemies
+    assert "new Vector3(0f, 0.22f, 0.13f)" in enemies
+    assert "new Vector3(0f, 0.55f, 0.34f)" in enemies
+    radius = enemies.split("public static float ColliderRadius")[1].split("public static float ColliderHeight")[0]
+    height = enemies.split("public static float ColliderHeight")[1].split("public static Vector3 ColliderCenter")[0]
+    assert "return 0.48f;" in radius.split("case EnemyKind.Scout:")[1].split("case ")[0]
+    assert "return 0.54f;" in radius.split("case EnemyKind.Gunner:")[1].split("case ")[0]
+    assert "return 0.46f;" in radius.split("case EnemyKind.Drone:")[1].split("case ")[0]
+    assert "return 0.82f;" in radius.split("case EnemyKind.Bomber:")[1].split("case ")[0]
+    assert "return 0.44f;" in radius.split("case EnemyKind.Sniper:")[1].split("case ")[0]
+    assert "return 0.98f;" in radius.split("case EnemyKind.Brute:")[1].split("case ")[0]
+    assert "return 0.62f;" in radius.split("case EnemyKind.Swarm:")[1].split("case ")[0]
+    assert "return 3.3f;" in height.split("case EnemyKind.Scout:")[1].split("case ")[0]
+    assert "return 1.25f;" in height.split("case EnemyKind.Brute:")[1].split("case ")[0]
+    assert "return 1.45f;" in height.split("case EnemyKind.Swarm:")[1].split("case ")[0]
+    assert "return 5.3f;" in height.split("case EnemyKind.Sniper:")[1].split("case ")[0]
+    assert "return 3.8f;" not in height
+
+    assert "collider.center = EnemyCatalog.ColliderCenter(kind)" in factory
+    assert "FitEnemyCollider" in factory
+    assert "TryEnemyMeshBounds" in factory
+    fit = factory.split("private static void FitEnemyCollider")[1].split("private static bool TryEnemyMeshBounds")[0]
+    assert "ColliderRadialKeep" in fit
+    assert "ColliderLengthKeep" in fit
+    create = factory.split("public EnemySeeker CreateEnemy(Vector3 position, Transform player, WaveManager waves, string visualName)")[1].split("public GameObject CreatePickup")[0]
+    assert create.index("FitEnemyCollider") < create.index("DressMonsterPresence")
+    assert "com.unity.modules.vr" not in manifest
+    assert "com.unity.modules.xr" not in lock
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -2372,6 +2423,7 @@ def main() -> int:
     test_localization_040()
     test_astro_env_040()
     test_fair_death_042()
+    test_hotfix_042_flags_colliders()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

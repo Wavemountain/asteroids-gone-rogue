@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace AsteroidsGoneRogue
 {
     public enum EnemyKind
@@ -164,21 +166,21 @@ namespace AsteroidsGoneRogue
             switch (kind)
             {
                 case EnemyKind.Scout:
-                    return 0.32f;
+                    return 0.48f;
                 case EnemyKind.Gunner:
-                    return 0.7f;
+                    return 0.54f;
                 case EnemyKind.Drone:
-                    return 0.28f;
+                    return 0.46f;
                 case EnemyKind.Bomber:
-                    return 0.85f;
+                    return 0.82f;
                 case EnemyKind.Sniper:
-                    return 0.4f;
+                    return 0.44f;
                 case EnemyKind.SwarmPod:
                     return 0.26f;
                 case EnemyKind.Brute:
-                    return 1.05f;
+                    return 0.98f;
                 case EnemyKind.Swarm:
-                    return 0.85f;
+                    return 0.62f;
                 case EnemyKind.Swarmling:
                     return 0.2f;
                 default:
@@ -191,25 +193,96 @@ namespace AsteroidsGoneRogue
             switch (kind)
             {
                 case EnemyKind.Scout:
-                    return 1.3f;
+                    return 3.3f;
                 case EnemyKind.Gunner:
-                    return 3f;
+                    return 3.9f;
                 case EnemyKind.Drone:
-                    return 1.1f;
+                    return 1.7f;
                 case EnemyKind.Bomber:
-                    return 3.2f;
+                    return 4.4f;
                 case EnemyKind.Sniper:
-                    return 2.2f;
+                    return 5.3f;
                 case EnemyKind.SwarmPod:
                     return 1f;
                 case EnemyKind.Brute:
-                    return 3.8f;
+                    return 1.25f;
                 case EnemyKind.Swarm:
-                    return 2.6f;
+                    return 1.45f;
                 case EnemyKind.Swarmling:
                     return 0.75f;
                 default:
                     return ContentFactory.EnemyMeters;
+            }
+        }
+
+        public static Vector3 ColliderCenter(EnemyKind kind)
+        {
+            switch (kind)
+            {
+                case EnemyKind.Scout:
+                    return new Vector3(0f, 0.55f, 0.34f);
+                case EnemyKind.Gunner:
+                    return new Vector3(0f, 0.50f, 0.42f);
+                case EnemyKind.Drone:
+                    return new Vector3(0f, 0.40f, 0f);
+                case EnemyKind.Bomber:
+                    return new Vector3(0f, 0.22f, 0.12f);
+                case EnemyKind.Sniper:
+                    return new Vector3(0f, 0.42f, 1.35f);
+                case EnemyKind.Brute:
+                    return new Vector3(0f, 0.22f, 0.13f);
+                case EnemyKind.Swarm:
+                    return new Vector3(0f, 0.08f, 0.02f);
+                default:
+                    return Vector3.zero;
+            }
+        }
+
+        public static float ColliderRadialKeep(EnemyKind kind)
+        {
+            switch (kind)
+            {
+                case EnemyKind.Scout:
+                    return 0.42f;
+                case EnemyKind.Gunner:
+                    return 0.48f;
+                case EnemyKind.Drone:
+                    return 0.48f;
+                case EnemyKind.Bomber:
+                    return 0.36f;
+                case EnemyKind.Sniper:
+                    return 0.40f;
+                case EnemyKind.Brute:
+                    return 0.68f;
+                case EnemyKind.Swarm:
+                    return 0.72f;
+                case EnemyKind.Swarmling:
+                    return 0.70f;
+                default:
+                    return 0.50f;
+            }
+        }
+
+        public static float ColliderLengthKeep(EnemyKind kind)
+        {
+            switch (kind)
+            {
+                case EnemyKind.Scout:
+                    return 0.70f;
+                case EnemyKind.Gunner:
+                    return 0.68f;
+                case EnemyKind.Drone:
+                    return 0.72f;
+                case EnemyKind.Bomber:
+                    return 0.68f;
+                case EnemyKind.Sniper:
+                    return 0.70f;
+                case EnemyKind.Brute:
+                    return 0.90f;
+                case EnemyKind.Swarm:
+                    return 0.86f;
+                default:
+                    return 0.78f;
             }
         }
 

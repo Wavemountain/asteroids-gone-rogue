@@ -700,6 +700,7 @@ namespace AsteroidsGoneRogue
             collider.direction = 2;
             collider.radius = EnemyCatalog.ColliderRadius(kind);
             collider.height = EnemyCatalog.ColliderHeight(kind);
+            collider.center = EnemyCatalog.ColliderCenter(kind);
 
             if (!TryEnemyVisual(visualName, root.transform)
                 && !(kind == EnemyKind.Swarmling && TryEnemyVisual("Monster_Swarm", root.transform)))
@@ -742,6 +743,8 @@ namespace AsteroidsGoneRogue
             {
                 ScaleImportedVisual(root.transform, 0.45f);
             }
+
+            FitEnemyCollider(collider, root.transform, kind);
 
             if (EnemyCatalog.IsMonster(kind) || kind == EnemyKind.Swarmling)
             {
@@ -1247,6 +1250,85 @@ namespace AsteroidsGoneRogue
             DressEnemyEmission(root, swarmling
                 ? new Color(0.25f, 1f, 0.45f) * 1.8f
                 : new Color(0.12f, 0.85f, 1f) * 1.5f);
+        }
+
+        private static void FitEnemyCollider(CapsuleCollider collider, Transform root, EnemyKind kind)
+        {
+            if (collider == null || root == null)
+            {
+                return;
+            }
+
+            Bounds local;
+            if (!TryEnemyMeshBounds(root, out local))
+            {
+                return;
+            }
+
+            Vector3 size = local.size;
+            float radialKeep = EnemyCatalog.ColliderRadialKeep(kind);
+            float lengthKeep = EnemyCatalog.ColliderLengthKeep(kind);
+            float cross = kind == EnemyKind.Brute || kind == EnemyKind.Swarm || kind == EnemyKind.Swarmling
+                ? Mathf.Max(size.x, size.y)
+                : Mathf.Min(size.x, size.y);
+            float radius = Mathf.Max(0.12f, cross * 0.5f * radialKeep);
+            float height = Mathf.Max(radius * 2.05f, size.z * lengthKeep);
+            collider.center = local.center;
+            collider.radius = radius;
+            collider.height = height;
+        }
+
+        private static bool TryEnemyMeshBounds(Transform root, out Bounds local)
+        {
+            local = new Bounds(Vector3.zero, Vector3.zero);
+            MeshRenderer[] renderers = root.GetComponentsInChildren<MeshRenderer>(true);
+            bool any = false;
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                MeshRenderer renderer = renderers[i];
+                if (renderer == null || !IsEnemyHullRenderer(renderer))
+                {
+                    continue;
+                }
+
+                Bounds world = renderer.bounds;
+                Vector3[] corners =
+                {
+                    new Vector3(world.min.x, world.min.y, world.min.z),
+                    new Vector3(world.min.x, world.min.y, world.max.z),
+                    new Vector3(world.min.x, world.max.y, world.min.z),
+                    new Vector3(world.min.x, world.max.y, world.max.z),
+                    new Vector3(world.max.x, world.min.y, world.min.z),
+                    new Vector3(world.max.x, world.min.y, world.max.z),
+                    new Vector3(world.max.x, world.max.y, world.min.z),
+                    new Vector3(world.max.x, world.max.y, world.max.z)
+                };
+                for (int c = 0; c < corners.Length; c++)
+                {
+                    Vector3 p = root.InverseTransformPoint(corners[c]);
+                    if (!any)
+                    {
+                        local = new Bounds(p, Vector3.zero);
+                        any = true;
+                    }
+                    else
+                    {
+                        local.Encapsulate(p);
+                    }
+                }
+            }
+
+            return any && local.size.sqrMagnitude > 0.0001f;
+        }
+
+        private static bool IsEnemyHullRenderer(Renderer renderer)
+        {
+            string name = renderer.gameObject.name;
+            return name.IndexOf("Ring", System.StringComparison.OrdinalIgnoreCase) < 0
+                && name.IndexOf("Well", System.StringComparison.OrdinalIgnoreCase) < 0
+                && name.IndexOf("Aura", System.StringComparison.OrdinalIgnoreCase) < 0
+                && name.IndexOf("Telegraph", System.StringComparison.OrdinalIgnoreCase) < 0
+                && name.IndexOf("Presence", System.StringComparison.OrdinalIgnoreCase) < 0;
         }
 
         private static void ScaleImportedVisual(Transform root, float scale)

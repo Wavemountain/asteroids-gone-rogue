@@ -89,6 +89,7 @@ namespace AsteroidsGoneRogue
         private static readonly Color UiHull = new Color(0.788f, 0.537f, 0.227f, 1f);
         private static readonly Color UiShield = new Color(0.373f, 0.627f, 0.722f, 1f);
 
+        public const float LanguageFlagScale = 0.48f;
         public const string FirstHangarHintKey = "agr.ui.firstHangarHint";
         public const string HangarControlsHint =
             "Abort (Esc)  ·  Q / RMB fire modes (discover Spread / Pierce when owned)";
@@ -969,42 +970,56 @@ namespace AsteroidsGoneRogue
 
         private void BuildLanguagePicker(Font display, Font body)
         {
-            _langPanel = CreatePanel("LanguagePanel", transform, new Color(0.025f, 0.04f, 0.07f, 0.92f),
-                new Vector2(0.475f, 0.72f), new Vector2(0.668f, 0.86f));
-            CreateFill("LangHeader", _langPanel.transform, new Color(1f, 0.58f, 0.16f, 0.3f),
+            _langPanel = CreatePanel("LanguagePanel", transform, new Color(0.025f, 0.04f, 0.07f, 0.62f),
+                new Vector2(0.548f, 0.778f), new Vector2(0.668f, 0.858f));
+            CreateFill("LangHeader", _langPanel.transform, new Color(0.831f, 0.627f, 0.29f, 0.16f),
                 new Vector2(0f, 0.78f), new Vector2(1f, 1f));
-            CreateFill("LangRule", _langPanel.transform, new Color(1f, 0.82f, 0.4f, 0.88f),
-                new Vector2(0.08f, 0.76f), new Vector2(0.92f, 0.8f));
+            CreateFill("LangRule", _langPanel.transform, new Color(0.831f, 0.627f, 0.29f, 0.45f),
+                new Vector2(0.12f, 0.76f), new Vector2(0.88f, 0.8f));
 
-            _langTitle = CreateText("LangTitle", _langPanel.transform, display, 13, TextAnchor.MiddleCenter, FontStyle.Bold);
+            _langTitle = CreateText("LangTitle", _langPanel.transform, display, 10, TextAnchor.MiddleCenter, FontStyle.Bold);
             Stretch(_langTitle.rectTransform, new Vector2(0.06f, 0.78f), new Vector2(0.94f, 0.98f));
-            _langTitle.color = new Color(1f, 0.84f, 0.42f);
+            _langTitle.color = new Color(0.831f, 0.627f, 0.29f, 0.82f);
 
+            Vector2 flagMin;
+            Vector2 flagMax;
+            LanguageFlagRect(true, out flagMin, out flagMax);
             _enBezel = CreateFlagButton(
                 "UsFlag",
                 _langPanel.transform,
-                new Vector2(0.07f, 0.22f),
-                new Vector2(0.47f, 0.72f),
+                flagMin,
+                flagMax,
                 () => OnPickLanguage(GameLanguage.English));
             BuildUsFlag(_enBezel.transform);
 
+            LanguageFlagRect(false, out flagMin, out flagMax);
             _svBezel = CreateFlagButton(
                 "SvFlag",
                 _langPanel.transform,
-                new Vector2(0.53f, 0.22f),
-                new Vector2(0.93f, 0.72f),
+                flagMin,
+                flagMax,
                 () => OnPickLanguage(GameLanguage.Swedish));
             BuildSwedishFlag(_svBezel.transform);
 
-            Text enCaption = CreateText("EnCaption", _langPanel.transform, body, 11, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Stretch(enCaption.rectTransform, new Vector2(0.07f, 0.02f), new Vector2(0.47f, 0.2f));
-            enCaption.color = new Color(0.86f, 0.9f, 0.94f);
+            Text enCaption = CreateText("EnCaption", _langPanel.transform, body, 9, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Stretch(enCaption.rectTransform, new Vector2(0.10f, 0.04f), new Vector2(0.46f, 0.22f));
+            enCaption.color = new Color(0.784f, 0.808f, 0.839f, 0.72f);
             enCaption.text = "EN";
 
-            Text svCaption = CreateText("SvCaption", _langPanel.transform, body, 11, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Stretch(svCaption.rectTransform, new Vector2(0.53f, 0.02f), new Vector2(0.93f, 0.2f));
-            svCaption.color = new Color(0.86f, 0.9f, 0.94f);
+            Text svCaption = CreateText("SvCaption", _langPanel.transform, body, 9, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Stretch(svCaption.rectTransform, new Vector2(0.54f, 0.04f), new Vector2(0.90f, 0.22f));
+            svCaption.color = new Color(0.784f, 0.808f, 0.839f, 0.72f);
             svCaption.text = "SV";
+        }
+
+        private static void LanguageFlagRect(bool english, out Vector2 min, out Vector2 max)
+        {
+            float width = 0.40f * LanguageFlagScale / 0.60f;
+            float height = 0.50f * LanguageFlagScale / 0.60f;
+            float midX = english ? 0.28f : 0.72f;
+            float midY = 0.50f;
+            min = new Vector2(midX - width * 0.5f, midY - height * 0.5f);
+            max = new Vector2(midX + width * 0.5f, midY + height * 0.5f);
         }
 
         private static Image CreateFlagButton(
@@ -1017,13 +1032,13 @@ namespace AsteroidsGoneRogue
             GameObject go = new GameObject(name);
             go.transform.SetParent(parent, false);
             Image image = go.AddComponent<Image>();
-            image.color = new Color(0.28f, 0.24f, 0.14f, 0.95f);
+            image.color = new Color(0.18f, 0.16f, 0.12f, 0.55f);
             image.raycastTarget = true;
             Button button = go.AddComponent<Button>();
             ColorBlock colors = button.colors;
             colors.normalColor = Color.white;
-            colors.highlightedColor = new Color(1f, 0.92f, 0.62f, 1f);
-            colors.pressedColor = new Color(0.95f, 0.7f, 0.28f, 1f);
+            colors.highlightedColor = new Color(1f, 0.92f, 0.72f, 0.85f);
+            colors.pressedColor = new Color(0.95f, 0.7f, 0.28f, 0.9f);
             button.colors = colors;
             button.onClick.AddListener(onClick);
             Stretch(go.GetComponent<RectTransform>(), min, max);
@@ -1032,9 +1047,9 @@ namespace AsteroidsGoneRogue
 
         private static void BuildUsFlag(Transform parent)
         {
-            Color red = new Color(0.7f, 0.07f, 0.16f, 1f);
-            Color white = new Color(0.98f, 0.98f, 0.97f, 1f);
-            Color blue = new Color(0.04f, 0.09f, 0.38f, 1f);
+            Color red = new Color(0.55f, 0.12f, 0.16f, 0.78f);
+            Color white = new Color(0.88f, 0.88f, 0.86f, 0.72f);
+            Color blue = new Color(0.10f, 0.14f, 0.32f, 0.78f);
             const int Stripes = 7;
             for (int i = 0; i < Stripes; i++)
             {
@@ -1057,8 +1072,8 @@ namespace AsteroidsGoneRogue
 
         private static void BuildSwedishFlag(Transform parent)
         {
-            Color blue = new Color(0f, 0.416f, 0.655f, 1f);
-            Color yellow = new Color(0.996f, 0.8f, 0f, 1f);
+            Color blue = new Color(0.08f, 0.36f, 0.52f, 0.78f);
+            Color yellow = new Color(0.83f, 0.70f, 0.22f, 0.78f);
             CreateFill("SvField", parent, blue, new Vector2(0.06f, 0.06f), new Vector2(0.94f, 0.94f));
             CreateFill("SvCrossH", parent, yellow, new Vector2(0.06f, 0.38f), new Vector2(0.94f, 0.62f));
             CreateFill("SvCrossV", parent, yellow, new Vector2(0.30f, 0.06f), new Vector2(0.50f, 0.94f));
@@ -1078,8 +1093,8 @@ namespace AsteroidsGoneRogue
 
         private void RefreshLanguageChrome()
         {
-            Color selected = new Color(1f, 0.82f, 0.38f, 1f);
-            Color idle = new Color(0.28f, 0.24f, 0.14f, 0.95f);
+            Color selected = new Color(0.831f, 0.627f, 0.29f, 0.72f);
+            Color idle = new Color(0.18f, 0.16f, 0.12f, 0.4f);
             if (_enBezel != null)
             {
                 _enBezel.color = Loc.Language == GameLanguage.English ? selected : idle;
