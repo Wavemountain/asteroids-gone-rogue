@@ -10,6 +10,7 @@ namespace AsteroidsGoneRogue
     {
         public const int World2StartsAtWave = 6;
         public const int World3StartsAtWave = 11;
+        public const int AlmostHadItMax = 3;
         public const string Wave3MedalTitle = "Scout Wing";
 
         public static string Title(GamePhase phase, string failReason)
@@ -99,17 +100,41 @@ namespace AsteroidsGoneRogue
 
         public static string FailContinueHint(string failReason, int waveIndex)
         {
-            string reason = string.IsNullOrEmpty(failReason)
-                ? Loc.T("fail.unknown", "Unknown cause")
-                : failReason;
-            string tease = MonsterTeaser(waveIndex);
+            return FailContinueHint(failReason, waveIndex, 0);
+        }
+
+        public static string FailContinueHint(string failReason, int waveIndex, int remainingThreats)
+        {
+            string almost = AlmostHadIt(remainingThreats);
             string keep = Loc.T("run.fail_keep", "Your hull. Credits and upgrades stay — Retry Wave.");
+            string tease = MonsterTeaser(waveIndex);
+            string line = string.IsNullOrEmpty(almost) ? keep : almost + "  ·  " + keep;
             if (!string.IsNullOrEmpty(tease))
             {
-                return reason + "  ·  " + keep + "\n" + tease;
+                return line + "\n" + tease;
             }
 
-            return reason + "  ·  " + keep;
+            return line;
+        }
+
+        public static string AlmostHadIt(int remainingThreats)
+        {
+            if (remainingThreats <= 0)
+            {
+                return string.Empty;
+            }
+
+            if (remainingThreats == 1)
+            {
+                return Loc.T("fail.almost_one", "One left. Almost had it.");
+            }
+
+            if (remainingThreats <= AlmostHadItMax)
+            {
+                return Loc.Tf("fail.almost_n", "Almost had it — {0} left.", remainingThreats);
+            }
+
+            return Loc.Tf("fail.left_n", "{0} left.", remainingThreats);
         }
 
         public static string MonsterTeaser(int nextWave)

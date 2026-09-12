@@ -16,6 +16,7 @@ namespace AsteroidsGoneRogue
         public DamageCause FailCause { get; private set; }
         public EnemyKind FailEnemyKind { get; private set; }
         public bool HasStructuredFail { get; private set; }
+        public int FailRemainingThreats { get; private set; }
         public int LastResolvedWave { get; private set; }
         public int LastCreditsAwarded { get; private set; }
         public int LastRunScore { get; private set; }
@@ -46,6 +47,7 @@ namespace AsteroidsGoneRogue
             FailCause = DamageCause.Unknown;
             FailEnemyKind = EnemyKind.Mid01;
             HasStructuredFail = false;
+            FailRemainingThreats = 0;
             LastCreditsAwarded = 0;
             Phase = GamePhase.Playing;
         }
@@ -83,6 +85,11 @@ namespace AsteroidsGoneRogue
 
         public void FailWave(string reason)
         {
+            FailWave(reason, 0);
+        }
+
+        public void FailWave(string reason, int remainingThreats)
+        {
             if (Phase != GamePhase.Playing)
             {
                 return;
@@ -92,6 +99,7 @@ namespace AsteroidsGoneRogue
             FailCause = DamageCause.Unknown;
             FailEnemyKind = EnemyKind.Mid01;
             FailReason = string.IsNullOrEmpty(reason) ? "Unknown cause" : reason;
+            FailRemainingThreats = remainingThreats < 0 ? 0 : remainingThreats;
             LastResolvedWave = WaveIndex;
             LastCreditsAwarded = 0;
             LastRunScore = Score;
@@ -99,6 +107,11 @@ namespace AsteroidsGoneRogue
         }
 
         public void FailWave(DamageCause cause, EnemyKind kind)
+        {
+            FailWave(cause, kind, 0);
+        }
+
+        public void FailWave(DamageCause cause, EnemyKind kind, int remainingThreats)
         {
             if (Phase != GamePhase.Playing)
             {
@@ -111,6 +124,7 @@ namespace AsteroidsGoneRogue
             FailReason = cause == DamageCause.EnemyContact
                 ? DamageCauseText.FailReason(cause, kind)
                 : DamageCauseText.FailReason(cause);
+            FailRemainingThreats = remainingThreats < 0 ? 0 : remainingThreats;
             LastResolvedWave = WaveIndex;
             LastCreditsAwarded = 0;
             LastRunScore = Score;
@@ -136,6 +150,7 @@ namespace AsteroidsGoneRogue
             FailCause = DamageCause.Unknown;
             FailEnemyKind = EnemyKind.Mid01;
             HasStructuredFail = false;
+            FailRemainingThreats = 0;
             Phase = GamePhase.Hangar;
         }
 

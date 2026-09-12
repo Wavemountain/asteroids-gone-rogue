@@ -2041,7 +2041,8 @@ def test_localization_040() -> None:
         "ui.health", "ui.hull_label", "ui.shield_label",
         "ui.hangar_hint_body", "ui.layout_swap", "ui.world_badge", "ui.credits_line",
         "shop.header.hull", "shop.title.Seeker", "run.wave_clear", "run.ship_lost",
-        "fail.asteroid", "fail.hazard", "fail.unknown", "medal.scout", "layout.pylon",
+        "fail.asteroid", "fail.hazard", "fail.unknown", "fail.almost_one", "fail.almost_n",
+        "fail.left_n", "medal.scout", "layout.pylon",
         "credits.body", "best.card",
     }
     missing_required = required - swedish
@@ -2200,6 +2201,145 @@ def test_astro_env_040() -> None:
     assert "com.unity.modules.xr" not in lock
 
 
+def test_fair_death_042() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    cause = (root / "Assets/Scripts/Core/DamageCause.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    health = (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
+    loadout = (root / "Assets/Scripts/Core/LoadoutState.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    seeker = (root / "Assets/Scripts/Combat/EnemySeeker.cs").read_text(encoding="utf-8")
+    shooter = (root / "Assets/Scripts/Player/ShipShooter.cs").read_text(encoding="utf-8")
+    bootstrap = (root / "Assets/Scripts/Content/GameBootstrap.cs").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    checklist = (root / "MERGE_CHECKLIST.md").read_text(encoding="utf-8")
+    credits = (root / "CREDITS.md").read_text(encoding="utf-8")
+    manifest = (root / "Packages/manifest.json").read_text(encoding="utf-8")
+    lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
+
+    assert "FailRemainingThreats" in session
+    assert "FailWave(string reason, int remainingThreats)" in session
+    assert "FailWave(DamageCause cause, EnemyKind kind, int remainingThreats)" in session
+    assert 'FailWave(string reason)' in session
+
+    string_fail = manager.split("public void NotifyPlayerDestroyed(string cause)")[1].split("public void")[0]
+    kind_fail = manager.split("public void NotifyPlayerDestroyed(DamageCause cause, EnemyKind kind)")[1].split("public void")[0]
+    for block in (string_fail, kind_fail):
+        assert "RemainingThreats" in block
+        assert "DespawnAll" in block
+        assert block.index("RemainingThreats") < block.index("DespawnAll")
+        assert "PlayWaveFail" in block
+        assert "PlayWaveClear" not in block
+        assert "PlayUiClick" not in block
+
+    start = manager.split("public void StartWave()")[1].split("public void")[0]
+    assert "_loadout.State" in start
+    assert "ResetForWave(_loadout.State)" in start
+
+    assert "AlmostHadItMax = 3" in summary
+    assert "AlmostHadIt" in summary
+    assert "One left. Almost had it." in summary
+    assert "Almost had it — {0} left." in summary
+    assert "{0} left." in summary
+    assert "Your hull. Credits and upgrades stay — Retry Wave." in summary
+    assert "FailContinueHint(string failReason, int waveIndex, int remainingThreats)" in summary
+    assert "that was you. Loadout stays on Retry Wave." in cause
+    assert "PlayerFaultLine" in cause
+    assert "PlayerFaultLine" in ui
+    assert "FailContinueHint" in ui
+    assert "FailRemainingThreats" in ui
+    assert "ApplyFailChrome" in ui
+    assert "LayoutHealthRack" in ui
+    assert "GamePhase.Failed" in ui.split("private void RefreshHealthBar()")[1].split("private void")[0]
+    assert "0.008f, 0.33f" in ui
+    assert "0.178f, 0.62f" in ui
+    assert "UiAmber" in ui.split("private void ApplyFailChrome")[1].split("private void")[0]
+    assert "UiFonts.Display()" in ui
+    chrome = ui.split("private void ApplyFailChrome")[1].split("public void FlashHit")[0]
+    assert "0.10f, 0.09f, 0.08f" in chrome
+    assert "0.35f, 0.9f, 0.28f" not in chrome
+    assert "0.85f, 0.28f, 0.55f" not in chrome
+
+    on_primary = ui.split("private void OnPrimary()")[1].split("private void")[0]
+    assert "PlayRetry" in on_primary
+    assert "GamePhase.Failed" in on_primary
+    assert on_primary.index("PlayRetry") < on_primary.index("PlayUiClick")
+
+    assert "public void PlayWaveFail()" in audio
+    assert "public void PlayRetry()" in audio
+    fail_fn = audio.split("public void PlayWaveFail()")[1].split("public void")[0]
+    retry_fn = audio.split("public void PlayRetry()")[1].split("public void")[0]
+    assert "phaserDown3" not in fail_fn
+    assert "_fail" in fail_fn and "_failLayer" in fail_fn
+    assert "DuckMusic" in fail_fn
+    assert "FailDuckSeconds" in fail_fn
+    assert "_waveClear" not in fail_fn
+    assert "_uiClick" not in fail_fn
+    assert "_purchase" not in fail_fn
+    assert "explosionCrunch" not in fail_fn
+    assert "jingles_NES" not in fail_fn
+    assert "_retry" in retry_fn
+    assert "DuckMusic" not in retry_fn
+    assert "_purchase" not in retry_fn
+    assert "_uiClick" not in retry_fn
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/phaserDown3")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/lowDown")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/twoTone1")' in audio
+    assert "FailScale = 0.9f" in audio
+    assert "FailLayerScale = 0.55f" in audio
+    assert "FailDuckSeconds = 0.4f" in audio
+    assert "FailDuckScale = 0.35f" in audio
+    assert "RetryScale = 0.75f" in audio
+
+    for clip, min_size in (
+        ("phaserDown3.ogg", 8000),
+        ("lowDown.ogg", 4000),
+        ("twoTone1.ogg", 4000),
+    ):
+        path = root / "Assets/Resources/Audio/Sfx" / clip
+        assert path.is_file() and path.stat().st_size > min_size
+
+    assert "En kvar. Nästan!" in loc
+    assert "Nästan — {0} kvar." in loc
+    assert "{0} kvar." in loc
+    assert "0.41" not in loc
+    assert "Release" not in loc
+
+    assert "NotifyPlayerDestroyed(cause, enemyKind)" in health
+    assert "CombatJuice.PlayerDamaged(true)" in health
+    juice = (root / "Assets/Scripts/Combat/CombatJuice.cs").read_text(encoding="utf-8")
+    lethal = juice.split("public static void PlayerDamaged(bool lethal)")[1].split("public static void")[0]
+    assert "if (lethal)" in lethal
+    assert "return;" in lethal
+
+    assert "SeekerFireCooldown = 0.55f" in loadout
+    assert "SeekerFireCooldown" in shooter
+    assert "AstroFloor_v2" in factory
+    assert "Arena_AstroFloor_v2" in factory
+    assert "box.isTrigger = true" in factory
+    assert "_body.linearVelocity = dir * speed" in seeker
+    assert "Image.Type.Filled" in ui
+    assert "_hullFill.fillAmount" in ui
+    assert "forceModuleActive" not in bootstrap
+    assert "com.unity.modules.vr" not in manifest
+    assert "com.unity.modules.xr" not in manifest
+    assert "com.unity.modules.vr" not in lock
+    assert "com.unity.modules.xr" not in lock
+    assert "0.42-fair-death" in checklist
+    assert "Hub-open smoke" in checklist
+    assert "phaserDown3" in readme and "twoTone1" in readme
+    assert "Almost had it" in readme
+    assert "phaserDown3" in credits and "twoTone1" in credits
+    assert "PlayWaveFail" in audio
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -2231,6 +2371,7 @@ def main() -> int:
     test_end_credits_040d()
     test_localization_040()
     test_astro_env_040()
+    test_fair_death_042()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

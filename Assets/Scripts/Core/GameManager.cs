@@ -164,9 +164,19 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            int remaining = _waves != null ? _waves.RemainingThreats : 0;
             _ship.SetInputEnabled(false);
-            _waves.DespawnAll();
-            _session.FailWave(cause);
+            if (_waves != null)
+            {
+                _waves.DespawnAll();
+            }
+
+            _session.FailWave(cause, remaining);
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayWaveFail();
+            }
+
             RecordBest(_session.WaveIndex);
             RaiseStateChanged();
         }
@@ -178,9 +188,19 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            int remaining = _waves != null ? _waves.RemainingThreats : 0;
             _ship.SetInputEnabled(false);
-            _waves.DespawnAll();
-            _session.FailWave(cause, kind);
+            if (_waves != null)
+            {
+                _waves.DespawnAll();
+            }
+
+            _session.FailWave(cause, kind, remaining);
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayWaveFail();
+            }
+
             RecordBest(_session.WaveIndex);
             RaiseStateChanged();
         }

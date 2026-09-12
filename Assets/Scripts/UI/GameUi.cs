@@ -33,6 +33,8 @@ namespace AsteroidsGoneRogue
         private GameObject _audioPanel;
         private GameObject _tutorialRoot;
         private GameObject _summaryRoot;
+        private Image _summaryHeader;
+        private Image _summaryRule;
         private Text _summaryTitle;
         private Text _summaryBody;
         private Text _waveMedal;
@@ -161,7 +163,7 @@ namespace AsteroidsGoneRogue
 
             _hud.gameObject.SetActive(true);
             _hud.text = BuildHud(playing);
-            RefreshHealthBar(playing);
+            RefreshHealthBar();
             if (_scrim != null)
             {
                 _scrim.SetActive(!playing);
@@ -476,7 +478,14 @@ namespace AsteroidsGoneRogue
             DismissFirstHangarHint();
             if (AudioCues.Instance != null)
             {
-                AudioCues.Instance.PlayUiClick();
+                if (_session != null && _session.Phase == GamePhase.Failed)
+                {
+                    AudioCues.Instance.PlayRetry();
+                }
+                else
+                {
+                    AudioCues.Instance.PlayUiClick();
+                }
             }
 
             _game.StartWave();
@@ -502,10 +511,10 @@ namespace AsteroidsGoneRogue
         {
             _summaryRoot = CreatePanel("RunSummaryCard", _menuRoot.transform, new Color(0.04f, 0.07f, 0.11f, 0.97f),
                 new Vector2(0.04f, 0.81f), new Vector2(0.96f, 0.965f));
-            CreateFill("SummaryHeader", _summaryRoot.transform, new Color(1f, 0.58f, 0.16f, 0.3f),
-                new Vector2(0f, 0.78f), new Vector2(1f, 1f));
-            CreateFill("SummaryRule", _summaryRoot.transform, new Color(1f, 0.78f, 0.34f, 0.85f),
-                new Vector2(0.06f, 0.77f), new Vector2(0.94f, 0.79f));
+            _summaryHeader = CreateFill("SummaryHeader", _summaryRoot.transform, new Color(1f, 0.58f, 0.16f, 0.3f),
+                new Vector2(0f, 0.78f), new Vector2(1f, 1f)).GetComponent<Image>();
+            _summaryRule = CreateFill("SummaryRule", _summaryRoot.transform, new Color(1f, 0.78f, 0.34f, 0.85f),
+                new Vector2(0.06f, 0.77f), new Vector2(0.94f, 0.79f)).GetComponent<Image>();
 
             _summaryTitle = CreateText("SummaryTitle", _summaryRoot.transform, display, 17, TextAnchor.UpperCenter, FontStyle.Bold);
             Stretch(_summaryTitle.rectTransform, new Vector2(0.04f, 0.78f), new Vector2(0.96f, 0.97f));
@@ -560,6 +569,8 @@ namespace AsteroidsGoneRogue
             int wave = _session.LastResolvedWave > 0 ? _session.LastResolvedWave : _session.WaveIndex;
             int world = ContentFactory.WorldIndexForWave(wave);
             LoadoutState loadout = _loadout != null ? _loadout.State : null;
+            bool failed = _session.Phase == GamePhase.Failed;
+            ApplyFailChrome(failed);
             _summaryTitle.text = RunSummary.Title(_session.Phase, FailReasonText());
             string body = RunSummary.StatsLine(_session.Score, wave, world)
                 + "\n" + RunSummary.CreditsLine(_session.Credits, _session.LastCreditsAwarded)
@@ -599,9 +610,49 @@ namespace AsteroidsGoneRogue
             _continueHint.gameObject.SetActive(hint);
             if (hint)
             {
-                _continueHint.text = _session.Phase == GamePhase.Failed
-                    ? RunSummary.FailContinueHint(FailReasonText(), _session.WaveIndex)
+                _continueHint.text = failed
+                    ? RunSummary.FailContinueHint(
+                        FailReasonText(),
+                        _session.WaveIndex,
+                        _session.FailRemainingThreats)
                     : RunSummary.ContinueHint(_session.LastResolvedWave, _session.Credits, loadout);
+            }
+        }
+
+        private void ApplyFailChrome(bool failed)
+        {
+            if (_summaryHeader != null)
+            {
+                _summaryHeader.color = failed
+                    ? new Color(0.10f, 0.09f, 0.08f, 0.98f)
+                    : new Color(1f, 0.58f, 0.16f, 0.3f);
+            }
+
+            if (_summaryRule != null)
+            {
+                _summaryRule.color = failed ? UiAmber : new Color(1f, 0.78f, 0.34f, 0.85f);
+            }
+
+            if (_summaryTitle != null)
+            {
+                _summaryTitle.fontSize = failed ? 20 : 17;
+                _summaryTitle.color = failed ? UiAmber : new Color(1f, 0.86f, 0.44f);
+            }
+
+            if (_summaryRoot != null)
+            {
+                Image plate = _summaryRoot.GetComponent<Image>();
+                if (plate != null)
+                {
+                    plate.color = failed
+                        ? new Color(0.055f, 0.06f, 0.075f, 0.98f)
+                        : new Color(0.04f, 0.07f, 0.11f, 0.97f);
+                }
+            }
+
+            if (_continueHint != null)
+            {
+                _continueHint.color = failed ? UiBody : new Color(0.5f, 0.92f, 1f);
             }
         }
 
@@ -1163,7 +1214,7 @@ namespace AsteroidsGoneRogue
             if (_session != null && _session.Phase == GamePhase.Playing && _hud != null)
             {
                 _hud.text = BuildHud(true);
-                RefreshHealthBar(true);
+                RefreshHealthBar();
             }
 
             ApplyHitFlash();
@@ -1525,15 +1576,19 @@ namespace AsteroidsGoneRogue
             return _barFillSprite;
         }
 
-        private void RefreshHealthBar(bool playing)
+        private void RefreshHealthBar()
         {
             if (_healthRoot == null)
             {
                 return;
             }
 
-            _healthRoot.SetActive(playing);
-            if (!playing)
+            bool playing = _session != null && _session.Phase == GamePhase.Playing;
+            bool failed = _session != null && _session.Phase == GamePhase.Failed;
+            bool show = playing || failed;
+            _healthRoot.SetActive(show);
+            LayoutHealthRack(failed);
+            if (!show)
             {
                 return;
             }
@@ -1577,6 +1632,24 @@ namespace AsteroidsGoneRogue
             {
                 _shieldBarCount.text = shield + " / " + maxShield;
             }
+        }
+
+        private void LayoutHealthRack(bool failed)
+        {
+            if (_healthRoot == null)
+            {
+                return;
+            }
+
+            RectTransform rt = _healthRoot.GetComponent<RectTransform>();
+            if (failed)
+            {
+                Stretch(rt, new Vector2(0.008f, 0.33f), new Vector2(0.178f, 0.62f));
+                _healthRoot.transform.SetAsLastSibling();
+                return;
+            }
+
+            Stretch(rt, new Vector2(0.012f, 0.105f), new Vector2(0.38f, 0.305f));
         }
 
         private static void AddReadability(Text text, bool strong)

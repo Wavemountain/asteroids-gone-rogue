@@ -51,6 +51,11 @@ namespace AsteroidsGoneRogue
         public const float CreditsLoopScale = 0.55f;
         public const float CreditsOpenDuckSeconds = 0.35f;
         public const float CreditsOpenDuckScale = 0.4f;
+        public const float FailScale = 0.9f;
+        public const float FailLayerScale = 0.55f;
+        public const float FailDuckSeconds = 0.4f;
+        public const float FailDuckScale = 0.35f;
+        public const float RetryScale = 0.75f;
 
         public static AudioCues Instance { get; private set; }
 
@@ -95,6 +100,9 @@ namespace AsteroidsGoneRogue
         private AudioClip _creditsLoop;
         private AudioClip _creditsOpen;
         private AudioClip _creditsClose;
+        private AudioClip _fail;
+        private AudioClip _failLayer;
+        private AudioClip _retry;
         private bool _muted;
         private float _sfxVolume = DefaultSfxVolume;
         private float _musicVolume = DefaultMusicVolume;
@@ -350,6 +358,22 @@ namespace AsteroidsGoneRogue
         {
             _creditsMusic = false;
             SyncMusicToPhase(GamePhase.Hangar);
+        }
+
+        public void PlayWaveFail()
+        {
+            Play(_fail != null ? _fail : _playerDamage, FailScale);
+            if (_failLayer != null)
+            {
+                Play(_failLayer, FailLayerScale);
+            }
+
+            DuckMusic(FailDuckSeconds, FailDuckScale);
+        }
+
+        public void PlayRetry()
+        {
+            Play(_retry != null ? _retry : _shootTwin, RetryScale);
         }
 
         public void PlayWaveClear()
@@ -689,6 +713,10 @@ namespace AsteroidsGoneRogue
             _creditsLoop = Resources.Load<AudioClip>("Audio/Music/SpaceCadet");
             _creditsOpen = Resources.Load<AudioClip>("Audio/Sfx/jingles_NES07");
             _creditsClose = Resources.Load<AudioClip>("Audio/Sfx/jingles_NES12");
+            // Atmos 0.42 fail / retry — Kenney Digital, anti-epa.
+            _fail = Resources.Load<AudioClip>("Audio/Sfx/phaserDown3");
+            _failLayer = Resources.Load<AudioClip>("Audio/Sfx/lowDown");
+            _retry = Resources.Load<AudioClip>("Audio/Sfx/twoTone1");
             if (_creditsClose == null)
             {
                 _creditsClose = _farDriftAward;

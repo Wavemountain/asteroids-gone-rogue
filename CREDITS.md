@@ -44,6 +44,8 @@ Source: https://kenney.nl/assets/digital-audio
 | Shoot (twin) | `Assets/Resources/Audio/Sfx/twoTone1.ogg` | `Audio/twoTone1.ogg` |
 | Shoot (seeker) | `Assets/Resources/Audio/Sfx/phaserUp2.ogg` | `Audio/phaserUp2.ogg` |
 | Shoot (ricochet) | `Assets/Resources/Audio/Sfx/pepSound1.ogg` | `Audio/pepSound1.ogg` |
+| Fail sting | `Assets/Resources/Audio/Sfx/phaserDown3.ogg` | `Audio/phaserDown3.ogg` |
+| Fail layer | `Assets/Resources/Audio/Sfx/lowDown.ogg` | `Audio/lowDown.ogg` |
 
 Pack: **Kenney Interface Sounds** (CC0)  
 Author: Kenney  
@@ -57,6 +59,7 @@ Mirror used: https://opengameart.org/content/interface-sounds (`kenney_interface
 | Abort whoosh | `Assets/Resources/Audio/Sfx/minimize_005.ogg` | `Audio/minimize_005.ogg` |
 | Arena world swap | `Assets/Resources/Audio/Sfx/maximize_008.ogg` | `Audio/maximize_008.ogg` |
 | World 3 entry | `Assets/Resources/Audio/Sfx/maximize_008.ogg` | same clip, hotter + short bed duck |
+| Retry Wave | `Assets/Resources/Audio/Sfx/twoTone1.ogg` | `Audio/twoTone1.ogg` (same clip as twin, scale 0.75, no duck) |
 
 Pack: **Kenney Music Jingles** (CC0)  
 Author: Kenney  
@@ -101,7 +104,7 @@ License text from the pack is at `Assets/Resources/Fonts/Kenney_Fonts_License.tx
 | Hangar ambience | `Assets/Resources/Audio/Music/spacelifeNo14.ogg` | Spacelife #14 | yd | CC0 | https://opengameart.org/content/spacelife-14 |
 | Credits loop | `Assets/Resources/Audio/Music/SpaceCadet.ogg` | Space Cadet | Kenney | CC0 | https://kenney.nl/assets/music-loops |
 
-Hangar plays `spacelifeNo14` as a denser two-layer bed (pitch 0.94 + 1.02). Arena plays `OutThere` louder at concert pitch so the two beds stay distinct. Credits play `SpaceCadet` at 0.55 with `jingles_NES07` open (bed duck 0.35s @ 0.4) and `jingles_NES12` close (PIZZA16 fallback); Continue restores hangar. Abort ducks the current bed under the whoosh. SwarmPod spawn ducks the bed briefly (0.62s gap / 0.86 scale) so `phaserUp5` cuts clutter. 0.40 AtmosBot monster/spike list (Kenney CC0, retro-modern chip/arcade, AAA mix polish, not UI clicks): Brute `lowThreeTone` / `impactMetal_000`–`002` / `explosionCrunch_003` + unique `lowFrequency_explosion_000` death layer; Swarm `phaseJump1` (+ `slime_000`) / `laserSmall_000`–`004` pitched ±6% / `zap1`+`spaceTrash1`–`3`; spike activate `forceField_001` (0.94 + short bed duck), spike hit `laserRetro_000`–`002`. Wave 10 Far Drift plays `jingles_PIZZA16` instead of the wave-clear sting. World 3 entry reuses `maximize_008` slightly hotter with a short bed duck (no new jingle).
+Hangar plays `spacelifeNo14` as a denser two-layer bed (pitch 0.94 + 1.02). Arena plays `OutThere` louder at concert pitch so the two beds stay distinct. Credits play `SpaceCadet` at 0.55 with `jingles_NES07` open (bed duck 0.35s @ 0.4) and `jingles_NES12` close (PIZZA16 fallback); Continue restores hangar. Abort ducks the current bed under the whoosh. SwarmPod spawn ducks the bed briefly (0.62s gap / 0.86 scale) so `phaserUp5` cuts clutter. 0.40 AtmosBot monster/spike list (Kenney CC0, retro-modern chip/arcade, AAA mix polish, not UI clicks): Brute `lowThreeTone` / `impactMetal_000`–`002` / `explosionCrunch_003` + unique `lowFrequency_explosion_000` death layer; Swarm `phaseJump1` (+ `slime_000`) / `laserSmall_000`–`004` pitched ±6% / `zap1`+`spaceTrash1`–`3`; spike activate `forceField_001` (0.94 + short bed duck), spike hit `laserRetro_000`–`002`. Wave 10 Far Drift plays `jingles_PIZZA16` instead of the wave-clear sting. World 3 entry reuses `maximize_008` slightly hotter with a short bed duck (no new jingle). Fail plays `phaserDown3` + optional `lowDown` @ 0.55 (bed duck 0.4s @ 0.35, scale 0.9 — not explosionCrunch / NES). Retry Wave plays `twoTone1` @ 0.75 (no duck; not click / wave-clear).
 
 ## Environment art
 
