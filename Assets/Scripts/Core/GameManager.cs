@@ -12,6 +12,8 @@ namespace AsteroidsGoneRogue
         private GameUi _ui;
         private ContentFactory _factory;
         private ShipController _ship;
+        private HangarShipPreview _hangarPreview;
+        private FollowCamera _follow;
 
         public GameSession Session
         {
@@ -42,6 +44,8 @@ namespace AsteroidsGoneRogue
             _ui = ui;
             _factory = factory;
             _ship = ship;
+            _hangarPreview = ship != null ? ship.GetComponent<HangarShipPreview>() : null;
+            _follow = Object.FindAnyObjectByType<FollowCamera>();
             Best = LocalBest.Load();
             Persist = HangarPersist.Load();
             LastRunWasNewBest = false;
@@ -49,6 +53,12 @@ namespace AsteroidsGoneRogue
 
         public void EnterHangar()
         {
+            DifficultySettings.EnsureLoaded();
+            if (_session.Lives <= 0)
+            {
+                _session.ResetLives(DifficultySettings.StartLives);
+            }
+
             _session.ReturnToHangar();
             _ship.SetInputEnabled(false);
             _ship.ResetForWave(_loadout.State);
@@ -56,11 +66,70 @@ namespace AsteroidsGoneRogue
             RaiseStateChanged();
         }
 
+        public void SetDifficulty(DifficultyGrade grade)
+        {
+            DifficultySettings.SetGrade(grade);
+            if (_session != null && _session.Phase != GamePhase.Playing)
+            {
+                _session.ResetLives(DifficultySettings.StartLives);
+            }
+
+            if (_ship != null && _session != null && _session.Phase != GamePhase.Playing)
+            {
+                _ship.ResetForWave(_loadout.State);
+                _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
+            }
+
+            RaiseStateChanged();
+        }
+
+        public void PreviewUpgrade(UpgradeId id)
+        {
+            if (_session == null || _session.Phase == GamePhase.Playing || _loadout == null)
+            {
+                return;
+            }
+
+            LoadoutState preview = _loadout.State.WithPreview(id);
+            _factory.ApplyLoadoutVisuals(_ship, preview, _loadout.State);
+        }
+
+        public void ClearUpgradePreview()
+        {
+            if (_ship == null || _loadout == null)
+            {
+                return;
+            }
+
+            _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
+        }
+
+        public bool TryGrantExtraLife()
+        {
+            if (_session == null || !_session.TryGainLife())
+            {
+                return false;
+            }
+
+            RaiseStateChanged();
+            return true;
+        }
+
         public void StartWave()
         {
             if (!_session.CanStartWave)
             {
                 return;
+            }
+
+            if (_session.Phase == GamePhase.Failed || _session.Lives <= 0)
+            {
+                _session.ResetLives(DifficultySettings.StartLives);
+            }
+
+            if (_hangarPreview != null)
+            {
+                _hangarPreview.SetActive(false);
             }
 
             _session.BeginWave();
@@ -159,43 +228,89 @@ namespace AsteroidsGoneRogue
 
         public void NotifyPlayerDestroyed(string cause)
         {
-            if (_session.Phase != GamePhase.Playing)
+            if (!BeginPlayerDeath())
             {
                 return;
             }
 
-            int remaining = _waves != null ? _waves.RemainingThreats : 0;
-            _ship.SetInputEnabled(false);
-            if (_waves != null)
+            if (TryRespawnAfterLifeLoss())
             {
-                _waves.DespawnAll();
+                return;
             }
 
-            _session.FailWave(cause, remaining);
-            if (AudioCues.Instance != null)
-            {
-                AudioCues.Instance.PlayWaveFail();
-            }
-
-            RecordBest(_session.WaveIndex);
-            RaiseStateChanged();
+            FailRun(cause, false, DamageCause.Unknown, EnemyKind.Mid01);
         }
 
         public void NotifyPlayerDestroyed(DamageCause cause, EnemyKind kind)
         {
-            if (_session.Phase != GamePhase.Playing)
+            if (!BeginPlayerDeath())
             {
                 return;
             }
 
+            if (TryRespawnAfterLifeLoss())
+            {
+                return;
+            }
+
+            FailRun(null, true, cause, kind);
+        }
+
+        private bool BeginPlayerDeath()
+        {
+            return _session != null && _session.Phase == GamePhase.Playing;
+        }
+
+        private bool TryRespawnAfterLifeLoss()
+        {
+            if (_session == null || !_session.TryLoseLife())
+            {
+                return false;
+            }
+
+            if (_ship != null)
+            {
+                _ship.ResetForWave(_loadout.State);
+                _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
+                if (_ship.Health != null)
+                {
+                    _ship.Health.GrantRespawnIFrames();
+                }
+
+                _ship.SetInputEnabled(true);
+            }
+
+            if (_ui != null)
+            {
+                _ui.AnnounceLifeLost(_session.Lives);
+            }
+
+            RaiseStateChanged();
+            return true;
+        }
+
+        private void FailRun(string cause, bool structured, DamageCause failCause, EnemyKind kind)
+        {
             int remaining = _waves != null ? _waves.RemainingThreats : 0;
-            _ship.SetInputEnabled(false);
+            if (_ship != null)
+            {
+                _ship.SetInputEnabled(false);
+            }
+
             if (_waves != null)
             {
                 _waves.DespawnAll();
             }
 
-            _session.FailWave(cause, kind, remaining);
+            if (structured)
+            {
+                _session.FailWave(failCause, kind, remaining);
+            }
+            else
+            {
+                _session.FailWave(cause, remaining);
+            }
+
             if (AudioCues.Instance != null)
             {
                 AudioCues.Instance.PlayWaveFail();
@@ -232,7 +347,7 @@ namespace AsteroidsGoneRogue
             int clearedWave = _session.WaveIndex;
             _ship.SetInputEnabled(false);
             _waves.DespawnAll();
-            _session.CompleteWave(ScoreValues.WaveClearBonus, ScoreValues.WaveClearCredits);
+            _session.CompleteWave(ScoreValues.WaveClearBonus, DifficultySettings.WaveClearCredits);
             RecordBest(clearedWave);
             MedalId waveMedal;
             bool awardedMedal = MedalCatalog.TryForClearedWave(clearedWave, out waveMedal)
@@ -319,12 +434,28 @@ namespace AsteroidsGoneRogue
 
             if (AudioCues.Instance != null)
             {
-                AudioCues.Instance.SyncMusicToPhase(_session.Phase);
+                AudioCues.Instance.SyncMusicToPhase(_session.Phase, _session.WaveIndex);
             }
 
             if (_factory != null)
             {
                 _factory.SetHangarDressingVisible(_session.Phase != GamePhase.Playing);
+            }
+
+            bool hangar = _session.Phase != GamePhase.Playing;
+            if (_hangarPreview != null)
+            {
+                _hangarPreview.SetActive(hangar);
+            }
+
+            if (_follow == null)
+            {
+                _follow = Object.FindAnyObjectByType<FollowCamera>();
+            }
+
+            if (_follow != null)
+            {
+                _follow.SetHangarFraming(hangar);
             }
         }
     }

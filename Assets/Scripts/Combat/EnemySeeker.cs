@@ -40,7 +40,7 @@ namespace AsteroidsGoneRogue
             _target = target;
             _waves = waves;
             _kind = kind;
-            _hp = EnemyCatalog.HitPoints(kind);
+            _hp = DifficultySettings.ScaleEnemyHp(EnemyCatalog.HitPoints(kind));
             _speed = EnemyCatalog.Speed(kind);
             _turn = EnemyCatalog.TurnDegreesPerSecond(kind);
             _dead = false;
@@ -78,6 +78,7 @@ namespace AsteroidsGoneRogue
             {
                 _factory.SpawnVfx("Vfx_Explosion_Lowpoly", transform.position, 0.45f);
                 _factory.MaybeDropPickup(transform.position);
+                _factory.MaybeDropExtraLife(transform.position, _kind);
             }
 
             if (_waves != null)

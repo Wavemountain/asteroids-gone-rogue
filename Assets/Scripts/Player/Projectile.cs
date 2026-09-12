@@ -8,7 +8,7 @@ namespace AsteroidsGoneRogue
         public const float Lifetime = 2.4f;
         public const float SeekerLifetime = 3.1f;
         public const float RicochetLifetime = 3.4f;
-        public const float SeekerTurnDegrees = 240f;
+        public const float SeekerTurnDegrees = 140f;
 
         private Vector3 _velocity;
         private int _damage = 1;

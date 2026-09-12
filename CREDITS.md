@@ -13,6 +13,7 @@ Mirror used: https://opengameart.org/content/sci-fi-sounds (`sci-fi_sounds.zip`)
 
 | Cue | File in repo | Original pack file |
 | --- | --- | --- |
+| Shoot (bolt) pool ±3% | `Assets/Resources/Audio/Sfx/laserSmall_000.ogg`–`002.ogg` | `Audio/laserSmall_000.ogg`–`002.ogg` |
 | Shoot (bolt) / Swarm hit pool | `Assets/Resources/Audio/Sfx/laserSmall_000.ogg`–`004.ogg` | `Audio/laserSmall_000.ogg`–`004.ogg` |
 | Shoot (spread) / spike hit pool | `Assets/Resources/Audio/Sfx/laserRetro_000.ogg`–`002.ogg` | `Audio/laserRetro_000.ogg`–`002.ogg` |
 | Shoot (pierce) | `Assets/Resources/Audio/Sfx/laserLarge_000.ogg` | `Audio/laserLarge_000.ogg` |
@@ -41,9 +42,9 @@ Source: https://kenney.nl/assets/digital-audio
 | Swarm spawn | `Assets/Resources/Audio/Sfx/phaseJump1.ogg` | `Audio/phaseJump1.ogg` |
 | Swarm death pool | `Assets/Resources/Audio/Sfx/zap1.ogg` | `Audio/zap1.ogg` |
 | Swarm death pool | `Assets/Resources/Audio/Sfx/spaceTrash1.ogg`–`3.ogg` | `Audio/spaceTrash1.ogg`–`3.ogg` |
-| Shoot (twin) | `Assets/Resources/Audio/Sfx/twoTone1.ogg` | `Audio/twoTone1.ogg` |
-| Shoot (seeker) | `Assets/Resources/Audio/Sfx/phaserUp2.ogg` | `Audio/phaserUp2.ogg` |
-| Shoot (ricochet) | `Assets/Resources/Audio/Sfx/pepSound1.ogg` | `Audio/pepSound1.ogg` |
+| Shoot (twin layer) | `Assets/Resources/Audio/Sfx/twoTone1.ogg` | `Audio/twoTone1.ogg` (layer @ 0.45; Retry Wave solo @ 0.75) |
+| Shoot (seeker) | `Assets/Resources/Audio/Sfx/phaserUp5.ogg` | `Audio/phaserUp5.ogg` (0.72; also SwarmPod spawn) |
+| Shoot (ricochet) | `Assets/Resources/Audio/Sfx/zap1.ogg` | `Audio/zap1.ogg` (0.88 ±4% pitch) |
 | Fail sting | `Assets/Resources/Audio/Sfx/phaserDown3.ogg` | `Audio/phaserDown3.ogg` (scale 0.9, duck 0.4s @ 0.35) |
 | Fail layer | `Assets/Resources/Audio/Sfx/lowDown.ogg` | `Audio/lowDown.ogg` (optional, 0.55) |
 | Retry Wave | `Assets/Resources/Audio/Sfx/twoTone1.ogg` | `Audio/twoTone1.ogg` (same clip as twin, scale 0.75, no duck) |
@@ -100,11 +101,13 @@ License text from the pack is at `Assets/Resources/Fonts/Kenney_Fonts_License.tx
 
 | Cue | File in repo | Track | Author | License | Source |
 | --- | --- | --- | --- | --- | --- |
-| Arena loop | `Assets/Resources/Audio/Music/OutThere.ogg` | Space Music: Out There | yd | CC0 | https://opengameart.org/content/space-music-out-there |
+| Arena loop | `Assets/Resources/Audio/Music/MissionPlausible.ogg` | Mission Plausible | Kenney | CC0 | https://kenney.nl/assets/music-loops |
+| Arena high-wave | `Assets/Resources/Audio/Music/TimeDriving.ogg` | Time Driving | Kenney | CC0 | https://kenney.nl/assets/music-loops |
+| Arena fallback | `Assets/Resources/Audio/Music/OutThere.ogg` | Space Music: Out There | yd | CC0 | https://opengameart.org/content/space-music-out-there |
 | Hangar ambience | `Assets/Resources/Audio/Music/spacelifeNo14.ogg` | Spacelife #14 | yd | CC0 | https://opengameart.org/content/spacelife-14 |
 | Credits loop | `Assets/Resources/Audio/Music/SpaceCadet.ogg` | Space Cadet | Kenney | CC0 | https://kenney.nl/assets/music-loops |
 
-Hangar plays `spacelifeNo14` as a denser two-layer bed (pitch 0.94 + 1.02). Arena plays `OutThere` louder at concert pitch so the two beds stay distinct. Credits play `SpaceCadet` at 0.55 with `jingles_NES07` open (bed duck 0.35s @ 0.4) and `jingles_NES12` close (PIZZA16 fallback); Continue restores hangar. Abort ducks the current bed under the whoosh. SwarmPod spawn ducks the bed briefly (0.62s gap / 0.86 scale) so `phaserUp5` cuts clutter. 0.40 AtmosBot monster/spike list (Kenney CC0, retro-modern chip/arcade, AAA mix polish, not UI clicks): Brute `lowThreeTone` / `impactMetal_000`–`002` / `explosionCrunch_003` + unique `lowFrequency_explosion_000` death layer; Swarm `phaseJump1` (+ `slime_000`) / `laserSmall_000`–`004` pitched ±6% / `zap1`+`spaceTrash1`–`3`; spike activate `forceField_001` (0.94 + short bed duck), spike hit `laserRetro_000`–`002`. Wave 10 Far Drift plays `jingles_PIZZA16` instead of the wave-clear sting. World 3 entry reuses `maximize_008` slightly hotter with a short bed duck (no new jingle). Fail plays `phaserDown3` + optional `lowDown` @ 0.55 (bed duck 0.4s @ 0.35, scale 0.9 — not explosionCrunch / NES). Retry Wave plays `twoTone1` @ 0.75 (no duck; not click / wave-clear).
+Hangar plays `spacelifeNo14` as a denser two-layer bed (pitch 0.94 + 1.02). Arena plays `MissionPlausible` at `ArenaMusicScale` 0.65 (`TimeDriving` from wave 8; `OutThere` fallback). Credits play `SpaceCadet` at 0.55 with `jingles_NES07` open (bed duck 0.35s @ 0.4) and `jingles_NES12` close (PIZZA16 fallback); Continue restores hangar. Abort ducks the current bed under the whoosh. SwarmPod spawn ducks the bed briefly (0.62s gap / 0.86 scale) so `phaserUp5` cuts clutter. 0.40 AtmosBot monster/spike list (Kenney CC0, retro-modern chip/arcade, AAA mix polish, not UI clicks): Brute `lowThreeTone` / `impactMetal_000`–`002` / `explosionCrunch_003` + unique `lowFrequency_explosion_000` death layer; Swarm `phaseJump1` (+ `slime_000`) / `laserSmall_000`–`004` pitched ±6% / `zap1`+`spaceTrash1`–`3`; spike activate `forceField_001` (0.94 + short bed duck), spike hit `laserRetro_000`–`002`. Wave 10 Far Drift plays `jingles_PIZZA16` instead of the wave-clear sting. World 3 entry reuses `maximize_008` slightly hotter with a short bed duck (no new jingle). Fail plays `phaserDown3` + optional `lowDown` @ 0.55 (bed duck 0.4s @ 0.35, scale 0.9 — not explosionCrunch / NES). Retry Wave plays `twoTone1` @ 0.75 (no duck; not click / wave-clear).
 
 ## Environment art
 
@@ -124,4 +127,4 @@ Credit is optional; included because the skybox is player-visible.
 
 ## Engine wiring
 
-`AudioCues` loads these clips from `Resources/Audio` at runtime (so Play Mode does not depend on Inspector references). Hangar UI has **Mute** plus **SFX** and **Music** sliders; Mute also plays the UI click. Values persist in PlayerPrefs. Local best score / wave / world persist under `agr.best.*`. Hangar medals persist under `agr.hangar.medals`. Language is `agr.ui.language`. `UiFonts` loads Kenney Future / Future Narrow from `Resources/Fonts` (LegacyRuntime fallback; never Arial). `ArenaEnv` loads SBS star/nebula textures from `Resources/Art/Env`.
+`AudioCues` loads these clips from `Resources/Audio` at runtime (so Play Mode does not depend on Inspector references). Hangar UI has **Mute** plus **SFX** and **Music** sliders; Mute also plays the UI click. Values persist in PlayerPrefs. Local best score / wave / world persist under `agr.best.*`. Hangar medals persist under `agr.hangar.medals`. Language is `agr.ui.language`. Difficulty is `agr.difficulty`. `UiFonts` loads Kenney Future / Future Narrow from `Resources/Fonts` (LegacyRuntime fallback; never Arial). `ArenaEnv` loads SBS star/nebula textures from `Resources/Art/Env`.

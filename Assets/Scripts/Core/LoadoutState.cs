@@ -11,7 +11,9 @@ namespace AsteroidsGoneRogue
         public const int MatrixMaxShieldCharges = 3;
         public const int HullHitPoints = 3;
         public const float BaseFireCooldown = 0.38f;
-        public const float SeekerFireCooldown = 0.55f;
+        public const float SeekerFireCooldown = 0.85f;
+        public const float SeekerSpeedScale = 0.58f;
+        public const int SeekerDamagePenalty = 1;
         public const float RapidFireCooldown = 0.16f;
         public const float EngineUpgrade02Cooldown = 0.12f;
         public const float EngineUpgrade03Cooldown = 0.09f;
@@ -157,6 +159,40 @@ namespace AsteroidsGoneRogue
         public bool HasAltFire
         {
             get { return SpreadBolt || Pierce || TwinGuns || Seeker || Ricochet; }
+        }
+
+        public LoadoutState Clone()
+        {
+            LoadoutState copy = new LoadoutState();
+            copy.RapidFire = RapidFire;
+            copy.ShieldCharges = ShieldCharges;
+            copy.NoseHardpoint = NoseHardpoint;
+            copy.BodyUpgrade01 = BodyUpgrade01;
+            copy.BodyUpgrade02 = BodyUpgrade02;
+            copy.NoseUpgrade02 = NoseUpgrade02;
+            copy.NoseUpgrade03 = NoseUpgrade03;
+            copy.EngineUpgrade02 = EngineUpgrade02;
+            copy.EngineUpgrade03 = EngineUpgrade03;
+            copy.SpreadBolt = SpreadBolt;
+            copy.Pierce = Pierce;
+            copy.TwinGuns = TwinGuns;
+            copy.Seeker = Seeker;
+            copy.Ricochet = Ricochet;
+            copy.ShieldMatrix = ShieldMatrix;
+            copy.Overcharger = Overcharger;
+            copy.Afterburner = Afterburner;
+            return copy;
+        }
+
+        public LoadoutState WithPreview(UpgradeId id)
+        {
+            LoadoutState copy = Clone();
+            if (copy.CanApply(id))
+            {
+                copy.Apply(id);
+            }
+
+            return copy;
         }
 
         public bool Owns(UpgradeId id)

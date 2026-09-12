@@ -189,6 +189,8 @@ def main() -> int:
     require(ROOT / "Assets/Resources/Audio/Sfx/lowDown.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/twoTone1.ogg")
     require(ROOT / "Assets/Resources/Audio/Music/OutThere.ogg")
+    require(ROOT / "Assets/Resources/Audio/Music/MissionPlausible.ogg")
+    require(ROOT / "Assets/Resources/Audio/Music/TimeDriving.ogg")
     require(ROOT / "Assets/Resources/Audio/Music/spacelifeNo14.ogg")
     require(ROOT / "Assets/Resources/Audio/Music/SpaceCadet.ogg")
     require(ROOT / "Assets/Resources/Fonts/KenneyFuture.ttf")
@@ -247,6 +249,9 @@ def main() -> int:
         "class MonsterPresence",
         "class TelegraphRing",
         "class Loc",
+        "class DifficultySettings",
+        "class GamepadInput",
+        "class HangarShipPreview",
         "class ArenaEnv",
         "enum GamePhase",
     ]

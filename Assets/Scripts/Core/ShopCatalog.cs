@@ -53,7 +53,7 @@ namespace AsteroidsGoneRogue
                 UpgradeId.BodyUpgrade02,
                 "Hull Plate 02",
                 "Requires Body Upgrade. Extra hull plate (5 hits). Reuses the Upgrade01 mesh.",
-                160,
+                175,
                 ShopGroup.Hull),
             new ShopItem(
                 UpgradeId.NoseHardpoint,
@@ -71,7 +71,7 @@ namespace AsteroidsGoneRogue
                 UpgradeId.NoseUpgrade03,
                 "Nose Upgrade 03",
                 "Requires Nose 02. 4-damage shots. Reuses the Nose 02 mesh.",
-                185,
+                200,
                 ShopGroup.Hull),
             new ShopItem(
                 UpgradeId.RapidFire,
@@ -89,19 +89,19 @@ namespace AsteroidsGoneRogue
                 UpgradeId.EngineUpgrade03,
                 "Engine Upgrade 03",
                 "Requires Engine 02. Faster cannon. Reuses the Engine 02 mesh.",
-                175,
+                190,
                 ShopGroup.Hull),
             new ShopItem(
                 UpgradeId.Overcharger,
                 "Overcharger",
                 "Nose branch. +1 damage, slightly slower gun. Locks Afterburner.",
-                210,
+                230,
                 ShopGroup.Hull),
             new ShopItem(
                 UpgradeId.Afterburner,
                 "Afterburner",
                 "Engine branch. Fastest cannon. Locks Overcharger.",
-                210,
+                230,
                 ShopGroup.Hull),
             new ShopItem(
                 UpgradeId.SpreadBolt,
@@ -113,25 +113,25 @@ namespace AsteroidsGoneRogue
                 UpgradeId.Pierce,
                 "Pierce",
                 "Shot mode: bolt goes through targets. Q / RMB to switch.",
-                130,
+                155,
                 ShopGroup.Weapons),
             new ShopItem(
                 UpgradeId.TwinGuns,
                 "Twin Guns",
                 "Shot mode: two parallel full-damage bolts. Not a spread fan.",
-                125,
+                140,
                 ShopGroup.Weapons),
             new ShopItem(
                 UpgradeId.Seeker,
                 "Seeker",
-                "Shot mode: magenta missile that homes on the nearest threat. Slower cadence than bolt.",
-                145,
+                "Shot mode: magenta missile. Weaker homing, slower cadence, lower damage than bolt.",
+                125,
                 ShopGroup.Weapons),
             new ShopItem(
                 UpgradeId.Ricochet,
                 "Ricochet",
                 "Shot mode: lime bolt that bounces off the arena rim (not pierce).",
-                155,
+                170,
                 ShopGroup.Weapons),
             new ShopItem(
                 UpgradeId.ShieldCell,
@@ -143,7 +143,7 @@ namespace AsteroidsGoneRogue
                 UpgradeId.ShieldMatrix,
                 "Shield Matrix",
                 "Requires two Shield Cells. Raises shield cap to 3.",
-                165,
+                185,
                 ShopGroup.Defense)
         };
 

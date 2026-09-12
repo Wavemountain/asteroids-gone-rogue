@@ -20,6 +20,8 @@ namespace AsteroidsGoneRogue
         public int LastResolvedWave { get; private set; }
         public int LastCreditsAwarded { get; private set; }
         public int LastRunScore { get; private set; }
+        public int Lives { get; private set; } = DifficultySettings.NormalStartLives;
+        public int MaxLives { get; private set; } = DifficultySettings.MaxLives;
 
         public bool CanStartWave
         {
@@ -49,7 +51,49 @@ namespace AsteroidsGoneRogue
             HasStructuredFail = false;
             FailRemainingThreats = 0;
             LastCreditsAwarded = 0;
+            if (Lives <= 0)
+            {
+                ResetLives(DifficultySettings.StartLives);
+            }
+
             Phase = GamePhase.Playing;
+        }
+
+        public void ResetLives(int startLives)
+        {
+            int cap = DifficultySettings.MaxLives;
+            MaxLives = cap;
+            if (startLives < 1)
+            {
+                startLives = 1;
+            }
+
+            Lives = startLives > cap ? cap : startLives;
+        }
+
+        /// <summary>
+        /// Spend one life. True when the run continues (lives remain).
+        /// </summary>
+        public bool TryLoseLife()
+        {
+            if (Phase != GamePhase.Playing || Lives <= 0)
+            {
+                return false;
+            }
+
+            Lives -= 1;
+            return Lives > 0;
+        }
+
+        public bool TryGainLife()
+        {
+            if (Lives >= MaxLives)
+            {
+                return false;
+            }
+
+            Lives += 1;
+            return true;
         }
 
         public void AddScore(int amount)

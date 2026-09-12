@@ -16,7 +16,8 @@ namespace AsteroidsGoneRogue
         public const float DefaultSfxVolume = 0.8f;
         public const float DefaultMusicVolume = 0.28f;
         public const float HangarMusicScale = 0.48f;
-        public const float ArenaMusicScale = 0.82f;
+        public const float ArenaMusicScale = 0.65f;
+        public const int HighWaveMusicWave = 8;
         public const float HangarMusicPitch = 0.94f;
         public const float ArenaMusicPitch = 1f;
         public const float HangarLayerScale = 0.22f;
@@ -56,6 +57,13 @@ namespace AsteroidsGoneRogue
         public const float FailDuckSeconds = 0.4f;
         public const float FailDuckScale = 0.35f;
         public const float RetryScale = 0.75f;
+        public const float BoltPitchJitter = 0.03f;
+        public const float SpreadShotScale = 1.05f;
+        public const float PierceShotScale = 1.12f;
+        public const float TwinLayerScale = 0.45f;
+        public const float SeekerShotScale = 0.72f;
+        public const float RicochetShotScale = 0.88f;
+        public const float RicochetPitchJitter = 0.04f;
 
         public static AudioCues Instance { get; private set; }
 
@@ -64,7 +72,9 @@ namespace AsteroidsGoneRogue
         private AudioSource _music;
         private AudioSource _hangarLayer;
         private AudioClip _shoot;
+        private AudioClip[] _boltShots;
         private AudioClip _shootSpread;
+        private AudioClip[] _spreadShots;
         private AudioClip _shootPierce;
         private AudioClip _shootSeeker;
         private AudioClip _shootTwin;
@@ -96,6 +106,7 @@ namespace AsteroidsGoneRogue
         private AudioClip _hazardActivate;
         private AudioClip[] _hazardHits;
         private AudioClip _arenaLoop;
+        private AudioClip _arenaHigh;
         private AudioClip _hangarAmbience;
         private AudioClip _creditsLoop;
         private AudioClip _creditsOpen;
@@ -147,32 +158,36 @@ namespace AsteroidsGoneRogue
 
         public void PlayShoot()
         {
-            Play(_shoot);
+            PlayPooledPitched(_boltShots, 1f, _shoot, BoltPitchJitter);
         }
 
         public void PlayShootSpread()
         {
-            Play(_shootSpread != null ? _shootSpread : _shoot);
+            PlayPooled(_spreadShots, SpreadShotScale, _shootSpread != null ? _shootSpread : _shoot);
         }
 
         public void PlayShootPierce()
         {
-            Play(_shootPierce != null ? _shootPierce : _shoot);
+            Play(_shootPierce != null ? _shootPierce : _shoot, PierceShotScale);
         }
 
         public void PlayShootSeeker()
         {
-            Play(_shootSeeker != null ? _shootSeeker : _shootPierce, 0.82f);
+            Play(_shootSeeker != null ? _shootSeeker : _shootPierce, SeekerShotScale);
         }
 
         public void PlayShootTwin()
         {
-            Play(_shootTwin != null ? _shootTwin : _shoot, 0.92f);
+            Play(_shootEnemy != null ? _shootEnemy : _shoot, 1f);
+            Play(_shootTwin != null ? _shootTwin : _shoot, TwinLayerScale);
         }
 
         public void PlayShootRicochet()
         {
-            Play(_shootRicochet != null ? _shootRicochet : _shootSpread, 0.88f);
+            PlayPitched(
+                _shootRicochet != null ? _shootRicochet : _shootSpread,
+                RicochetShotScale,
+                1f + Random.Range(-RicochetPitchJitter, RicochetPitchJitter));
         }
 
         public void PlayEnemyShoot()
@@ -417,6 +432,11 @@ namespace AsteroidsGoneRogue
 
         public void SyncMusicToPhase(GamePhase phase)
         {
+            SyncMusicToPhase(phase, 1);
+        }
+
+        public void SyncMusicToPhase(GamePhase phase, int waveIndex)
+        {
             if (_creditsMusic && phase != GamePhase.Playing)
             {
                 return;
@@ -425,7 +445,13 @@ namespace AsteroidsGoneRogue
             _creditsMusic = false;
             if (phase == GamePhase.Playing)
             {
-                PlayLoop(_arenaLoop, ArenaMusicScale, ArenaMusicPitch);
+                AudioClip clip = _arenaLoop;
+                if (waveIndex >= HighWaveMusicWave && _arenaHigh != null)
+                {
+                    clip = _arenaHigh;
+                }
+
+                PlayLoop(clip, ArenaMusicScale, ArenaMusicPitch);
             }
             else
             {
@@ -661,11 +687,19 @@ namespace AsteroidsGoneRogue
         private void LoadClips()
         {
             _shoot = Resources.Load<AudioClip>("Audio/Sfx/laserSmall_000");
+            _boltShots = LoadPool(
+                "Audio/Sfx/laserSmall_000",
+                "Audio/Sfx/laserSmall_001",
+                "Audio/Sfx/laserSmall_002");
             _shootSpread = Resources.Load<AudioClip>("Audio/Sfx/laserRetro_000");
+            _spreadShots = LoadPool(
+                "Audio/Sfx/laserRetro_000",
+                "Audio/Sfx/laserRetro_001",
+                "Audio/Sfx/laserRetro_002");
             _shootPierce = Resources.Load<AudioClip>("Audio/Sfx/laserLarge_000");
-            _shootSeeker = Resources.Load<AudioClip>("Audio/Sfx/phaserUp2");
+            _shootSeeker = Resources.Load<AudioClip>("Audio/Sfx/phaserUp5");
             _shootTwin = Resources.Load<AudioClip>("Audio/Sfx/twoTone1");
-            _shootRicochet = Resources.Load<AudioClip>("Audio/Sfx/pepSound1");
+            _shootRicochet = Resources.Load<AudioClip>("Audio/Sfx/zap1");
             _shootEnemy = Resources.Load<AudioClip>("Audio/Sfx/laserSmall_001");
             _hit = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_003");
             _hitPunch = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_000");
@@ -708,7 +742,13 @@ namespace AsteroidsGoneRogue
                 "Audio/Sfx/laserRetro_000",
                 "Audio/Sfx/laserRetro_001",
                 "Audio/Sfx/laserRetro_002");
-            _arenaLoop = Resources.Load<AudioClip>("Audio/Music/OutThere");
+            _arenaLoop = Resources.Load<AudioClip>("Audio/Music/MissionPlausible");
+            if (_arenaLoop == null)
+            {
+                _arenaLoop = Resources.Load<AudioClip>("Audio/Music/OutThere");
+            }
+
+            _arenaHigh = Resources.Load<AudioClip>("Audio/Music/TimeDriving");
             _hangarAmbience = Resources.Load<AudioClip>("Audio/Music/spacelifeNo14");
             _creditsLoop = Resources.Load<AudioClip>("Audio/Music/SpaceCadet");
             _creditsOpen = Resources.Load<AudioClip>("Audio/Sfx/jingles_NES07");

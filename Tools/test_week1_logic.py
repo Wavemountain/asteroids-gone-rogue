@@ -23,6 +23,8 @@ class Session:
         self.last_resolved_wave = 0
         self.last_credits_awarded = 0
         self.last_run_score = 0
+        self.lives = 3
+        self.max_lives = 5
 
     @property
     def can_start(self) -> bool:
@@ -66,6 +68,18 @@ class Session:
         if self.credits < cost:
             return False
         self.credits -= cost
+        return True
+
+    def lose_life(self) -> bool:
+        if self.phase != Phase.PLAYING or self.lives <= 0:
+            return False
+        self.lives -= 1
+        return self.lives > 0
+
+    def gain_life(self) -> bool:
+        if self.lives >= self.max_lives:
+            return False
+        self.lives += 1
         return True
 
 
@@ -298,7 +312,7 @@ def test_factory_wires_import_fbx() -> None:
     assert "DefaultSfxVolume = 0.8f" in audio
     assert "DefaultMusicVolume = 0.28f" in audio
     assert "HangarMusicScale = 0.48f" in audio
-    assert "ArenaMusicScale = 0.82f" in audio
+    assert "ArenaMusicScale = 0.65f" in audio
     assert "HangarMusicPitch = 0.94f" in audio
     assert "PlayerPrefs.GetInt(MuteKey, 0)" in audio
     assert 'Resources.Load<AudioClip>("Audio/Sfx/maximize_008")' in audio
@@ -1377,6 +1391,9 @@ def test_event_system_persist() -> None:
     assert "m_Name: Vertical" in inputs
     assert "m_Name: Submit" in inputs
     assert "m_Name: Cancel" in inputs
+    assert "m_Name: AimX" in inputs
+    assert "m_Name: FirePad" in inputs
+    assert "m_Name: Pause" in inputs
     assert "4f231c4fb786f3946a6b90b886c48677" in generator
     assert "com.unity.inputsystem" not in manifest
     assert "com.unity.modules.vr" not in manifest
@@ -1776,10 +1793,10 @@ def test_weapons_upgrades_040b() -> None:
     seeker_fn = audio.split("public void PlayShootSeeker()")[1].split("public void")[0]
     assert "_shootSeeker" in seeker_fn and "_shootPierce" in seeker_fn
     assert "_worldChange" not in seeker_fn and "maximize_008" not in seeker_fn
-    assert 'Resources.Load<AudioClip>("Audio/Sfx/phaserUp2")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/phaserUp5")' in audio
     assert 'Resources.Load<AudioClip>("Audio/Sfx/twoTone1")' in audio
-    assert 'Resources.Load<AudioClip>("Audio/Sfx/pepSound1")' in audio
-    for clip in ("phaserUp2.ogg", "twoTone1.ogg", "pepSound1.ogg"):
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/zap1")' in audio
+    for clip in ("phaserUp5.ogg", "twoTone1.ogg", "zap1.ogg"):
         path = root / "Assets/Resources/Audio/Sfx" / clip
         assert path.is_file() and path.stat().st_size > 1000
         assert path.read_bytes()[:4] == b"OggS"
@@ -1796,10 +1813,10 @@ def test_weapons_upgrades_040b() -> None:
     assert "CurrentMaxShield" in loadout and "CurrentMaxShield" in health
     assert "NoseUpgrade03Damage = 4" in loadout
     assert "AfterburnerCooldown = 0.075f" in loadout
-    assert "SeekerFireCooldown = 0.55f" in loadout
+    assert "SeekerFireCooldown = 0.85f" in loadout
     assert "SeekerFireCooldown" in shooter
     assert "mode == FireMode.Seeker" in shooter.split("public void TryFire()")[1].split("if (mode == FireMode.Spread)")[0]
-    assert 0.55 >= 0.38 * 1.44
+    assert 0.85 >= 0.38 * 2.2
     assert "OverchargerDamageBonus" in loadout
     assert "HasAltFire" in loadout and "HasAltFire" in ui and "HasAltFire" in shooter
     assert "hullIndex % 4" in ui
@@ -1822,7 +1839,7 @@ def test_weapons_upgrades_040b() -> None:
     assert "Ship_Body_Upgrade02" not in warm
     assert "Twin Guns" in readme and "Seeker" in readme and "Ricochet" in readme
     assert "Overcharger" in readme and "Afterburner" in readme and "Shield Matrix" in readme
-    assert "twoTone1" in credits and "phaserUp2" in credits and "pepSound1" in credits
+    assert "twoTone1" in credits and "phaserUp5" in credits and "zap1" in credits
     assert "Twin Guns" in checklist and "Shield Matrix" in checklist
     assert "AAA" in readme and "look bible" in readme.lower()
 
@@ -2044,6 +2061,8 @@ def test_localization_040() -> None:
         "fail.asteroid", "fail.hazard", "fail.unknown", "fail.almost_one", "fail.almost_n",
         "fail.left_n", "medal.scout", "layout.pylon",
         "credits.body", "best.card",
+        "ui.difficulty", "ui.diff.easy", "ui.diff.normal", "ui.diff.hard",
+        "ui.lives", "ui.hud_lives", "ui.life_lost",
     }
     missing_required = required - swedish
     assert not missing_required, missing_required
@@ -2052,7 +2071,7 @@ def test_localization_040() -> None:
     missing_used -= dynamic_ok
     assert not missing_used, missing_used
 
-    assert "SeekerFireCooldown = 0.55f" in loadout
+    assert "SeekerFireCooldown = 0.85f" in loadout
     assert "SeekerFireCooldown" in shooter
     assert "forceModuleActive" not in bootstrap
     assert "com.unity.modules.vr" not in manifest
@@ -2195,7 +2214,7 @@ def test_astro_env_040() -> None:
     assert "ArenaEnv" in readme and "Arena_AstroFloor" in readme
     assert "ArenaEnv" in checklist and "Arena_AstroFloor" in checklist
     assert 'PrefsKey = "agr.ui.language"' in loc
-    assert "SeekerFireCooldown = 0.55f" in loadout
+    assert "SeekerFireCooldown = 0.85f" in loadout
     assert "forceModuleActive" not in bootstrap
     assert "com.unity.modules.vr" not in manifest
     assert "com.unity.modules.xr" not in lock
@@ -2230,14 +2249,23 @@ def test_fair_death_042() -> None:
     assert 'FailWave(string reason)' in session
 
     string_fail = manager.split("public void NotifyPlayerDestroyed(string cause)")[1].split("public void")[0]
-    kind_fail = manager.split("public void NotifyPlayerDestroyed(DamageCause cause, EnemyKind kind)")[1].split("public void")[0]
+    kind_fail = manager.split("public void NotifyPlayerDestroyed(DamageCause cause, EnemyKind kind)")[1].split("private bool BeginPlayerDeath")[0]
     for block in (string_fail, kind_fail):
-        assert "RemainingThreats" in block
-        assert "DespawnAll" in block
-        assert block.index("RemainingThreats") < block.index("DespawnAll")
-        assert "PlayWaveFail" in block
+        assert "BeginPlayerDeath" in block or "TryRespawnAfterLifeLoss" in block
+        assert "TryRespawnAfterLifeLoss" in block
+        assert "FailRun" in block
+        assert "PlayWaveFail" not in block
         assert "PlayWaveClear" not in block
         assert "PlayUiClick" not in block
+        assert "DespawnAll" not in block
+
+    fail_run = manager.split("private void FailRun")[1].split("private void")[0]
+    assert "RemainingThreats" in fail_run
+    assert "DespawnAll" in fail_run
+    assert fail_run.index("RemainingThreats") < fail_run.index("DespawnAll")
+    assert "PlayWaveFail" in fail_run
+    assert "PlayWaveClear" not in fail_run
+    assert "PlayUiClick" not in fail_run
 
     start = manager.split("public void StartWave()")[1].split("public void")[0]
     assert "_loadout.State" in start
@@ -2319,7 +2347,7 @@ def test_fair_death_042() -> None:
     assert "if (lethal)" in lethal
     assert "return;" in lethal
 
-    assert "SeekerFireCooldown = 0.55f" in loadout
+    assert "SeekerFireCooldown = 0.85f" in loadout
     assert "SeekerFireCooldown" in shooter
     assert "AstroFloor_v2" in factory
     assert "Arena_AstroFloor_v2" in factory
@@ -2332,12 +2360,226 @@ def test_fair_death_042() -> None:
     assert "com.unity.modules.xr" not in manifest
     assert "com.unity.modules.vr" not in lock
     assert "com.unity.modules.xr" not in lock
-    assert "0.42-fair-death" in checklist
+    assert "0.43-difficulty-economy" in checklist
     assert "Hub-open smoke" in checklist
     assert "phaserDown3" in readme and "twoTone1" in readme
     assert "Almost had it" in readme
     assert "phaserDown3" in credits and "twoTone1" in credits
     assert "PlayWaveFail" in audio
+
+
+def test_difficulty_economy_043() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    settings = (root / "Assets/Scripts/Core/DifficultySettings.cs").read_text(encoding="utf-8")
+    session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+    loadout = (root / "Assets/Scripts/Core/LoadoutState.cs").read_text(encoding="utf-8")
+    catalog = (root / "Assets/Scripts/Core/ShopCatalog.cs").read_text(encoding="utf-8")
+    projectile = (root / "Assets/Scripts/Player/Projectile.cs").read_text(encoding="utf-8")
+    shooter = (root / "Assets/Scripts/Player/ShipShooter.cs").read_text(encoding="utf-8")
+    health = (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
+    pickup = (root / "Assets/Scripts/Combat/Pickup.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    bootstrap = (root / "Assets/Scripts/Content/GameBootstrap.cs").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    credits = (root / "CREDITS.md").read_text(encoding="utf-8")
+    checklist = (root / "MERGE_CHECKLIST.md").read_text(encoding="utf-8")
+    manifest = (root / "Packages/manifest.json").read_text(encoding="utf-8")
+    lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
+
+    assert 'PrefsKey = "agr.difficulty"' in settings
+    assert "enum DifficultyGrade" in settings
+    assert "EasyStartLives = 4" in settings
+    assert "NormalStartLives = 3" in settings
+    assert "HardStartLives = 3" in settings
+    assert "MaxLives = 5" in settings
+    assert "EasyExtraLifeChance = 0.10f" in settings
+    assert "NormalExtraLifeChance = 0.045f" in settings
+    assert "HardExtraLifeChance = 0.02f" in settings
+    assert "EasyWaveClearCredits = 185" in settings
+    assert "NormalWaveClearCredits = 150" in settings
+    assert "HardWaveClearCredits = 110" in settings
+    assert "EasyPlayerHullBonus = 1" in settings
+    assert "ScaleEnemyHp" in settings
+    assert "ScaleIncomingDamage" in settings
+    assert "PlayerPrefs.SetString(PrefsKey" in settings
+
+    assert "TryLoseLife" in session and "TryGainLife" in session
+    assert "ResetLives" in session
+    assert "TryRespawnAfterLifeLoss" in manager
+    assert "FailRun" in manager
+    assert "DespawnAll" not in manager.split("private bool TryRespawnAfterLifeLoss()")[1].split("private void")[0]
+    assert "GrantRespawnIFrames" in health and "GrantRespawnIFrames" in manager
+    assert "AnnounceLifeLost" in ui and "AnnounceLifeLost" in manager
+    assert "MaybeDropExtraLife" in factory
+    assert "Pickup_ExtraLife" in factory
+    assert "ExtraLife" in pickup
+    assert "ExtraLifeTimeoutSeconds" in settings and "ExtraLifeTimeoutSeconds" in factory
+    assert "EnemyKind.Swarmling" in factory.split("public void MaybeDropExtraLife")[1].split("public ")[0]
+    assert "ExtraAsteroids" in waves and "ExtraEnemyCount" in waves
+    assert "DifficultySettings.WaveClearCredits" in manager
+
+    assert "SeekerFireCooldown = 0.85f" in loadout
+    assert "SeekerSpeedScale = 0.58f" in loadout
+    assert "SeekerDamagePenalty = 1" in loadout
+    assert "SeekerTurnDegrees = 140f" in projectile
+    assert "SeekerSpeedScale" in shooter and "SeekerDamagePenalty" in shooter
+
+    def item_cost(upgrade_id: str) -> int:
+        block = catalog.split(f"UpgradeId.{upgrade_id}")[1].split("new ShopItem")[0]
+        for line in block.splitlines():
+            token = line.strip().rstrip(",")
+            if token.isdigit():
+                return int(token)
+        raise AssertionError(f"missing cost for {upgrade_id}")
+
+    costs = {
+        name: item_cost(name)
+        for name in (
+            "BodyUpgrade01",
+            "BodyUpgrade02",
+            "NoseHardpoint",
+            "NoseUpgrade02",
+            "NoseUpgrade03",
+            "RapidFire",
+            "EngineUpgrade02",
+            "EngineUpgrade03",
+            "Overcharger",
+            "Afterburner",
+            "SpreadBolt",
+            "Pierce",
+            "TwinGuns",
+            "Seeker",
+            "Ricochet",
+            "ShieldCell",
+            "ShieldMatrix",
+        )
+    }
+    assert costs["ShieldCell"] == 80
+    assert costs["RapidFire"] == 100
+    assert costs["SpreadBolt"] == 110
+    assert costs["Seeker"] == 125
+    assert costs["TwinGuns"] == 140
+    assert costs["Pierce"] == 155
+    assert costs["Ricochet"] == 170
+    assert costs["BodyUpgrade02"] == 175
+    assert costs["ShieldMatrix"] == 185
+    assert costs["EngineUpgrade03"] == 190
+    assert costs["NoseUpgrade03"] == 200
+    assert costs["Overcharger"] == 230
+    assert costs["Afterburner"] == 230
+    assert min(costs.values()) == 80
+
+    assert "ArenaMusicScale = 0.65f" in audio
+    assert "HighWaveMusicWave = 8" in audio
+    assert 'Resources.Load<AudioClip>("Audio/Music/MissionPlausible")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Music/TimeDriving")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Music/OutThere")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Music/spacelifeNo14")' in audio
+    assert "HangarMusicScale = 0.48f" in audio
+    assert "CreditsLoopScale = 0.55f" in audio
+    assert "BoltPitchJitter = 0.03f" in audio
+    assert "SpreadShotScale = 1.05f" in audio
+    assert "PierceShotScale = 1.12f" in audio
+    assert "TwinLayerScale = 0.45f" in audio
+    assert "SeekerShotScale = 0.72f" in audio
+    assert "RicochetShotScale = 0.88f" in audio
+    assert "RetryScale = 0.75f" in audio
+    seeker_fn = audio.split("public void PlayShootSeeker()")[1].split("public void")[0]
+    assert "SeekerShotScale" in seeker_fn
+    assert "jingles_" not in seeker_fn
+    twin_fn = audio.split("public void PlayShootTwin()")[1].split("public void")[0]
+    assert "TwinLayerScale" in twin_fn
+    retry_fn = audio.split("public void PlayRetry()")[1].split("public void")[0]
+    assert "RetryScale" in retry_fn
+    assert "TwinLayerScale" not in retry_fn
+
+    assert "DifficultyPanel" in ui
+    assert "OnPickDifficulty" in ui
+    assert "LivesPips" in ui
+    assert "LivesHud" in ui
+    assert "BuildDifficultyPicker" in ui
+    assert "Svår" in loc and "Easy" in loc
+    assert "LIV FÖRLORAT" in loc
+    assert "DifficultySettings.EnsureLoaded" in bootstrap
+    assert "ResetLives(DifficultySettings.StartLives)" in bootstrap
+
+    for rel, min_size in (
+        ("Assets/Resources/Audio/Music/MissionPlausible.ogg", 80000),
+        ("Assets/Resources/Audio/Music/TimeDriving.ogg", 60000),
+    ):
+        path = root / rel
+        assert path.is_file() and path.stat().st_size > min_size
+        assert path.read_bytes()[:4] == b"OggS"
+
+    assert "0.43-difficulty-economy" in checklist
+    assert "no 0.44" in checklist
+    preview = (root / "Assets/Scripts/Hangar/HangarShipPreview.cs").read_text(encoding="utf-8")
+    pad = (root / "Assets/Scripts/Core/GamepadInput.cs").read_text(encoding="utf-8")
+    follow = (root / "Assets/Scripts/Player/FollowCamera.cs").read_text(encoding="utf-8")
+    visuals = (root / "Assets/Scripts/Player/ShipVisuals.cs").read_text(encoding="utf-8")
+    ship = (root / "Assets/Scripts/Player/ShipController.cs").read_text(encoding="utf-8")
+    inputs = (root / "ProjectSettings/InputManager.asset").read_text(encoding="utf-8")
+    assert "IdleSpinDegrees = 18f" in preview
+    assert "PreviewX = 6.35f" in preview
+    assert "HangarShipPreview" in factory
+    assert "PreviewGhostMaterial" in visuals
+    assert "WithPreview" in loadout
+    assert "PreviewUpgrade" in manager and "PreviewUpgrade" in ui
+    assert "ClearUpgradePreview" in manager
+    assert "0.018f, 0.035f" in ui and "0.658f, 0.725f" in ui
+    assert "SetHangarFraming" in follow and "SetHangarFraming" in manager
+    assert "class GamepadInput" in pad
+    assert "AimX" in pad and "FireTrigger" in pad and "FirePad" in pad
+    assert "PausePressed" in pad
+    assert "GamepadInput.FireHeld" in ship
+    assert "GamepadInput.AimStick" in ship
+    assert "GamepadInput.MoveStick" in ship
+    assert "SyncHangarPadSelection" in ui
+    assert "m_Name: AimX" in inputs
+    assert "m_Name: FirePad" in inputs
+    assert "m_Name: Pause" in inputs
+    assert "joystick button 0" in inputs
+    assert "joystick button 7" in inputs
+    assert "com.unity.inputsystem" not in manifest
+    assert "MissionPlausible" in credits and "TimeDriving" in credits
+    assert "phaserUp5" in credits and "zap1" in credits
+    assert "agr.difficulty" in readme
+    assert "MissionPlausible" in readme
+    assert "com.unity.modules.vr" not in manifest
+    assert "com.unity.modules.xr" not in manifest
+    assert "com.unity.modules.vr" not in lock
+    assert "com.unity.modules.xr" not in lock
+
+    assert DifficultySettings_scale_hp(10, "easy") == 8
+    assert DifficultySettings_scale_hp(10, "normal") == 10
+    assert DifficultySettings_scale_hp(10, "hard") == 12
+    assert DifficultySettings_scale_hp(3, "easy") == 2
+    assert DifficultySettings_scale_hp(4, "hard") == 5
+    s = Session()
+    s.begin()
+    assert s.lose_life()
+    assert s.lives == 2
+    assert s.lose_life()
+    assert s.lives == 1
+    assert not s.lose_life()
+    assert s.lives == 0
+
+
+def DifficultySettings_scale_hp(hp: int, grade: str) -> int:
+    if hp < 1:
+        hp = 1
+    if grade == "easy":
+        return max(1, (hp * 4) // 5)
+    if grade == "hard":
+        return max(hp + 1, (hp * 5) // 4)
+    return hp
 
 
 def test_hotfix_042_flags_colliders() -> None:
@@ -2424,6 +2666,7 @@ def main() -> int:
     test_astro_env_040()
     test_fair_death_042()
     test_hotfix_042_flags_colliders()
+    test_difficulty_economy_043()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

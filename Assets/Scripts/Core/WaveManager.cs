@@ -36,7 +36,10 @@ namespace AsteroidsGoneRogue
             DespawnAll();
             _factory.ApplyArenaForWave(waveIndex);
 
-            int largeCount = LargeAsteroidCount(waveIndex);
+            int largeCount = Mathf.Clamp(
+                LargeAsteroidCount(waveIndex) + DifficultySettings.ExtraAsteroids,
+                1,
+                PlateauAsteroidCap);
             for (int i = 0; i < largeCount; i++)
             {
                 float angle = (Mathf.PI * 2f * i) / largeCount + 0.35f;
@@ -57,6 +60,14 @@ namespace AsteroidsGoneRogue
                 Vector3 pos = RingPoint(angle, ScaledRing(16.5f - (spawned % 2) * 1.4f));
                 Register(_factory.CreateEnemy(pos, _player, this, EnemyCatalog.VisualName(roster[i])));
                 spawned++;
+            }
+
+            int extras = DifficultySettings.ExtraEnemyCount;
+            for (int i = 0; i < extras; i++)
+            {
+                float angle = waveIndex * 0.31f + 2.4f + i * 0.9f;
+                Vector3 pos = RingPoint(angle, ScaledRing(15.2f));
+                Register(_factory.CreateEnemy(pos, _player, this, EnemyCatalog.VisualName(EnemyKind.Mid01)));
             }
 
             SpawnWavePickup(waveIndex);

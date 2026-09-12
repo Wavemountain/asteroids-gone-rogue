@@ -36,7 +36,9 @@ namespace AsteroidsGoneRogue
             EnsureEventSystem();
             EnsureLight();
 
+            DifficultySettings.EnsureLoaded();
             GameSession session = new GameSession();
+            session.ResetLives(DifficultySettings.StartLives);
             LoadoutState loadoutState = new LoadoutState();
 
             gameObject.AddComponent<AudioCues>();

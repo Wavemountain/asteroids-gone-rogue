@@ -14,6 +14,7 @@ namespace AsteroidsGoneRogue
         private ShipShooter _shooter;
         private Camera _camera;
         private bool _inputEnabled;
+        private bool _padAim;
 
         public ShipHealth Health { get; private set; }
         public ShipShooter Shooter { get; private set; }
@@ -61,13 +62,13 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            AimAtMouse();
-            if (Input.GetKeyDown(KeyCode.Q) || Input.GetMouseButtonDown(1))
+            Aim();
+            if (GamepadInput.CyclePressed())
             {
                 _shooter.CycleFireMode();
             }
 
-            if (Input.GetButton("Fire1") || Input.GetKey(KeyCode.Space))
+            if (GamepadInput.FireHeld())
             {
                 _shooter.TryFire();
             }
@@ -80,7 +81,8 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            Vector3 input = new Vector3(Input.GetAxisRaw("Horizontal"), 0f, Input.GetAxisRaw("Vertical"));
+            Vector2 stick = GamepadInput.MoveStick();
+            Vector3 input = new Vector3(stick.x, 0f, stick.y);
             if (input.sqrMagnitude > 1f)
             {
                 input.Normalize();
@@ -93,6 +95,42 @@ namespace AsteroidsGoneRogue
             }
 
             ClampToArena();
+        }
+
+        private void Aim()
+        {
+            Vector2 pad = GamepadInput.AimStick();
+            if (pad.sqrMagnitude > 0.01f)
+            {
+                _padAim = true;
+                AimDirection(new Vector3(pad.x, 0f, pad.y));
+                return;
+            }
+
+            if (GamepadInput.MouseDelta().sqrMagnitude > 0.0001f || Input.GetMouseButton(0))
+            {
+                _padAim = false;
+            }
+
+            if (!_padAim)
+            {
+                AimAtMouse();
+            }
+        }
+
+        private void AimDirection(Vector3 dir)
+        {
+            dir.y = 0f;
+            if (dir.sqrMagnitude < 0.04f)
+            {
+                return;
+            }
+
+            Quaternion target = Quaternion.LookRotation(dir.normalized, Vector3.up);
+            transform.rotation = Quaternion.RotateTowards(
+                transform.rotation,
+                target,
+                TurnDegreesPerSecond * Time.deltaTime);
         }
 
         private void AimAtMouse()

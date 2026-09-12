@@ -72,6 +72,9 @@ namespace AsteroidsGoneRogue
         private Text _firstFlightTitle;
         private Text _firstFlightBody;
         private Text _gotItLabel;
+        private Button _gotItButton;
+        private Button _creditsContinue;
+        private GameObject _lastPadSelected;
         private Text _sfxLabel;
         private Text _musicLabel;
         private Text _hullHeader;
@@ -81,6 +84,15 @@ namespace AsteroidsGoneRogue
         private Text _langTitle;
         private Image _enBezel;
         private Image _svBezel;
+        private GameObject _diffPanel;
+        private Text _diffTitle;
+        private Image _easyBezel;
+        private Image _normalBezel;
+        private Image _hardBezel;
+        private Text _easyLabel;
+        private Text _normalLabel;
+        private Text _hardLabel;
+        private Text _livesHud;
         private bool _creditsVisible;
         private float _creditsScroll;
 
@@ -92,7 +104,7 @@ namespace AsteroidsGoneRogue
         public const float LanguageFlagScale = 0.48f;
         public const string FirstHangarHintKey = "agr.ui.firstHangarHint";
         public const string HangarControlsHint =
-            "Abort (Esc)  ·  Q / RMB fire modes (discover Spread / Pierce when owned)";
+            "Abort (Esc / Start)  ·  Q / RMB / LB fire modes (discover Spread / Pierce when owned)  ·  A confirm";
         public const string MedalLadderPrefix = "MEDALS";
         public const string HangarHintBody =
             "WASD move · mouse aim\nLMB / Space shoot\nAbort (Esc) leaves the wave\n"
@@ -184,14 +196,20 @@ namespace AsteroidsGoneRogue
                 _langPanel.SetActive(!playing);
             }
 
+            if (_diffPanel != null)
+            {
+                _diffPanel.SetActive(!playing);
+            }
+
             ApplyLocalizedStaticLabels();
             RefreshLanguageChrome();
+            RefreshDifficultyChrome();
 
             _hint.text = playing
-                ? Loc.T("ui.hint_play", "WASD move  ·  Mouse aim  ·  LMB / Space fire  ·  Q / RMB fire mode  ·  Esc abort")
+                ? Loc.T("ui.hint_play", "WASD / LS move  ·  Mouse / RS aim  ·  LMB / Space / RT / A fire  ·  Q / RMB / LB cycle  ·  Esc / Start abort")
                 : Loc.Tf(
                     "ui.hint_hangar",
-                    "WASD move  ·  Mouse aim  ·  LMB / Space fire  ·  {0}",
+                    "WASD / LS move  ·  Mouse / RS aim  ·  LMB / Space / RT / A fire  ·  {0}",
                     Loc.T("ui.hangar_controls", HangarControlsHint));
             RefreshWorldBadge();
             RefreshBadgeRow(playing);
@@ -202,7 +220,9 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            _credits.text = Loc.Tf("ui.credits_line", "Credits: {0}", _session.Credits);
+            _credits.text = Loc.Tf("ui.credits_line", "Credits: {0}", _session.Credits)
+                + "   ·   "
+                + Loc.Tf("ui.hud_lives", "Lives {0} / {1}", _session.Lives, _session.MaxLives);
             switch (_session.Phase)
             {
                 case GamePhase.WaveClear:
@@ -276,6 +296,10 @@ namespace AsteroidsGoneRogue
         {
             _hoveredItem = item;
             ApplyStatusText();
+            if (_game != null && item != null)
+            {
+                _game.PreviewUpgrade(item.Id);
+            }
         }
 
         private void OnShopHoverExit(ShopItem item)
@@ -284,6 +308,10 @@ namespace AsteroidsGoneRogue
             {
                 _hoveredItem = null;
                 ApplyStatusText();
+                if (_game != null)
+                {
+                    _game.ClearUpgradePreview();
+                }
             }
         }
 
@@ -331,7 +359,7 @@ namespace AsteroidsGoneRogue
             AddReadability(_hint, false);
 
             _menuRoot = CreatePanel("HangarPanel", transform, new Color(0.025f, 0.038f, 0.06f, 0.94f),
-                new Vector2(0.185f, 0.035f), new Vector2(0.815f, 0.725f));
+                new Vector2(0.018f, 0.035f), new Vector2(0.658f, 0.725f));
             CreateFill("HangarHeader", _menuRoot.transform, new Color(1f, 0.58f, 0.16f, 0.28f),
                 new Vector2(0f, 0.962f), new Vector2(1f, 1f));
             CreateFill("HangarRule", _menuRoot.transform, new Color(1f, 0.78f, 0.34f, 0.88f),
@@ -365,7 +393,7 @@ namespace AsteroidsGoneRogue
             _abortButton.onClick.AddListener(OnAbort);
             _abortButton.gameObject.SetActive(false);
 
-            _creditsButton = CreateButton("OpenCredits", transform, body, new Vector2(0.78f, 0.09f), new Vector2(0.97f, 0.155f));
+            _creditsButton = CreateButton("OpenCredits", transform, body, new Vector2(0.018f, 0.09f), new Vector2(0.168f, 0.155f));
             _creditsButtonLabel = _creditsButton.GetComponentInChildren<Text>();
             _creditsButtonLabel.text = "Credits";
             _creditsButtonLabel.fontSize = 16;
@@ -374,10 +402,12 @@ namespace AsteroidsGoneRogue
             BuildShop(display, body);
             BuildAudioControls(body);
             BuildLanguagePicker(display, body);
+            BuildDifficultyPicker(display, body);
             BuildFirstHangarHint(display, body);
             BuildEndCredits(display, body);
             ApplyLocalizedStaticLabels();
             RefreshLanguageChrome();
+            RefreshDifficultyChrome();
         }
 
         private void BuildShop(Font display, Font body)
@@ -702,12 +732,12 @@ namespace AsteroidsGoneRogue
             _firstFlightBody.color = new Color(0.92f, 0.92f, 0.88f);
             _firstFlightBody.text = HangarHintBody;
 
-            Button gotIt = CreateButton("DismissHint", _tutorialRoot.transform, display,
+            _gotItButton = CreateButton("DismissHint", _tutorialRoot.transform, display,
                 new Vector2(0.12f, 0.04f), new Vector2(0.88f, 0.18f));
-            _gotItLabel = gotIt.GetComponentInChildren<Text>();
+            _gotItLabel = _gotItButton.GetComponentInChildren<Text>();
             _gotItLabel.text = "Got it";
             _gotItLabel.fontSize = 15;
-            gotIt.onClick.AddListener(OnDismissHintClicked);
+            _gotItButton.onClick.AddListener(OnDismissHintClicked);
             _tutorialRoot.SetActive(false);
         }
 
@@ -794,18 +824,18 @@ namespace AsteroidsGoneRogue
             _endCreditsBody.text = EndCredits.Body();
             AddReadability(_endCreditsBody, false);
 
-            Button cont = CreateButton("CreditsContinue", _endCreditsRoot.transform, display,
+            _creditsContinue = CreateButton("CreditsContinue", _endCreditsRoot.transform, display,
                 new Vector2(0.34f, 0.045f), new Vector2(0.66f, 0.13f));
-            _creditsContinueLabel = cont.GetComponentInChildren<Text>();
+            _creditsContinueLabel = _creditsContinue.GetComponentInChildren<Text>();
             _creditsContinueLabel.text = "Continue";
             _creditsContinueLabel.fontSize = 20;
-            Image contPlate = cont.targetGraphic as Image;
+            Image contPlate = _creditsContinue.targetGraphic as Image;
             if (contPlate != null)
             {
                 contPlate.color = new Color(1f, 0.82f, 0.44f, 0.98f);
             }
 
-            cont.onClick.AddListener(() => HideEndCredits(true));
+            _creditsContinue.onClick.AddListener(() => HideEndCredits(true));
             _endCreditsRoot.SetActive(false);
             _endCreditsRoot.transform.SetAsLastSibling();
         }
@@ -1091,6 +1121,108 @@ namespace AsteroidsGoneRogue
             Refresh();
         }
 
+        private void BuildDifficultyPicker(Font display, Font body)
+        {
+            _diffPanel = CreatePanel("DifficultyPanel", transform, new Color(0.025f, 0.04f, 0.07f, 0.62f),
+                new Vector2(0.368f, 0.778f), new Vector2(0.540f, 0.858f));
+            CreateFill("DiffHeader", _diffPanel.transform, new Color(0.831f, 0.627f, 0.29f, 0.16f),
+                new Vector2(0f, 0.78f), new Vector2(1f, 1f));
+            CreateFill("DiffRule", _diffPanel.transform, new Color(0.831f, 0.627f, 0.29f, 0.45f),
+                new Vector2(0.10f, 0.76f), new Vector2(0.90f, 0.8f));
+
+            _diffTitle = CreateText("DiffTitle", _diffPanel.transform, display, 10, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Stretch(_diffTitle.rectTransform, new Vector2(0.04f, 0.78f), new Vector2(0.96f, 0.98f));
+            _diffTitle.color = new Color(0.831f, 0.627f, 0.29f, 0.82f);
+
+            _easyBezel = CreateDifficultyButton(
+                "DiffEasy",
+                _diffPanel.transform,
+                new Vector2(0.04f, 0.10f),
+                new Vector2(0.34f, 0.70f),
+                () => OnPickDifficulty(DifficultyGrade.Easy),
+                out _easyLabel,
+                body);
+            _normalBezel = CreateDifficultyButton(
+                "DiffNormal",
+                _diffPanel.transform,
+                new Vector2(0.36f, 0.10f),
+                new Vector2(0.66f, 0.70f),
+                () => OnPickDifficulty(DifficultyGrade.Normal),
+                out _normalLabel,
+                body);
+            _hardBezel = CreateDifficultyButton(
+                "DiffHard",
+                _diffPanel.transform,
+                new Vector2(0.68f, 0.10f),
+                new Vector2(0.96f, 0.70f),
+                () => OnPickDifficulty(DifficultyGrade.Hard),
+                out _hardLabel,
+                body);
+        }
+
+        private static Image CreateDifficultyButton(
+            string name,
+            Transform parent,
+            Vector2 min,
+            Vector2 max,
+            UnityEngine.Events.UnityAction onClick,
+            out Text label,
+            Font body)
+        {
+            Image bezel = CreateFlagButton(name, parent, min, max, onClick);
+            label = CreateText(name + "Label", bezel.transform, body, 10, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Stretch(label.rectTransform, new Vector2(0.04f, 0.08f), new Vector2(0.96f, 0.92f));
+            label.color = UiBody;
+            label.raycastTarget = false;
+            return bezel;
+        }
+
+        private void OnPickDifficulty(DifficultyGrade grade)
+        {
+            if (_game != null)
+            {
+                _game.SetDifficulty(grade);
+            }
+            else
+            {
+                DifficultySettings.SetGrade(grade);
+            }
+
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+
+            RefreshDifficultyChrome();
+            Refresh();
+        }
+
+        private void RefreshDifficultyChrome()
+        {
+            Color selected = new Color(0.831f, 0.627f, 0.29f, 0.72f);
+            Color idle = new Color(0.18f, 0.16f, 0.12f, 0.4f);
+            DifficultyGrade grade = DifficultySettings.Current;
+            if (_easyBezel != null)
+            {
+                _easyBezel.color = grade == DifficultyGrade.Easy ? selected : idle;
+            }
+
+            if (_normalBezel != null)
+            {
+                _normalBezel.color = grade == DifficultyGrade.Normal ? selected : idle;
+            }
+
+            if (_hardBezel != null)
+            {
+                _hardBezel.color = grade == DifficultyGrade.Hard ? selected : idle;
+            }
+        }
+
+        public void AnnounceLifeLost(int livesLeft)
+        {
+            AnnounceMedalBeat(Loc.Tf("ui.life_lost", "LIFE LOST  ·  {0} left", livesLeft), 1.6f);
+        }
+
         private void RefreshLanguageChrome()
         {
             Color selected = new Color(0.831f, 0.627f, 0.29f, 0.72f);
@@ -1146,6 +1278,26 @@ namespace AsteroidsGoneRogue
             if (_langTitle != null)
             {
                 _langTitle.text = Loc.T("ui.lang", "LANG");
+            }
+
+            if (_diffTitle != null)
+            {
+                _diffTitle.text = Loc.T("ui.difficulty", "DIFFICULTY");
+            }
+
+            if (_easyLabel != null)
+            {
+                _easyLabel.text = Loc.T("ui.diff.easy", "Easy");
+            }
+
+            if (_normalLabel != null)
+            {
+                _normalLabel.text = Loc.T("ui.diff.normal", "Normal");
+            }
+
+            if (_hardLabel != null)
+            {
+                _hardLabel.text = Loc.T("ui.diff.hard", "Hard");
             }
 
             if (_healthTitle != null)
@@ -1209,16 +1361,25 @@ namespace AsteroidsGoneRogue
 
         private void Update()
         {
-            if (_creditsVisible && Input.GetKeyDown(KeyCode.Escape))
+            if (_creditsVisible && GamepadInput.CancelPressed())
             {
                 HideEndCredits(true);
                 return;
             }
 
-            if (_session != null && _session.Phase == GamePhase.Playing && Input.GetKeyDown(KeyCode.Escape))
+            if (_session != null && _session.Phase == GamePhase.Playing
+                && (GamepadInput.PausePressed() || Input.GetKeyDown(KeyCode.Escape)))
             {
                 OnAbort();
             }
+
+            if (_session != null && _session.Phase != GamePhase.Playing && !_creditsVisible
+                && GamepadInput.PausePressed())
+            {
+                OnPrimary();
+            }
+
+            SyncHangarPadSelection();
 
             if (_creditsVisible && _endCreditsBody != null)
             {
@@ -1275,6 +1436,70 @@ namespace AsteroidsGoneRogue
                 Stretch(_world.rectTransform, new Vector2(0.62f, 0.86f), new Vector2(0.97f, 0.98f));
                 RefreshWorldBadge();
             }
+        }
+
+        private void SyncHangarPadSelection()
+        {
+            if (_session == null || _session.Phase == GamePhase.Playing)
+            {
+                _lastPadSelected = null;
+                return;
+            }
+
+            EventSystem es = EventSystem.current;
+            if (es == null)
+            {
+                return;
+            }
+
+            GameObject current = es.currentSelectedGameObject;
+            if (current == null || !current.activeInHierarchy)
+            {
+                Button pick = DefaultHangarButton();
+                if (pick != null)
+                {
+                    es.SetSelectedGameObject(pick.gameObject);
+                    current = pick.gameObject;
+                }
+            }
+
+            if (current == _lastPadSelected)
+            {
+                return;
+            }
+
+            _lastPadSelected = current;
+            UpgradeId id;
+            if (TryShopUpgradeFrom(current, out id) && _game != null)
+            {
+                _game.PreviewUpgrade(id);
+            }
+        }
+
+        private Button DefaultHangarButton()
+        {
+            if (_creditsVisible && _creditsContinue != null)
+            {
+                return _creditsContinue;
+            }
+
+            if (_tutorialRoot != null && _tutorialRoot.activeSelf && _gotItButton != null)
+            {
+                return _gotItButton;
+            }
+
+            return _primary;
+        }
+
+        private static bool TryShopUpgradeFrom(GameObject go, out UpgradeId id)
+        {
+            id = UpgradeId.RapidFire;
+            if (go == null || !go.name.StartsWith("Buy_", System.StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return System.Enum.TryParse(go.name.Substring(4), out id);
         }
 
         private void RefreshWorldBadge()
@@ -1430,9 +1655,13 @@ namespace AsteroidsGoneRogue
                 scoreLine += PlayBestCompare();
             }
 
+            int lives = _session != null ? _session.Lives : DifficultySettings.StartLives;
+            int maxLives = _session != null ? _session.MaxLives : DifficultySettings.MaxLives;
+            string livesLine = "\n" + Loc.Tf("ui.hud_lives", "Lives {0} / {1}", lives, maxLives);
             string hangarBest = playing ? string.Empty : "\n" + BestCardLine();
             return scoreLine
                 + "\n" + Loc.Tf("ui.hud_hull", "Hull {0}   ·   Shield {1}", hull, shield)
+                + livesLine
                 + remaining
                 + fireMode
                 + hangarBest;
@@ -1460,9 +1689,14 @@ namespace AsteroidsGoneRogue
                 new Vector2(0.06f, 0.8f), new Vector2(0.94f, 0.84f));
 
             _healthTitle = CreateText("HealthTitle", _healthRoot.transform, display, 15, TextAnchor.MiddleLeft, FontStyle.Bold);
-            Stretch(_healthTitle.rectTransform, new Vector2(0.07f, 0.8f), new Vector2(0.94f, 0.98f));
+            Stretch(_healthTitle.rectTransform, new Vector2(0.07f, 0.8f), new Vector2(0.48f, 0.98f));
             _healthTitle.color = UiAmber;
             AddReadability(_healthTitle, true);
+
+            _livesHud = CreateText("LivesHud", _healthRoot.transform, display, 13, TextAnchor.MiddleRight, FontStyle.Bold);
+            Stretch(_livesHud.rectTransform, new Vector2(0.48f, 0.8f), new Vector2(0.95f, 0.98f));
+            _livesHud.color = UiAmber;
+            AddReadability(_livesHud, true);
 
             _shieldBarRow = CreateBarRow(
                 "ShieldBar",
@@ -1647,6 +1881,33 @@ namespace AsteroidsGoneRogue
             {
                 _shieldBarCount.text = shield + " / " + maxShield;
             }
+
+            if (_livesHud != null)
+            {
+                int lives = _session != null ? _session.Lives : 0;
+                int cap = _session != null ? _session.MaxLives : DifficultySettings.MaxLives;
+                _livesHud.text = LivesPips(lives, cap);
+            }
+        }
+
+        private static string LivesPips(int lives, int cap)
+        {
+            if (cap < 1)
+            {
+                cap = DifficultySettings.MaxLives;
+            }
+
+            if (lives < 0)
+            {
+                lives = 0;
+            }
+
+            if (lives > cap)
+            {
+                lives = cap;
+            }
+
+            return Loc.T("ui.lives", "LIVES") + "  " + new string('●', lives) + new string('○', cap - lives);
         }
 
         private void LayoutHealthRack(bool failed)
@@ -1726,8 +1987,12 @@ namespace AsteroidsGoneRogue
             colors.normalColor = Color.white;
             colors.highlightedColor = new Color(1f, 0.9f, 0.55f, 1f);
             colors.pressedColor = new Color(0.92f, 0.62f, 0.22f, 1f);
+            colors.selectedColor = new Color(1f, 0.84f, 0.42f, 1f);
             colors.disabledColor = new Color(0.78f, 0.78f, 0.8f, 1f);
             button.colors = colors;
+            Navigation nav = button.navigation;
+            nav.mode = Navigation.Mode.Automatic;
+            button.navigation = nav;
             Stretch(go.GetComponent<RectTransform>(), min, max);
 
             Text label = CreateText("Label", go.transform, font, 20, TextAnchor.MiddleCenter, FontStyle.Normal);

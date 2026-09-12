@@ -6,7 +6,7 @@ Week 1 playable Unity core: one solid wave loop (hangar → fight → clear or f
 
 **Unity 6.6** (`6000.6.0f1`, changeset `f7f8ed4d1e24`)
 
-Built-in render pipeline. Old Input Manager (no Input System package, so first open should not show the Input System dialog). Package manifest is slim — no VR/XR modules — so Hub should open without Continue.
+Built-in render pipeline. Old Input Manager (no Input System package, so first open should not show the Input System dialog). Xbox pad uses Legacy axes (`Horizontal`/`Vertical`/`AimX`/`AimY`/`FireTrigger`/`FirePad`/`CycleFire`/`Pause`) in parallel with WASD/mouse. Package manifest is slim — no VR/XR modules — so Hub should open without Continue.
 
 **Hub-open smoke:** Add this folder in Unity Hub → opens without Continue → `Assets/Scenes/Play.unity` → Press Play.
 
@@ -34,15 +34,18 @@ Editor helpers: menu **Asteroids gone rogue → Open Play Scene** / **Validate W
 
 | Action | Input |
 | --- | --- |
-| Thrust / strafe | **WASD** or arrow keys |
-| Aim | Mouse (on the play plane) |
-| Fire | **Left mouse** or **Space** |
-| Cycle fire mode | **Q** or **right mouse** (after buying Spread / Twin / Pierce / Seeker / Ricochet) |
-| Abort wave | **Abort → Hangar** or **Esc** (Playing only; keeps loadout, no clear bonus) |
+| Thrust / strafe | **WASD** / arrows, or Xbox **left stick** / **D-pad** |
+| Aim | Mouse (on the play plane), or Xbox **right stick** |
+| Fire | **Left mouse** / **Space**, or Xbox **RT** / **A** |
+| Cycle fire mode | **Q** / **right mouse**, or Xbox **LB** / **X** (after buying Spread / Twin / Pierce / Seeker / Ricochet) |
+| Abort / menu | **Abort → Hangar** / **Esc**, or Xbox **Start** (Playing abort; hangar Start Wave) |
+| Hangar UI | Mouse, or pad **left stick / D-pad** + **A** confirm / **B** cancel |
 | Start / next / retry wave | Hangar **Start Wave** / **Next Wave** / **Retry Wave** |
 | Health | Play **HEALTH** rack — real HULL + SHIELD `fillAmount` bars (Kenney Future, EN/SV) |
 | Language | Hangar **US flag** → English, **Swedish flag** → Swedish (PlayerPrefs `agr.ui.language`) |
-| Buy upgrade | Hangar shop buttons |
+| Difficulty | Hangar **Easy / Normal / Hard** (SV: Easy / Normal / Svår). PlayerPrefs `agr.difficulty`. Scales HP / spawn / damage / credits / lives |
+| Lives | Start 4/3/3 by difficulty, cap 5. Extra-life pickups on enemy kills (sparse, timeout). HUD + hangar |
+| Buy upgrade | Hangar shop buttons. Ship sits on the **right**, idle-spins, shows bought parts; hover / pad-focus previews the upgrade |
 
 ## Week 1 loop
 
@@ -67,19 +70,19 @@ Upgrades persist into the next wave.
 | Shield Cell | 80 | +1 visible shield hit before hull (max 2, or 3 with Matrix) |
 | Nose Hardpoint | 120 | Swaps **Ship_Nose** → `Ship_Nose_Upgrade01`; faster, 2-damage shots |
 | Body Upgrade | 90 | Swaps **Ship_Body** → `Ship_Body_Upgrade01`; +1 hull |
-| Hull Plate 02 | 160 | Requires Body Upgrade; +1 hull (5 hits). Reuses Upgrade01 mesh |
+| Hull Plate 02 | 175 | Requires Body Upgrade; +1 hull (5 hits). Reuses Upgrade01 mesh |
 | Nose Upgrade 02 | 150 | Requires Nose Hardpoint; `Ship_Nose_Upgrade02`; 3 damage |
-| Nose Upgrade 03 | 185 | Requires Nose 02; 4 damage. Reuses Nose 02 mesh |
+| Nose Upgrade 03 | 200 | Requires Nose 02; 4 damage. Reuses Nose 02 mesh |
 | Engine Upgrade 02 | 140 | Requires Rapid Fire; `Ship_Engine_Upgrade02`; faster gun |
-| Engine Upgrade 03 | 175 | Requires Engine 02; faster cannon. Reuses Engine 02 mesh |
-| Overcharger | 210 | Nose branch (+1 dmg, slower gun). Locks Afterburner |
-| Afterburner | 210 | Engine branch (fastest gun). Locks Overcharger |
+| Engine Upgrade 03 | 190 | Requires Engine 02; faster cannon. Reuses Engine 02 mesh |
+| Overcharger | 230 | Nose branch (+1 dmg, slower gun). Locks Afterburner |
+| Afterburner | 230 | Engine branch (fastest gun). Locks Overcharger |
 | Spread Bolt | 110 | Shot mode: 3 lower-damage amber pellets (SpreadCore). Q / RMB |
-| Pierce | 130 | Shot mode: cyan needle through targets (PierceNeedle). Q / RMB |
-| Twin Guns | 125 | Shot mode: two parallel full-damage bolts (not a fan) |
-| Seeker | 145 | Shot mode: magenta missile homes on the nearest threat (0.55s cadence, not bolt CD) |
-| Ricochet | 155 | Shot mode: lime bolt bounces off the arena rim |
-| Shield Matrix | 165 | Requires two Shield Cells; shield cap 3 |
+| Pierce | 155 | Shot mode: cyan needle through targets (PierceNeedle). Q / RMB |
+| Twin Guns | 140 | Shot mode: two parallel full-damage bolts (not a fan) |
+| Seeker | 125 | Shot mode: magenta missile; weaker homing, 0.85s cadence, −1 damage |
+| Ricochet | 170 | Shot mode: lime bolt bounces off the arena rim |
+| Shield Matrix | 185 | Requires two Shield Cells; shield cap 3 |
 
 Hull is 3 hits. Large asteroids take 2 hits then split into 3 small shards. Small shards and enemies are destroyable. Mid is 4 HP, Scout/Drone are 3 HP, Gunner is 4 HP, Bomber is 5 HP, Brute is 10 HP, Swarm is 6 HP. Damaging arena spikes deal 2. Fail screen names the enemy kind (`Enemy contact (Scout)` / `Enemy contact (Brute)`) and frames it as **your hull** — credits and upgrades stay on **Retry Wave**. When 1–3 threats remain it adds **Almost had it**. Arena spike contact reads `Arena hazard`. Hangar status teases **Wave 5 Brute** (sidestep the charge) and **Wave 6 Swarm** (break the nest).
 
@@ -110,12 +113,12 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 | UI click | Kenney Interface Sounds | `click_002.ogg` (Start / Got it / Mute) |
 | Hangar purchase | Kenney Interface Sounds | `confirmation_002.ogg` |
 | Abort whoosh | Kenney Interface Sounds | `minimize_005.ogg` |
-| Shoot (bolt) | Kenney Sci-Fi Sounds | `laserSmall_000.ogg` |
-| Shoot (spread) | Kenney Sci-Fi Sounds | `laserRetro_000.ogg` |
-| Shoot (pierce) | Kenney Sci-Fi Sounds | `laserLarge_000.ogg` |
-| Shoot (twin) | Kenney Digital Audio | `twoTone1.ogg` |
-| Shoot (seeker) | Kenney Digital Audio | `phaserUp2.ogg` |
-| Shoot (ricochet) | Kenney Digital Audio | `pepSound1.ogg` |
+| Shoot (bolt) | Kenney Sci-Fi Sounds | `laserSmall_000`–`002` pool ±3% pitch |
+| Shoot (spread) | Kenney Sci-Fi Sounds | `laserRetro_000`–`002` pool, scale 1.05 |
+| Shoot (pierce) | Kenney Sci-Fi Sounds | `laserLarge_000` scale 1.12 |
+| Shoot (twin) | Kenney Sci-Fi + Digital | `laserSmall_001` + `twoTone1` layer @ 0.45 |
+| Shoot (seeker) | Kenney Digital Audio | `phaserUp5` @ 0.72 |
+| Shoot (ricochet) | Kenney Digital Audio | `zap1` @ 0.88 ±4% pitch |
 | Enemy bolt | Kenney Sci-Fi Sounds | `laserSmall_001.ogg` |
 | Hit | Kenney Sci-Fi Sounds | `impactMetal_003.ogg` (+ `impactMetal_000.ogg` punch layer) |
 | SwarmPod / Mid hit | Kenney Sci-Fi Sounds | `impactMetal_001.ogg` (no punch) |
@@ -138,7 +141,7 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 | World 3 entry | Kenney Interface Sounds | `maximize_008.ogg` (hotter + short bed duck) |
 | Wave clear | Kenney Music Jingles | `jingles_PIZZA07.ogg` |
 | Far Drift award | Kenney Music Jingles | `jingles_PIZZA16.ogg` |
-| Arena loop | yd — Space Music: Out There | `OutThere.ogg` (fuller mix, pitch 1.0) |
+| Arena loop | Kenney Music Loops | `MissionPlausible.ogg` (`_arenaLoop`, scale 0.65). Optional `TimeDriving` from wave 8. `OutThere` fallback |
 | Hangar ambience | yd — Spacelife #14 | `spacelifeNo14.ogg` (denser layered bed, pitch 0.94 + 1.02) |
 | Credits loop | Kenney Music Loops | `SpaceCadet.ogg` (0.55; duck 0.35s @ 0.4 under NES07) |
 | Credits open | Kenney Music Jingles | `jingles_NES07.ogg` |

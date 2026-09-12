@@ -8,9 +8,12 @@ namespace AsteroidsGoneRogue
         public float Follow = 8f;
         public const float ShakeDecay = 11f;
         public const float MaxShake = 0.36f;
+        public static readonly Vector3 HangarLook = new Vector3(0.25f, 0.4f, 0f);
+        public static readonly Vector3 HangarOffset = new Vector3(0f, 31f, -19f);
 
         private Transform _target;
         private float _shake;
+        private bool _hangarFraming;
 
         public void SetTarget(Transform target)
         {
@@ -19,6 +22,16 @@ namespace AsteroidsGoneRogue
             {
                 transform.position = _target.position + Offset;
                 transform.LookAt(_target.position);
+            }
+        }
+
+        public void SetHangarFraming(bool hangar)
+        {
+            _hangarFraming = hangar;
+            if (hangar)
+            {
+                transform.position = HangarLook + HangarOffset;
+                transform.LookAt(HangarLook);
             }
         }
 
@@ -34,6 +47,14 @@ namespace AsteroidsGoneRogue
 
         private void LateUpdate()
         {
+            if (_hangarFraming)
+            {
+                Vector3 desiredHangar = HangarLook + HangarOffset;
+                transform.position = Vector3.Lerp(transform.position, desiredHangar, 1f - Mathf.Exp(-Follow * Time.deltaTime));
+                transform.LookAt(HangarLook);
+                return;
+            }
+
             if (_target == null)
             {
                 return;

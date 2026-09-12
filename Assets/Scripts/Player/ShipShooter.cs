@@ -99,7 +99,7 @@ namespace AsteroidsGoneRogue
                     origin,
                     transform.forward,
                     ShotSpeed(loadout, mode),
-                    loadout.ProjectileDamage,
+                    ShotDamage(loadout, mode),
                     mode);
             }
 
@@ -135,10 +135,21 @@ namespace AsteroidsGoneRogue
             float speed = loadout.ProjectileSpeed;
             if (mode == FireMode.Seeker)
             {
-                return speed * 0.72f;
+                return speed * LoadoutState.SeekerSpeedScale;
             }
 
             return speed;
+        }
+
+        private static int ShotDamage(LoadoutState loadout, FireMode mode)
+        {
+            int damage = loadout.ProjectileDamage;
+            if (mode == FireMode.Seeker)
+            {
+                return Mathf.Max(1, damage - LoadoutState.SeekerDamagePenalty);
+            }
+
+            return damage;
         }
 
         private void PlayShotCue(FireMode mode)

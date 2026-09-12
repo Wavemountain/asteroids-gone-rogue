@@ -286,7 +286,7 @@ namespace AsteroidsGoneRogue
             GameObject launchSign = PlaceHangarProp("Hangar_LaunchSign", "Hangar_LaunchSign", new Vector3(1.95f, 0f, -2.55f), _launchAmber, PrimitiveType.Cube,
                 new Vector3(1.28f, 2.05f, 0.2f), 2.05f, new Color(1f, 0.78f, 0.22f), 2.65f, 198f);
             DressLaunchSign(launchSign);
-            GameObject hangarShip = PlaceHangarProp("Hangar_ShipComplete", "Ship_Complete", new Vector3(8.2f, 0f, 7.4f), _hull, PrimitiveType.Cube,
+            GameObject hangarShip = PlaceHangarProp("Hangar_ShipComplete", "Ship_Complete", new Vector3(-8.6f, 0f, 8.2f), _hull, PrimitiveType.Cube,
                 new Vector3(1.1f, 0.55f, 2.4f), 0.55f, new Color(1f, 0.55f, 0.16f), 0.7f);
             DressShipComplete(hangarShip);
 
@@ -615,6 +615,52 @@ namespace AsteroidsGoneRogue
                 Vector3.zero, new Vector3(2.4f, 2.4f, 2.4f), Quaternion.identity);
             shield.SetActive(false);
 
+            GameObject hullPlates = new GameObject("HullPlates");
+            hullPlates.transform.SetParent(slots, false);
+            CreatePrimitive(PrimitiveType.Cube, "Plate_L", hullPlates.transform, _accentWarm,
+                new Vector3(-0.72f, 0.08f, 0.05f), new Vector3(0.18f, 0.42f, 1.15f), Quaternion.identity);
+            CreatePrimitive(PrimitiveType.Cube, "Plate_R", hullPlates.transform, _accentWarm,
+                new Vector3(0.72f, 0.08f, 0.05f), new Vector3(0.18f, 0.42f, 1.15f), Quaternion.identity);
+            hullPlates.SetActive(false);
+
+            GameObject spreadPods = new GameObject("SpreadPods");
+            spreadPods.transform.SetParent(noseSlot, false);
+            CreatePrimitive(PrimitiveType.Cube, "Pod_L", spreadPods.transform, _accentWarm,
+                new Vector3(-0.42f, 0.08f, 1.05f), new Vector3(0.16f, 0.14f, 0.38f), Quaternion.identity);
+            CreatePrimitive(PrimitiveType.Cube, "Pod_C", spreadPods.transform, _accentWarm,
+                new Vector3(0f, 0.16f, 1.12f), new Vector3(0.16f, 0.14f, 0.42f), Quaternion.identity);
+            CreatePrimitive(PrimitiveType.Cube, "Pod_R", spreadPods.transform, _accentWarm,
+                new Vector3(0.42f, 0.08f, 1.05f), new Vector3(0.16f, 0.14f, 0.38f), Quaternion.identity);
+            spreadPods.SetActive(false);
+
+            GameObject twinBarrels = new GameObject("TwinBarrels");
+            twinBarrels.transform.SetParent(noseSlot, false);
+            CreatePrimitive(PrimitiveType.Cylinder, "Twin_L", twinBarrels.transform, _accent,
+                new Vector3(-0.38f, 0f, 1.28f), new Vector3(0.12f, 0.38f, 0.12f), Quaternion.Euler(90f, 0f, 0f));
+            CreatePrimitive(PrimitiveType.Cylinder, "Twin_R", twinBarrels.transform, _accent,
+                new Vector3(0.38f, 0f, 1.28f), new Vector3(0.12f, 0.38f, 0.12f), Quaternion.Euler(90f, 0f, 0f));
+            twinBarrels.SetActive(false);
+
+            GameObject pierceNeedle = CreatePrimitive(PrimitiveType.Cube, "PierceNeedle", noseSlot, _projectilePierce,
+                new Vector3(0f, 0.12f, 1.55f), new Vector3(0.08f, 0.08f, 1.05f), Quaternion.identity);
+            pierceNeedle.SetActive(false);
+
+            GameObject seekerRail = CreatePrimitive(PrimitiveType.Cube, "SeekerRail", noseSlot, _projectileSeeker,
+                new Vector3(0.0f, 0.22f, 1.15f), new Vector3(0.22f, 0.12f, 0.72f), Quaternion.identity);
+            seekerRail.SetActive(false);
+
+            GameObject ricochetFacet = CreatePrimitive(PrimitiveType.Cube, "RicochetFacet", noseSlot, _projectileRicochet,
+                new Vector3(0f, -0.16f, 1.18f), new Vector3(0.28f, 0.16f, 0.28f), Quaternion.Euler(0f, 35f, 0f));
+            ricochetFacet.SetActive(false);
+
+            GameObject overchargerGlow = CreatePrimitive(PrimitiveType.Sphere, "OverchargerGlow", noseSlot, _accentHot,
+                new Vector3(0f, 0.05f, 1.42f), new Vector3(0.42f, 0.42f, 0.42f), Quaternion.identity);
+            overchargerGlow.SetActive(false);
+
+            GameObject afterburnerGlow = CreatePrimitive(PrimitiveType.Sphere, "AfterburnerGlow", engineSlot, _glow,
+                new Vector3(0f, 0f, -1.62f), new Vector3(0.55f, 0.4f, 0.55f), Quaternion.identity);
+            afterburnerGlow.SetActive(false);
+
             Transform muzzle = new GameObject("Muzzle").transform;
             muzzle.SetParent(root.transform, false);
             muzzle.localPosition = new Vector3(0f, 0f, 1.65f);
@@ -632,6 +678,15 @@ namespace AsteroidsGoneRogue
             visuals.UpgradedEngine = upgradedEngine;
             visuals.UpgradedEngine02 = upgradedEngine02;
             visuals.ShieldBubble = shield;
+            visuals.HullPlates = hullPlates;
+            visuals.SpreadPods = spreadPods;
+            visuals.TwinBarrels = twinBarrels;
+            visuals.PierceNeedle = pierceNeedle;
+            visuals.SeekerRail = seekerRail;
+            visuals.RicochetFacet = ricochetFacet;
+            visuals.OverchargerGlow = overchargerGlow;
+            visuals.AfterburnerGlow = afterburnerGlow;
+            visuals.PreviewGhostMaterial = MakePreviewGhostMaterial();
 
             ShipHealth health = root.AddComponent<ShipHealth>();
             ShipShooter shooter = root.AddComponent<ShipShooter>();
@@ -640,15 +695,22 @@ namespace AsteroidsGoneRogue
             health.Bind(game, visuals);
             shooter.Bind(loadout, this, muzzle);
             controller.Bind(health, shooter, visuals, camera);
+            HangarShipPreview preview = root.AddComponent<HangarShipPreview>();
+            preview.Bind(slots);
             ApplyLoadoutVisuals(controller, loadout.State);
             return controller;
         }
 
         public void ApplyLoadoutVisuals(ShipController ship, LoadoutState loadout)
         {
+            ApplyLoadoutVisuals(ship, loadout, null);
+        }
+
+        public void ApplyLoadoutVisuals(ShipController ship, LoadoutState loadout, LoadoutState owned)
+        {
             if (ship != null && ship.Visuals != null)
             {
-                ship.Visuals.ApplyLoadout(loadout);
+                ship.Visuals.ApplyLoadout(loadout, owned);
             }
         }
 
@@ -1014,22 +1076,47 @@ namespace AsteroidsGoneRogue
             }
 
             root.transform.position = position;
-            Material fallback = visualName.IndexOf("Shield", System.StringComparison.OrdinalIgnoreCase) >= 0
-                ? _shield
-                : _accent;
-            if (!TryVisual(visualName, root.transform, fallback))
+            Pickup.Kind kind = Pickup.KindFromName(visualName);
+            Material fallback = _accent;
+            if (kind == Pickup.Kind.Shield)
             {
-                CreatePrimitive(PrimitiveType.Sphere, "Mesh", root.transform, fallback,
-                    Vector3.zero, new Vector3(0.7f, 0.7f, 0.7f), Quaternion.identity);
+                fallback = _shield;
+            }
+            else if (kind == Pickup.Kind.ExtraLife)
+            {
+                fallback = MakeMaterial(
+                    "Mat_Pickup_ExtraLife",
+                    new Color(1f, 0.82f, 0.28f),
+                    0.12f,
+                    0.74f,
+                    new Color(1f, 0.68f, 0.18f));
+            }
+            if (kind == Pickup.Kind.ExtraLife || !TryVisual(visualName, root.transform, fallback))
+            {
+                if (kind == Pickup.Kind.ExtraLife)
+                {
+                    CreatePrimitive(PrimitiveType.Sphere, "Mesh", root.transform, fallback,
+                        Vector3.zero, new Vector3(0.82f, 0.82f, 0.82f), Quaternion.identity);
+                    CreatePrimitive(PrimitiveType.Cube, "PlusH", root.transform, fallback,
+                        new Vector3(0f, 0.02f, 0f), new Vector3(0.55f, 0.16f, 0.16f), Quaternion.identity);
+                    CreatePrimitive(PrimitiveType.Cube, "PlusV", root.transform, fallback,
+                        new Vector3(0f, 0.02f, 0f), new Vector3(0.16f, 0.55f, 0.16f), Quaternion.identity);
+                }
+                else
+                {
+                    CreatePrimitive(PrimitiveType.Sphere, "Mesh", root.transform, fallback,
+                        Vector3.zero, new Vector3(0.7f, 0.7f, 0.7f), Quaternion.identity);
+                }
             }
 
             SphereCollider trigger = root.AddComponent<SphereCollider>();
             trigger.isTrigger = true;
-            trigger.radius = 0.7f;
+            trigger.radius = kind == Pickup.Kind.ExtraLife ? 0.9f : 0.7f;
             Rigidbody body = root.AddComponent<Rigidbody>();
             body.useGravity = false;
             body.isKinematic = true;
-            root.AddComponent<Pickup>().Bind(Pickup.KindFromName(visualName));
+            float timeout = kind == Pickup.Kind.ExtraLife ? DifficultySettings.ExtraLifeTimeoutSeconds : 0f;
+            root.AddComponent<Pickup>().Bind(kind, timeout);
             return root;
         }
 
@@ -1076,6 +1163,27 @@ namespace AsteroidsGoneRogue
 
             string[] kinds = { "Pickup_Score", "Pickup_Shield", "Pickup_Health", "Pickup_RapidFire" };
             CreatePickup(kinds[Random.Range(0, kinds.Length)], position);
+        }
+
+        public void MaybeDropExtraLife(Vector3 position, EnemyKind kind)
+        {
+            if (kind == EnemyKind.Swarmling)
+            {
+                return;
+            }
+
+            GameManager game = Object.FindAnyObjectByType<GameManager>();
+            if (game != null && game.Session != null && game.Session.Lives >= DifficultySettings.MaxLives)
+            {
+                return;
+            }
+
+            if (Random.value > DifficultySettings.ExtraLifeChance)
+            {
+                return;
+            }
+
+            CreatePickup("Pickup_ExtraLife", position);
         }
 
         private static string PickAsteroidVisual(AsteroidSize size)
@@ -1935,6 +2043,31 @@ namespace AsteroidsGoneRogue
             }
 
             return go;
+        }
+
+        private static Material MakePreviewGhostMaterial()
+        {
+            Shader shader = Shader.Find("Standard");
+            if (shader == null)
+            {
+                shader = Shader.Find("Sprites/Default");
+            }
+
+            Material material = new Material(shader);
+            material.name = "Mat_HangarPreviewGhost";
+            Color ghost = new Color(0.831f, 0.627f, 0.29f, 0.42f);
+            material.color = ghost;
+            material.SetFloat("_Mode", 3f);
+            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            material.SetInt("_ZWrite", 0);
+            material.DisableKeyword("_ALPHATEST_ON");
+            material.EnableKeyword("_ALPHABLEND_ON");
+            material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            material.renderQueue = 3000;
+            material.EnableKeyword("_EMISSION");
+            material.SetColor("_EmissionColor", new Color(0.55f, 0.38f, 0.12f));
+            return material;
         }
 
         private static Material MakeMaterial(string materialName, Color color, float metallic, float smoothness)

@@ -61,7 +61,8 @@ namespace AsteroidsGoneRogue
         public void ResetForWave(LoadoutState loadout)
         {
             _dead = false;
-            _maxHull = loadout != null ? loadout.CurrentHullHitPoints : LoadoutState.HullHitPoints;
+            int hullBonus = DifficultySettings.PlayerHullBonus;
+            _maxHull = (loadout != null ? loadout.CurrentHullHitPoints : LoadoutState.HullHitPoints) + hullBonus;
             _hull = _maxHull;
             _maxShield = loadout != null ? loadout.CurrentMaxShield : LoadoutState.MaxShieldCharges;
             _shield = loadout != null ? loadout.ShieldCharges : 0;
@@ -124,6 +125,12 @@ namespace AsteroidsGoneRogue
         public void ApplyDamage(int amount, DamageCause cause, EnemyKind enemyKind)
         {
             if (_dead || amount <= 0 || IsInvulnerable)
+            {
+                return;
+            }
+
+            amount = DifficultySettings.ScaleIncomingDamage(amount, cause);
+            if (amount <= 0)
             {
                 return;
             }
@@ -212,6 +219,12 @@ namespace AsteroidsGoneRogue
             {
                 damageable.ApplyDamage(1);
             }
+        }
+
+        public void GrantRespawnIFrames()
+        {
+            _dead = false;
+            BeginInvulnerability();
         }
 
         private void BeginInvulnerability()
