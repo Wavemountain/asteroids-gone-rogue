@@ -129,7 +129,7 @@ namespace AsteroidsGoneRogue
             string folder = ResolveOutFolder();
             Directory.CreateDirectory(folder);
             string path = Path.Combine(folder, _pendingName);
-            ScreenCapture.CaptureScreenshot(path);
+            UnityEngine.ScreenCapture.CaptureScreenshot(path);
             Debug.Log("Store capture → " + path);
         }
 
