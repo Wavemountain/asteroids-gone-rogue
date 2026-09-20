@@ -3026,6 +3026,9 @@ def test_steam_slice_044() -> None:
     assert "HoldCapturePose" in follow
     assert "KeyCode.F12" in director
     assert "KeyCode.F9" in director
+    assert "UnityEngine.ScreenCapture.CaptureScreenshot" in director
+    assert "com.unity.modules.screencapture" in manifest
+    assert "com.unity.modules.screencapture" in lock
     assert 'CapsuleHex = "#D4A04A"' in poses
     assert "01_hangar_shop_health_launchsign" in poses
     assert "02_play_void_astrofloor" in poses
