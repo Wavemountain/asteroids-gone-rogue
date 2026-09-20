@@ -17,14 +17,14 @@ namespace AsteroidsGoneRogue
         public const float PreviewX = 6.35f;
         public const float PreviewZ = 0.4f;
         public const float StudioZ = -140f;
-        public const float ShowcaseScale = 2.25f;
+        public const float ShowcaseScale = 1.25f;
         public const float PlayScale = 1f;
         public const int PreviewLayer = 8;
         public const int ViewportWidth = 768;
         public const int ViewportHeight = 960;
-        public const float CameraFov = 32f;
+        public const float CameraFov = 40f;
 
-        private static readonly Vector3 CameraLocal = new Vector3(0.2f, 2.05f, -5.7f);
+        private static readonly Vector3 CameraLocal = new Vector3(0.2f, 3.7f, -11.5f);
         private static readonly Vector3 CameraLookLocal = new Vector3(0f, 0.42f, 0f);
         private static readonly Color StudioClear = new Color(0.028f, 0.038f, 0.058f, 1f);
 
@@ -224,7 +224,7 @@ namespace AsteroidsGoneRogue
                 _studio.backgroundColor = StudioClear;
                 _studio.fieldOfView = CameraFov;
                 _studio.nearClipPlane = 0.2f;
-                _studio.farClipPlane = 18f;
+                _studio.farClipPlane = 24f;
                 _studio.cullingMask = 1 << PreviewLayer;
                 _studio.depth = 20f;
                 _studio.allowHDR = false;
