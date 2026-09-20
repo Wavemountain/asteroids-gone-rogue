@@ -13,9 +13,22 @@ namespace AsteroidsGoneRogue
         public const float RepeatNextSeconds = 0.14f;
         public const float Flick = 0.55f;
 
-        public static int SlotCount
+        public static int CreditsSlot
         {
             get { return ShopSlot0 + ShopCatalog.Items.Length; }
+        }
+
+        public static int EasySlot { get { return CreditsSlot + 1; } }
+        public static int NormalSlot { get { return CreditsSlot + 2; } }
+        public static int HardSlot { get { return CreditsSlot + 3; } }
+        public static int LangEnSlot { get { return CreditsSlot + 4; } }
+        public static int LangSvSlot { get { return CreditsSlot + 5; } }
+        public static int MuteSlot { get { return CreditsSlot + 6; } }
+        public static int GotItSlot { get { return CreditsSlot + 7; } }
+
+        public static int SlotCount
+        {
+            get { return GotItSlot + 1; }
         }
 
         public static int ShopSlot(int shopIndex)
@@ -113,7 +126,13 @@ namespace AsteroidsGoneRogue
                 && Step(hullNose02, 1, 0) == spread
                 && Step(spread, -1, 0) == hullNose02
                 && Step(spread, 1, 0) == shield
-                && Step(shield, -1, 0) == spread;
+                && Step(shield, -1, 0) == spread
+                && Step(PrimarySlot, 0, -1) == NormalSlot
+                && Step(NormalSlot, 0, 1) == PrimarySlot
+                && Step(EasySlot, 1, 0) == NormalSlot
+                && Step(LangEnSlot, 1, 0) == LangSvSlot
+                && Step(LangSvSlot, 1, 0) == MuteSlot
+                && Step(CreditsSlot, 0, -1) != CreditsSlot;
         }
 
         private static int ClampSlot(int slot)
@@ -133,6 +152,62 @@ namespace AsteroidsGoneRogue
             {
                 x = 1;
                 y = -1;
+                return;
+            }
+
+            if (slot == CreditsSlot)
+            {
+                x = 0;
+                y = 8;
+                return;
+            }
+
+            if (slot == EasySlot)
+            {
+                x = 0;
+                y = -3;
+                return;
+            }
+
+            if (slot == NormalSlot)
+            {
+                x = 1;
+                y = -3;
+                return;
+            }
+
+            if (slot == HardSlot)
+            {
+                x = 2;
+                y = -3;
+                return;
+            }
+
+            if (slot == LangEnSlot)
+            {
+                x = 3;
+                y = -3;
+                return;
+            }
+
+            if (slot == LangSvSlot)
+            {
+                x = 4;
+                y = -3;
+                return;
+            }
+
+            if (slot == MuteSlot)
+            {
+                x = 5;
+                y = -3;
+                return;
+            }
+
+            if (slot == GotItSlot)
+            {
+                x = 0;
+                y = -4;
                 return;
             }
 

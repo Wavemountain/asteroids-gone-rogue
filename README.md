@@ -22,7 +22,9 @@ Hub may offer a newer 6000.6 patch — that is fine.
 
 Product name in Player Settings is exactly **Asteroids gone rogue**.
 
-HUD / hangar typography: bundled **Kenney Future** (titles, world badge, medals) and **Kenney Future Narrow** (HUD, shop, body). CC0, see CREDITS.md. LegacyRuntime is the Unity 6.6 fallback only.
+HUD / hangar typography: bundled **Kenney Future** (titles, world badge, medals, 28–46) and **Kenney Future Narrow** (HUD, shop, body, 14–22). CC0, see CREDITS.md. LegacyRuntime is the Unity 6.6 fallback only. Never Arial.
+
+`UiTheme` holds locked Atmos tokens: void `#070B12`, surface `#0E1520` / `#141C28`, primary `#D4A04A`, secondary `#6AA8C8`, accent `#C8CED6`, danger `#B85A28`, disabled `#3A4450`@0.45, focus `#E8C878`. Hangar / title / difficulty / language / shop / pause Abort / fail / wave-clear / HUD plates share that chrome (header + amber rule). Fail uses a danger header; win / wave-clear uses primary; Abort is danger-tint. Shop idle is a secondary outline; owned is a muted check; unaffordable is disabled. Language chips desaturate when idle, secondary-ring when selected, focus-ring when pad-focused.
 
 ## Look bible (0.40+)
 
@@ -39,7 +41,7 @@ Editor helpers: menu **Asteroids gone rogue → Open Play Scene** / **Validate W
 | Fire | **Left mouse** / **Space**, or Xbox **RT** (Windows 10th axis / combined 3rd / Linux 6th). **A** still fires. |
 | Cycle fire mode | **Q** / **right mouse**, or Xbox **LB** (`joystick button 4`; **X** still cycles) after buying Spread / Twin / Pierce / Seeker / Ricochet |
 | Abort / menu | **Abort → Hangar** / **Esc**, or Xbox **Start** (Playing abort; hangar Start Wave) |
-| Hangar UI | Mouse, or pad **left stick** + **D-pad** (shop grid: Start Wave ↔ hull 4-col ↔ weapons ↔ defense) + **A** confirm / **B** cancel. D-pad is **not** aliased onto move. |
+| Hangar UI | Mouse, or pad **left stick** + **D-pad** (Start Wave / Continue, shop rows, Easy/Normal/Hard, LANG flags, Mute, Credits, Got it). **A** confirm / **B** back / **Start** pause (Playing abort; hangar Start Wave). Focus ring is mandatory on pad-selected shop rows. D-pad is **not** aliased onto move. |
 | Start / next / retry wave | Hangar **Start Wave** / **Next Wave**. Wave 5 clear is **SECTOR CLEAR** (World 1 cap) → **New Run**. 0 lives → hangar **RETRY · NEW RUN** (full run reset). Session highscore stays on hangar/HUD. |
 | Health | Play **HEALTH** rack — real HULL + SHIELD `fillAmount` bars (Kenney Future, EN/SV) |
 | Language | Hangar **US flag** → English, **Swedish flag** → Swedish (PlayerPrefs `agr.ui.language`) |

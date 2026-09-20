@@ -2001,7 +2001,7 @@ def test_end_credits_040d() -> None:
     assert "RectMask2D" in ui
     continue_fn = ui.split("private void BuildEndCredits")[1].split("private void ShowEndCredits")[0]
     assert "Continue" in continue_fn
-    assert "new Color(1f, 0.82f, 0.44f, 0.98f)" in continue_fn
+    assert "UiTheme.ApplyButton(_creditsContinue, true, false, false)" in continue_fn
     assert "new Color(0.42f, 0.26f, 0.08f, 0.98f)" not in continue_fn
     assert "OpenCredits" in ui
     assert "SHIP LOST" in summary
@@ -2318,10 +2318,11 @@ def test_fair_death_042() -> None:
     assert "GamePhase.Failed" in ui.split("private void RefreshHealthBar()")[1].split("private void")[0]
     assert "0.008f, 0.33f" in ui
     assert "0.178f, 0.62f" in ui
-    assert "UiAmber" in ui.split("private void ApplyFailChrome")[1].split("private void")[0]
+    assert "UiTheme.Danger" in ui.split("private void ApplyFailChrome")[1].split("private void")[0]
     assert "UiFonts.Display()" in ui
     chrome = ui.split("private void ApplyFailChrome")[1].split("public void FlashHit")[0]
-    assert "0.10f, 0.09f, 0.08f" in chrome
+    assert "UiTheme.DangerHeader" in chrome
+    assert "UiTheme.Primary" in chrome
     assert "0.35f, 0.9f, 0.28f" not in chrome
     assert "0.85f, 0.28f, 0.55f" not in chrome
 
@@ -2990,6 +2991,8 @@ def test_steam_slice_044() -> None:
     assert "AchievementCatalog.PrefsKey" in persist
     assert "LayoutSelfCheck" in padnav
     assert "Step(PrimarySlot, 0, 1) == ShopSlot(1)" in padnav
+    assert "Step(PrimarySlot, 0, -1) == NormalSlot" in padnav
+    assert "LangEnSlot" in padnav and "MuteSlot" in padnav and "GotItSlot" in padnav
     assert "PadDpadX" in pad and "PadDpadY" in pad
     assert "UiNavDpad" in pad
     assert "UiNavCombined" in pad
@@ -3158,6 +3161,111 @@ def test_juice_firstrun_044() -> None:
     assert "com.unity.modules.xr" not in lock
 
 
+def test_ui_theme_pad_menus_044() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    theme = (root / "Assets/Scripts/UI/UiTheme.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    padnav = (root / "Assets/Scripts/Core/HangarPadNav.cs").read_text(encoding="utf-8")
+    pad = (root / "Assets/Scripts/Core/GamepadInput.cs").read_text(encoding="utf-8")
+    fonts = (root / "Assets/Scripts/UI/UiFonts.cs").read_text(encoding="utf-8")
+    manifest = (root / "Packages/manifest.json").read_text(encoding="utf-8")
+    lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    checklist = (root / "MERGE_CHECKLIST.md").read_text(encoding="utf-8")
+    hub = (root / "Docs/HUB_SMOKE.md").read_text(encoding="utf-8")
+
+    assert "class UiTheme" in theme
+    assert 'VoidHex = "#070B12"' in theme
+    assert 'SurfaceHex = "#0E1520"' in theme
+    assert 'Surface2Hex = "#141C28"' in theme
+    assert 'PrimaryHex = "#D4A04A"' in theme
+    assert 'SecondaryHex = "#6AA8C8"' in theme
+    assert 'AccentHex = "#C8CED6"' in theme
+    assert 'DangerHex = "#B85A28"' in theme
+    assert 'DisabledHex = "#3A4450"' in theme
+    assert 'FocusHex = "#E8C878"' in theme
+    assert "SurfaceAlpha = 0.72f" in theme
+    assert "FocusFillAlpha = 0.08f" in theme
+    assert "HoverBright = 0.10f" in theme
+    assert "PressedDark = 0.12f" in theme
+    assert "InactiveDesat = 0.40f" in theme
+    assert "FocusRingPx = 2f" in theme
+    assert "HeaderMin = 28" in theme and "HeaderMax = 46" in theme
+    assert "BodyMin = 14" in theme and "BodyMax = 22" in theme
+    assert "OwnedCheck" in theme
+    assert "BuildPanel" in theme
+    assert "MenuButtonColors" in theme
+    assert "PaintShopPlate" in theme
+    assert "PaintLanguageChip" in theme
+    assert "SetPadFocus" in theme
+    assert "Arial.ttf" not in theme
+    assert "Arial.ttf" not in ui
+    assert "Arial.ttf" not in fonts
+
+    assert "UiTheme.BuildPanel" in ui
+    assert 'BuildPanel(\n                "HudPlate"' in ui or 'UiTheme.BuildPanel(\n                "HudPlate"' in ui
+    assert '"HealthRack"' in ui
+    assert "UiTheme.HudPlate" in ui
+    assert "UiTheme.DangerHeader" in ui
+    assert "UiTheme.Primary" in ui.split("private void ApplyFailChrome")[1]
+    chrome = ui.split("private void ApplyFailChrome")[1].split("public void FlashHit")[0]
+    assert "if (win &&" not in chrome
+    assert "ApplyButton(_primary, true, false, false)" in chrome
+    assert "UiTheme.DangerTint" in ui
+    assert "ApplyButton(_abortButton, false, true, false)" in ui
+    assert "ApplyButton(_primary, true, false, false)" in ui
+    assert "ApplyButton(button, false, false, true)" in ui
+    flash = ui.split("if (Time.unscaledTime < _worldFlashUntil)")[1].split("private void PulseHangarLaunch")[0]
+    assert "UiTheme.Secondary" in flash and "UiTheme.Primary" in flash
+    assert "0.82f, 0.94f, 1f" not in flash
+    assert "1f, 0.58f, 0.18f" not in flash
+    toast = ui.split("private void PulseAchievementToast()")[1].split("private void")[0]
+    assert "UiTheme.Primary" in toast and "UiTheme.Focus" in toast
+    assert "1f, 0.92f, 0.62f" not in toast
+    us_flag = ui.split("private static void BuildUsFlag")[1].split("private static void")[0]
+    sv_flag = ui.split("private static void BuildSwedishFlag")[1].split("private void")[0]
+    assert "UiTheme.Secondary" in us_flag
+    assert "UiTheme.Primary" in sv_flag
+    assert "0.88f, 0.88f, 0.86f" not in us_flag
+    assert "0.83f, 0.70f, 0.22f" not in sv_flag
+    assert "PaintLanguageChip" in ui or "PaintChip" in ui
+    assert "InactiveDesat" in theme
+    assert 'Loc.T("ui.owned", "OWNED") + UiTheme.OwnedCheck' in ui
+    assert "_buyButtons[index].interactable = _session.ShopOpen && !owned && !locked && !tooPoor" in ui
+    assert "ShipPreviewFrame" in ui
+    assert "LOADOUT" in ui
+    assert "StepActivePad" in ui
+    assert "HangarPadNav.EasySlot" in ui
+    assert "HangarPadNav.LangEnSlot" in ui
+    assert "HangarPadNav.MuteSlot" in ui
+    assert "HangarPadNav.CreditsSlot" in ui
+    assert "HangarPadNav.GotItSlot" in ui
+    assert "SetPadFocus" in ui
+    assert "Navigation.Mode.None" in ui
+    assert "UiNavCombined" in ui and "UiNavCombined" in pad
+    assert "ConfirmPressed" in pad
+    assert "CancelPressed" in pad
+    assert "PausePressed" in pad
+    assert "JoystickButton1" in ui or "CancelPressed" in ui
+    assert "LangEnSlot" in padnav
+    assert "Step(PrimarySlot, 0, -1) == NormalSlot" in padnav
+    assert "LayoutSelfCheck" in padnav
+
+    assert "#D4A04A" in checklist and "#6AA8C8" in checklist
+    assert "UiTheme" in checklist and "UiTheme" in readme
+    assert "no 0.45" in checklist
+    assert "future tag is `0.44`" in checklist
+    assert "6000.6.0f1" in checklist
+    assert "LS / D-pad" in hub or "D-pad" in hub
+    assert "difficulty" in hub.lower() and "mute" in hub.lower()
+    assert "com.unity.modules.vr" not in manifest
+    assert "com.unity.modules.xr" not in lock
+    assert "com.unity.modules.screencapture" in manifest
+    assert (root / "Assets/Scripts/UI/UiTheme.cs.meta").is_file()
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -3197,6 +3305,7 @@ def main() -> int:
     test_juice_firstrun_044()
     test_campaign_cap_and_session_best()
     test_steam_slice_044()
+    test_ui_theme_pad_menus_044()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
