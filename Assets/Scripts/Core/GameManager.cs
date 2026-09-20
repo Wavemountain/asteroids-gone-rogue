@@ -355,9 +355,13 @@ namespace AsteroidsGoneRogue
             if (_ship != null)
             {
                 _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
-                if (_session.Phase != GamePhase.Playing)
+                if (_session.Phase == GamePhase.Playing)
                 {
                     _ship.ResetForWave(_loadout.State);
+                }
+                else if (_ship.Health != null)
+                {
+                    _ship.Health.ResetForWave(_loadout.State);
                 }
 
                 if (_hangarPreview != null)
@@ -481,6 +485,11 @@ namespace AsteroidsGoneRogue
             if (_hangarPreview != null)
             {
                 _hangarPreview.SetActive(hangar);
+            }
+
+            if (_ui != null)
+            {
+                _ui.EnsureHangarPreview(_ship);
             }
 
             if (_follow == null)

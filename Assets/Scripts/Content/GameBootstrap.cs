@@ -70,6 +70,7 @@ namespace AsteroidsGoneRogue
 
             follow.SetTarget(ship.transform);
             game.EnterHangar();
+            ui.EnsureHangarPreview(ship);
         }
 
         private static void EnsureEventSystem()
