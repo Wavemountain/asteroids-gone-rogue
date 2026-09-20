@@ -185,6 +185,8 @@ def main() -> int:
     require(ROOT / "Assets/Resources/Audio/Sfx/laserRetro_002.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/jingles_PIZZA16.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/jingles_NES07.ogg")
+    require(ROOT / "Assets/Resources/Audio/Sfx/powerUp7.ogg")
+    require(ROOT / "Assets/Resources/Audio/Sfx/threeTone2.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/phaserDown3.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/lowDown.ogg")
     require(ROOT / "Assets/Resources/Audio/Sfx/twoTone1.ogg")
@@ -252,6 +254,8 @@ def main() -> int:
         "class MonsterPresence",
         "class TelegraphRing",
         "class Loc",
+        "class JuiceBurst",
+        "class CombatJuice",
         "class DifficultySettings",
         "class GamepadInput",
         "class HangarShipPreview",

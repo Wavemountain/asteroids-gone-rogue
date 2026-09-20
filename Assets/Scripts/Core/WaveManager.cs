@@ -18,6 +18,7 @@ namespace AsteroidsGoneRogue
         private ContentFactory _factory;
         private GameManager _game;
         private Transform _player;
+        private float _allStrandedSeconds;
 
         public int RemainingThreats
         {
@@ -34,6 +35,7 @@ namespace AsteroidsGoneRogue
         public void SpawnWave(int waveIndex)
         {
             DespawnAll();
+            _allStrandedSeconds = 0f;
             _factory.ApplyArenaForWave(waveIndex);
 
             int largeCount = Mathf.Clamp(
@@ -166,6 +168,7 @@ namespace AsteroidsGoneRogue
             var snapshot = new List<IThreat>(_live);
             _live.Clear();
             _outsideSeconds.Clear();
+            _allStrandedSeconds = 0f;
             for (int i = 0; i < snapshot.Count; i++)
             {
                 snapshot[i].Despawn();
@@ -182,12 +185,32 @@ namespace AsteroidsGoneRogue
 
         private void RescueStrandedThreats()
         {
+            if (_game != null && _game.Session != null && _game.Session.Phase != GamePhase.Playing)
+            {
+                _allStrandedSeconds = 0f;
+                if (_game != null)
+                {
+                    _game.SetSoftLockHint(false);
+                }
+
+                return;
+            }
+
             if (_live.Count == 0)
             {
+                _allStrandedSeconds = 0f;
+                if (_game != null)
+                {
+                    _game.SetSoftLockHint(false);
+                }
+
                 return;
             }
 
             bool removed = false;
+            bool anyStranded = false;
+            int live = 0;
+            int stranded = 0;
             var snapshot = new List<IThreat>(_live);
             for (int i = 0; i < snapshot.Count; i++)
             {
@@ -201,25 +224,32 @@ namespace AsteroidsGoneRogue
                     continue;
                 }
 
+                live++;
                 Vector3 pos = component.transform.position;
-                if (ArenaWrap.IsInvalid(pos.x, pos.y, pos.z) || ArenaWrap.IsOutOfPlayY(pos.y))
+                if (ArenaWrap.IsInvalid(pos.x, pos.y, pos.z))
+                {
+                    _live.Remove(threat);
+                    _outsideSeconds.Remove(threat);
+                    threat.Despawn();
+                    removed = true;
+                    continue;
+                }
+
+                if (ArenaWrap.IsOutOfPlayY(pos.y) || ArenaWrap.IsBeyondSoftLock(pos.x, pos.z, ArenaRadius))
                 {
                     ForceWrapOrDespawn(threat, component);
-                    _outsideSeconds.Remove(threat);
-                    if (!_live.Contains(threat))
-                    {
-                        removed = true;
-                    }
-
-                    continue;
+                    pos = component.transform.position;
                 }
 
-                if (!ArenaWrap.IsBeyondSoftLock(pos.x, pos.z, ArenaRadius))
+                bool outOfPlay = ArenaWrap.IsOutOfPlay(pos.x, pos.y, pos.z, ArenaRadius);
+                if (!outOfPlay)
                 {
                     _outsideSeconds.Remove(threat);
                     continue;
                 }
 
+                anyStranded = true;
+                stranded++;
                 float elapsed;
                 _outsideSeconds.TryGetValue(threat, out elapsed);
                 elapsed += Time.deltaTime;
@@ -230,16 +260,45 @@ namespace AsteroidsGoneRogue
                 }
 
                 ForceWrapOrDespawn(threat, component);
-                _outsideSeconds.Remove(threat);
-                if (!_live.Contains(threat))
+                pos = component.transform.position;
+                if (!ArenaWrap.IsOutOfPlay(pos.x, pos.y, pos.z, ArenaRadius))
                 {
+                    _outsideSeconds.Remove(threat);
+                    continue;
+                }
+
+                if (ArenaWrap.IsInvalid(pos.x, pos.y, pos.z))
+                {
+                    _live.Remove(threat);
+                    _outsideSeconds.Remove(threat);
+                    threat.Despawn();
                     removed = true;
                 }
             }
 
+            if (_game != null)
+            {
+                _game.SetSoftLockHint(anyStranded);
+            }
+
+            if (live > 0 && stranded == live)
+            {
+                _allStrandedSeconds += Time.deltaTime;
+                if (_allStrandedSeconds > ArenaWrap.SoftLockSeconds && _game != null)
+                {
+                    _allStrandedSeconds = 0f;
+                    _game.NotifySoftLockAbort();
+                    return;
+                }
+            }
+            else
+            {
+                _allStrandedSeconds = 0f;
+            }
+
             if (removed && _live.Count == 0 && _game != null)
             {
-                _game.NotifyThreatDestroyed(0);
+                _game.NotifySoftLockAbort();
             }
         }
 
@@ -272,12 +331,6 @@ namespace AsteroidsGoneRogue
             }
 
             component.transform.position = wrapped;
-            pos = component.transform.position;
-            if (ArenaWrap.IsOutOfPlay(pos.x, pos.y, pos.z, ArenaRadius))
-            {
-                _live.Remove(threat);
-                threat.Despawn();
-            }
         }
 
         public static float ScaledRing(float designRadius)

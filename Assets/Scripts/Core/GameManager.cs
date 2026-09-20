@@ -209,6 +209,19 @@ namespace AsteroidsGoneRogue
             RaiseStateChanged();
         }
 
+        public void NotifySoftLockAbort()
+        {
+            AbortWave();
+        }
+
+        public void SetSoftLockHint(bool stranded)
+        {
+            if (_ui != null)
+            {
+                _ui.SetAbortUrgent(stranded);
+            }
+        }
+
         public void AddBonusScore(int amount)
         {
             if (_session == null || _session.Phase != GamePhase.Playing || amount <= 0)

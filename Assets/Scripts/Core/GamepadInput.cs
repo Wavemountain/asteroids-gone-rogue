@@ -77,6 +77,17 @@ namespace AsteroidsGoneRogue
             return Input.GetButtonDown("Cancel") || Input.GetKeyDown(KeyCode.Escape);
         }
 
+        public static Vector2 UiNavStick()
+        {
+            Vector2 stick = PadMoveStick();
+            if (stick.sqrMagnitude >= StickDead * StickDead)
+            {
+                return stick;
+            }
+
+            return Deadzone(new Vector2(Axis(MoveX), Axis(MoveY)));
+        }
+
         public static Vector2 MouseDelta()
         {
             return new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"));

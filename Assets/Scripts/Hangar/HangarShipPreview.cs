@@ -24,8 +24,8 @@ namespace AsteroidsGoneRogue
         public const int ViewportHeight = 960;
         public const float CameraFov = 40f;
 
-        private static readonly Vector3 CameraLocal = new Vector3(0.2f, 3.7f, -11.5f);
-        private static readonly Vector3 CameraLookLocal = new Vector3(0f, 0.42f, 0f);
+        private static readonly Vector3 CameraLocal = new Vector3(0.2f, 4.55f, -10f);
+        private static readonly Vector3 CameraLookLocal = new Vector3(0f, 0.08f, 0f);
         private static readonly Color StudioClear = new Color(0.028f, 0.038f, 0.058f, 1f);
 
         private Transform _slots;
@@ -235,6 +235,9 @@ namespace AsteroidsGoneRogue
 
             _studio.targetTexture = _rt;
             _studio.stereoTargetEye = StereoTargetEyeMask.None;
+            _studio.transform.localPosition = CameraLocal;
+            _studio.transform.localRotation = Quaternion.LookRotation(CameraLookLocal - CameraLocal);
+            _studio.fieldOfView = CameraFov;
             if (_key == null)
             {
                 _key = CreateStudioLight("HangarPreviewKey", new Vector3(1.7f, 2.1f, -1.35f), new Color(1f, 0.82f, 0.52f), 1.4f);

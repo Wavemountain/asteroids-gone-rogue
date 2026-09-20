@@ -587,7 +587,7 @@ def test_juice_best_hud() -> None:
     assert "DuckMusic" in audio
     assert "PlayAbortWhoosh" in audio
     assert "AbortDuckScale" in audio
-    assert "HitPunchScale = 1.22f" in audio
+    assert "HitPunchScale = 0.55f" in audio
     assert "HangarLayerScale" in audio
     assert 'Resources.Load<AudioClip>("Audio/Sfx/impactMetal_000")' in audio
     punch = audio.split("public void PlayHit()")[1].split("public void")[0]
@@ -698,7 +698,7 @@ def test_enemies_launch_034() -> None:
     assert 'Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_000")' in audio
     assert 'Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_003")' in audio
     assert "DuckMusic" in audio and "AbortDuckScale" in audio
-    assert "HitPunchScale = 1.22f" in audio
+    assert "HitPunchScale = 0.55f" in audio
     punch = audio.split("public void PlayHit()")[1].split("public void")[0]
     assert "HitPunchScale" in punch
     abort_fn = audio.split("public void PlayAbortWhoosh()")[1].split("public void")[0]
@@ -2543,7 +2543,8 @@ def test_difficulty_economy_043() -> None:
         assert path.read_bytes()[:4] == b"OggS"
 
     assert "0.43-difficulty-economy" in checklist
-    assert "no 0.44" in checklist
+    assert "0.44-juice-firstrun" in checklist
+    assert "no 0.45" in checklist
     preview = (root / "Assets/Scripts/Hangar/HangarShipPreview.cs").read_text(encoding="utf-8")
     pad = (root / "Assets/Scripts/Core/GamepadInput.cs").read_text(encoding="utf-8")
     follow = (root / "Assets/Scripts/Player/FollowCamera.cs").read_text(encoding="utf-8")
@@ -2557,7 +2558,10 @@ def test_difficulty_economy_043() -> None:
     assert "ShowcaseScale = 2.25f" not in preview
     assert "CameraFov = 40f" in preview
     assert "CameraFov = 32f" not in preview
-    assert "new Vector3(0.2f, 3.7f, -11.5f)" in preview
+    assert "new Vector3(0.2f, 4.55f, -10f)" in preview
+    assert "new Vector3(0.2f, 3.7f, -11.5f)" not in preview
+    assert "new Vector3(0f, 0.08f, 0f)" in preview
+    assert "new Vector3(0f, 0.42f, 0f)" not in preview
     assert "new Vector3(0.2f, 2.05f, -5.7f)" not in preview
     assert "farClipPlane = 24f" in preview
     assert "PlayScale = 1f" in preview
@@ -2877,7 +2881,97 @@ def test_hotfix_043_gamepad() -> None:
     assert "left stick" in readme.lower()
     assert "joystick button 4" in readme
     assert "FireTrigger" in checklist and "PadMoveX" in checklist
-    assert "no 0.44" in checklist
+    assert "no 0.45" in checklist
+
+
+def test_juice_firstrun_044() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    pickup = (root / "Assets/Scripts/Combat/Pickup.cs").read_text(encoding="utf-8")
+    juice = (root / "Assets/Scripts/Combat/CombatJuice.cs").read_text(encoding="utf-8")
+    burst = (root / "Assets/Scripts/Combat/JuiceBurst.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    pad = (root / "Assets/Scripts/Core/GamepadInput.cs").read_text(encoding="utf-8")
+    preview = (root / "Assets/Scripts/Hangar/HangarShipPreview.cs").read_text(encoding="utf-8")
+    credits = (root / "CREDITS.md").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    checklist = (root / "MERGE_CHECKLIST.md").read_text(encoding="utf-8")
+    manifest = (root / "Packages/manifest.json").read_text(encoding="utf-8")
+    lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
+
+    assert "ExtraLifePickupScale = 0.82f" in audio
+    assert "ExtraLifeAltScale = 0.78f" in audio
+    assert "ExtraLifeMissScale = 0.48f" in audio
+    assert "ExtraLifeDuckSeconds = 0.22f" in audio
+    assert "ExtraLifeDuckScale = 0.5f" in audio
+    assert "HitPunchScale = 0.55f" in audio
+    assert "HitPitchJitter = 0.04f" in audio
+    assert "LightKillScale = 0.9f" in audio
+    assert "LightKillPitchJitter = 0.05f" in audio
+    assert "ArenaMusicScale = 0.65f" in audio
+    extra_fn = audio.split("public void PlayExtraLifePickup()")[1].split("public void")[0]
+    assert "ExtraLifePickupScale" in extra_fn
+    assert "DuckMusic(ExtraLifeDuckSeconds, ExtraLifeDuckScale)" in extra_fn
+    assert "PlayHangarPurchase" not in extra_fn
+    miss_fn = audio.split("public void PlayExtraLifeMiss()")[1].split("public void")[0]
+    assert "ExtraLifeMissScale" in miss_fn
+    assert "DuckMusic" not in miss_fn
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/powerUp7")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/threeTone2")' in audio
+    punch = audio.split("public void PlayHit()")[1].split("public void")[0]
+    assert "PlayPooledPitched(_hits" in punch
+    assert "HitPitchJitter" in punch
+    assert "HitPunchScale" in punch
+    light = audio.split("public void PlayEnemyDeath(EnemyKind kind)")[1].split("public ")[0]
+    assert "LightKillScale" in light
+    assert "LightKillPitchJitter" in light
+    bolt = audio.split("public void PlayShoot()")[1].split("public void")[0]
+    spread = audio.split("public void PlayShootSpread()")[1].split("public void")[0]
+    pierce = audio.split("public void PlayShootPierce()")[1].split("public void")[0]
+    twin = audio.split("public void PlayShootTwin()")[1].split("public void")[0]
+    seeker = audio.split("public void PlayShootSeeker()")[1].split("public void")[0]
+    ricochet = audio.split("public void PlayShootRicochet()")[1].split("public void")[0]
+    assert "BoltPitchJitter" in bolt
+    assert "SpreadShotScale" in spread
+    assert "PierceShotScale" in pierce
+    assert "TwinLayerScale" in twin
+    assert "SeekerShotScale" in seeker
+    assert "RicochetShotScale" in ricochet
+
+    assert "PlayExtraLifePickup" in pickup
+    assert "PlayExtraLifeMiss" in pickup
+    assert "PlayPickupMinor" in pickup
+    assert "PlayHangarPurchase" not in pickup
+    assert "DressMustPick" in pickup
+    assert "HeartBeacon" in pickup
+    assert "class JuiceBurst" in burst
+    assert "HeartBloom" in burst
+    assert "KillBloom" in juice and "HitSpark" in juice
+    assert "ExtraLifeTaken" in juice
+    assert "NotifySoftLockAbort" in waves and "NotifySoftLockAbort" in manager
+    assert "SetSoftLockHint" in waves and "SetAbortUrgent" in ui
+    assert "FirstWaveCoach" in ui
+    assert "NavigateHangarPad" in ui
+    assert "UiNavStick" in pad
+    assert "interactable = _session.ShopOpen" in ui
+    assert "ShowcaseScale = 1.25f" in preview
+    assert "CameraFov = 40f" in preview
+    assert "new Vector3(0.2f, 4.55f, -10f)" in preview
+    assert "powerUp7" in credits and "threeTone2" in credits
+    assert "powerUp7" in readme
+    assert "0.44-juice-firstrun" in checklist
+    assert "no 0.45" in checklist
+    assert "future tag is `0.44`" in checklist
+    power = root / "Assets/Resources/Audio/Sfx/powerUp7.ogg"
+    alt = root / "Assets/Resources/Audio/Sfx/threeTone2.ogg"
+    assert power.is_file() and power.stat().st_size > 1000 and power.read_bytes()[:4] == b"OggS"
+    assert alt.is_file() and alt.stat().st_size > 1000 and alt.read_bytes()[:4] == b"OggS"
+    assert "com.unity.modules.vr" not in manifest
+    assert "com.unity.modules.xr" not in lock
 
 
 def main() -> int:
@@ -2916,6 +3010,7 @@ def main() -> int:
     test_difficulty_economy_043()
     test_hotfix_043_gamepad()
     test_asteroid_play_plane_and_turn()
+    test_juice_firstrun_044()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

@@ -18,15 +18,15 @@ Mirror used: https://opengameart.org/content/sci-fi-sounds (`sci-fi_sounds.zip`)
 | Shoot (spread) / spike hit pool | `Assets/Resources/Audio/Sfx/laserRetro_000.ogg`–`002.ogg` | `Audio/laserRetro_000.ogg`–`002.ogg` |
 | Shoot (pierce) | `Assets/Resources/Audio/Sfx/laserLarge_000.ogg` | `Audio/laserLarge_000.ogg` |
 | Enemy bolt | `Assets/Resources/Audio/Sfx/laserSmall_001.ogg` | `Audio/laserSmall_001.ogg` |
-| Hit | `Assets/Resources/Audio/Sfx/impactMetal_003.ogg` | `Audio/impactMetal_003.ogg` |
-| Hit punch layer | `Assets/Resources/Audio/Sfx/impactMetal_000.ogg` | `Audio/impactMetal_000.ogg` |
+| Hit pool ±4% | `Assets/Resources/Audio/Sfx/impactMetal_000.ogg`–`003.ogg` | `Audio/impactMetal_000.ogg`–`003.ogg` |
+| Hit punch layer | `Assets/Resources/Audio/Sfx/impactMetal_000.ogg` | `Audio/impactMetal_000.ogg` (scale 0.55) |
 | SwarmPod / Mid hit | `Assets/Resources/Audio/Sfx/impactMetal_001.ogg` | `Audio/impactMetal_001.ogg` (no punch) |
 | Brute hit pool | `Assets/Resources/Audio/Sfx/impactMetal_000.ogg`–`002.ogg` | `Audio/impactMetal_000.ogg`–`002.ogg` |
 | Spike activate | `Assets/Resources/Audio/Sfx/forceField_001.ogg` | `Audio/forceField_001.ogg` |
 | Asteroid split | `Assets/Resources/Audio/Sfx/explosionCrunch_000.ogg` | `Audio/explosionCrunch_000.ogg` |
 | Enemy death | `Assets/Resources/Audio/Sfx/explosionCrunch_003.ogg` | `Audio/explosionCrunch_003.ogg` |
 | Enemy death punch | `Assets/Resources/Audio/Sfx/impactMetal_000.ogg` | `Audio/impactMetal_000.ogg` (layered; asteroid crunch stays `explosionCrunch_000` only) |
-| SwarmPod / Mid death | `Assets/Resources/Audio/Sfx/explosionCrunch_001.ogg` | `Audio/explosionCrunch_001.ogg` (no punch) |
+| SwarmPod / Mid death | `Assets/Resources/Audio/Sfx/explosionCrunch_001.ogg` | `Audio/explosionCrunch_001.ogg` (±5% @ 0.9; no punch) |
 | Player damage | `Assets/Resources/Audio/Sfx/forceField_000.ogg` | `Audio/forceField_000.ogg` |
 | Swarm spawn layer (optional) | `Assets/Resources/Audio/Sfx/slime_000.ogg` | `Audio/slime_000.ogg` |
 | Brute death layer | `Assets/Resources/Audio/Sfx/lowFrequency_explosion_000.ogg` | `Audio/lowFrequency_explosion_000.ogg` (unique boom; not the generic metal punch) |
@@ -45,6 +45,10 @@ Source: https://kenney.nl/assets/digital-audio
 | Shoot (twin layer) | `Assets/Resources/Audio/Sfx/twoTone1.ogg` | `Audio/twoTone1.ogg` (layer @ 0.45; Retry Wave solo @ 0.75) |
 | Shoot (seeker) | `Assets/Resources/Audio/Sfx/phaserUp5.ogg` | `Audio/phaserUp5.ogg` (0.72; also SwarmPod spawn) |
 | Shoot (ricochet) | `Assets/Resources/Audio/Sfx/zap1.ogg` | `Audio/zap1.ogg` (0.88 ±4% pitch) |
+| Extra-life pickup | `Assets/Resources/Audio/Sfx/powerUp7.ogg` | `Audio/powerUp7.ogg` (0.82; only power-up fanfare) |
+| Extra-life pickup alt | `Assets/Resources/Audio/Sfx/threeTone2.ogg` | `Audio/threeTone2.ogg` (0.78 if powerUp7 missing) |
+| Extra-life timeout miss | `Assets/Resources/Audio/Sfx/phaserDown3.ogg` | `Audio/phaserDown3.ogg` (0.48, no duck) |
+| Other pickups | `Assets/Resources/Audio/Sfx/pepSound1.ogg` | `Audio/pepSound1.ogg` (quiet; not a fanfare) |
 | Fail sting fallback | `Assets/Resources/Audio/Sfx/phaserDown3.ogg` | `Audio/phaserDown3.ogg` (fallback only if GameOver is missing) |
 | Fail layer | `Assets/Resources/Audio/Sfx/lowDown.ogg` | `Audio/lowDown.ogg` (0.4 under GameOver) |
 | Retry / fail confirm | `Assets/Resources/Audio/Sfx/twoTone1.ogg` | `Audio/twoTone1.ogg` (same clip as twin, scale 0.75, no duck) |
@@ -110,7 +114,7 @@ License text from the pack is at `Assets/Resources/Fonts/Kenney_Fonts_License.tx
 | Credits loop | `Assets/Resources/Audio/Music/SpaceCadet.ogg` | Space Cadet | Kenney | CC0 | https://kenney.nl/assets/music-loops |
 | Fail sting | `Assets/Resources/Audio/Music/GameOver.ogg` | Game Over | Kenney | CC0 | https://kenney.nl/assets/music-loops |
 
-Hangar plays `spacelifeNo14` as a denser two-layer bed (pitch 0.94 + 1.02). Arena plays `MissionPlausible` at `ArenaMusicScale` 0.65 (`TimeDriving` from wave 8; `OutThere` fallback). Credits play `SpaceCadet` at 0.55 with `jingles_NES07` open (bed duck 0.35s @ 0.4) and `jingles_NES12` close (PIZZA16 fallback); Continue restores hangar. Abort ducks the current bed under the whoosh. SwarmPod spawn ducks the bed briefly (0.62s gap / 0.86 scale) so `phaserUp5` cuts clutter. 0.40 AtmosBot monster/spike list (Kenney CC0, retro-modern chip/arcade, AAA mix polish, not UI clicks): Brute `lowThreeTone` / `impactMetal_000`–`002` / `explosionCrunch_003` + unique `lowFrequency_explosion_000` death layer; Swarm `phaseJump1` (+ `slime_000`) / `laserSmall_000`–`004` pitched ±6% / `zap1`+`spaceTrash1`–`3`; spike activate `forceField_001` (0.94 + short bed duck), spike hit `laserRetro_000`–`002`. Wave 10 Far Drift plays `jingles_PIZZA16` instead of the wave-clear sting. World 3 entry reuses `maximize_008` slightly hotter with a short bed duck (no new jingle). Wave clear plays glad `jingles_HIT07` @ 0.88 (`HIT04` alt, `PIZZA07` fallback). Fail plays sad `GameOver` one-shot @ 0.78 + `lowDown` @ 0.4 (bed duck 0.55s @ 0.3; `phaserDown3` fallback only — not explosionCrunch / NES). Fail-confirm plays `twoTone1` @ 0.75 (no duck; not click / wave-clear).
+Hangar plays `spacelifeNo14` as a denser two-layer bed (pitch 0.94 + 1.02). Arena plays `MissionPlausible` at `ArenaMusicScale` 0.65 (`TimeDriving` from wave 8; `OutThere` fallback). Credits play `SpaceCadet` at 0.55 with `jingles_NES07` open (bed duck 0.35s @ 0.4) and `jingles_NES12` close (PIZZA16 fallback); Continue restores hangar. Abort ducks the current bed under the whoosh. Extra-life pickup plays `powerUp7` @ 0.82 (alt `threeTone2` @ 0.78) with a 0.22s @ 0.5 bed duck; timeout miss is `phaserDown3` @ 0.48 with no duck. Heart is the only power-up fanfare. Hits use `impactMetal_000`–`003` ±4% with punch 0.55. SwarmPod spawn ducks the bed briefly (0.62s gap / 0.86 scale) so `phaserUp5` cuts clutter. 0.40 AtmosBot monster/spike list (Kenney CC0, retro-modern chip/arcade, AAA mix polish, not UI clicks): Brute `lowThreeTone` / `impactMetal_000`–`002` / `explosionCrunch_003` + unique `lowFrequency_explosion_000` death layer; Swarm `phaseJump1` (+ `slime_000`) / `laserSmall_000`–`004` pitched ±6% / `zap1`+`spaceTrash1`–`3`; spike activate `forceField_001` (0.94 + short bed duck), spike hit `laserRetro_000`–`002`. Wave 10 Far Drift plays `jingles_PIZZA16` instead of the wave-clear sting. World 3 entry reuses `maximize_008` slightly hotter with a short bed duck (no new jingle). Wave clear plays glad `jingles_HIT07` @ 0.88 (`HIT04` alt, `PIZZA07` fallback). Fail plays sad `GameOver` one-shot @ 0.78 + `lowDown` @ 0.4 (bed duck 0.55s @ 0.3; `phaserDown3` fallback only — not explosionCrunch / NES). Fail-confirm plays `twoTone1` @ 0.75 (no duck; not click / wave-clear).
 
 ## Environment art
 
