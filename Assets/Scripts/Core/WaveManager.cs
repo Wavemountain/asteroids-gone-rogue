@@ -202,12 +202,15 @@ namespace AsteroidsGoneRogue
                 }
 
                 Vector3 pos = component.transform.position;
-                if (ArenaWrap.IsInvalidXz(pos.x, pos.z))
+                if (ArenaWrap.IsInvalid(pos.x, pos.y, pos.z) || ArenaWrap.IsOutOfPlayY(pos.y))
                 {
-                    _live.Remove(threat);
+                    ForceWrapOrDespawn(threat, component);
                     _outsideSeconds.Remove(threat);
-                    threat.Despawn();
-                    removed = true;
+                    if (!_live.Contains(threat))
+                    {
+                        removed = true;
+                    }
+
                     continue;
                 }
 
@@ -246,15 +249,14 @@ namespace AsteroidsGoneRogue
             float ox;
             float oz;
             ArenaWrap.WrapXz(pos.x, pos.z, ArenaRadius, out ox, out oz);
-            Vector3 wrapped = new Vector3(ox, 0f, oz);
+            Vector3 wrapped = new Vector3(ox, ArenaWrap.PlayY, oz);
 
             Asteroid asteroid = component.GetComponent<Asteroid>();
             if (asteroid != null)
             {
-                asteroid.WrapIfOutsideArena();
+                asteroid.KeepInPlay();
                 pos = component.transform.position;
-                if (!ArenaWrap.IsBeyondSoftLock(pos.x, pos.z, ArenaRadius)
-                    && !ArenaWrap.IsInvalidXz(pos.x, pos.z))
+                if (!ArenaWrap.IsOutOfPlay(pos.x, pos.y, pos.z, ArenaRadius))
                 {
                     return;
                 }
@@ -264,12 +266,14 @@ namespace AsteroidsGoneRogue
             if (body != null)
             {
                 body.position = wrapped;
+                Vector3 vel = body.linearVelocity;
+                vel.y = 0f;
+                body.linearVelocity = vel;
             }
 
             component.transform.position = wrapped;
             pos = component.transform.position;
-            if (ArenaWrap.IsBeyondSoftLock(pos.x, pos.z, ArenaRadius)
-                || ArenaWrap.IsInvalidXz(pos.x, pos.z))
+            if (ArenaWrap.IsOutOfPlay(pos.x, pos.y, pos.z, ArenaRadius))
             {
                 _live.Remove(threat);
                 threat.Despawn();

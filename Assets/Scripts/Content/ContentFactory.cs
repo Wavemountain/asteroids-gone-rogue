@@ -207,6 +207,10 @@ namespace AsteroidsGoneRogue
                     DressArenaFloorRenderers(visual);
                     DressAstroFloorColliders(visual);
                 }
+                else
+                {
+                    StripImportedFloorColliders(visual);
+                }
             }
             else
             {
@@ -1029,13 +1033,15 @@ namespace AsteroidsGoneRogue
             GameObject root = new GameObject(propName);
             root.tag = GameTags.Asteroid;
             root.transform.SetParent(_threatRoot, false);
-            root.transform.position = position;
+            drift.y = 0f;
+            root.transform.position = new Vector3(position.x, ArenaWrap.PlayY, position.z);
 
             Rigidbody body = root.AddComponent<Rigidbody>();
             body.useGravity = false;
             body.linearDamping = 0.05f;
             body.angularDamping = 0.05f;
             body.constraints = RigidbodyConstraints.FreezePositionY;
+            body.collisionDetectionMode = CollisionDetectionMode.Continuous;
             body.mass = size == AsteroidSize.Large ? 4f : 1.2f;
 
             SphereCollider collider = root.AddComponent<SphereCollider>();
@@ -1058,6 +1064,7 @@ namespace AsteroidsGoneRogue
             }
 
             FitAsteroidCollider(collider, root.transform);
+            CenterAsteroidOnPlayOrigin(collider, root.transform);
 
             Asteroid asteroid = root.AddComponent<Asteroid>();
             asteroid.Initialize(size, waves, this, drift);
@@ -1286,11 +1293,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            Collider[] existing = visual.GetComponentsInChildren<Collider>(true);
-            for (int i = 0; i < existing.Length; i++)
-            {
-                Object.Destroy(existing[i]);
-            }
+            StripImportedFloorColliders(visual);
 
             Renderer[] renderers = visual.GetComponentsInChildren<Renderer>(true);
             for (int i = 0; i < renderers.Length; i++)
@@ -1316,6 +1319,26 @@ namespace AsteroidsGoneRogue
                 box.center = new Vector3(local.center.x, local.max.y - 0.06f, local.center.z);
                 box.size = new Vector3(local.size.x, 0.12f, local.size.z);
                 box.isTrigger = true;
+            }
+        }
+
+        private static void StripImportedFloorColliders(GameObject visual)
+        {
+            if (visual == null)
+            {
+                return;
+            }
+
+            Collider[] existing = visual.GetComponentsInChildren<Collider>(true);
+            for (int i = 0; i < existing.Length; i++)
+            {
+                if (existing[i] == null)
+                {
+                    continue;
+                }
+
+                existing[i].enabled = false;
+                Object.Destroy(existing[i]);
             }
         }
 
@@ -1414,6 +1437,28 @@ namespace AsteroidsGoneRogue
 
             collider.center = local.center;
             collider.radius = radius;
+        }
+
+        private static void CenterAsteroidOnPlayOrigin(SphereCollider collider, Transform root)
+        {
+            if (collider == null || root == null)
+            {
+                return;
+            }
+
+            Vector3 shift = collider.center;
+            if (shift.sqrMagnitude < 0.0001f)
+            {
+                return;
+            }
+
+            for (int i = 0; i < root.childCount; i++)
+            {
+                Transform child = root.GetChild(i);
+                child.localPosition -= shift;
+            }
+
+            collider.center = Vector3.zero;
         }
 
         private static bool TryEnemyMeshBounds(Transform root, out Bounds local)

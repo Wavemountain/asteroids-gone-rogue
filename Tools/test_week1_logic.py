@@ -2733,6 +2733,80 @@ def test_hotfix_042_flags_colliders() -> None:
     assert "com.unity.modules.xr" not in lock
 
 
+def clamp_play_y(y: float, play_y: float = 0.4, max_y: float = 3.0) -> float:
+    if y != y or y == float("inf") or y == float("-inf") or y < play_y or y > max_y:
+        return play_y
+    return play_y
+
+
+def is_out_of_play_y(y: float, floor_y: float = -0.08, max_y: float = 3.0) -> bool:
+    if y != y or y == float("inf") or y == float("-inf"):
+        return True
+    return y < floor_y or y > max_y
+
+
+def test_asteroid_play_plane_and_turn() -> None:
+    from pathlib import Path
+
+    assert clamp_play_y(-4.0) == 0.4
+    assert clamp_play_y(-0.09) == 0.4
+    assert clamp_play_y(0.0) == 0.4
+    assert clamp_play_y(0.4) == 0.4
+    assert clamp_play_y(8.0) == 0.4
+    assert clamp_play_y(float("nan")) == 0.4
+    assert is_out_of_play_y(-0.09)
+    assert is_out_of_play_y(-2.0)
+    assert is_out_of_play_y(3.01)
+    assert not is_out_of_play_y(0.0)
+    assert not is_out_of_play_y(0.4)
+    ox, oz = wrap_xz(40.0, 0.0, 30.0)
+    assert abs(ox + 29.95) < 0.001 and abs(oz) < 0.001
+
+    root = Path(__file__).resolve().parents[1]
+    wrap = (root / "Assets/Scripts/Core/ArenaWrap.cs").read_text(encoding="utf-8")
+    asteroid = (root / "Assets/Scripts/Combat/Asteroid.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    ship = (root / "Assets/Scripts/Player/ShipController.cs").read_text(encoding="utf-8")
+    manifest = (root / "Packages/manifest.json").read_text(encoding="utf-8")
+    lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
+
+    assert "PlayY = 0.4f" in wrap
+    assert "FloorY = -0.08f" in wrap
+    assert "MaxPlayY = 3f" in wrap
+    assert "IsOutOfPlayY" in wrap
+    assert "IsOutOfPlay(" in wrap
+    assert "public static float ClampY" in wrap
+    assert "y < PlayY" in wrap
+    assert "y > MaxPlayY" in wrap
+    assert "y < FloorY" in wrap
+    assert "PlayHeight = 0.4f" in ship
+    assert "TurnDegreesPerSecond = 480f" in ship
+    assert "TurnDegreesPerSecond = 540f" not in ship
+    assert "KeepInPlay" in asteroid
+    assert "ClampToPlayPlane" in asteroid
+    assert "ArenaWrap.ClampY" in asteroid
+    assert "ArenaWrap.PlayY" in asteroid
+    assert "new Vector3(ox, 0f, oz)" not in asteroid
+    assert "private void LateUpdate()" in asteroid
+    assert "IsOutOfPlayY(pos.y)" in waves
+    assert "asteroid.KeepInPlay()" in waves
+    assert "new Vector3(ox, ArenaWrap.PlayY, oz)" in waves
+    assert "new Vector3(ox, 0f, oz)" not in waves
+    create = factory.split("private Asteroid CreateAsteroid")[1].split("public GameObject CreatePickup")[0]
+    assert "ArenaWrap.PlayY" in create
+    assert "CenterAsteroidOnPlayOrigin" in create
+    assert create.index("FitAsteroidCollider") < create.index("CenterAsteroidOnPlayOrigin")
+    assert "collider.center = Vector3.zero" in factory
+    assert "StripImportedFloorColliders" in factory
+    assert "existing[i].enabled = false" in factory
+    dress = factory.split("private static void DressAstroFloorColliders")[1].split("private bool TryVisual")[0]
+    assert "StripImportedFloorColliders(visual)" in dress
+    assert "box.isTrigger = true" in dress
+    assert "com.unity.modules.vr" not in manifest
+    assert "com.unity.modules.xr" not in lock
+
+
 def _input_axis_blocks(text: str) -> list[dict[str, str]]:
     blocks: list[dict[str, str]] = []
     current: dict[str, str] | None = None
@@ -2841,6 +2915,7 @@ def main() -> int:
     test_hotfix_042_flags_colliders()
     test_difficulty_economy_043()
     test_hotfix_043_gamepad()
+    test_asteroid_play_plane_and_turn()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

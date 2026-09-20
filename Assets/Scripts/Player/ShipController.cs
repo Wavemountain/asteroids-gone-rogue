@@ -7,7 +7,7 @@ namespace AsteroidsGoneRogue
     {
         public const float Thrust = 28f;
         public const float MaxSpeed = 16f;
-        public const float TurnDegreesPerSecond = 540f;
+        public const float TurnDegreesPerSecond = 480f;
         public const float PlayHeight = 0.4f;
 
         private Rigidbody _body;

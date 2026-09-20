@@ -37,9 +37,12 @@ namespace AsteroidsGoneRogue
             _body = GetComponent<Rigidbody>();
             if (_body != null)
             {
+                drift.y = 0f;
                 _body.linearVelocity = drift;
                 _body.angularVelocity = Random.insideUnitSphere * 1.6f;
             }
+
+            KeepInPlay();
         }
 
         private void FixedUpdate()
@@ -49,7 +52,50 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            KeepInPlay();
+        }
+
+        private void LateUpdate()
+        {
+            if (_dead)
+            {
+                return;
+            }
+
+            ClampToPlayPlane();
+        }
+
+        public void KeepInPlay()
+        {
+            ClampToPlayPlane();
             WrapIfOutsideArena();
+        }
+
+        public void ClampToPlayPlane()
+        {
+            Vector3 pos = _body != null ? _body.position : transform.position;
+            float y = ArenaWrap.ClampY(pos.y);
+            bool moved = Mathf.Abs(pos.y - y) > 0.01f;
+            pos.y = y;
+            if (_body != null)
+            {
+                Vector3 vel = _body.linearVelocity;
+                if (Mathf.Abs(vel.y) > 0.001f)
+                {
+                    vel.y = 0f;
+                    _body.linearVelocity = vel;
+                    moved = true;
+                }
+
+                if (moved || ArenaWrap.IsInvalidY(pos.y))
+                {
+                    _body.position = pos;
+                }
+            }
+            else if (moved)
+            {
+                transform.position = pos;
+            }
         }
 
         public void WrapIfOutsideArena()
@@ -58,16 +104,20 @@ namespace AsteroidsGoneRogue
             if (!ArenaWrap.ShouldWrap(pos.x, pos.z, WaveManager.ArenaRadius)
                 && !ArenaWrap.IsInvalidXz(pos.x, pos.z))
             {
+                ClampToPlayPlane();
                 return;
             }
 
             float ox;
             float oz;
             ArenaWrap.WrapXz(pos.x, pos.z, WaveManager.ArenaRadius, out ox, out oz);
-            Vector3 wrapped = new Vector3(ox, 0f, oz);
+            Vector3 wrapped = new Vector3(ox, ArenaWrap.PlayY, oz);
             if (_body != null)
             {
                 _body.position = wrapped;
+                Vector3 vel = _body.linearVelocity;
+                vel.y = 0f;
+                _body.linearVelocity = vel;
             }
             else
             {
