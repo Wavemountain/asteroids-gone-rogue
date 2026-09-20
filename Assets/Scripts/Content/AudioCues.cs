@@ -7,6 +7,9 @@ namespace AsteroidsGoneRogue
     /// UI click is a distinct Kenney click — not the hangar purchase confirmation.
     /// 0.40 monster / spike banks follow the AtmosBot Kenney CC0 list
     /// (retro-modern chip/arcade, AAA mix polish). Distinct from UI clicks.
+    /// 0.44 ExtraLife: powerUp7 @ 0.82 (threeTone2 alt), miss phaserDown3 @ 0.48,
+    /// duck 0.22s @ 0.5 on pickup only. Hit pool impactMetal_000-003 ±4% + punch 0.55.
+    /// Weapons stay on the 0.43 Kenney pools.
     /// </summary>
     public sealed class AudioCues : MonoBehaviour
     {
@@ -24,7 +27,16 @@ namespace AsteroidsGoneRogue
         public const float HangarLayerPitch = 1.02f;
         public const float AbortDuckScale = 0.18f;
         public const float AbortDuckSeconds = 0.55f;
-        public const float HitPunchScale = 1.22f;
+        public const float HitPunchScale = 0.55f;
+        public const float HitPitchJitter = 0.04f;
+        public const float LightKillScale = 0.9f;
+        public const float LightKillPitchJitter = 0.05f;
+        public const float ExtraLifePickupScale = 0.82f;
+        public const float ExtraLifeAltScale = 0.78f;
+        public const float ExtraLifeMissScale = 0.48f;
+        public const float ExtraLifeDuckSeconds = 0.22f;
+        public const float ExtraLifeDuckScale = 0.5f;
+        public const float PickupMinorScale = 0.38f;
         public const float EnemyDeathPunchScale = 0.78f;
         public const float SwarmPodSpawnScale = 0.86f;
         public const float SwarmPodDuckSeconds = 0.36f;
@@ -82,8 +94,13 @@ namespace AsteroidsGoneRogue
         private AudioClip _shootRicochet;
         private AudioClip _shootEnemy;
         private AudioClip _hit;
+        private AudioClip[] _hits;
         private AudioClip _hitPunch;
         private AudioClip _hitLight;
+        private AudioClip _extraLife;
+        private AudioClip _extraLifeAlt;
+        private AudioClip _extraLifeMiss;
+        private AudioClip _pickupMinor;
         private AudioClip _asteroidSplit;
         private AudioClip _enemyDeath;
         private AudioClip _enemyDeathPunch;
@@ -198,10 +215,10 @@ namespace AsteroidsGoneRogue
 
         public void PlayHit()
         {
-            Play(_hit, HitPunchScale);
+            PlayPooledPitched(_hits, 1f, _hit, HitPitchJitter);
             if (_hitPunch != null)
             {
-                Play(_hitPunch, 0.58f);
+                Play(_hitPunch, HitPunchScale);
             }
         }
 
@@ -251,7 +268,8 @@ namespace AsteroidsGoneRogue
         {
             if (UsesLightThreatSfx(kind))
             {
-                Play(_enemyDeathLight != null ? _enemyDeathLight : _enemyDeath, 0.9f);
+                AudioClip light = _enemyDeathLight != null ? _enemyDeathLight : _enemyDeath;
+                PlayPitched(light, LightKillScale, 1f + Random.Range(-LightKillPitchJitter, LightKillPitchJitter));
                 return;
             }
 
@@ -331,6 +349,30 @@ namespace AsteroidsGoneRogue
         public void PlayHangarPurchase()
         {
             Play(_purchase);
+        }
+
+        public void PlayExtraLifePickup()
+        {
+            if (_extraLife != null)
+            {
+                Play(_extraLife, ExtraLifePickupScale);
+            }
+            else
+            {
+                Play(_extraLifeAlt != null ? _extraLifeAlt : _purchase, ExtraLifeAltScale);
+            }
+
+            DuckMusic(ExtraLifeDuckSeconds, ExtraLifeDuckScale);
+        }
+
+        public void PlayExtraLifeMiss()
+        {
+            Play(_extraLifeMiss != null ? _extraLifeMiss : _abort, ExtraLifeMissScale);
+        }
+
+        public void PlayPickupMinor()
+        {
+            Play(_pickupMinor != null ? _pickupMinor : _uiClick, PickupMinorScale);
         }
 
         public void PlayUiClick()
@@ -703,8 +745,17 @@ namespace AsteroidsGoneRogue
             _shootRicochet = Resources.Load<AudioClip>("Audio/Sfx/zap1");
             _shootEnemy = Resources.Load<AudioClip>("Audio/Sfx/laserSmall_001");
             _hit = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_003");
+            _hits = LoadPool(
+                "Audio/Sfx/impactMetal_000",
+                "Audio/Sfx/impactMetal_001",
+                "Audio/Sfx/impactMetal_002",
+                "Audio/Sfx/impactMetal_003");
             _hitPunch = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_000");
             _hitLight = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_001");
+            _extraLife = Resources.Load<AudioClip>("Audio/Sfx/powerUp7");
+            _extraLifeAlt = Resources.Load<AudioClip>("Audio/Sfx/threeTone2");
+            _extraLifeMiss = Resources.Load<AudioClip>("Audio/Sfx/phaserDown3");
+            _pickupMinor = Resources.Load<AudioClip>("Audio/Sfx/pepSound1");
             _asteroidSplit = Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_000");
             _enemyDeath = Resources.Load<AudioClip>("Audio/Sfx/explosionCrunch_003");
             _enemyDeathPunch = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_000");

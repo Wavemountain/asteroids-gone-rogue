@@ -48,12 +48,9 @@ namespace AsteroidsGoneRogue
             { "ui.credits_line", "Kredit: {0}" },
             { "ui.hint_play", "WASD / LS styr  ·  Mus / RS sikte  ·  VMB / Mellanslag / RT / A skjut  ·  Q / HMB / LB eldläge  ·  Esc / Start avbryt" },
             { "ui.hint_hangar", "WASD / LS styr  ·  Mus / RS sikte  ·  VMB / Mellanslag / RT / A skjut  ·  {0}" },
-            { "ui.hangar_controls", "Avbryt (Esc / Start)  ·  Q / HMB / LB eldlägen (upptäck Spread / Pierce när du äger dem)  ·  A bekräfta" },
-            { "ui.hangar_hint_body", "WASD / LS styr · mus / RS sikte\nVMB / Mellanslag / RT skjut · LB byter\nAvbryt (Esc) lämnar vågen\n"
-                + "Q / HMB / LB eldlägen\n(upptäck Spread / Pierce när du äger dem)\n\n"
-                + "Rensa en våg för kredit och uppgraderingar.\n"
-                + "Medaljstege (uppe till vänster): ★ Spejarvinge på våg 3.\n\n"
-                + "Shoppen köper uppgraderingar för den krediten.\nStarta våg för att flyga." },
+            { "ui.hangar_controls", "Avbryt (Esc) / Start  ·  Q / HMB / LB eldlägen (upptäck Spread / Pierce när du äger dem)  ·  A bekräfta" },
+            { "ui.hangar_hint_body", "LS / WASD flyg  ·  RT / VMB skjut\nStarta våg (A)  ·  Avbryt (Esc) / Start\nRensa en våg för kredit och uppgraderingar.\nMedaljstege (uppe till vänster): ★ Spejarvinge på våg 3." },
+            { "ui.first_wave_coach", "Skjut stenar  ·  Avbryt (Start) om en flyger bort" },
             { "ui.hangar_clear_wave", "Hangar  ·  Rensa en våg för kredit och uppgraderingar." },
             { "ui.hangar_wave_line", "Hangar  ·  Våg {0}  ·  Värld {1} layout: {2}" },
             { "ui.medals", "MEDALJER" },

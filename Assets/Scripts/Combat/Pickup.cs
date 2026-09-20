@@ -13,12 +13,19 @@ namespace AsteroidsGoneRogue
             ExtraLife
         }
 
+        public const float ExtraLifePulseHz = 8.6f;
+        public const float ExtraLifeBob = 0.28f;
+        public const float ExtraLifeUrgentSeconds = 2.4f;
+
         private Kind _kind;
         private bool _taken;
         private bool _expires;
         private float _expireAt;
         private Vector3 _origin;
         private Vector3 _baseScale = Vector3.one;
+        private Light _beacon;
+        private Transform _pip;
+        private float _ringAt;
 
         public void Bind(Kind kind)
         {
@@ -34,6 +41,13 @@ namespace AsteroidsGoneRogue
             {
                 _expires = true;
                 _expireAt = Time.time + timeoutSeconds;
+            }
+
+            if (kind == Kind.ExtraLife)
+            {
+                DressMustPick();
+                CombatJuice.ExtraLifeSpawn(transform.position);
+                _ringAt = Time.time;
             }
         }
 
@@ -78,6 +92,11 @@ namespace AsteroidsGoneRogue
 
             if (_expires && Time.time >= _expireAt)
             {
+                if (_kind == Kind.ExtraLife && AudioCues.Instance != null)
+                {
+                    AudioCues.Instance.PlayExtraLifeMiss();
+                }
+
                 Destroy(gameObject);
                 return;
             }
@@ -85,19 +104,32 @@ namespace AsteroidsGoneRogue
             float pulse = 1f + Mathf.Sin(Time.time * 6.2f) * 0.12f;
             if (_kind == Kind.ExtraLife)
             {
-                pulse = 1.08f + Mathf.Sin(Time.time * 7.4f) * 0.18f;
-                float remain = _expires ? Mathf.Clamp01((_expireAt - Time.time) / 1.4f) : 1f;
-                if (remain < 1f)
+                float remain = _expires ? (_expireAt - Time.time) : ExtraLifeUrgentSeconds;
+                bool urgent = remain < ExtraLifeUrgentSeconds;
+                float hz = urgent ? ExtraLifePulseHz + 3.2f : ExtraLifePulseHz;
+                pulse = 1.18f + Mathf.Sin(Time.time * hz) * (urgent ? 0.28f : 0.2f);
+                if (urgent)
                 {
-                    pulse *= 0.55f + remain * 0.45f;
+                    pulse *= 0.72f + Mathf.PingPong(Time.time * 6f, 0.4f);
+                }
+
+                PulseBeacon(urgent);
+                if (Time.time >= _ringAt)
+                {
+                    _ringAt = Time.time + (urgent ? 0.55f : 0.9f);
+                    GameObject root = new GameObject("TelegraphRing");
+                    root.transform.position = new Vector3(_origin.x, 0.04f, _origin.z);
+                    TelegraphRing ring = root.AddComponent<TelegraphRing>();
+                    ring.Play(new Color(1f, 0.18f, 0.32f), urgent ? 0.5f : 0.7f);
                 }
             }
 
             transform.localScale = _baseScale * pulse;
             Vector3 pos = _origin;
-            pos.y = _origin.y + Mathf.Sin(Time.time * 3.4f) * 0.16f;
+            float bob = _kind == Kind.ExtraLife ? ExtraLifeBob : 0.16f;
+            pos.y = _origin.y + Mathf.Sin(Time.time * 3.4f) * bob;
             transform.position = pos;
-            transform.Rotate(0f, 80f * Time.deltaTime, 0f, Space.World);
+            transform.Rotate(0f, (_kind == Kind.ExtraLife ? 120f : 80f) * Time.deltaTime, 0f, Space.World);
         }
 
         private void OnTriggerEnter(Collider other)
@@ -144,15 +176,16 @@ namespace AsteroidsGoneRogue
 
                     break;
                 case Kind.ExtraLife:
-                    GameManager extra = Object.FindAnyObjectByType<GameManager>();
+                    GameManager extra = UnityEngine.Object.FindAnyObjectByType<GameManager>();
                     if (extra != null)
                     {
                         extra.TryGrantExtraLife();
                     }
 
+                    CombatJuice.ExtraLifeTaken(transform.position);
                     break;
                 default:
-                    GameManager game = Object.FindAnyObjectByType<GameManager>();
+                    GameManager game = UnityEngine.Object.FindAnyObjectByType<GameManager>();
                     if (game != null)
                     {
                         game.AddBonusScore(ScoreValues.SmallAsteroid);
@@ -161,9 +194,64 @@ namespace AsteroidsGoneRogue
                     break;
             }
 
-            if (AudioCues.Instance != null)
+            if (AudioCues.Instance == null)
             {
-                AudioCues.Instance.PlayHangarPurchase();
+                return;
+            }
+
+            if (_kind == Kind.ExtraLife)
+            {
+                AudioCues.Instance.PlayExtraLifePickup();
+            }
+            else
+            {
+                AudioCues.Instance.PlayPickupMinor();
+            }
+        }
+
+        private void DressMustPick()
+        {
+            GameObject pip = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            pip.name = "HeartPip";
+            pip.transform.SetParent(transform, false);
+            pip.transform.localPosition = new Vector3(0f, 1.15f, 0f);
+            pip.transform.localScale = new Vector3(0.18f, 0.42f, 0.18f);
+            Collider pipCol = pip.GetComponent<Collider>();
+            if (pipCol != null)
+            {
+                Destroy(pipCol);
+            }
+
+            _pip = pip.transform;
+
+            GameObject lightGo = new GameObject("HeartBeacon");
+            lightGo.transform.SetParent(transform, false);
+            lightGo.transform.localPosition = new Vector3(0f, 0.4f, 0f);
+            _beacon = lightGo.AddComponent<Light>();
+            _beacon.type = LightType.Point;
+            _beacon.range = 7.5f;
+            _beacon.color = new Color(1f, 0.28f, 0.4f);
+            _beacon.intensity = 2.4f;
+        }
+
+        private void PulseBeacon(bool urgent)
+        {
+            if (_beacon != null)
+            {
+                float pulse = 1.8f + Mathf.Sin(Time.time * (urgent ? 14f : 8f)) * 0.85f;
+                if (urgent)
+                {
+                    pulse += 0.8f * Mathf.PingPong(Time.time * 9f, 1f);
+                }
+
+                _beacon.intensity = pulse;
+                _beacon.range = urgent ? 9f : 7.5f;
+            }
+
+            if (_pip != null)
+            {
+                float hop = 1.05f + Mathf.Sin(Time.time * 7f) * 0.22f;
+                _pip.localPosition = new Vector3(0f, hop, 0f);
             }
         }
     }

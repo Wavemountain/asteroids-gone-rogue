@@ -75,6 +75,10 @@ namespace AsteroidsGoneRogue
         private Button _gotItButton;
         private Button _creditsContinue;
         private GameObject _lastPadSelected;
+        private bool _abortUrgent;
+        private float _firstRunCoachUntil;
+        private Image _primaryPlate;
+        private Image _abortPlate;
         private Text _sfxLabel;
         private Text _musicLabel;
         private Text _hullHeader;
@@ -115,14 +119,13 @@ namespace AsteroidsGoneRogue
         public const string ShipPreviewCanvasName = "ShipPreviewCanvas";
         public const string FirstHangarHintKey = "agr.ui.firstHangarHint";
         public const string HangarControlsHint =
-            "Abort (Esc / Start)  ·  Q / RMB / LB fire modes (discover Spread / Pierce when owned)  ·  A confirm";
+            "Abort (Esc) / Start  ·  Q / RMB fire modes / LB (discover Spread / Pierce when owned)  ·  A confirm";
         public const string MedalLadderPrefix = "MEDALS";
         public const string HangarHintBody =
-            "WASD / LS move · mouse / RS aim\nLMB / Space / RT shoot · LB cycles\nAbort (Esc) leaves the wave\n"
-            + "Q / RMB fire modes\n(discover Spread / Pierce when owned)\n\n"
+            "LS / WASD fly  ·  RT / LMB shoot\nStart Wave (A)  ·  Abort (Esc) / Start\n"
             + "Clear a wave to earn credits and upgrades.\n"
-            + "Medal ladder (top-left): ★ Scout Wing at wave 3.\n\n"
-            + "Shop buys upgrades with those credits.\nStart Wave to fly.";
+            + "Medal ladder (top-left): ★ Scout Wing at wave 3.";
+        public const string FirstWaveCoach = "Shoot rocks  ·  Abort (Start) if one flies off";
 
         public static GameUi Instance { get; private set; }
 
@@ -409,10 +412,10 @@ namespace AsteroidsGoneRogue
             _primary = CreateButton("Primary", _menuRoot.transform, display, new Vector2(0.28f, 0.675f), new Vector2(0.72f, 0.75f));
             _primaryLabel = _primary.GetComponentInChildren<Text>();
             _primary.onClick.AddListener(OnPrimary);
-            Image primaryPlate = _primary.targetGraphic as Image;
-            if (primaryPlate != null)
+            _primaryPlate = _primary.targetGraphic as Image;
+            if (_primaryPlate != null)
             {
-                primaryPlate.color = new Color(0.42f, 0.26f, 0.08f, 0.98f);
+                _primaryPlate.color = new Color(0.42f, 0.26f, 0.08f, 0.98f);
             }
 
             _abortButton = CreateButton("AbortWave", transform, body, new Vector2(0.78f, 0.09f), new Vector2(0.97f, 0.155f));
@@ -420,6 +423,7 @@ namespace AsteroidsGoneRogue
             _abortLabel.text = "Abort → Hangar";
             _abortLabel.fontSize = 16;
             _abortButton.onClick.AddListener(OnAbort);
+            _abortPlate = _abortButton.targetGraphic as Image;
             _abortButton.gameObject.SetActive(false);
 
             _creditsButton = CreateButton("OpenCredits", transform, body, new Vector2(0.018f, 0.09f), new Vector2(0.168f, 0.155f));
@@ -709,6 +713,11 @@ namespace AsteroidsGoneRogue
             }
 
             DismissFirstHangarHint();
+            if (_session != null && _session.WaveIndex == 1)
+            {
+                _firstRunCoachUntil = Time.unscaledTime + 6.5f;
+            }
+
             if (AudioCues.Instance != null)
             {
                 if (_session != null && _session.Phase == GamePhase.Failed)
@@ -889,6 +898,15 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        public void SetAbortUrgent(bool stranded)
+        {
+            _abortUrgent = stranded;
+            if (!stranded && _abortPlate != null)
+            {
+                _abortPlate.color = new Color(0.16f, 0.2f, 0.28f, 0.96f);
+            }
+        }
+
         public void FlashHit(float strength)
         {
             _hitFlashStrength = Mathf.Max(_hitFlashStrength, Mathf.Clamp01(strength));
@@ -918,7 +936,7 @@ namespace AsteroidsGoneRogue
         {
             _tutorialDismissed = PlayerPrefs.GetInt(FirstHangarHintKey, 0) == 1;
             _tutorialRoot = CreatePanel("FirstHangarHint", transform, new Color(0.03f, 0.045f, 0.07f, 0.96f),
-                new Vector2(0.008f, 0.08f), new Vector2(0.185f, 0.74f));
+                new Vector2(0.012f, 0.18f), new Vector2(0.22f, 0.52f));
             CreateFill("HintHeader", _tutorialRoot.transform, new Color(1f, 0.58f, 0.16f, 0.3f),
                 new Vector2(0f, 0.94f), new Vector2(1f, 1f));
             CreateFill("HintRule", _tutorialRoot.transform, new Color(1f, 0.78f, 0.34f, 0.85f),
@@ -929,7 +947,7 @@ namespace AsteroidsGoneRogue
             _firstFlightTitle.color = new Color(1f, 0.86f, 0.44f);
             _firstFlightTitle.text = "First flight";
 
-            _firstFlightBody = CreateText("HintBody", _tutorialRoot.transform, body, 13, TextAnchor.UpperLeft, FontStyle.Normal);
+            _firstFlightBody = CreateText("HintBody", _tutorialRoot.transform, body, 14, TextAnchor.UpperLeft, FontStyle.Normal);
             Stretch(_firstFlightBody.rectTransform, new Vector2(0.07f, 0.2f), new Vector2(0.93f, 0.85f));
             _firstFlightBody.color = new Color(0.92f, 0.92f, 0.88f);
             _firstFlightBody.text = HangarHintBody;
@@ -1275,7 +1293,11 @@ namespace AsteroidsGoneRogue
             colors.normalColor = Color.white;
             colors.highlightedColor = new Color(1f, 0.92f, 0.72f, 0.85f);
             colors.pressedColor = new Color(0.95f, 0.7f, 0.28f, 0.9f);
+            colors.selectedColor = new Color(1f, 0.84f, 0.42f, 1f);
             button.colors = colors;
+            Navigation nav = button.navigation;
+            nav.mode = Navigation.Mode.Automatic;
+            button.navigation = nav;
             button.onClick.AddListener(onClick);
             Stretch(go.GetComponent<RectTransform>(), min, max);
             return image;
@@ -1578,6 +1600,11 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (_tutorialRoot != null && _tutorialRoot.activeSelf && GamepadInput.CancelPressed())
+            {
+                OnDismissHintClicked();
+            }
+
             if (_session != null && _session.Phase == GamePhase.Playing
                 && (GamepadInput.PausePressed() || Input.GetKeyDown(KeyCode.Escape)))
             {
@@ -1590,6 +1617,7 @@ namespace AsteroidsGoneRogue
                 OnPrimary();
             }
 
+            NavigateHangarPad();
             SyncHangarPadSelection();
             if (_session == null || _session.Phase != GamePhase.Playing)
             {
@@ -1610,8 +1638,14 @@ namespace AsteroidsGoneRogue
             {
                 _hud.text = BuildHud(true);
                 RefreshHealthBar();
+                if (_hint != null && Time.unscaledTime < _firstRunCoachUntil)
+                {
+                    _hint.text = Loc.T("ui.first_wave_coach", FirstWaveCoach);
+                }
             }
 
+            PulseHangarLaunch();
+            PulseAbortIfUrgent();
             ApplyHitFlash();
 
             if (_world == null)
@@ -1654,6 +1688,79 @@ namespace AsteroidsGoneRogue
                 _medalBeat = string.Empty;
                 Stretch(_world.rectTransform, new Vector2(0.62f, 0.86f), new Vector2(0.97f, 0.98f));
                 RefreshWorldBadge();
+            }
+        }
+
+        private void PulseHangarLaunch()
+        {
+            if (_primaryPlate == null || _session == null || _session.Phase == GamePhase.Playing)
+            {
+                return;
+            }
+
+            bool first = !_tutorialDismissed && _session.WaveIndex == 1 && _session.Phase == GamePhase.Hangar;
+            if (!first)
+            {
+                _primaryPlate.color = new Color(0.42f, 0.26f, 0.08f, 0.98f);
+                return;
+            }
+
+            float pulse = Mathf.PingPong(Time.unscaledTime * 2.4f, 1f);
+            _primaryPlate.color = Color.Lerp(
+                new Color(0.42f, 0.26f, 0.08f, 0.98f),
+                new Color(0.92f, 0.62f, 0.18f, 1f),
+                pulse);
+        }
+
+        private void PulseAbortIfUrgent()
+        {
+            if (_abortPlate == null || !_abortUrgent || _session == null || _session.Phase != GamePhase.Playing)
+            {
+                return;
+            }
+
+            float pulse = Mathf.PingPong(Time.unscaledTime * 4.2f, 1f);
+            _abortPlate.color = Color.Lerp(
+                new Color(0.32f, 0.16f, 0.08f, 0.96f),
+                new Color(0.95f, 0.55f, 0.18f, 1f),
+                pulse);
+        }
+
+        private void NavigateHangarPad()
+        {
+            if (_session == null || _session.Phase == GamePhase.Playing || _creditsVisible)
+            {
+                return;
+            }
+
+            EventSystem es = EventSystem.current;
+            if (es == null)
+            {
+                return;
+            }
+
+            GameObject current = es.currentSelectedGameObject;
+            if (current != null && current.activeInHierarchy)
+            {
+                return;
+            }
+
+            Vector2 stick = GamepadInput.UiNavStick();
+            if (stick.sqrMagnitude < 0.01f && !GamepadInput.ConfirmPressed())
+            {
+                Button idle = DefaultHangarButton();
+                if (idle != null)
+                {
+                    es.SetSelectedGameObject(idle.gameObject);
+                }
+
+                return;
+            }
+
+            Button pick = DefaultHangarButton();
+            if (pick != null)
+            {
+                es.SetSelectedGameObject(pick.gameObject);
             }
         }
 
@@ -1700,11 +1807,6 @@ namespace AsteroidsGoneRogue
             if (_creditsVisible && _creditsContinue != null)
             {
                 return _creditsContinue;
-            }
-
-            if (_tutorialRoot != null && _tutorialRoot.activeSelf && _gotItButton != null)
-            {
-                return _gotItButton;
             }
 
             return _primary;
@@ -1764,8 +1866,7 @@ namespace AsteroidsGoneRogue
             bool canApply = _loadout.State.CanApply(item.Id);
             bool locked = !owned && !canApply;
             bool tooPoor = !owned && canApply && _session.Credits < item.Cost;
-            bool canBuy = _session.ShopOpen && canApply && !tooPoor;
-            _buyButtons[index].interactable = canBuy;
+            _buyButtons[index].interactable = _session.ShopOpen;
 
             Image plate = _buyButtons[index].targetGraphic as Image;
             if (plate != null)
@@ -2266,6 +2367,9 @@ namespace AsteroidsGoneRogue
             slider.minValue = 0f;
             slider.maxValue = 1f;
             slider.value = value;
+            Navigation nav = slider.navigation;
+            nav.mode = Navigation.Mode.None;
+            slider.navigation = nav;
             slider.onValueChanged.AddListener(onChanged);
             return slider;
         }
