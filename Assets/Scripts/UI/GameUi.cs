@@ -93,11 +93,13 @@ namespace AsteroidsGoneRogue
         private Text _normalLabel;
         private Text _hardLabel;
         private Text _livesHud;
+        private GameObject _previewCanvas;
         private GameObject _previewRoot;
         private Text _previewCaption;
         private RawImage _previewViewport;
         private bool _creditsVisible;
         private float _creditsScroll;
+        private static Texture2D _previewPlaceholder;
 
         private static readonly Color UiAmber = new Color(0.831f, 0.627f, 0.29f, 1f);
         private static readonly Color UiBody = new Color(0.784f, 0.808f, 0.839f, 1f);
@@ -106,10 +108,11 @@ namespace AsteroidsGoneRogue
 
         public const float LanguageFlagScale = 0.48f;
         public static readonly Vector2 HangarPanelMin = new Vector2(0.014f, 0.035f);
-        public static readonly Vector2 HangarPanelMax = new Vector2(0.575f, 0.725f);
-        public static readonly Vector2 ShipPreviewMin = new Vector2(0.590f, 0.085f);
+        public static readonly Vector2 HangarPanelMax = new Vector2(0.55f, 0.725f);
+        public static readonly Vector2 ShipPreviewMin = new Vector2(0.562f, 0.080f);
         public static readonly Vector2 ShipPreviewMax = new Vector2(0.986f, 0.708f);
         public const int ShipPreviewSortOrder = 80;
+        public const string ShipPreviewCanvasName = "ShipPreviewCanvas";
         public const string FirstHangarHintKey = "agr.ui.firstHangarHint";
         public const string HangarControlsHint =
             "Abort (Esc / Start)  ·  Q / RMB / LB fire modes (discover Spread / Pierce when owned)  ·  A confirm";
@@ -155,13 +158,22 @@ namespace AsteroidsGoneRogue
             _loadout = loadout;
             _ship = ship;
             _waves = game.GetComponent<WaveManager>();
+            EnsureHangarPreview(ship);
+            Refresh();
+        }
+
+        public void EnsureHangarPreview(ShipController ship)
+        {
+            EnsureShipPreviewFrame();
             HangarShipPreview preview = ship != null ? ship.GetComponent<HangarShipPreview>() : null;
             if (preview != null)
             {
                 preview.BindViewport(_previewViewport);
+                bool hangar = _session == null || _session.Phase != GamePhase.Playing;
+                preview.SetActive(hangar);
             }
 
-            Refresh();
+            ForcePreviewChrome();
         }
 
         public void Refresh()
@@ -215,15 +227,8 @@ namespace AsteroidsGoneRogue
                 _diffPanel.SetActive(!playing);
             }
 
-            if (_previewRoot != null)
-            {
-                bool showPreview = !playing && !_creditsVisible;
-                _previewRoot.SetActive(showPreview);
-                if (showPreview)
-                {
-                    _previewRoot.transform.SetAsLastSibling();
-                }
-            }
+            EnsureShipPreviewFrame();
+            ForcePreviewChrome();
 
             ApplyLocalizedStaticLabels();
             RefreshLanguageChrome();
@@ -435,37 +440,176 @@ namespace AsteroidsGoneRogue
             RefreshDifficultyChrome();
         }
 
+        private void OnDestroy()
+        {
+            if (_previewCanvas != null)
+            {
+                Destroy(_previewCanvas);
+                _previewCanvas = null;
+            }
+
+            if (Instance == this)
+            {
+                Instance = null;
+            }
+        }
+
         private void BuildShipPreviewFrame(Font display)
         {
-            _previewRoot = CreatePanel("ShipPreviewFrame", transform, new Color(0.016f, 0.024f, 0.042f, 1f),
-                ShipPreviewMin, ShipPreviewMax);
-            Canvas overlay = _previewRoot.AddComponent<Canvas>();
-            overlay.overrideSorting = true;
-            overlay.sortingOrder = ShipPreviewSortOrder;
-            CreateFill("PreviewHeader", _previewRoot.transform, new Color(0.831f, 0.627f, 0.29f, 0.42f),
-                new Vector2(0f, 0.922f), new Vector2(1f, 1f));
-            CreateFill("PreviewRule", _previewRoot.transform, new Color(0.831f, 0.627f, 0.29f, 1f),
-                new Vector2(0.05f, 0.914f), new Vector2(0.95f, 0.922f));
-            CreateFill("PreviewOuterBezel", _previewRoot.transform, new Color(0.831f, 0.627f, 0.29f, 1f),
-                new Vector2(0.012f, 0.012f), new Vector2(0.988f, 0.908f));
+            EnsureShipPreviewFrame(display);
+        }
 
-            _previewCaption = CreateText("PreviewCaption", _previewRoot.transform, display, 16, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Stretch(_previewCaption.rectTransform, new Vector2(0.06f, 0.922f), new Vector2(0.94f, 0.992f));
-            _previewCaption.color = UiAmber;
-            _previewCaption.text = "LOADOUT";
-            AddReadability(_previewCaption, true);
+        private void EnsureShipPreviewFrame()
+        {
+            EnsureShipPreviewFrame(UiFonts.Display());
+        }
 
-            GameObject well = CreateFill("PreviewWell", _previewRoot.transform, new Color(0.022f, 0.032f, 0.05f, 1f),
-                new Vector2(0.038f, 0.036f), new Vector2(0.962f, 0.888f));
+        private void EnsureShipPreviewFrame(Font display)
+        {
+            if (display == null)
+            {
+                display = UiFonts.Display();
+            }
 
-            GameObject view = new GameObject("PreviewViewport", typeof(RectTransform));
-            view.transform.SetParent(well.transform, false);
-            RawImage raw = view.AddComponent<RawImage>();
-            raw.color = Color.white;
-            raw.raycastTarget = false;
-            Stretch(view.GetComponent<RectTransform>(), Vector2.zero, Vector2.one);
-            _previewViewport = raw;
+            if (_previewCanvas == null)
+            {
+                GameObject canvasGo = new GameObject(ShipPreviewCanvasName);
+                Canvas canvas = canvasGo.AddComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                canvas.pixelPerfect = false;
+                canvas.overrideSorting = true;
+                canvas.sortingOrder = ShipPreviewSortOrder;
+                CanvasScaler scaler = canvasGo.AddComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920f, 1080f);
+                scaler.matchWidthOrHeight = 0.5f;
+                canvasGo.AddComponent<GraphicRaycaster>();
+                _previewCanvas = canvasGo;
+            }
+
+            Canvas overlay = _previewCanvas.GetComponent<Canvas>();
+            if (overlay != null)
+            {
+                overlay.renderMode = RenderMode.ScreenSpaceOverlay;
+                overlay.overrideSorting = true;
+                overlay.sortingOrder = ShipPreviewSortOrder;
+                overlay.enabled = true;
+            }
+
+            if (_previewRoot == null)
+            {
+                _previewRoot = CreatePanel("ShipPreviewFrame", _previewCanvas.transform, UiAmber,
+                    ShipPreviewMin, ShipPreviewMax);
+                CreateFill("PreviewHeader", _previewRoot.transform, new Color(0.831f, 0.627f, 0.29f, 0.55f),
+                    new Vector2(0f, 0.922f), new Vector2(1f, 1f));
+                CreateFill("PreviewRule", _previewRoot.transform, new Color(1f, 0.82f, 0.38f, 1f),
+                    new Vector2(0.05f, 0.914f), new Vector2(0.95f, 0.922f));
+                CreateFill("PreviewOuterBezel", _previewRoot.transform, new Color(0.831f, 0.627f, 0.29f, 1f),
+                    new Vector2(0f, 0f), new Vector2(1f, 0.908f));
+                CreateFill("PreviewInnerBezel", _previewRoot.transform, new Color(0.04f, 0.05f, 0.07f, 1f),
+                    new Vector2(0.028f, 0.028f), new Vector2(0.972f, 0.880f));
+                CreateFill("PreviewInnerAmber", _previewRoot.transform, new Color(0.831f, 0.627f, 0.29f, 1f),
+                    new Vector2(0.036f, 0.036f), new Vector2(0.964f, 0.872f));
+
+                _previewCaption = CreateText("PreviewCaption", _previewRoot.transform, display, 16, TextAnchor.MiddleCenter, FontStyle.Bold);
+                Stretch(_previewCaption.rectTransform, new Vector2(0.06f, 0.922f), new Vector2(0.94f, 0.992f));
+                _previewCaption.color = UiAmber;
+                _previewCaption.text = "LOADOUT";
+                AddReadability(_previewCaption, true);
+
+                GameObject well = CreateFill("PreviewWell", _previewRoot.transform, new Color(0.022f, 0.032f, 0.05f, 1f),
+                    new Vector2(0.048f, 0.048f), new Vector2(0.952f, 0.860f));
+
+                GameObject view = new GameObject("PreviewViewport", typeof(RectTransform));
+                view.transform.SetParent(well.transform, false);
+                RawImage raw = view.AddComponent<RawImage>();
+                raw.color = new Color(0.05f, 0.07f, 0.1f, 1f);
+                raw.texture = PreviewPlaceholder();
+                raw.raycastTarget = false;
+                raw.enabled = true;
+                Stretch(view.GetComponent<RectTransform>(), Vector2.zero, Vector2.one);
+                _previewViewport = raw;
+            }
+
+            Stretch(_previewRoot.GetComponent<RectTransform>(), ShipPreviewMin, ShipPreviewMax);
             _previewRoot.transform.SetAsLastSibling();
+            ForcePreviewChrome();
+        }
+
+        private void ForcePreviewChrome()
+        {
+            bool show = _session == null || (_session.Phase != GamePhase.Playing && !_creditsVisible);
+            if (_previewCanvas != null)
+            {
+                _previewCanvas.SetActive(show);
+                Canvas overlay = _previewCanvas.GetComponent<Canvas>();
+                if (overlay != null)
+                {
+                    overlay.enabled = show;
+                    overlay.overrideSorting = true;
+                    overlay.sortingOrder = ShipPreviewSortOrder;
+                    overlay.renderMode = RenderMode.ScreenSpaceOverlay;
+                }
+            }
+
+            if (_previewRoot != null)
+            {
+                _previewRoot.SetActive(show);
+                _previewRoot.transform.SetAsLastSibling();
+                Stretch(_previewRoot.GetComponent<RectTransform>(), ShipPreviewMin, ShipPreviewMax);
+                Image plate = _previewRoot.GetComponent<Image>();
+                if (plate != null)
+                {
+                    plate.enabled = true;
+                    plate.color = UiAmber;
+                    plate.raycastTarget = false;
+                }
+            }
+
+            if (_previewViewport != null)
+            {
+                _previewViewport.enabled = true;
+                _previewViewport.raycastTarget = false;
+                if (!_previewViewport.gameObject.activeSelf)
+                {
+                    _previewViewport.gameObject.SetActive(true);
+                }
+
+                if (_previewViewport.texture == null)
+                {
+                    _previewViewport.texture = PreviewPlaceholder();
+                    _previewViewport.color = new Color(0.05f, 0.07f, 0.1f, 1f);
+                }
+                else
+                {
+                    _previewViewport.color = Color.white;
+                }
+            }
+        }
+
+        private static Texture2D PreviewPlaceholder()
+        {
+            if (_previewPlaceholder != null)
+            {
+                return _previewPlaceholder;
+            }
+
+            Texture2D tex = new Texture2D(8, 8, TextureFormat.ARGB32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Point;
+            Color fill = new Color(0.05f, 0.07f, 0.1f, 1f);
+            for (int y = 0; y < 8; y++)
+            {
+                for (int x = 0; x < 8; x++)
+                {
+                    tex.SetPixel(x, y, fill);
+                }
+            }
+
+            tex.Apply();
+            tex.name = "HangarPreviewPlaceholder";
+            _previewPlaceholder = tex;
+            return _previewPlaceholder;
         }
 
         private void BuildShop(Font display, Font body)
@@ -916,10 +1060,7 @@ namespace AsteroidsGoneRogue
 
             _endCreditsRoot.SetActive(true);
             _endCreditsRoot.transform.SetAsLastSibling();
-            if (_previewRoot != null)
-            {
-                _previewRoot.SetActive(false);
-            }
+            ForcePreviewChrome();
 
             if (_creditsButton != null)
             {
@@ -947,11 +1088,7 @@ namespace AsteroidsGoneRogue
                 _endCreditsRoot.SetActive(false);
             }
 
-            if (_previewRoot != null && _session != null && _session.Phase != GamePhase.Playing)
-            {
-                _previewRoot.SetActive(true);
-                _previewRoot.transform.SetAsLastSibling();
-            }
+            ForcePreviewChrome();
 
             if (_creditsButton != null && _session != null && _session.Phase != GamePhase.Playing)
             {
@@ -1454,6 +1591,14 @@ namespace AsteroidsGoneRogue
             }
 
             SyncHangarPadSelection();
+            if (_session == null || _session.Phase != GamePhase.Playing)
+            {
+                EnsureHangarPreview(_ship);
+            }
+            else
+            {
+                ForcePreviewChrome();
+            }
 
             if (_creditsVisible && _endCreditsBody != null)
             {

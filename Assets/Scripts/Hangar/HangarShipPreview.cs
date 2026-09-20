@@ -7,8 +7,10 @@ namespace AsteroidsGoneRogue
     /// Hangar bay: playable ship idle-spins at hero / showcase scale inside a
     /// dedicated RenderTexture viewport (framed on the right of the hangar UI).
     /// Studio is parked behind the hangar camera so a world-space ship can never
-    /// leak through the shop list even if a layer cull is missed.
+    /// leak through the shop list even if a layer cull is missed. Default-layer
+    /// mesh renderers are disabled while shopping so the main camera is empty.
     /// </summary>
+    [DefaultExecutionOrder(10000)]
     public sealed class HangarShipPreview : MonoBehaviour
     {
         public const float IdleSpinDegrees = 18f;
@@ -61,6 +63,7 @@ namespace AsteroidsGoneRogue
 
             _layersPreview = false;
             ApplyPreviewLayer(true);
+            HideDefaultRenderers(true);
             AssignViewport();
         }
 
@@ -75,18 +78,24 @@ namespace AsteroidsGoneRogue
 
             EnsureRig();
             ApplyPreviewLayer(active);
+            HideDefaultRenderers(active);
             ApplyWorldCull(active);
             PoseForMode(active);
             if (_studio != null)
             {
-                _studio.enabled = false;
                 _studio.targetTexture = _rt;
+                _studio.enabled = active;
+                _studio.stereoTargetEye = StereoTargetEyeMask.None;
             }
 
             SetLightActive(_key, active);
             SetLightActive(_fill, active);
             SetLightActive(_rim, active);
             AssignViewport();
+            if (active)
+            {
+                RenderStudio();
+            }
         }
 
         private void Update()
@@ -99,23 +108,30 @@ namespace AsteroidsGoneRogue
             _slots.Rotate(0f, IdleSpinDegrees * Time.unscaledDeltaTime, 0f, Space.Self);
             ApplyPreviewScale(true);
             PoseForMode(true);
+            ApplyPreviewLayer(true);
+            HideDefaultRenderers(true);
+            AssignViewport();
         }
 
         private void LateUpdate()
         {
-            if (!_active || _studio == null || _rt == null)
+            if (!_active)
             {
                 return;
             }
 
+            PoseForMode(true);
+            ApplyPreviewLayer(true);
+            HideDefaultRenderers(true);
+            ApplyWorldCull(true);
             AssignViewport();
-            _studio.targetTexture = _rt;
-            _studio.Render();
+            RenderStudio();
         }
 
         private void OnDestroy()
         {
             ApplyPreviewLayer(false);
+            HideDefaultRenderers(false);
             ApplyWorldCull(false);
             if (_viewport != null)
             {
@@ -167,6 +183,7 @@ namespace AsteroidsGoneRogue
                     _body.isKinematic = true;
                 }
 
+                _body.interpolation = RigidbodyInterpolation.None;
                 _body.linearVelocity = Vector3.zero;
                 _body.angularVelocity = Vector3.zero;
                 _body.position = pos;
@@ -193,6 +210,7 @@ namespace AsteroidsGoneRogue
                 _rt.antiAliasing = 1;
                 _rt.useMipMap = false;
                 _rt.Create();
+                ClearStudioTarget();
             }
 
             if (_studio == null)
@@ -227,6 +245,32 @@ namespace AsteroidsGoneRogue
             AssignViewport();
         }
 
+        private void ClearStudioTarget()
+        {
+            if (_rt == null)
+            {
+                return;
+            }
+
+            RenderTexture prev = RenderTexture.active;
+            RenderTexture.active = _rt;
+            GL.Clear(true, true, StudioClear);
+            RenderTexture.active = prev;
+        }
+
+        private void RenderStudio()
+        {
+            if (_studio == null || _rt == null)
+            {
+                return;
+            }
+
+            _studio.targetTexture = _rt;
+            _studio.cullingMask = 1 << PreviewLayer;
+            _studio.stereoTargetEye = StereoTargetEyeMask.None;
+            _studio.Render();
+        }
+
         private void AssignViewport()
         {
             if (_viewport == null || _rt == null)
@@ -242,6 +286,10 @@ namespace AsteroidsGoneRogue
             _viewport.color = Color.white;
             _viewport.raycastTarget = false;
             _viewport.enabled = true;
+            if (!_viewport.gameObject.activeSelf)
+            {
+                _viewport.gameObject.SetActive(true);
+            }
         }
 
         private Light CreateStudioLight(string name, Vector3 local, Color color, float intensity)
@@ -274,32 +322,26 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (_studio != null && node == _studio.transform)
+            if (_studio != null && (node == _studio.transform || node.IsChildOf(_studio.transform)))
             {
                 return true;
             }
 
-            if (_key != null && node == _key.transform)
+            if (_key != null && (node == _key.transform || node.IsChildOf(_key.transform)))
             {
                 return true;
             }
 
-            if (_fill != null && node == _fill.transform)
+            if (_fill != null && (node == _fill.transform || node.IsChildOf(_fill.transform)))
             {
                 return true;
             }
 
-            return _rim != null && node == _rim.transform;
+            return _rim != null && (node == _rim.transform || node.IsChildOf(_rim.transform));
         }
 
         private void ApplyPreviewLayer(bool preview)
         {
-            if (preview == _layersPreview)
-            {
-                return;
-            }
-
-            _layersPreview = preview;
             int layer = preview ? PreviewLayer : 0;
             Transform[] nodes = GetComponentsInChildren<Transform>(true);
             for (int i = 0; i < nodes.Length; i++)
@@ -312,34 +354,73 @@ namespace AsteroidsGoneRogue
 
                 node.gameObject.layer = layer;
             }
+
+            _layersPreview = preview;
+        }
+
+        private void HideDefaultRenderers(bool hangar)
+        {
+            Renderer[] renderers = GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null || IsStudioNode(renderer.transform))
+                {
+                    continue;
+                }
+
+                if (hangar && renderer.gameObject.layer != PreviewLayer)
+                {
+                    renderer.enabled = false;
+                    continue;
+                }
+
+                renderer.enabled = true;
+            }
         }
 
         private void ApplyWorldCull(bool hangar)
         {
             Camera[] cameras = Camera.allCameras;
+            bool sawMain = false;
             for (int i = 0; i < cameras.Length; i++)
             {
                 Camera world = cameras[i];
-                if (world == null || world == _studio)
+                if (world == Camera.main)
                 {
-                    continue;
+                    sawMain = true;
                 }
 
-                if (hangar)
-                {
-                    if (_savedCull < 0)
-                    {
-                        _savedCull = world.cullingMask;
-                    }
+                CullWorldCamera(world, hangar);
+            }
 
-                    world.cullingMask = _savedCull & ~(1 << PreviewLayer);
-                    continue;
+            if (!sawMain)
+            {
+                CullWorldCamera(Camera.main, hangar);
+            }
+        }
+
+        private void CullWorldCamera(Camera world, bool hangar)
+        {
+            if (world == null || world == _studio)
+            {
+                return;
+            }
+
+            if (hangar)
+            {
+                if (_savedCull < 0)
+                {
+                    _savedCull = world.cullingMask;
                 }
 
-                if (_savedCull >= 0)
-                {
-                    world.cullingMask = _savedCull;
-                }
+                world.cullingMask = _savedCull & ~(1 << PreviewLayer);
+                return;
+            }
+
+            if (_savedCull >= 0)
+            {
+                world.cullingMask = _savedCull;
             }
         }
     }

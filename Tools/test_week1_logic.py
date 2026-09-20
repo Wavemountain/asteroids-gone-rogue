@@ -2564,19 +2564,32 @@ def test_difficulty_economy_043() -> None:
     assert "NotifyVisualsChanged" in preview
     assert "stereoTargetEye" in preview
     assert "Camera.allCameras" in preview
+    assert "HideDefaultRenderers" in preview
+    assert "renderer.enabled = false" in preview
+    assert "GL.Clear" in preview
+    assert "[DefaultExecutionOrder(10000)]" in preview
     assert "ShipPreviewFrame" in ui
     assert "PreviewViewport" in ui
     assert "PreviewOuterBezel" in ui
     assert "BuildShipPreviewFrame" in ui
+    assert "EnsureShipPreviewFrame" in ui
+    assert "EnsureHangarPreview" in ui
+    assert "ForcePreviewChrome" in ui
+    assert "ShipPreviewCanvasName" in ui
+    assert "GraphicRaycaster" in ui
     assert "HangarPanelMin" in ui and "ShipPreviewMin" in ui
-    assert "0.014f, 0.035f" in ui and "0.575f, 0.725f" in ui
-    assert "0.590f, 0.085f" in ui and "0.986f, 0.708f" in ui
+    assert "0.014f, 0.035f" in ui and "0.55f, 0.725f" in ui
+    assert "0.562f, 0.080f" in ui and "0.986f, 0.708f" in ui
+    assert "0.575f, 0.725f" not in ui
+    assert "0.590f, 0.085f" not in ui
     assert "0.658f, 0.725f" not in ui
     assert "0.672f, 0.09f" not in ui
     assert "overrideSorting" in ui
     assert "ShipPreviewSortOrder = 80" in ui
     assert "typeof(RectTransform)" in ui
     assert "RawImage" in ui and "BindViewport(_previewViewport)" in ui
+    assert "ui.EnsureHangarPreview(ship)" in bootstrap
+    assert "EnsureHangarPreview(_ship)" in manager
     assert "ui.ship_preview" in loc
     tags = (root / "ProjectSettings/TagManager.asset").read_text(encoding="utf-8")
     assert "HangarPreview" in tags
