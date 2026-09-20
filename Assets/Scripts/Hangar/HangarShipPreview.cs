@@ -6,12 +6,15 @@ namespace AsteroidsGoneRogue
     /// <summary>
     /// Hangar bay: playable ship idle-spins at hero / showcase scale inside a
     /// dedicated RenderTexture viewport (framed on the right of the hangar UI).
+    /// Studio is parked behind the hangar camera so a world-space ship can never
+    /// leak through the shop list even if a layer cull is missed.
     /// </summary>
     public sealed class HangarShipPreview : MonoBehaviour
     {
         public const float IdleSpinDegrees = 18f;
         public const float PreviewX = 6.35f;
         public const float PreviewZ = 0.4f;
+        public const float StudioZ = -140f;
         public const float ShowcaseScale = 2.25f;
         public const float PlayScale = 1f;
         public const int PreviewLayer = 8;
@@ -26,6 +29,7 @@ namespace AsteroidsGoneRogue
         private Transform _slots;
         private bool _active;
         private Rigidbody _body;
+        private bool _savedKinematic;
         private Camera _studio;
         private RenderTexture _rt;
         private RawImage _viewport;
@@ -45,12 +49,19 @@ namespace AsteroidsGoneRogue
         {
             _viewport = viewport;
             EnsureRig();
-            if (_viewport != null)
+            AssignViewport();
+        }
+
+        public void NotifyVisualsChanged()
+        {
+            if (!_active)
             {
-                _viewport.texture = _rt;
-                _viewport.color = Color.white;
-                _viewport.raycastTarget = false;
+                return;
             }
+
+            _layersPreview = false;
+            ApplyPreviewLayer(true);
+            AssignViewport();
         }
 
         public void SetActive(bool active)
@@ -62,28 +73,20 @@ namespace AsteroidsGoneRogue
                 _slots.localRotation = Quaternion.identity;
             }
 
-            if (active)
-            {
-                Vector3 pos = new Vector3(PreviewX, ShipController.PlayHeight, PreviewZ);
-                transform.SetPositionAndRotation(pos, Quaternion.identity);
-                if (_body != null)
-                {
-                    _body.linearVelocity = Vector3.zero;
-                    _body.angularVelocity = Vector3.zero;
-                }
-            }
-
             EnsureRig();
             ApplyPreviewLayer(active);
             ApplyWorldCull(active);
+            PoseForMode(active);
             if (_studio != null)
             {
-                _studio.enabled = active;
+                _studio.enabled = false;
+                _studio.targetTexture = _rt;
             }
 
             SetLightActive(_key, active);
             SetLightActive(_fill, active);
             SetLightActive(_rim, active);
+            AssignViewport();
         }
 
         private void Update()
@@ -95,11 +98,19 @@ namespace AsteroidsGoneRogue
 
             _slots.Rotate(0f, IdleSpinDegrees * Time.unscaledDeltaTime, 0f, Space.Self);
             ApplyPreviewScale(true);
-            Vector3 pos = new Vector3(PreviewX, ShipController.PlayHeight, PreviewZ);
-            if ((transform.position - pos).sqrMagnitude > 0.0004f)
+            PoseForMode(true);
+        }
+
+        private void LateUpdate()
+        {
+            if (!_active || _studio == null || _rt == null)
             {
-                transform.position = pos;
+                return;
             }
+
+            AssignViewport();
+            _studio.targetTexture = _rt;
+            _studio.Render();
         }
 
         private void OnDestroy()
@@ -134,13 +145,53 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        private Vector3 StudioWorld()
+        {
+            return new Vector3(PreviewX, ShipController.PlayHeight, StudioZ);
+        }
+
+        private void PoseForMode(bool hangar)
+        {
+            if (!hangar)
+            {
+                RestoreBodyKinematic();
+                return;
+            }
+
+            Vector3 pos = StudioWorld();
+            if (_body != null)
+            {
+                if (!_body.isKinematic)
+                {
+                    _savedKinematic = _body.isKinematic;
+                    _body.isKinematic = true;
+                }
+
+                _body.linearVelocity = Vector3.zero;
+                _body.angularVelocity = Vector3.zero;
+                _body.position = pos;
+                _body.rotation = Quaternion.identity;
+            }
+
+            transform.SetPositionAndRotation(pos, Quaternion.identity);
+        }
+
+        private void RestoreBodyKinematic()
+        {
+            if (_body != null)
+            {
+                _body.isKinematic = _savedKinematic;
+            }
+        }
+
         private void EnsureRig()
         {
             if (_rt == null)
             {
-                _rt = new RenderTexture(ViewportWidth, ViewportHeight, 16);
+                _rt = new RenderTexture(ViewportWidth, ViewportHeight, 16, RenderTextureFormat.ARGB32);
                 _rt.name = "HangarShipPreviewRT";
-                _rt.antiAliasing = 4;
+                _rt.antiAliasing = 1;
+                _rt.useMipMap = false;
                 _rt.Create();
             }
 
@@ -157,13 +208,15 @@ namespace AsteroidsGoneRogue
                 _studio.nearClipPlane = 0.2f;
                 _studio.farClipPlane = 18f;
                 _studio.cullingMask = 1 << PreviewLayer;
-                _studio.depth = -20f;
+                _studio.depth = 20f;
                 _studio.allowHDR = false;
-                _studio.allowMSAA = true;
+                _studio.allowMSAA = false;
+                _studio.stereoTargetEye = StereoTargetEyeMask.None;
                 _studio.enabled = false;
             }
 
             _studio.targetTexture = _rt;
+            _studio.stereoTargetEye = StereoTargetEyeMask.None;
             if (_key == null)
             {
                 _key = CreateStudioLight("HangarPreviewKey", new Vector3(1.7f, 2.1f, -1.35f), new Color(1f, 0.82f, 0.52f), 1.4f);
@@ -171,10 +224,24 @@ namespace AsteroidsGoneRogue
                 _rim = CreateStudioLight("HangarPreviewRim", new Vector3(0.15f, 1.35f, 2.15f), new Color(1f, 0.78f, 0.4f), 0.95f);
             }
 
-            if (_viewport != null && _viewport.texture != _rt)
+            AssignViewport();
+        }
+
+        private void AssignViewport()
+        {
+            if (_viewport == null || _rt == null)
+            {
+                return;
+            }
+
+            if (_viewport.texture != _rt)
             {
                 _viewport.texture = _rt;
             }
+
+            _viewport.color = Color.white;
+            _viewport.raycastTarget = false;
+            _viewport.enabled = true;
         }
 
         private Light CreateStudioLight(string name, Vector3 local, Color color, float intensity)
@@ -200,6 +267,31 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        private bool IsStudioNode(Transform node)
+        {
+            if (node == null)
+            {
+                return false;
+            }
+
+            if (_studio != null && node == _studio.transform)
+            {
+                return true;
+            }
+
+            if (_key != null && node == _key.transform)
+            {
+                return true;
+            }
+
+            if (_fill != null && node == _fill.transform)
+            {
+                return true;
+            }
+
+            return _rim != null && node == _rim.transform;
+        }
+
         private void ApplyPreviewLayer(bool preview)
         {
             if (preview == _layersPreview)
@@ -213,7 +305,7 @@ namespace AsteroidsGoneRogue
             for (int i = 0; i < nodes.Length; i++)
             {
                 Transform node = nodes[i];
-                if (node == null || node.GetComponent<Camera>() != null || node.GetComponent<Light>() != null)
+                if (node == null || IsStudioNode(node))
                 {
                     continue;
                 }
@@ -224,26 +316,30 @@ namespace AsteroidsGoneRogue
 
         private void ApplyWorldCull(bool hangar)
         {
-            Camera world = Camera.main;
-            if (world == null)
+            Camera[] cameras = Camera.allCameras;
+            for (int i = 0; i < cameras.Length; i++)
             {
-                return;
-            }
-
-            if (hangar)
-            {
-                if (_savedCull < 0)
+                Camera world = cameras[i];
+                if (world == null || world == _studio)
                 {
-                    _savedCull = world.cullingMask;
+                    continue;
                 }
 
-                world.cullingMask = _savedCull & ~(1 << PreviewLayer);
-                return;
-            }
+                if (hangar)
+                {
+                    if (_savedCull < 0)
+                    {
+                        _savedCull = world.cullingMask;
+                    }
 
-            if (_savedCull >= 0)
-            {
-                world.cullingMask = _savedCull;
+                    world.cullingMask = _savedCull & ~(1 << PreviewLayer);
+                    continue;
+                }
+
+                if (_savedCull >= 0)
+                {
+                    world.cullingMask = _savedCull;
+                }
             }
         }
     }

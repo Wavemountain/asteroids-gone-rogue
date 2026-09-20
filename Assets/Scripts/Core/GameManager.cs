@@ -92,6 +92,10 @@ namespace AsteroidsGoneRogue
 
             LoadoutState preview = _loadout.State.WithPreview(id);
             _factory.ApplyLoadoutVisuals(_ship, preview, _loadout.State);
+            if (_hangarPreview != null)
+            {
+                _hangarPreview.NotifyVisualsChanged();
+            }
         }
 
         public void ClearUpgradePreview()
@@ -102,6 +106,10 @@ namespace AsteroidsGoneRogue
             }
 
             _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
+            if (_hangarPreview != null)
+            {
+                _hangarPreview.NotifyVisualsChanged();
+            }
         }
 
         public bool TryGrantExtraLife()
@@ -350,6 +358,11 @@ namespace AsteroidsGoneRogue
                 if (_session.Phase != GamePhase.Playing)
                 {
                     _ship.ResetForWave(_loadout.State);
+                }
+
+                if (_hangarPreview != null)
+                {
+                    _hangarPreview.NotifyVisualsChanged();
                 }
             }
 

@@ -2552,6 +2552,7 @@ def test_difficulty_economy_043() -> None:
     inputs = (root / "ProjectSettings/InputManager.asset").read_text(encoding="utf-8")
     assert "IdleSpinDegrees = 18f" in preview
     assert "PreviewX = 6.35f" in preview
+    assert "StudioZ = -140f" in preview
     assert "ShowcaseScale = 2.25f" in preview
     assert "PlayScale = 1f" in preview
     assert "ApplyPreviewScale" in preview
@@ -2559,10 +2560,22 @@ def test_difficulty_economy_043() -> None:
     assert "BindViewport" in preview
     assert "RenderTexture" in preview
     assert "HangarPreviewCamera" in preview
+    assert "IsStudioNode" in preview
+    assert "NotifyVisualsChanged" in preview
+    assert "stereoTargetEye" in preview
+    assert "Camera.allCameras" in preview
     assert "ShipPreviewFrame" in ui
     assert "PreviewViewport" in ui
+    assert "PreviewOuterBezel" in ui
     assert "BuildShipPreviewFrame" in ui
-    assert "0.672f, 0.09f" in ui and "0.985f, 0.705f" in ui
+    assert "HangarPanelMin" in ui and "ShipPreviewMin" in ui
+    assert "0.014f, 0.035f" in ui and "0.575f, 0.725f" in ui
+    assert "0.590f, 0.085f" in ui and "0.986f, 0.708f" in ui
+    assert "0.658f, 0.725f" not in ui
+    assert "0.672f, 0.09f" not in ui
+    assert "overrideSorting" in ui
+    assert "ShipPreviewSortOrder = 80" in ui
+    assert "typeof(RectTransform)" in ui
     assert "RawImage" in ui and "BindViewport(_previewViewport)" in ui
     assert "ui.ship_preview" in loc
     tags = (root / "ProjectSettings/TagManager.asset").read_text(encoding="utf-8")
@@ -2572,7 +2585,10 @@ def test_difficulty_economy_043() -> None:
     assert "WithPreview" in loadout
     assert "PreviewUpgrade" in manager and "PreviewUpgrade" in ui
     assert "ClearUpgradePreview" in manager
-    assert "0.018f, 0.035f" in ui and "0.658f, 0.725f" in ui
+    assert "NotifyVisualsChanged" in manager
+    layer = preview.split("private void ApplyPreviewLayer")[1].split("private void ApplyWorldCull")[0]
+    assert "GetComponent<Light>()" not in layer
+    assert "IsStudioNode(node)" in layer
     assert "SetHangarFraming" in follow and "SetHangarFraming" in manager
     assert "UnityEngine.Object.FindAnyObjectByType<FollowCamera>" in manager
     assert manager.count("UnityEngine.Object.FindAnyObjectByType<FollowCamera>") == 2

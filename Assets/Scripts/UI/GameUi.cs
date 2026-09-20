@@ -105,6 +105,11 @@ namespace AsteroidsGoneRogue
         private static readonly Color UiShield = new Color(0.373f, 0.627f, 0.722f, 1f);
 
         public const float LanguageFlagScale = 0.48f;
+        public static readonly Vector2 HangarPanelMin = new Vector2(0.014f, 0.035f);
+        public static readonly Vector2 HangarPanelMax = new Vector2(0.575f, 0.725f);
+        public static readonly Vector2 ShipPreviewMin = new Vector2(0.590f, 0.085f);
+        public static readonly Vector2 ShipPreviewMax = new Vector2(0.986f, 0.708f);
+        public const int ShipPreviewSortOrder = 80;
         public const string FirstHangarHintKey = "agr.ui.firstHangarHint";
         public const string HangarControlsHint =
             "Abort (Esc / Start)  ·  Q / RMB / LB fire modes (discover Spread / Pierce when owned)  ·  A confirm";
@@ -212,7 +217,12 @@ namespace AsteroidsGoneRogue
 
             if (_previewRoot != null)
             {
-                _previewRoot.SetActive(!playing && !_creditsVisible);
+                bool showPreview = !playing && !_creditsVisible;
+                _previewRoot.SetActive(showPreview);
+                if (showPreview)
+                {
+                    _previewRoot.transform.SetAsLastSibling();
+                }
             }
 
             ApplyLocalizedStaticLabels();
@@ -372,8 +382,8 @@ namespace AsteroidsGoneRogue
             _hint.text = "WASD / LS move  ·  Mouse / RS aim  ·  LMB / Space / RT fire";
             AddReadability(_hint, false);
 
-            _menuRoot = CreatePanel("HangarPanel", transform, new Color(0.025f, 0.038f, 0.06f, 0.94f),
-                new Vector2(0.018f, 0.035f), new Vector2(0.658f, 0.725f));
+            _menuRoot = CreatePanel("HangarPanel", transform, new Color(0.025f, 0.038f, 0.06f, 0.96f),
+                HangarPanelMin, HangarPanelMax);
             CreateFill("HangarHeader", _menuRoot.transform, new Color(1f, 0.58f, 0.16f, 0.28f),
                 new Vector2(0f, 0.962f), new Vector2(1f, 1f));
             CreateFill("HangarRule", _menuRoot.transform, new Color(1f, 0.78f, 0.34f, 0.88f),
@@ -414,12 +424,12 @@ namespace AsteroidsGoneRogue
             _creditsButton.onClick.AddListener(ShowEndCredits);
 
             BuildShop(display, body);
-            BuildShipPreviewFrame(display);
             BuildAudioControls(body);
             BuildLanguagePicker(display, body);
             BuildDifficultyPicker(display, body);
             BuildFirstHangarHint(display, body);
             BuildEndCredits(display, body);
+            BuildShipPreviewFrame(display);
             ApplyLocalizedStaticLabels();
             RefreshLanguageChrome();
             RefreshDifficultyChrome();
@@ -427,14 +437,17 @@ namespace AsteroidsGoneRogue
 
         private void BuildShipPreviewFrame(Font display)
         {
-            _previewRoot = CreatePanel("ShipPreviewFrame", transform, new Color(0.016f, 0.024f, 0.042f, 0.98f),
-                new Vector2(0.672f, 0.09f), new Vector2(0.985f, 0.705f));
-            CreateFill("PreviewHeader", _previewRoot.transform, new Color(0.831f, 0.627f, 0.29f, 0.26f),
+            _previewRoot = CreatePanel("ShipPreviewFrame", transform, new Color(0.016f, 0.024f, 0.042f, 1f),
+                ShipPreviewMin, ShipPreviewMax);
+            Canvas overlay = _previewRoot.AddComponent<Canvas>();
+            overlay.overrideSorting = true;
+            overlay.sortingOrder = ShipPreviewSortOrder;
+            CreateFill("PreviewHeader", _previewRoot.transform, new Color(0.831f, 0.627f, 0.29f, 0.42f),
                 new Vector2(0f, 0.922f), new Vector2(1f, 1f));
-            CreateFill("PreviewRule", _previewRoot.transform, new Color(0.831f, 0.627f, 0.29f, 0.92f),
-                new Vector2(0.06f, 0.914f), new Vector2(0.94f, 0.922f));
-            CreateFill("PreviewInner", _previewRoot.transform, new Color(0.04f, 0.06f, 0.09f, 0.4f),
-                new Vector2(0.018f, 0.018f), new Vector2(0.982f, 0.908f));
+            CreateFill("PreviewRule", _previewRoot.transform, new Color(0.831f, 0.627f, 0.29f, 1f),
+                new Vector2(0.05f, 0.914f), new Vector2(0.95f, 0.922f));
+            CreateFill("PreviewOuterBezel", _previewRoot.transform, new Color(0.831f, 0.627f, 0.29f, 1f),
+                new Vector2(0.012f, 0.012f), new Vector2(0.988f, 0.908f));
 
             _previewCaption = CreateText("PreviewCaption", _previewRoot.transform, display, 16, TextAnchor.MiddleCenter, FontStyle.Bold);
             Stretch(_previewCaption.rectTransform, new Vector2(0.06f, 0.922f), new Vector2(0.94f, 0.992f));
@@ -442,18 +455,17 @@ namespace AsteroidsGoneRogue
             _previewCaption.text = "LOADOUT";
             AddReadability(_previewCaption, true);
 
-            GameObject bezel = CreateFill("PreviewBezel", _previewRoot.transform, new Color(0.831f, 0.627f, 0.29f, 0.7f),
+            GameObject well = CreateFill("PreviewWell", _previewRoot.transform, new Color(0.022f, 0.032f, 0.05f, 1f),
                 new Vector2(0.038f, 0.036f), new Vector2(0.962f, 0.888f));
-            GameObject well = CreateFill("PreviewWell", bezel.transform, new Color(0.022f, 0.032f, 0.05f, 1f),
-                new Vector2(0.016f, 0.014f), new Vector2(0.984f, 0.986f));
 
-            GameObject view = new GameObject("PreviewViewport");
+            GameObject view = new GameObject("PreviewViewport", typeof(RectTransform));
             view.transform.SetParent(well.transform, false);
             RawImage raw = view.AddComponent<RawImage>();
             raw.color = Color.white;
             raw.raycastTarget = false;
             Stretch(view.GetComponent<RectTransform>(), Vector2.zero, Vector2.one);
             _previewViewport = raw;
+            _previewRoot.transform.SetAsLastSibling();
         }
 
         private void BuildShop(Font display, Font body)
@@ -938,6 +950,7 @@ namespace AsteroidsGoneRogue
             if (_previewRoot != null && _session != null && _session.Phase != GamePhase.Playing)
             {
                 _previewRoot.SetActive(true);
+                _previewRoot.transform.SetAsLastSibling();
             }
 
             if (_creditsButton != null && _session != null && _session.Phase != GamePhase.Playing)
