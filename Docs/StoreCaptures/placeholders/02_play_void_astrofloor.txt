@@ -1,0 +1,4 @@
+Placeholder — play void AstroFloor (World 1 Open).
+
+Pose: cam (0, 38, -26) look origin FOV 54.
+Drop PNG at Docs/StoreCaptures/out/02_play_void_astrofloor.png

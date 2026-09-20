@@ -1,0 +1,4 @@
+Placeholder — Brute / Swarm beat.
+
+Pose: cam (-6, 22, -18) look (2, 0.4, 4) FOV 50.
+Drop PNG at Docs/StoreCaptures/out/04_brute_swarm_beat.png

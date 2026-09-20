@@ -104,6 +104,12 @@ namespace AsteroidsGoneRogue
         private bool _creditsVisible;
         private float _creditsScroll;
         private static Texture2D _previewPlaceholder;
+        private Text _achievementToast;
+        private Text _achievementLadder;
+        private float _achievementUntil;
+        private int _padSlot;
+        private bool _padHeld;
+        private float _padRepeatAt;
 
         private static readonly Color UiAmber = new Color(0.831f, 0.627f, 0.29f, 1f);
         private static readonly Color UiBody = new Color(0.784f, 0.808f, 0.839f, 1f);
@@ -245,6 +251,7 @@ namespace AsteroidsGoneRogue
                     Loc.T("ui.hangar_controls", HangarControlsHint));
             RefreshWorldBadge();
             RefreshBadgeRow(playing);
+            RefreshAchievementLadder(playing);
             RefreshFirstHangarHint();
 
             if (playing)
@@ -261,9 +268,13 @@ namespace AsteroidsGoneRogue
                     _statusBase = Loc.T("ui.hangar_controls", HangarControlsHint);
                     _primaryLabel.text = Loc.T("ui.next_wave", "Next Wave");
                     break;
+                case GamePhase.CampaignClear:
+                    _statusBase = CampaignCap.HangarWinHint();
+                    _primaryLabel.text = Loc.T("ui.new_run", "New Run");
+                    break;
                 case GamePhase.Failed:
                     _statusBase = DamageCauseText.PlayerFaultLine(FailReasonText());
-                    _primaryLabel.text = Loc.T("ui.start_wave", "Start Wave");
+                    _primaryLabel.text = Loc.T("ui.retry_hangar", "RETRY  ·  NEW RUN");
                     break;
                 default:
                     _statusBase = HangarReadyStatus();
@@ -358,7 +369,7 @@ namespace AsteroidsGoneRogue
                 new Vector2(0f, 0f), new Vector2(1f, 1f)).GetComponent<Image>();
 
             _hudPlate = CreatePanel("HudPlate", transform, new Color(0.02f, 0.035f, 0.06f, 0.72f),
-                new Vector2(0.012f, 0.605f), new Vector2(0.395f, 0.875f));
+                new Vector2(0.012f, 0.555f), new Vector2(0.395f, 0.875f));
             CreateFill("HudPlateRule", _hudPlate.transform, new Color(1f, 0.72f, 0.28f, 0.55f),
                 new Vector2(0.04f, 0.0f), new Vector2(0.96f, 0.018f));
 
@@ -384,6 +395,11 @@ namespace AsteroidsGoneRogue
             _badgeRow.color = UiAmber;
             AddReadability(_badgeRow, false);
 
+            _achievementLadder = CreateText("AchievementLadder", transform, body, 13, TextAnchor.UpperLeft, FontStyle.Normal);
+            Stretch(_achievementLadder.rectTransform, new Vector2(0.03f, 0.555f), new Vector2(0.62f, 0.605f));
+            _achievementLadder.color = new Color(0.92f, 0.82f, 0.55f, 0.95f);
+            AddReadability(_achievementLadder, false);
+
             _hint = CreateText("Hint", transform, body, 18, TextAnchor.LowerCenter, FontStyle.Normal);
             Stretch(_hint.rectTransform, new Vector2(0.1f, 0.018f), new Vector2(0.9f, 0.078f));
             _hint.color = new Color(0.82f, 0.88f, 0.92f);
@@ -400,6 +416,12 @@ namespace AsteroidsGoneRogue
                 new Vector2(0.012f, 0.018f), new Vector2(0.988f, 0.948f));
 
             BuildRunSummary(display, body);
+
+            _achievementToast = CreateText("AchievementToast", transform, display, 18, TextAnchor.UpperCenter, FontStyle.Bold);
+            Stretch(_achievementToast.rectTransform, new Vector2(0.18f, 0.52f), new Vector2(0.82f, 0.60f));
+            _achievementToast.color = UiAmber;
+            _achievementToast.gameObject.SetActive(false);
+            AddReadability(_achievementToast, true);
 
             _status = CreateText("Status", _menuRoot.transform, body, 17, TextAnchor.UpperCenter, FontStyle.Bold);
             Stretch(_status.rectTransform, new Vector2(0.04f, 0.84f), new Vector2(0.96f, 0.95f));
@@ -784,7 +806,9 @@ namespace AsteroidsGoneRogue
             }
 
             bool show = !playing
-                && (_session.Phase == GamePhase.WaveClear || _session.Phase == GamePhase.Failed);
+                && (_session.Phase == GamePhase.WaveClear
+                    || _session.Phase == GamePhase.Failed
+                    || _session.Phase == GamePhase.CampaignClear);
             _summaryRoot.SetActive(show);
             if (_credits != null)
             {
@@ -813,13 +837,30 @@ namespace AsteroidsGoneRogue
             LoadoutState loadout = _loadout != null ? _loadout.State : null;
             bool failed = _session.Phase == GamePhase.Failed;
             ApplyFailChrome(failed);
+            if (_session.Phase == GamePhase.CampaignClear && _summaryTitle != null)
+            {
+                _summaryTitle.color = UiAmber;
+                _summaryTitle.fontSize = 20;
+            }
             _summaryTitle.text = RunSummary.Title(_session.Phase, FailReasonText());
             string body = RunSummary.StatsLine(_session.Score, wave, world)
                 + "\n" + RunSummary.CreditsLine(_session.Credits, _session.LastCreditsAwarded)
                 + "\n" + RunSummary.UpgradesLine(loadout);
+            LocalBest sessionBest = _game != null ? _game.SessionBest : null;
+            if (sessionBest != null)
+            {
+                body += "\n" + sessionBest.DeathRetryLine(_session.LastRunScore);
+            }
+
             if (_game != null && _game.LastRunWasNewBest)
             {
                 body += "\n" + Loc.T("ui.new_best", "NEW BEST");
+            }
+
+            LocalBest allTime = _game != null && _game.Best != null ? _game.Best : LocalBest.Load();
+            if (allTime != null)
+            {
+                body += "\n" + allTime.CardLine();
             }
 
             _summaryBody.text = body;
@@ -852,12 +893,24 @@ namespace AsteroidsGoneRogue
             _continueHint.gameObject.SetActive(hint);
             if (hint)
             {
-                _continueHint.text = failed
-                    ? RunSummary.FailContinueHint(
+                if (_session.Phase == GamePhase.CampaignClear)
+                {
+                    _continueHint.text = RunSummary.CampaignWinHint();
+                }
+                else if (failed)
+                {
+                    _continueHint.text = RunSummary.FailContinueHint(
                         FailReasonText(),
                         _session.WaveIndex,
-                        _session.FailRemainingThreats)
-                    : RunSummary.ContinueHint(_session.LastResolvedWave, _session.Credits, loadout);
+                        _session.FailRemainingThreats);
+                }
+                else
+                {
+                    _continueHint.text = RunSummary.ContinueHint(
+                        _session.LastResolvedWave,
+                        _session.Credits,
+                        loadout);
+                }
             }
         }
 
@@ -1296,7 +1349,7 @@ namespace AsteroidsGoneRogue
             colors.selectedColor = new Color(1f, 0.84f, 0.42f, 1f);
             button.colors = colors;
             Navigation nav = button.navigation;
-            nav.mode = Navigation.Mode.Automatic;
+            nav.mode = Navigation.Mode.None;
             button.navigation = nav;
             button.onClick.AddListener(onClick);
             Stretch(go.GetComponent<RectTransform>(), min, max);
@@ -1448,7 +1501,30 @@ namespace AsteroidsGoneRogue
 
         public void AnnounceLifeLost(int livesLeft)
         {
-            AnnounceMedalBeat(Loc.Tf("ui.life_lost", "LIFE LOST  ·  {0} left", livesLeft), 1.6f);
+            string lives = Loc.Tf("ui.life_lost", "LIFE LOST  ·  {0} left", livesLeft);
+            LocalBest session = _game != null ? _game.SessionBest : null;
+            if (session != null && _session != null)
+            {
+                lives += "  ·  " + session.DeathRetryLine(_session.Score);
+            }
+
+            AnnounceMedalBeat(lives, 1.6f);
+        }
+
+        public void AnnounceAchievement(AchievementId id)
+        {
+            if (_achievementToast == null)
+            {
+                return;
+            }
+
+            _achievementToast.text = AchievementCatalog.ToastLine(id);
+            _achievementToast.gameObject.SetActive(true);
+            _achievementUntil = Time.unscaledTime + 2.8f;
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
         }
 
         private void RefreshLanguageChrome()
@@ -1647,6 +1723,7 @@ namespace AsteroidsGoneRogue
             PulseHangarLaunch();
             PulseAbortIfUrgent();
             ApplyHitFlash();
+            PulseAchievementToast();
 
             if (_world == null)
             {
@@ -1726,9 +1803,32 @@ namespace AsteroidsGoneRogue
                 pulse);
         }
 
+        private void PulseAchievementToast()
+        {
+            if (_achievementToast == null)
+            {
+                return;
+            }
+
+            if (Time.unscaledTime >= _achievementUntil)
+            {
+                _achievementToast.gameObject.SetActive(false);
+                return;
+            }
+
+            float pulse = Mathf.PingPong(Time.unscaledTime * 3.4f, 1f);
+            _achievementToast.color = Color.Lerp(UiAmber, new Color(1f, 0.92f, 0.62f), pulse);
+        }
+
         private void NavigateHangarPad()
         {
             if (_session == null || _session.Phase == GamePhase.Playing || _creditsVisible)
+            {
+                _padHeld = false;
+                return;
+            }
+
+            if (_tutorialRoot != null && _tutorialRoot.activeSelf)
             {
                 return;
             }
@@ -1739,29 +1839,90 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            GameObject current = es.currentSelectedGameObject;
-            if (current != null && current.activeInHierarchy)
+            Vector2 nav = GamepadInput.UiNavCombined();
+            int dx = HangarPadNav.DominantStep(nav.x, nav.y, HangarPadNav.Flick);
+            int dy = HangarPadNav.DominantStepY(nav.x, nav.y, HangarPadNav.Flick);
+            if (dx == 0 && dy == 0)
             {
-                return;
-            }
-
-            Vector2 stick = GamepadInput.UiNavStick();
-            if (stick.sqrMagnitude < 0.01f && !GamepadInput.ConfirmPressed())
-            {
-                Button idle = DefaultHangarButton();
-                if (idle != null)
+                _padHeld = false;
+                GameObject current = es.currentSelectedGameObject;
+                if (current == null || !current.activeInHierarchy)
                 {
-                    es.SetSelectedGameObject(idle.gameObject);
+                    Button idle = DefaultHangarButton();
+                    if (idle != null)
+                    {
+                        es.SetSelectedGameObject(idle.gameObject);
+                        _padSlot = HangarPadNav.PrimarySlot;
+                    }
                 }
 
                 return;
             }
 
-            Button pick = DefaultHangarButton();
-            if (pick != null)
+            float now = Time.unscaledTime;
+            if (_padHeld && now < _padRepeatAt)
             {
-                es.SetSelectedGameObject(pick.gameObject);
+                return;
             }
+
+            Button from = ButtonFromSlot(_padSlot);
+            GameObject selected = es.currentSelectedGameObject;
+            if (from == null || selected != from.gameObject)
+            {
+                _padSlot = SlotFromSelected(selected);
+            }
+
+            _padSlot = HangarPadNav.Step(_padSlot, dx, dy);
+            Button next = ButtonFromSlot(_padSlot);
+            if (next != null)
+            {
+                es.SetSelectedGameObject(next.gameObject);
+            }
+
+            _padRepeatAt = now + (_padHeld ? HangarPadNav.RepeatNextSeconds : HangarPadNav.RepeatFirstSeconds);
+            _padHeld = true;
+        }
+
+        private Button ButtonFromSlot(int slot)
+        {
+            if (slot <= HangarPadNav.PrimarySlot)
+            {
+                return _primary;
+            }
+
+            int shopIndex;
+            if (HangarPadNav.TryShopIndex(slot, out shopIndex)
+                && _buyButtons != null
+                && shopIndex >= 0
+                && shopIndex < _buyButtons.Length)
+            {
+                return _buyButtons[shopIndex];
+            }
+
+            return _primary;
+        }
+
+        private int SlotFromSelected(GameObject go)
+        {
+            if (go == null || _buyButtons == null)
+            {
+                return HangarPadNav.PrimarySlot;
+            }
+
+            if (_primary != null && go == _primary.gameObject)
+            {
+                return HangarPadNav.PrimarySlot;
+            }
+
+            for (int i = 0; i < _buyButtons.Length; i++)
+            {
+                if (_buyButtons[i] != null && go == _buyButtons[i].gameObject)
+                {
+                    return HangarPadNav.ShopSlot(i);
+                }
+            }
+
+            return HangarPadNav.PrimarySlot;
         }
 
         private void SyncHangarPadSelection()
@@ -1860,6 +2021,24 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        private void RefreshAchievementLadder(bool playing)
+        {
+            if (_achievementLadder == null)
+            {
+                return;
+            }
+
+            AchievementPersist persist = _game != null ? _game.Achievements : null;
+            string row = persist != null
+                ? persist.LadderLine()
+                : AchievementCatalog.LadderLine(0);
+            _achievementLadder.gameObject.SetActive(!playing);
+            if (!playing)
+            {
+                _achievementLadder.text = Loc.T("ach.header", "ACHIEVEMENTS") + "  ·  " + row;
+            }
+        }
+
         private void RefreshBuyButton(int index, ShopItem item)
         {
             bool owned = _loadout.State.Owns(item.Id);
@@ -1919,7 +2098,9 @@ namespace AsteroidsGoneRogue
         private string BestCardLine()
         {
             LocalBest best = _game != null && _game.Best != null ? _game.Best : LocalBest.Load();
-            string line = best.CardLine();
+            LocalBest session = _game != null ? _game.SessionBest : null;
+            string line = session != null ? session.SessionCardLine() : Loc.T("session.empty", "Session —");
+            line += "  ·  " + best.CardLine();
             if (_game != null && _game.LastRunWasNewBest)
             {
                 return line + Loc.T("ui.new_best_dot", "  ·  NEW BEST");
@@ -1973,6 +2154,11 @@ namespace AsteroidsGoneRogue
             if (playing)
             {
                 scoreLine += PlayBestCompare();
+                LocalBest session = _game != null ? _game.SessionBest : null;
+                if (session != null && session.HasRecord)
+                {
+                    scoreLine += Loc.Tf("session.slash", " / Sess {0}", session.Score);
+                }
             }
 
             int lives = _session != null ? _session.Lives : DifficultySettings.StartLives;
@@ -2311,7 +2497,7 @@ namespace AsteroidsGoneRogue
             colors.disabledColor = new Color(0.78f, 0.78f, 0.8f, 1f);
             button.colors = colors;
             Navigation nav = button.navigation;
-            nav.mode = Navigation.Mode.Automatic;
+            nav.mode = Navigation.Mode.None;
             button.navigation = nav;
             Stretch(go.GetComponent<RectTransform>(), min, max);
 

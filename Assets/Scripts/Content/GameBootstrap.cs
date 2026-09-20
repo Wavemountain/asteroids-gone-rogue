@@ -71,6 +71,7 @@ namespace AsteroidsGoneRogue
             follow.SetTarget(ship.transform);
             game.EnterHangar();
             ui.EnsureHangarPreview(ship);
+            StoreCaptureDirector.Ensure();
         }
 
         private static void EnsureEventSystem()

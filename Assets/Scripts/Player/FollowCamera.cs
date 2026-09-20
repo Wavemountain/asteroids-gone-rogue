@@ -14,6 +14,30 @@ namespace AsteroidsGoneRogue
         private Transform _target;
         private float _shake;
         private bool _hangarFraming;
+        private bool _captureHold;
+        private Vector3 _capturePos;
+        private Vector3 _captureLook;
+        private float _captureFov = 54f;
+
+        public void HoldCapturePose(Vector3 position, Vector3 look, float fov)
+        {
+            _captureHold = true;
+            _capturePos = position;
+            _captureLook = look;
+            _captureFov = fov > 1f ? fov : 54f;
+            transform.position = _capturePos;
+            transform.LookAt(_captureLook);
+            Camera cam = GetComponent<Camera>();
+            if (cam != null)
+            {
+                cam.fieldOfView = _captureFov;
+            }
+        }
+
+        public void ClearCapturePose()
+        {
+            _captureHold = false;
+        }
 
         public void SetTarget(Transform target)
         {
@@ -47,6 +71,19 @@ namespace AsteroidsGoneRogue
 
         private void LateUpdate()
         {
+            if (_captureHold)
+            {
+                transform.position = _capturePos;
+                transform.LookAt(_captureLook);
+                Camera cam = GetComponent<Camera>();
+                if (cam != null)
+                {
+                    cam.fieldOfView = _captureFov;
+                }
+
+                return;
+            }
+
             if (_hangarFraming)
             {
                 Vector3 desiredHangar = HangarLook + HangarOffset;

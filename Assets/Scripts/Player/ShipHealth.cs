@@ -150,6 +150,11 @@ namespace AsteroidsGoneRogue
                 _hull -= remaining;
             }
 
+            if (_game != null)
+            {
+                _game.NotifyPlayerHit();
+            }
+
             if (AudioCues.Instance != null)
             {
                 AudioCues.Instance.PlayPlayerDamage();

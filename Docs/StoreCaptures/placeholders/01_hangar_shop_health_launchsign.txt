@@ -1,0 +1,4 @@
+Placeholder — hangar shop + HEALTH rack + LaunchSign GO.
+
+Pose: cam (2.4, 12.5, -11.5) look (1.95, 0.8, -2.55) FOV 46.
+Drop PNG at Docs/StoreCaptures/out/01_hangar_shop_health_launchsign.png

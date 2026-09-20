@@ -26,7 +26,11 @@ namespace AsteroidsGoneRogue
 
         public LocalBest Best { get; private set; }
 
+        public LocalBest SessionBest { get; private set; }
+
         public HangarPersist Persist { get; private set; }
+
+        public AchievementPersist Achievements { get; private set; }
 
         public void Initialize(
             GameSession session,
@@ -47,7 +51,9 @@ namespace AsteroidsGoneRogue
             _hangarPreview = ship != null ? ship.GetComponent<HangarShipPreview>() : null;
             _follow = UnityEngine.Object.FindAnyObjectByType<FollowCamera>();
             Best = LocalBest.Load();
+            SessionBest = new LocalBest();
             Persist = HangarPersist.Load();
+            Achievements = AchievementPersist.Load();
             LastRunWasNewBest = false;
         }
 
@@ -119,8 +125,24 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            _session.NoteExtraLife();
+            if (AchievementCatalog.ShouldUnlockExtraLifeStreak(_session.ExtraLifeStreak))
+            {
+                TryUnlockAchievement(AchievementId.ExtraLifeStreak);
+            }
+
             RaiseStateChanged();
             return true;
+        }
+
+        public void NotifyPlayerHit()
+        {
+            if (_session == null || _session.Phase != GamePhase.Playing)
+            {
+                return;
+            }
+
+            _session.MarkWaveHit();
         }
 
         public void StartWave()
@@ -130,7 +152,9 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (_session.Phase == GamePhase.Failed || _session.Lives <= 0)
+            if (_session.Phase == GamePhase.Failed
+                || _session.Phase == GamePhase.CampaignClear
+                || _session.Lives <= 0)
             {
                 ResetFullRun();
                 if (_ship != null)
@@ -298,6 +322,7 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            _session.NoteLifeLost();
             if (_ship != null)
             {
                 _ship.ResetForWave(_loadout.State);
@@ -397,10 +422,20 @@ namespace AsteroidsGoneRogue
         private void CompleteWave()
         {
             int clearedWave = _session.WaveIndex;
+            bool noHit = _session != null && !_session.WaveTookHit;
             _ship.SetInputEnabled(false);
             _waves.DespawnAll();
-            _session.CompleteWave(ScoreValues.WaveClearBonus, DifficultySettings.WaveClearCredits);
+            if (CampaignCap.IsFinalWave(clearedWave))
+            {
+                _session.CompleteCampaign(ScoreValues.WaveClearBonus, DifficultySettings.WaveClearCredits);
+            }
+            else
+            {
+                _session.CompleteWave(ScoreValues.WaveClearBonus, DifficultySettings.WaveClearCredits);
+            }
+
             RecordBest(clearedWave);
+            TryUnlockWaveAchievements(clearedWave, noHit);
             MedalId waveMedal;
             bool awardedMedal = MedalCatalog.TryForClearedWave(clearedWave, out waveMedal)
                 && TryAwardMedal(waveMedal);
@@ -417,6 +452,45 @@ namespace AsteroidsGoneRogue
             }
 
             RaiseStateChanged();
+        }
+
+        private void TryUnlockWaveAchievements(int clearedWave, bool noHit)
+        {
+            if (AchievementCatalog.ShouldUnlockFirstClear(clearedWave))
+            {
+                TryUnlockAchievement(AchievementId.FirstClear);
+            }
+
+            if (AchievementCatalog.ShouldUnlockNoHit(noHit))
+            {
+                TryUnlockAchievement(AchievementId.NoHitWave);
+            }
+
+            if (AchievementCatalog.ShouldUnlockHardClear(clearedWave, DifficultySettings.Current))
+            {
+                TryUnlockAchievement(AchievementId.HardClear);
+            }
+        }
+
+        private bool TryUnlockAchievement(AchievementId id)
+        {
+            if (Achievements == null)
+            {
+                Achievements = AchievementPersist.Load();
+            }
+
+            if (!Achievements.TryUnlock(id))
+            {
+                return false;
+            }
+
+            Achievements.Save();
+            if (_ui != null)
+            {
+                _ui.AnnounceAchievement(id);
+            }
+
+            return true;
         }
 
         private bool TryAwardWaveMedal(int clearedWave)
@@ -465,6 +539,12 @@ namespace AsteroidsGoneRogue
             }
 
             int world = ContentFactory.WorldIndexForWave(wave);
+            if (SessionBest == null)
+            {
+                SessionBest = new LocalBest();
+            }
+
+            SessionBest.TryRecord(_session.Score, wave, world);
             LastRunWasNewBest = Best.TryRecord(_session.Score, wave, world);
             if (LastRunWasNewBest)
             {

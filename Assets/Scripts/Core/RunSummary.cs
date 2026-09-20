@@ -25,6 +25,11 @@ namespace AsteroidsGoneRogue
                 return Loc.Tf("run.ship_lost_reason", "SHIP LOST  ·  {0}", failReason);
             }
 
+            if (phase == GamePhase.CampaignClear)
+            {
+                return CampaignCap.WinLine();
+            }
+
             if (phase == GamePhase.WaveClear)
             {
                 return Loc.T("run.wave_clear", "WAVE CLEAR");
@@ -90,12 +95,22 @@ namespace AsteroidsGoneRogue
 
         public static bool ShowContinueHint(int lastResolvedWave, GamePhase phase)
         {
+            if (phase == GamePhase.CampaignClear)
+            {
+                return true;
+            }
+
             return phase == GamePhase.WaveClear && lastResolvedWave >= 1 && lastResolvedWave <= 9;
         }
 
         public static bool ShowFailContinue(GamePhase phase)
         {
             return phase == GamePhase.Failed;
+        }
+
+        public static string CampaignWinHint()
+        {
+            return CampaignCap.HangarWinHint();
         }
 
         public static string FailContinueHint(string failReason, int waveIndex)
@@ -107,8 +122,9 @@ namespace AsteroidsGoneRogue
         {
             string almost = AlmostHadIt(remainingThreats);
             string keep = Loc.T("run.fail_keep", "Your hull. Run over — start from the hangar.");
+            string retry = Loc.T("run.fail_retry", "RETRY  ·  New Run from the hangar.");
             string tease = MonsterTeaser(waveIndex);
-            string line = string.IsNullOrEmpty(almost) ? keep : almost + "  ·  " + keep;
+            string line = string.IsNullOrEmpty(almost) ? retry + "  ·  " + keep : almost + "  ·  " + retry;
             if (!string.IsNullOrEmpty(tease))
             {
                 return line + "\n" + tease;
@@ -172,7 +188,18 @@ namespace AsteroidsGoneRogue
                     : Loc.T("run.push_gunner", "Push for a new best before Gunner");
             }
 
-            if (lastResolvedWave == 4 || lastResolvedWave == 5)
+            if (lastResolvedWave == 4)
+            {
+                string cap = Loc.Tf(
+                    "run.next_sector",
+                    "Next  ·  SECTOR CLEAR at wave {0}",
+                    CampaignCap.FinalWave);
+                return next != null
+                    ? cap + "  ·  " + Loc.Tf("run.buy", "Buy {0}", next.Title)
+                    : cap;
+            }
+
+            if (lastResolvedWave == 5)
             {
                 string tease = DeepOrbitTeaser(lastResolvedWave);
                 return next != null
@@ -235,6 +262,11 @@ namespace AsteroidsGoneRogue
                 return phase == GamePhase.WaveClear;
             }
 
+            if (lastResolvedWave == CampaignCap.FinalWave)
+            {
+                return phase == GamePhase.CampaignClear;
+            }
+
             if (lastResolvedWave == World2StartsAtWave)
             {
                 return phase == GamePhase.WaveClear || phase == GamePhase.Failed;
@@ -264,6 +296,11 @@ namespace AsteroidsGoneRogue
             {
                 return MedalCatalog.AwardLine(MedalId.ScoutWing)
                     + "  ·  " + Loc.Tf("run.world2_at", "World 2 at wave {0}", World2StartsAtWave);
+            }
+
+            if (lastResolvedWave == CampaignCap.FinalWave)
+            {
+                return CampaignCap.WinLine();
             }
 
             if (lastResolvedWave == World2StartsAtWave)
@@ -299,6 +336,14 @@ namespace AsteroidsGoneRogue
                         + " at wave " + MedalCatalog.ScoutWingClearsAtWave,
                     MedalCatalog.Title(MedalId.ScoutWing),
                     MedalCatalog.ScoutWingClearsAtWave);
+            }
+
+            if (nextWave <= CampaignCap.FinalWave)
+            {
+                return Loc.Tf(
+                    "run.next_sector",
+                    "Next  ·  SECTOR CLEAR at wave {0}",
+                    CampaignCap.FinalWave);
             }
 
             if (nextWave <= World2StartsAtWave)
