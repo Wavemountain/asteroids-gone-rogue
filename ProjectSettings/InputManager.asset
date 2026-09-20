@@ -151,7 +151,7 @@ InputManager:
     joyNum: 0
   - serializedVersion: 3
     m_Name: FireTrigger3
-    descriptiveName: Xbox RT 3rd axis (combined triggers)
+    descriptiveName: Xbox LT 3rd axis (Linux xpad / combined LT)
     descriptiveNegativeName: 
     negativeButton: 
     positiveButton: 
@@ -215,7 +215,7 @@ InputManager:
     joyNum: 0
   - serializedVersion: 3
     m_Name: CycleFire
-    descriptiveName: Xbox LB cycle
+    descriptiveName: Xbox LB cycle primary
     descriptiveNegativeName: 
     negativeButton: 
     positiveButton: joystick button 4
@@ -404,4 +404,20 @@ InputManager:
     invert: 0
     type: 0
     axis: 0
+    joyNum: 0
+  - serializedVersion: 3
+    m_Name: UtilityTrigger
+    descriptiveName: Xbox LT 9th axis (Windows XInput)
+    descriptiveNegativeName: 
+    negativeButton: 
+    positiveButton: 
+    altNegativeButton: 
+    altPositiveButton: 
+    gravity: 0
+    dead: 0.1
+    sensitivity: 1
+    snap: 0
+    invert: 0
+    type: 2
+    axis: 8
     joyNum: 0

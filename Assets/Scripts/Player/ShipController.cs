@@ -53,6 +53,11 @@ namespace AsteroidsGoneRogue
             {
                 Health.ResetForWave(loadout);
             }
+
+            if (_shooter != null)
+            {
+                _shooter.SyncFromLoadout();
+            }
         }
 
         private void Update()
@@ -65,12 +70,21 @@ namespace AsteroidsGoneRogue
             Aim();
             if (GamepadInput.CyclePressed())
             {
-                _shooter.CycleFireMode();
+                _shooter.CycleFireMode(1);
+            }
+            else if (GamepadInput.CyclePrevPressed())
+            {
+                _shooter.CycleFireMode(-1);
             }
 
             if (GamepadInput.FireHeld())
             {
                 _shooter.TryFire();
+            }
+
+            if (GamepadInput.UtilityHeld())
+            {
+                _shooter.TryFireUtility();
             }
         }
 

@@ -106,31 +106,31 @@ namespace AsteroidsGoneRogue
             new ShopItem(
                 UpgradeId.SpreadBolt,
                 "Spread Bolt",
-                "Shot mode: 3 amber pellets. Q / RMB to switch. Distinct from cyan pierce.",
+                "Primary slot: 3 amber pellets. LB / Q to cycle. Distinct from cyan pierce.",
                 110,
                 ShopGroup.Weapons),
             new ShopItem(
                 UpgradeId.Pierce,
                 "Pierce",
-                "Shot mode: bolt goes through targets. Q / RMB to switch.",
+                "Primary slot: bolt goes through targets. LB / Q to cycle.",
                 155,
                 ShopGroup.Weapons),
             new ShopItem(
                 UpgradeId.TwinGuns,
                 "Twin Guns",
-                "Shot mode: two parallel full-damage bolts. Not a spread fan.",
+                "Primary slot: two parallel full-damage bolts. Not a spread fan.",
                 140,
                 ShopGroup.Weapons),
             new ShopItem(
                 UpgradeId.Seeker,
                 "Seeker",
-                "Shot mode: magenta missile. Weaker homing, slower cadence, lower damage than bolt.",
+                "Utility slot: magenta missile. Hold LT / E. Own cooldown. Weaker homing, slower cadence, −1 damage.",
                 125,
                 ShopGroup.Weapons),
             new ShopItem(
                 UpgradeId.Ricochet,
                 "Ricochet",
-                "Shot mode: lime bolt that bounces off the arena rim (not pierce).",
+                "Utility slot: lime bolt, 2 rim bounces. Hold LT / E. Own cooldown.",
                 170,
                 ShopGroup.Weapons),
             new ShopItem(

@@ -32,9 +32,26 @@ namespace AsteroidsGoneRogue
             }
 
             _loadout.State.Apply(id);
+            _loadout.State.AutoEquipAfterPurchase(id);
             if (AudioCues.Instance != null)
             {
                 AudioCues.Instance.PlayHangarPurchase();
+            }
+
+            _game.NotifyLoadoutChanged();
+            return true;
+        }
+
+        public bool TryEquip(UpgradeId id)
+        {
+            if (_session == null || !_session.ShopOpen || _loadout == null || _loadout.State == null)
+            {
+                return false;
+            }
+
+            if (!_loadout.State.TryEquip(id))
+            {
+                return false;
             }
 
             _game.NotifyLoadoutChanged();

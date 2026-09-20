@@ -402,6 +402,11 @@ namespace AsteroidsGoneRogue
                     _ship.Health.ResetForWave(_loadout.State);
                 }
 
+                if (_ship.Shooter != null)
+                {
+                    _ship.Shooter.SyncFromLoadout();
+                }
+
                 if (_hangarPreview != null)
                 {
                     _hangarPreview.NotifyVisualsChanged();

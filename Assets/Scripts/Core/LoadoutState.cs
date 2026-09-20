@@ -11,7 +11,10 @@ namespace AsteroidsGoneRogue
         public const int MatrixMaxShieldCharges = 3;
         public const int HullHitPoints = 3;
         public const float BaseFireCooldown = 0.38f;
-        public const float SeekerFireCooldown = 0.85f;
+        public const float SeekerCooldownMul = WeaponSlots.SeekerCooldownMul;
+        public const float RicochetCooldownMul = WeaponSlots.RicochetCooldownMul;
+        public const float SeekerFireCooldown = BaseFireCooldown * SeekerCooldownMul;
+        public const float RicochetFireCooldown = BaseFireCooldown * RicochetCooldownMul;
         public const float SeekerSpeedScale = 0.58f;
         public const int SeekerDamagePenalty = 1;
         public const float RapidFireCooldown = 0.16f;
@@ -30,7 +33,7 @@ namespace AsteroidsGoneRogue
         public const int OverchargerDamageBonus = 1;
         public const int BodyUpgradeHullBonus = 1;
         public const float TwinOffsetMeters = 0.45f;
-        public const int RicochetBounces = 3;
+        public const int RicochetBounces = 2;
 
         public bool RapidFire { get; private set; }
         public int ShieldCharges { get; private set; }
@@ -49,6 +52,14 @@ namespace AsteroidsGoneRogue
         public bool ShieldMatrix { get; private set; }
         public bool Overcharger { get; private set; }
         public bool Afterburner { get; private set; }
+
+        /// <summary>Equipped primary. Default Bolt. Cycle LB/RB among owned primaries.</summary>
+        public FireMode PrimaryMode { get; private set; }
+
+        /// <summary>Equipped utility when <see cref="HasUtility"/> is set. Start empty.</summary>
+        public FireMode UtilityMode { get; private set; }
+
+        public bool HasUtility { get; private set; }
 
         public void Reset()
         {
@@ -69,6 +80,9 @@ namespace AsteroidsGoneRogue
             ShieldMatrix = false;
             Overcharger = false;
             Afterburner = false;
+            PrimaryMode = FireMode.Bolt;
+            UtilityMode = FireMode.Bolt;
+            HasUtility = false;
         }
 
         public int CurrentMaxShield
@@ -174,12 +188,191 @@ namespace AsteroidsGoneRogue
 
         public int SpreadPelletDamage
         {
-            get { return Math.Max(1, ProjectileDamage / 2); }
+            get { return Math.Max(1, ProjectileDamage / 3); }
+        }
+
+        public bool HasPrimaryAlt
+        {
+            get { return SpreadBolt || Pierce || TwinGuns; }
         }
 
         public bool HasAltFire
         {
-            get { return SpreadBolt || Pierce || TwinGuns || Seeker || Ricochet; }
+            get { return HasPrimaryAlt || Seeker || Ricochet; }
+        }
+
+        public float PrimaryCooldown
+        {
+            get { return FireCooldown * WeaponSlots.PrimaryCooldownMul(ResolvedPrimary()); }
+        }
+
+        public float UtilityCooldown
+        {
+            get
+            {
+                if (!HasUtility)
+                {
+                    return 0f;
+                }
+
+                return WeaponSlots.UtilityCooldown(UtilityMode);
+            }
+        }
+
+        public FireMode ResolvedPrimary()
+        {
+            return OwnsMode(PrimaryMode) && WeaponSlots.IsPrimary(PrimaryMode)
+                ? PrimaryMode
+                : FireMode.Bolt;
+        }
+
+        public bool OwnsMode(FireMode mode)
+        {
+            if (mode == FireMode.Bolt)
+            {
+                return true;
+            }
+
+            if (mode == FireMode.Spread)
+            {
+                return SpreadBolt;
+            }
+
+            if (mode == FireMode.Pierce)
+            {
+                return Pierce;
+            }
+
+            if (mode == FireMode.Twin)
+            {
+                return TwinGuns;
+            }
+
+            if (mode == FireMode.Seeker)
+            {
+                return Seeker;
+            }
+
+            if (mode == FireMode.Ricochet)
+            {
+                return Ricochet;
+            }
+
+            return false;
+        }
+
+        public bool IsEquipped(UpgradeId id)
+        {
+            FireMode mode;
+            WeaponSlot slot;
+            if (!WeaponSlots.TryMode(id, out mode, out slot))
+            {
+                return false;
+            }
+
+            if (slot == WeaponSlot.Utility)
+            {
+                return HasUtility && UtilityMode == mode;
+            }
+
+            return ResolvedPrimary() == mode;
+        }
+
+        public bool TryEquip(UpgradeId id)
+        {
+            FireMode mode;
+            WeaponSlot slot;
+            if (!WeaponSlots.TryMode(id, out mode, out slot) || !Owns(id))
+            {
+                return false;
+            }
+
+            if (slot == WeaponSlot.Primary)
+            {
+                if (PrimaryMode == mode)
+                {
+                    PrimaryMode = FireMode.Bolt;
+                }
+                else
+                {
+                    PrimaryMode = mode;
+                }
+
+                return true;
+            }
+
+            if (HasUtility && UtilityMode == mode)
+            {
+                HasUtility = false;
+                UtilityMode = FireMode.Bolt;
+                return true;
+            }
+
+            UtilityMode = mode;
+            HasUtility = true;
+            return true;
+        }
+
+        public void AutoEquipAfterPurchase(UpgradeId id)
+        {
+            FireMode mode;
+            WeaponSlot slot;
+            if (!WeaponSlots.TryMode(id, out mode, out slot) || !Owns(id))
+            {
+                return;
+            }
+
+            if (slot == WeaponSlot.Primary)
+            {
+                PrimaryMode = mode;
+                return;
+            }
+
+            if (!HasUtility)
+            {
+                UtilityMode = mode;
+                HasUtility = true;
+            }
+        }
+
+        public void CyclePrimary(int direction)
+        {
+            if (!HasPrimaryAlt)
+            {
+                PrimaryMode = FireMode.Bolt;
+                return;
+            }
+
+            int dir = direction < 0 ? -1 : 1;
+            FireMode current = ResolvedPrimary();
+            int start = 0;
+            for (int i = 0; i < WeaponSlots.PrimaryCycle.Length; i++)
+            {
+                if (WeaponSlots.PrimaryCycle[i] == current)
+                {
+                    start = i;
+                    break;
+                }
+            }
+
+            int length = WeaponSlots.PrimaryCycle.Length;
+            for (int step = 1; step <= length; step++)
+            {
+                int index = (start + dir * step) % length;
+                if (index < 0)
+                {
+                    index += length;
+                }
+
+                FireMode next = WeaponSlots.PrimaryCycle[index];
+                if (OwnsMode(next))
+                {
+                    PrimaryMode = next;
+                    return;
+                }
+            }
+
+            PrimaryMode = FireMode.Bolt;
         }
 
         public LoadoutState Clone()
@@ -202,6 +395,9 @@ namespace AsteroidsGoneRogue
             copy.ShieldMatrix = ShieldMatrix;
             copy.Overcharger = Overcharger;
             copy.Afterburner = Afterburner;
+            copy.PrimaryMode = PrimaryMode;
+            copy.UtilityMode = UtilityMode;
+            copy.HasUtility = HasUtility;
             return copy;
         }
 
