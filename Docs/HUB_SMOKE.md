@@ -24,6 +24,7 @@ Short checklist for Unity Hub / Speltest on `main`. No VR/XR Continue dialog.
 ## Play
 
 - Wave 1 → 5 is the **finished World 1 loop**. Clear wave 5 (Brute) → **SECTOR CLEAR** + HIT07. Not endless.
+- Dual-fire: **RT** primary, **LT** utility (independent CD). Empty utility = HUD **empty**, no crash. After wave 1: buy Seeker → hold LT.
 - Abort (Esc / Start) if a rock strands. HEALTH rack + lives stay on.
 - Death with lives left = respawn + LIFE LOST (session score visible). 0 lives = SHIP LOST + **RETRY · NEW RUN**.
 - Extra-life heart: `powerUp7` pickup / `phaserDown3` miss. MissionPlausible mix **0.65**.

@@ -218,6 +218,14 @@ namespace AsteroidsGoneRogue
             string buy = next != null
                 ? Loc.Tf("run.buy", "Buy {0}", next.Title)
                 : Loc.T("run.push_best", "Push for a new best.");
+            if (lastResolvedWave == 1)
+            {
+                string seekerTip = loadout != null && loadout.Seeker
+                    ? Loc.T("run.hold_lt", "Hold LT to fire utility")
+                    : Loc.T("run.buy_seeker_lt", "Buy Seeker → hold LT");
+                return NextUnlockLandmark(lastResolvedWave) + "  ·  " + seekerTip;
+            }
+
             return NextUnlockLandmark(lastResolvedWave) + "  ·  " + buy;
         }
 

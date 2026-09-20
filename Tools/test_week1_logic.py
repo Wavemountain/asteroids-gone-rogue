@@ -325,8 +325,9 @@ def test_factory_wires_import_fbx() -> None:
     assert "First flight" in ui
     assert "Clear a wave to earn credits and upgrades." in ui
     assert "Abort (Esc)" in ui
-    assert "Q / RMB fire modes" in ui
-    assert "discover Spread / Pierce when owned" in ui
+    assert "LT utility" in ui
+    assert "LB cycle primary" in ui
+    assert "RT fire" in ui
     assert "Got it" in ui
     assert "DismissFirstHangarHint" in ui
     assert "HULL / NOSE / ENGINE" in ui or "HullHeader" in catalog
@@ -1798,9 +1799,11 @@ def test_weapons_upgrades_040b() -> None:
     assert "SpawnProjectile(Vector3 origin, Vector3 direction, float speed, int damage, bool pierce)" in factory
     assert "FireMode.Twin" in shooter and "FireMode.Seeker" in shooter and "FireMode.Ricochet" in shooter
     assert "TwinOffsetMeters" in loadout and "TwinOffsetMeters" in shooter
-    cycle = shooter.split("CycleOrder")[1].split(";")[0]
+    cycle = (root / "Assets/Scripts/Core/WeaponSlots.cs").read_text(encoding="utf-8").split("PrimaryCycle")[1].split(";")[0]
     assert "FireMode.Bolt" in cycle and "FireMode.Spread" in cycle and "FireMode.Twin" in cycle
-    assert "FireMode.Pierce" in cycle and "FireMode.Seeker" in cycle and "FireMode.Ricochet" in cycle
+    assert "FireMode.Pierce" in cycle
+    assert "FireMode.Seeker" not in cycle and "FireMode.Ricochet" not in cycle
+    assert "CycleOrder = WeaponSlots.PrimaryCycle" in shooter
 
     assert "SeekerCore" in factory and "RicochetFacet" in factory and "TwinCore" in factory
     assert "PierceNeedle" in factory and "SpreadCore" in factory
@@ -1839,14 +1842,15 @@ def test_weapons_upgrades_040b() -> None:
     assert "CurrentMaxShield" in loadout and "CurrentMaxShield" in health
     assert "NoseUpgrade03Damage = 4" in loadout
     assert "AfterburnerCooldown = 0.075f" in loadout
-    assert "SeekerFireCooldown = 0.85f" in loadout
+    assert "SeekerFireCooldown = BaseFireCooldown * SeekerCooldownMul" in loadout
     assert "SeekerFireCooldown" in shooter
-    assert "mode == FireMode.Seeker" in shooter.split("public void TryFire()")[1].split("if (mode == FireMode.Spread)")[0]
-    assert 0.85 >= 0.38 * 2.2
+    assert "mode == FireMode.Seeker" in shooter.split("public void TryFireUtility()")[1].split("else if (mode == FireMode.Ricochet)")[0]
+    assert abs(0.38 * 2.4 - 0.912) < 1e-6
+    assert 0.38 * 2.4 >= 0.38 * 2.2
     assert "OverchargerDamageBonus" in loadout
     assert "HasAltFire" in loadout and "HasAltFire" in ui and "HasAltFire" in shooter
     assert "hullIndex % 4" in ui
-    assert "discover Spread / Pierce when owned" in ui
+    assert "LB cycle primary" in ui
     assert '"Body Upgrade"' in catalog
     shield_cell = catalog.split("UpgradeId.ShieldCell")[1].split("new ShopItem")[0]
     assert "80," in shield_cell
@@ -2101,7 +2105,7 @@ def test_localization_040() -> None:
     missing_used -= dynamic_ok
     assert not missing_used, missing_used
 
-    assert "SeekerFireCooldown = 0.85f" in loadout
+    assert "SeekerFireCooldown = BaseFireCooldown * SeekerCooldownMul" in loadout
     assert "SeekerFireCooldown" in shooter
     assert "forceModuleActive" not in bootstrap
     assert "com.unity.modules.vr" not in manifest
@@ -2244,7 +2248,7 @@ def test_astro_env_040() -> None:
     assert "ArenaEnv" in readme and "Arena_AstroFloor" in readme
     assert "ArenaEnv" in checklist and "Arena_AstroFloor" in checklist
     assert 'PrefsKey = "agr.ui.language"' in loc
-    assert "SeekerFireCooldown = 0.85f" in loadout
+    assert "SeekerFireCooldown = BaseFireCooldown * SeekerCooldownMul" in loadout
     assert "forceModuleActive" not in bootstrap
     assert "com.unity.modules.vr" not in manifest
     assert "com.unity.modules.xr" not in lock
@@ -2385,7 +2389,7 @@ def test_fair_death_042() -> None:
     assert "if (lethal)" in lethal
     assert "return;" in lethal
 
-    assert "SeekerFireCooldown = 0.85f" in loadout
+    assert "SeekerFireCooldown = BaseFireCooldown * SeekerCooldownMul" in loadout
     assert "SeekerFireCooldown" in shooter
     assert "AstroFloor_v2" in factory
     assert "Arena_AstroFloor_v2" in factory
@@ -2474,7 +2478,7 @@ def test_difficulty_economy_043() -> None:
     assert "ExtraAsteroids" in waves and "ExtraEnemyCount" in waves
     assert "DifficultySettings.WaveClearCredits" in manager
 
-    assert "SeekerFireCooldown = 0.85f" in loadout
+    assert "SeekerFireCooldown = BaseFireCooldown * SeekerCooldownMul" in loadout
     assert "SeekerSpeedScale = 0.58f" in loadout
     assert "SeekerDamagePenalty = 1" in loadout
     assert "SeekerTurnDegrees = 140f" in projectile
@@ -2648,6 +2652,7 @@ def test_difficulty_economy_043() -> None:
     assert "PausePressed" in pad
     assert "ConfirmPressed" in pad and "CancelPressed" in pad
     assert "GamepadInput.FireHeld" in ship
+    assert "GamepadInput.UtilityHeld" in ship
     assert "GamepadInput.AimStick" in ship
     assert "GamepadInput.MoveStick" in ship
     assert "GamepadInput.PadMoveStick" in ship
@@ -2896,6 +2901,8 @@ def test_hotfix_043_gamepad() -> None:
     assert "TriggerHeld(FireTrigger)" in pad
     assert "TriggerHeld(FireTrigger3)" in pad
     assert "TriggerHeld(FireTrigger6)" in pad
+    assert "UtilityHeld" in pad
+    assert "m_Name: UtilityTrigger" in inputs
     assert "KeyCode.JoystickButton4" in pad
     assert "PadMoveStick" in pad
     aim = ship.split("private void Aim()")[1].split("private void AimDirection")[0]
@@ -3235,7 +3242,9 @@ def test_ui_theme_pad_menus_044() -> None:
     assert "PaintLanguageChip" in ui or "PaintChip" in ui
     assert "InactiveDesat" in theme
     assert 'Loc.T("ui.owned", "OWNED") + UiTheme.OwnedCheck' in ui
-    assert "_buyButtons[index].interactable = _session.ShopOpen && !owned && !locked && !tooPoor" in ui
+    assert "_buyButtons[index].interactable = _session.ShopOpen" in ui
+    assert "owned && weapon" in ui
+    assert "!owned && !locked && !tooPoor" in ui
     assert "ShipPreviewFrame" in ui
     assert "LOADOUT" in ui
     assert "StepActivePad" in ui
@@ -3350,6 +3359,73 @@ def test_hangar_wave_clear_layout() -> None:
     assert "com.unity.textmeshpro" not in manifest
 
 
+def test_dual_fire_v1() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    loadout = (root / "Assets/Scripts/Core/LoadoutState.cs").read_text(encoding="utf-8")
+    slots = (root / "Assets/Scripts/Core/WeaponSlots.cs").read_text(encoding="utf-8")
+    shooter = (root / "Assets/Scripts/Player/ShipShooter.cs").read_text(encoding="utf-8")
+    ship = (root / "Assets/Scripts/Player/ShipController.cs").read_text(encoding="utf-8")
+    pad = (root / "Assets/Scripts/Core/GamepadInput.cs").read_text(encoding="utf-8")
+    hangar = (root / "Assets/Scripts/Hangar/HangarShop.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    catalog = (root / "Assets/Scripts/Core/ShopCatalog.cs").read_text(encoding="utf-8")
+    inputs = (root / "ProjectSettings/InputManager.asset").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    checklist = (root / "MERGE_CHECKLIST.md").read_text(encoding="utf-8")
+    manifest = (root / "Packages/manifest.json").read_text(encoding="utf-8")
+    lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
+
+    assert "enum WeaponSlot" in slots
+    assert "SeekerCooldownMul = 2.4f" in slots
+    assert "RicochetCooldownMul = 1.5f" in slots
+    assert "SpreadCooldownMul = 1.35f" in slots
+    assert "TwinCooldownMul = 1.1f" in slots
+    assert abs(0.38 * 2.4 - 0.912) < 1e-6
+    assert abs(0.38 * 1.5 - 0.57) < 1e-6
+    assert "RicochetBounces = 2" in loadout
+    assert "ProjectileDamage / 3" in loadout
+    assert "HasUtility" in loadout and "PrimaryMode" in loadout
+    assert "AutoEquipAfterPurchase" in loadout and "AutoEquipAfterPurchase" in hangar
+    assert "TryEquip" in loadout and "TryEquip" in hangar and "TryEquip" in ui
+    assert "public void TryFireUtility()" in shooter
+    assert "RapidFireCooldown" in shooter.split("public void TryFire()")[1].split("public void TryFireUtility()")[0]
+    util_fn = shooter.split("public void TryFireUtility()")[1].split("private void FireModeShot")[0]
+    assert "LoadoutState.SeekerFireCooldown" in util_fn
+    assert "LoadoutState.RicochetFireCooldown" in util_fn
+    assert "loadout.FireCooldown" not in util_fn
+    assert "AfterburnerCooldown" not in util_fn
+    assert "RapidFireCooldown" not in util_fn
+    assert "GamepadInput.UtilityHeld" in ship
+    assert "GamepadInput.CyclePrevPressed" in ship
+    assert "TriggerHeld(FireTrigger3)" in pad.split("public static bool UtilityHeld()")[1].split("public static bool CyclePressed()")[0]
+    fire_held = pad.split("public static bool FireHeld()")[1].split("public static bool UtilityHeld()")[0]
+    assert "TriggerHeld(FireTrigger3)" not in fire_held
+    assert "TriggerHeld(FireTrigger)" in fire_held
+    assert "TriggerHeld(FireTrigger6)" in fire_held
+    assert "KeyCode.E" in pad
+    assert "GetMouseButton(1)" in pad
+    assert "GetMouseButtonDown(1)" not in pad
+    assert "KeyCode.JoystickButton5" in pad
+    assert "m_Name: UtilityTrigger" in inputs
+    assert "LT utility · LB cycle primary · RT fire" in ui
+    assert "LT utility · LB cykla primary · RT skjut" in loc
+    assert "Buy Seeker → hold LT" in summary
+    assert "PRIMARY {0}" in ui and "UTILITY {0}" in ui
+    assert "ui.hud_empty" in loc and "tom" in loc
+    assert "UtilityHud" in ui and "Radial360" in ui
+    assert "Primary slot" in catalog and "Utility slot" in catalog
+    assert "empty utility" in readme.lower() or "Empty slot" in readme
+    assert "UtilityTrigger" in checklist
+    assert "com.unity.inputsystem" not in manifest
+    assert "com.unity.modules.vr" not in lock
+    assert "com.unity.textmeshpro" not in manifest
+    assert (root / "Assets/Scripts/Core/WeaponSlots.cs.meta").is_file()
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -3391,6 +3467,7 @@ def main() -> int:
     test_steam_slice_044()
     test_ui_theme_pad_menus_044()
     test_hangar_wave_clear_layout()
+    test_dual_fire_v1()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

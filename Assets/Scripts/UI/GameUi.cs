@@ -44,6 +44,11 @@ namespace AsteroidsGoneRogue
         private GameObject _scrim;
         private GameObject _vignette;
         private GameObject _hudPlate;
+        private GameObject _utilityHud;
+        private Image _utilityRing;
+        private Text _utilityHudLabel;
+        private Text _utilityHudName;
+        private Text _loadoutSlots;
         private GameObject _healthRoot;
         private Text _healthTitle;
         private Text _hullBarLabel;
@@ -133,10 +138,10 @@ namespace AsteroidsGoneRogue
         public const string ShipPreviewCanvasName = "ShipPreviewCanvas";
         public const string FirstHangarHintKey = "agr.ui.firstHangarHint";
         public const string HangarControlsHint =
-            "Abort (Esc) / Start  ·  Q / RMB fire modes / LB (discover Spread / Pierce when owned)  ·  A confirm";
+            "LT utility · LB cycle primary · RT fire  ·  A confirm  ·  Esc / Start abort";
         public const string MedalLadderPrefix = "MEDALS";
         public const string HangarHintBody =
-            "LS / WASD fly  ·  RT / LMB shoot\nStart Wave (A)  ·  Abort (Esc) / Start\n"
+            "LS / WASD fly  ·  RT / LMB shoot  ·  LT / E utility\nStart Wave (A)  ·  Abort (Esc) / Start\n"
             + "Clear a wave to earn credits and upgrades.\n"
             + "Medal ladder (top-left): ★ Scout Wing at wave 3.";
         public const string FirstWaveCoach = "Shoot rocks  ·  Abort (Start) if one flies off";
@@ -229,6 +234,7 @@ namespace AsteroidsGoneRogue
             }
 
             RefreshHealthBar();
+            RefreshUtilityHud(playing);
             if (_scrim != null)
             {
                 _scrim.SetActive(!playing);
@@ -261,10 +267,10 @@ namespace AsteroidsGoneRogue
             RefreshDifficultyChrome();
 
             _hint.text = playing
-                ? Loc.T("ui.hint_play", "WASD / LS move  ·  Mouse / RS aim  ·  LMB / Space / RT / A fire  ·  Q / RMB / LB cycle  ·  Esc / Start abort")
+                ? Loc.T("ui.hint_play", "WASD / LS move  ·  Mouse / RS aim  ·  LMB / Space / RT fire  ·  E / RMB / LT utility  ·  Q / LB cycle primary  ·  Esc / Start abort")
                 : Loc.Tf(
                     "ui.hint_hangar",
-                    "WASD / LS move  ·  Mouse / RS aim  ·  LMB / Space / RT / A fire  ·  {0}",
+                    "WASD / LS move  ·  Mouse / RS aim  ·  LMB / Space / RT fire  ·  {0}",
                     Loc.T("ui.hangar_controls", HangarControlsHint));
             ClampOneLine(_hint);
             RefreshWorldBadge();
@@ -424,6 +430,7 @@ namespace AsteroidsGoneRogue
             AddReadability(_hud, false);
             _hud.gameObject.SetActive(false);
             BuildHealthRack(display, body);
+            BuildUtilityHud(display, body);
 
             _badgeRow = CreateText("BadgeRow", transform, display, 14, TextAnchor.MiddleLeft, FontStyle.Bold);
             // Top-bar left: MEDALS. Same row as title/WORLD; stretch anchors, zero offset.
@@ -692,7 +699,8 @@ namespace AsteroidsGoneRogue
         {
             // Shared header Y so HULL / WEAPONS / DEFENSE start on one line.
             _hullHeader = BuildGroupHeader(display, ShopCatalog.HullHeader, new Vector2(0.02f, 0.675f), new Vector2(0.49f, 0.728f));
-            _weaponsHeader = BuildGroupHeader(display, ShopCatalog.WeaponsHeader, new Vector2(0.51f, 0.675f), new Vector2(0.735f, 0.728f));
+            // WEAPONS title stays in the header band; slot readout (P/U) sits under the rule.
+            _weaponsHeader = BuildGroupHeader(display, ShopCatalog.WeaponsHeader, new Vector2(0.51f, 0.704f), new Vector2(0.735f, 0.728f));
             _defenseHeader = BuildGroupHeader(display, ShopCatalog.DefenseHeader, new Vector2(0.755f, 0.675f), new Vector2(0.98f, 0.728f));
 
             float rowStep = ShopCellHeight + ShopCellGutter;
@@ -703,6 +711,12 @@ namespace AsteroidsGoneRogue
                 new Vector2(0.51f, gridBottom), new Vector2(0.735f, ShopGridTop));
             CreateFill("DefenseCol", _menuRoot.transform, UiTheme.InnerWash,
                 new Vector2(0.755f, gridBottom), new Vector2(0.98f, ShopGridTop));
+
+            // Slot readout sits in the WEAPONS header band (0.675–0.728), not on shop cells.
+            _loadoutSlots = CreateText("LoadoutSlots", _menuRoot.transform, body, 12, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Stretch(_loadoutSlots.rectTransform, new Vector2(0.51f, 0.675f), new Vector2(0.735f, 0.704f));
+            _loadoutSlots.color = UiTheme.Accent;
+            ClampOneLine(_loadoutSlots);
 
             int shopCount = ShopCatalog.Items.Length;
             _buyButtons = new Button[shopCount];
@@ -821,10 +835,20 @@ namespace AsteroidsGoneRogue
 
         private void OnBuy(UpgradeId id)
         {
-            if (_shop != null)
+            if (_shop == null)
             {
-                _shop.TryBuy(id);
+                return;
             }
+
+            if (_loadout != null && _loadout.State != null
+                && _loadout.State.Owns(id)
+                && WeaponSlots.IsWeapon(id))
+            {
+                _shop.TryEquip(id);
+                return;
+            }
+
+            _shop.TryBuy(id);
         }
 
         private void OnAbort()
@@ -1705,6 +1729,8 @@ namespace AsteroidsGoneRogue
                 _previewCaption.text = Loc.T("ui.ship_preview", "LOADOUT");
             }
 
+            RefreshLoadoutSlots();
+
             if (_hullHeader != null)
             {
                 _hullHeader.text = ShopCatalog.HeaderFor(ShopGroup.Hull);
@@ -1824,6 +1850,7 @@ namespace AsteroidsGoneRogue
             {
                 _hud.text = BuildHud(true);
                 RefreshHealthBar();
+                RefreshUtilityHud(true);
                 if (_hint != null && Time.unscaledTime < _firstRunCoachUntil)
                 {
                     _hint.text = Loc.T("ui.first_wave_coach", FirstWaveCoach);
@@ -2202,9 +2229,17 @@ namespace AsteroidsGoneRogue
             ApplyPadFocus(current);
             _lastPadSelected = current;
             UpgradeId id;
-            if (TryShopUpgradeFrom(current, out id) && _game != null)
+            if (TryShopUpgradeFrom(current, out id))
             {
-                _game.PreviewUpgrade(id);
+                ShopItem item = HangarShop.FindItem(id);
+                if (item != null)
+                {
+                    OnShopHover(item);
+                }
+            }
+            else if (_hoveredItem != null)
+            {
+                OnShopHoverExit(_hoveredItem);
             }
         }
 
@@ -2316,10 +2351,21 @@ namespace AsteroidsGoneRogue
             bool canApply = _loadout.State.CanApply(item.Id);
             bool locked = !owned && !canApply;
             bool tooPoor = !owned && canApply && _session.Credits < item.Cost;
-            _buyButtons[index].interactable = _session.ShopOpen && !owned && !locked && !tooPoor;
+            bool weapon = WeaponSlots.IsWeapon(item.Id);
+            bool equipped = owned && weapon && _loadout.State.IsEquipped(item.Id);
+            _buyButtons[index].interactable = _session.ShopOpen
+                && ((owned && weapon) || (!owned && !locked && !tooPoor));
 
             Image plate = _buyButtons[index].targetGraphic as Image;
             UiTheme.PaintShopPlate(plate, _buyLabels[index], owned, locked, tooPoor);
+            if (equipped && plate != null)
+            {
+                plate.color = UiTheme.WithAlpha(UiTheme.Primary, 0.34f);
+            }
+            if (equipped && _buyLabels[index] != null)
+            {
+                _buyLabels[index].color = UiTheme.Primary;
+            }
             EventSystem es = EventSystem.current;
             bool focused = es != null
                 && es.currentSelectedGameObject != null
@@ -2391,11 +2437,23 @@ namespace AsteroidsGoneRogue
                 ? Loc.Tf("ui.hud_remaining", "   ·   Remaining {0}", _waves.RemainingThreats)
                 : string.Empty;
             string fireMode = string.Empty;
-            if (playing && _ship != null && _ship.Shooter != null
-                && _loadout != null && _loadout.State != null
-                && _loadout.State.HasAltFire)
+            if (playing && _ship != null && _ship.Shooter != null)
             {
-                fireMode = Loc.Tf("ui.hud_fire", "\nFire {0}", Loc.FireModeName(_ship.Shooter.Mode));
+                string primary = Loc.FireModeName(_ship.Shooter.Mode);
+                string utility = _ship.Shooter.HasUtility
+                    ? Loc.FireModeName(_ship.Shooter.UtilityMode)
+                    : Loc.T("ui.hud_dash", "—");
+                fireMode = Loc.Tf("ui.hud_primary", "\nPRIMARY {0}", primary)
+                    + Loc.Tf("ui.hud_utility", "\nUTILITY {0}", utility);
+                if (!_ship.Shooter.HasUtility)
+                {
+                    fireMode += " " + Loc.T("ui.hud_empty", "empty");
+                }
+
+                if (_loadout != null && _loadout.State != null && _loadout.State.HasAltFire)
+                {
+                    fireMode += string.Empty;
+                }
             }
 
             string scoreLine = Loc.Tf(
@@ -2435,6 +2493,114 @@ namespace AsteroidsGoneRogue
 
             int world = ContentFactory.WorldIndexForWave(_session.WaveIndex);
             return best.PlayCompare(_session.Score, _session.WaveIndex, world);
+        }
+
+        private void RefreshLoadoutSlots()
+        {
+            if (_loadoutSlots == null)
+            {
+                return;
+            }
+
+            LoadoutState loadout = _loadout != null ? _loadout.State : null;
+            string primary = Loc.FireModeName(loadout != null ? loadout.ResolvedPrimary() : FireMode.Bolt);
+            string utility = loadout != null && loadout.HasUtility
+                ? Loc.FireModeName(loadout.UtilityMode)
+                : Loc.T("ui.hud_dash", "—");
+            _loadoutSlots.text = Loc.Tf(
+                "ui.loadout_slots",
+                "P {0}  ·  U {1}",
+                primary,
+                utility);
+            ClampOneLine(_loadoutSlots);
+        }
+
+        private void BuildUtilityHud(Font display, Font body)
+        {
+            // Compact utility plate in the HUD gutter between HEALTH (max.y 0.305) and HudPlate (min.y 0.555).
+            _utilityHud = UiTheme.BuildPanel(
+                "UtilityHud",
+                transform,
+                new Vector2(0.012f, 0.325f),
+                new Vector2(0.28f, 0.445f),
+                0.78f,
+                UiTheme.HeaderWash,
+                UiTheme.HeaderRule,
+                UiTheme.HudPlate);
+
+            _utilityHudLabel = CreateText("UtilityHudLabel", _utilityHud.transform, display, 13, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Stretch(_utilityHudLabel.rectTransform, new Vector2(0.28f, 0.72f), new Vector2(0.96f, 0.96f));
+            _utilityHudLabel.color = UiAmber;
+            ClampOneLine(_utilityHudLabel);
+            AddReadability(_utilityHudLabel, true);
+
+            _utilityHudName = CreateText("UtilityHudName", _utilityHud.transform, body, 14, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Stretch(_utilityHudName.rectTransform, new Vector2(0.28f, 0.08f), new Vector2(0.96f, 0.48f));
+            _utilityHudName.color = UiBody;
+            ClampOneLine(_utilityHudName);
+            AddReadability(_utilityHudName, false);
+
+            GameObject icon = CreateFill(
+                "UtilityIcon",
+                _utilityHud.transform,
+                UiTheme.WithAlpha(UiTheme.Secondary, 0.35f),
+                new Vector2(0.05f, 0.14f),
+                new Vector2(0.24f, 0.70f));
+            GameObject ringGo = new GameObject("UtilityRing");
+            ringGo.transform.SetParent(icon.transform, false);
+            _utilityRing = ringGo.AddComponent<Image>();
+            _utilityRing.sprite = BarFillSprite();
+            _utilityRing.color = UiTheme.Secondary;
+            _utilityRing.raycastTarget = false;
+            _utilityRing.type = Image.Type.Filled;
+            _utilityRing.fillMethod = Image.FillMethod.Radial360;
+            _utilityRing.fillOrigin = (int)Image.Origin360.Top;
+            _utilityRing.fillClockwise = true;
+            Stretch(_utilityRing.rectTransform, Vector2.zero, Vector2.one);
+            _utilityHud.SetActive(false);
+        }
+
+        private void RefreshUtilityHud(bool playing)
+        {
+            if (_utilityHud == null)
+            {
+                return;
+            }
+
+            _utilityHud.SetActive(playing);
+            if (!playing)
+            {
+                return;
+            }
+
+            ShipShooter shooter = _ship != null ? _ship.Shooter : null;
+            bool has = shooter != null && shooter.HasUtility;
+            if (_utilityHudLabel != null)
+            {
+                _utilityHudLabel.text = Loc.T("ui.slot_utility", "UTILITY");
+            }
+
+            if (_utilityHudName != null)
+            {
+                if (!has)
+                {
+                    _utilityHudName.text = Loc.T("ui.hud_dash", "—")
+                        + "  "
+                        + Loc.T("ui.hud_empty", "empty");
+                    _utilityHudName.color = UiTheme.WithAlpha(UiTheme.Accent, 0.7f);
+                }
+                else
+                {
+                    _utilityHudName.text = Loc.FireModeName(shooter.UtilityMode);
+                    _utilityHudName.color = UiTheme.Accent;
+                }
+            }
+
+            if (_utilityRing != null)
+            {
+                _utilityRing.fillAmount = has && shooter != null ? shooter.UtilityCooldown01 : 0f;
+                _utilityRing.color = has ? UiTheme.Secondary : UiTheme.Disabled;
+            }
         }
 
         private void BuildHealthRack(Font display, Font body)

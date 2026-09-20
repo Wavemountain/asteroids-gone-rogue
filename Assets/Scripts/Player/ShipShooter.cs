@@ -7,26 +7,71 @@ namespace AsteroidsGoneRogue
         public const int SpreadPelletCount = 3;
         public const float SpreadHalfAngleDegrees = 14f;
 
-        private static readonly FireMode[] CycleOrder =
-        {
-            FireMode.Bolt,
-            FireMode.Spread,
-            FireMode.Twin,
-            FireMode.Pierce,
-            FireMode.Seeker,
-            FireMode.Ricochet
-        };
+        private static readonly FireMode[] CycleOrder = WeaponSlots.PrimaryCycle;
 
         private PlayerLoadout _loadout;
         private ContentFactory _factory;
         private float _nextFireTime;
+        private float _nextUtilityTime;
+        private float _utilityCooldownDuration;
         private float _boostUntil;
         private Transform _muzzle;
         private FireMode _mode = FireMode.Bolt;
 
         public FireMode Mode
         {
-            get { return OwnedMode(_mode); }
+            get { return ResolvedPrimary(); }
+        }
+
+        public FireMode UtilityMode
+        {
+            get
+            {
+                LoadoutState loadout = CurrentLoadout();
+                if (loadout == null || !loadout.HasUtility)
+                {
+                    return FireMode.Bolt;
+                }
+
+                return loadout.UtilityMode;
+            }
+        }
+
+        public bool HasUtility
+        {
+            get
+            {
+                LoadoutState loadout = CurrentLoadout();
+                return loadout != null && loadout.HasUtility;
+            }
+        }
+
+        public bool HasAltFire
+        {
+            get
+            {
+                LoadoutState loadout = CurrentLoadout();
+                return loadout != null && loadout.HasAltFire;
+            }
+        }
+
+        public float UtilityCooldown01
+        {
+            get
+            {
+                if (_utilityCooldownDuration <= 0.001f)
+                {
+                    return 1f;
+                }
+
+                float remaining = _nextUtilityTime - Time.time;
+                if (remaining <= 0f)
+                {
+                    return 1f;
+                }
+
+                return 1f - Mathf.Clamp01(remaining / _utilityCooldownDuration);
+            }
         }
 
         public void Bind(PlayerLoadout loadout, ContentFactory factory, Transform muzzle)
@@ -34,6 +79,13 @@ namespace AsteroidsGoneRogue
             _loadout = loadout;
             _factory = factory;
             _muzzle = muzzle;
+            SyncFromLoadout();
+        }
+
+        public void SyncFromLoadout()
+        {
+            LoadoutState loadout = CurrentLoadout();
+            _mode = loadout != null ? loadout.ResolvedPrimary() : FireMode.Bolt;
         }
 
         public void GrantRapidBoost(float seconds)
@@ -43,25 +95,26 @@ namespace AsteroidsGoneRogue
 
         public void CycleFireMode()
         {
-            if (!OwnsAnyAltFire())
+            CycleFireMode(1);
+        }
+
+        public void CycleFireMode(int direction)
+        {
+            LoadoutState loadout = CurrentLoadout();
+            if (loadout == null)
             {
                 _mode = FireMode.Bolt;
                 return;
             }
 
-            FireMode current = OwnedMode(_mode);
-            int start = ModeIndex(current);
-            for (int step = 1; step <= CycleOrder.Length; step++)
+            if (CycleOrder.Length < 1)
             {
-                FireMode next = CycleOrder[(start + step) % CycleOrder.Length];
-                if (ModeOwned(next))
-                {
-                    _mode = next;
-                    return;
-                }
+                _mode = FireMode.Bolt;
+                return;
             }
 
-            _mode = FireMode.Bolt;
+            loadout.CyclePrimary(direction);
+            _mode = loadout.ResolvedPrimary();
         }
 
         public void TryFire()
@@ -72,18 +125,52 @@ namespace AsteroidsGoneRogue
             }
 
             LoadoutState loadout = _loadout.State;
-            FireMode mode = OwnedMode(_mode);
-            float cooldown = loadout.FireCooldown;
-            if (mode == FireMode.Seeker)
-            {
-                cooldown = LoadoutState.SeekerFireCooldown;
-            }
-            else if (Time.time < _boostUntil)
+            FireMode mode = ResolvedPrimary();
+            float cooldown = loadout.FireCooldown * WeaponSlots.PrimaryCooldownMul(mode);
+            if (Time.time < _boostUntil)
             {
                 cooldown = Mathf.Min(cooldown, LoadoutState.RapidFireCooldown);
             }
 
             _nextFireTime = Time.time + cooldown;
+            FireModeShot(mode, loadout);
+        }
+
+        public void TryFireUtility()
+        {
+            LoadoutState loadout = CurrentLoadout();
+            if (loadout == null || !loadout.HasUtility || _factory == null)
+            {
+                return;
+            }
+
+            if (Time.time < _nextUtilityTime)
+            {
+                return;
+            }
+
+            FireMode mode = loadout.UtilityMode;
+            if (!WeaponSlots.IsUtility(mode) || !loadout.OwnsMode(mode))
+            {
+                return;
+            }
+
+            float cooldown = WeaponSlots.UtilityCooldown(mode);
+            if (mode == FireMode.Seeker)
+            {
+                cooldown = LoadoutState.SeekerFireCooldown;
+            }
+            else if (mode == FireMode.Ricochet)
+            {
+                cooldown = LoadoutState.RicochetFireCooldown;
+            }
+            _utilityCooldownDuration = cooldown;
+            _nextUtilityTime = Time.time + cooldown;
+            FireModeShot(mode, loadout);
+        }
+
+        private void FireModeShot(FireMode mode, LoadoutState loadout)
+        {
             Vector3 origin = _muzzle != null ? _muzzle.position : transform.position + transform.forward * 1.6f;
             if (mode == FireMode.Spread)
             {
@@ -185,67 +272,23 @@ namespace AsteroidsGoneRogue
             }
         }
 
-        private bool Owns(UpgradeId id)
+        private LoadoutState CurrentLoadout()
         {
-            return _loadout != null && _loadout.State != null && _loadout.State.Owns(id);
+            return _loadout != null ? _loadout.State : null;
         }
 
-        private bool OwnsAnyAltFire()
+        private FireMode ResolvedPrimary()
         {
-            return _loadout != null && _loadout.State != null && _loadout.State.HasAltFire;
-        }
-
-        private bool ModeOwned(FireMode mode)
-        {
-            if (mode == FireMode.Bolt)
+            LoadoutState loadout = CurrentLoadout();
+            if (loadout == null)
             {
-                return true;
+                return FireMode.Bolt;
             }
 
-            if (mode == FireMode.Spread)
-            {
-                return Owns(UpgradeId.SpreadBolt);
-            }
-
-            if (mode == FireMode.Pierce)
-            {
-                return Owns(UpgradeId.Pierce);
-            }
-
-            if (mode == FireMode.Twin)
-            {
-                return Owns(UpgradeId.TwinGuns);
-            }
-
-            if (mode == FireMode.Seeker)
-            {
-                return Owns(UpgradeId.Seeker);
-            }
-
-            if (mode == FireMode.Ricochet)
-            {
-                return Owns(UpgradeId.Ricochet);
-            }
-
-            return false;
-        }
-
-        private FireMode OwnedMode(FireMode requested)
-        {
-            return ModeOwned(requested) ? requested : FireMode.Bolt;
-        }
-
-        private static int ModeIndex(FireMode mode)
-        {
-            for (int i = 0; i < CycleOrder.Length; i++)
-            {
-                if (CycleOrder[i] == mode)
-                {
-                    return i;
-                }
-            }
-
-            return 0;
+            FireMode requested = WeaponSlots.IsPrimary(_mode) ? _mode : loadout.ResolvedPrimary();
+            return loadout.OwnsMode(requested) && WeaponSlots.IsPrimary(requested)
+                ? requested
+                : FireMode.Bolt;
         }
     }
 }

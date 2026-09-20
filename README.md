@@ -6,7 +6,7 @@ Week 1 playable Unity core: one solid wave loop (hangar → fight → clear or f
 
 **Unity 6.6** (`6000.6.0f1`, changeset `f7f8ed4d1e24`)
 
-Built-in render pipeline. Old Input Manager (no Input System package, so first open should not show the Input System dialog). Xbox pad uses Legacy axes (`Horizontal`/`Vertical`/`PadMoveX`/`PadMoveY`/`PadDpadX`/`PadDpadY`/`DpadUp`/`DpadDown`/`DpadLeft`/`DpadRight`/`AimX`/`AimY`/`FireTrigger`/`FireTrigger3`/`FireTrigger6`/`FirePad`/`CycleFire`/`Pause`) in parallel with WASD/mouse. Package manifest is slim — no VR/XR modules — so Hub should open without Continue.
+Built-in render pipeline. Old Input Manager (no Input System package, so first open should not show the Input System dialog). Xbox pad uses Legacy axes (`Horizontal`/`Vertical`/`PadMoveX`/`PadMoveY`/`PadDpadX`/`PadDpadY`/`DpadUp`/`DpadDown`/`DpadLeft`/`DpadRight`/`AimX`/`AimY`/`FireTrigger`/`FireTrigger3`/`FireTrigger6`/`UtilityTrigger`/`FirePad`/`CycleFire`/`Pause`) in parallel with WASD/mouse. Package manifest is slim — no VR/XR modules — so Hub should open without Continue.
 
 **Hub-open smoke:** Add this folder in Unity Hub → opens without Continue → `Assets/Scenes/Play.unity` → Press Play. Short copy: **[Docs/HUB_SMOKE.md](Docs/HUB_SMOKE.md)**. Store poses / F12: **[Docs/StoreCaptures/README.md](Docs/StoreCaptures/README.md)**.
 
@@ -38,8 +38,9 @@ Editor helpers: menu **Asteroids gone rogue → Open Play Scene** / **Validate W
 | --- | --- |
 | Thrust / strafe | **WASD** / arrows, or Xbox **left stick** |
 | Aim | Mouse (on the play plane), or Xbox **right stick**. Pad flight with no RS faces the left-stick vector (shots go forward). |
-| Fire | **Left mouse** / **Space**, or Xbox **RT** (Windows 10th axis / combined 3rd / Linux 6th). **A** still fires. |
-| Cycle fire mode | **Q** / **right mouse**, or Xbox **LB** (`joystick button 4`; **X** still cycles) after buying Spread / Twin / Pierce / Seeker / Ricochet |
+| Fire primary | **Left mouse** / **Space**, or Xbox **RT** (`FireTrigger` 10th axis / Linux `FireTrigger6` 6th). **A** still fires. |
+| Fire utility | Hold **E** / **right mouse**, or Xbox **LT** (`FireTrigger3` 3rd axis / `UtilityTrigger` 9th). Empty slot is a no-op (HUD **empty** / —). |
+| Cycle primary | **Q**, or Xbox **LB** / **RB** (`joystick button 4` / `5`; **X** still cycles) among Bolt + owned Spread / Twin / Pierce. Seeker / Ricochet are utility-only. |
 | Abort / menu | **Abort → Hangar** / **Esc**, or Xbox **Start** (Playing abort; hangar Start Wave) |
 | Hangar UI | Mouse, or pad **left stick** + **D-pad** (Start Wave / Continue, shop rows, Easy/Normal/Hard, LANG flags, Mute, Credits, Got it). **A** confirm / **B** back / **Start** pause (Playing abort; hangar Start Wave). Focus ring is mandatory on pad-selected shop rows. D-pad is **not** aliased onto move. |
 | Start / next / retry wave | Hangar **Start Wave** / **Next Wave**. Wave 5 clear is **SECTOR CLEAR** (World 1 cap) → **New Run**. 0 lives → hangar **RETRY · NEW RUN** (full run reset). Session highscore stays on hangar/HUD. |
@@ -54,7 +55,7 @@ Editor helpers: menu **Asteroids gone rogue → Open Play Scene** / **Validate W
 `GameSession` / `GameManager` / `WaveManager` states:
 
 1. **Hangar** — title, start button, shop (if you have credits). First session shows a short dismissable **First flight** card (LS/WASD fly, RT/LMB shoot, Start Wave (A), Abort Esc/Start, clear a wave for shop; PlayerPrefs — no text wall). Start Wave pulses on first hangar. First wave fades a one-line coach. A **LANG** plate sits left of the audio mixers: click the smaller, quieter **US flag** for English or the **Swedish flag** for Swedish (PlayerPrefs `agr.ui.language`, `en` / `sv`). HUD, shop, hints, credits, fail UI, hangar status, and layout flash all read `Loc` keys. Hangar dressing includes Console, PowerBox, FireExtinguisher, Locker, and a **LaunchSign** landmark (emissive GO plate + mesh GO decal) on the pad’s camera-front edge. Shop sits on the **left** (`HangarPanel` 0.014–0.55); the playable ship is on the **right** in a framed RenderTexture `ShipPreviewFrame` (0.562–0.986 × 0.080–0.708, `ShowcaseScale` 1.25, studio FOV 40 / camera y 4.55 z −10, look y 0.08, idle spin, bought parts + hover ghost). A dedicated overlay canvas (`ShipPreviewCanvas`, sort 80) keeps the amber box visible. The studio parks behind the hangar camera (`StudioZ` −140, layer 8) and Default-layer ship renderers are disabled so the world ship cannot leak through Weapons/Defense. The **medal ladder** is labeled **MEDALS** (Scout Wing / Deep Orbit / Far Drift) in hangar **and** play (`★` earned / `○` locked; `agr.hangar.medals`, capacity 3). Hangar status shows the next-medal hook.
-2. **Playing** — fly the 3D ship, shoot bolt / spread / twin / pierce / seeker / ricochet (if bought), split asteroids. Asteroids **wrap** at the arena edge. If rocks/enemies stay out of play, **Abort → Hangar** pulses and the wave auto-aborts (no clear bonus). **Abort → Hangar** (Esc / Start) also leaves the wave without the clear bonus.
+2. **Playing** — fly the 3D ship, dual-fire primary (RT) + utility (LT) with separate cooldowns, split asteroids. Asteroids **wrap** at the arena edge. If rocks/enemies stay out of play, **Abort → Hangar** pulses and the wave auto-aborts (no clear bonus). **Abort → Hangar** (Esc / Start) also leaves the wave without the clear bonus.
 3. **Wave Clear** — short **Run summary** card (score / wave / world / credits / upgrades / **This run · Session** / **Best**). New record appends **NEW BEST**. After waves 1–4, one short continue line (★ Scout Wing at 3 / Gunner at 4 / **Buy X before Gunner**). Wave 3 awards **★ Scout Wing**. **Wave 5 (Brute) ends the steam-slice loop** — **SECTOR CLEAR · WORLD 1** + HIT07, not endless World wrap. Hangar HUD always shows **Session** + **Best**. During play the score line compares against Best (`/ Best N` or `NEW BEST`) and **Session**. Achievements toast + hangar ladder: First Clear / No-Hit Wave / Hard Clear / Extra-Life Streak (local unlock; Steamworks API names ready, no SDK).
 4. **Fail** — ship destroyed; **RETRY · NEW RUN** from hangar (0 lives). Bought upgrades reset with the run. Fail names the cause as **your hull** (`SHIP LOST · {reason}` + “that was you”), adds an **Almost had it** line when 1–3 threats remain, shows **This run · Session · Best**, and uses a steel/amber fail card. The **HEALTH** rack stays visible. Mid-run death with lives left respawns and flashes LIFE LOST + session score.
 
@@ -62,7 +63,7 @@ Wave 1: 5 large asteroids + 2 `Enemy_01` (Mid v8 mesh). Waves 2–10 add Scout v
 
 ## Shop
 
-Hangar shop is grouped **HULL / NOSE / ENGINE** | **WEAPONS** | **DEFENSE**. Buy buttons show title + cost (or OWNED / LOCKED). Longer descriptions sit in the status line on hover.
+Hangar shop is grouped **HULL / NOSE / ENGINE** | **WEAPONS** | **DEFENSE**. Buy buttons show title + cost (or OWNED / LOCKED). **A** / click on a weapon equips it to its legal slot (Spread / Twin / Pierce → Primary, Seeker / Ricochet → Utility). Max one equipped primary + one utility; swap in hangar (pause Abort returns here). First utility purchase auto-equips if the slot is empty. Start loadout is **Bolt** primary, **empty** utility. Longer descriptions sit in the status line on hover. Weapons header shows `P Bolt  ·  U —`.
 
 Upgrades persist into the next wave.
 
@@ -79,11 +80,11 @@ Upgrades persist into the next wave.
 | Engine Upgrade 03 | 190 | Requires Engine 02; faster cannon. Reuses Engine 02 mesh |
 | Overcharger | 230 | Nose branch (+1 dmg, slower gun). Locks Afterburner |
 | Afterburner | 230 | Engine branch (fastest gun). Locks Overcharger |
-| Spread Bolt | 110 | Shot mode: 3 lower-damage amber pellets (SpreadCore). Q / RMB |
-| Pierce | 155 | Shot mode: cyan needle through targets (PierceNeedle). Q / RMB |
-| Twin Guns | 140 | Shot mode: two parallel full-damage bolts (not a fan) |
-| Seeker | 125 | Shot mode: magenta missile; weaker homing, 0.85s cadence, −1 damage |
-| Ricochet | 170 | Shot mode: lime bolt bounces off the arena rim |
+| Spread Bolt | 110 | **Primary** only. 3 lower-damage amber pellets (SpreadCore). LB / Q cycle. CD ×1.35, pellet `max(1, dmg/3)` |
+| Pierce | 155 | **Primary** only. Cyan needle through targets (PierceNeedle). LB / Q cycle |
+| Twin Guns | 140 | **Primary** only. Two parallel full-damage bolts (not a fan). CD ×1.1 |
+| Seeker | 125 | **Utility** only. Magenta missile; hold LT / E. Own CD `0.38×2.4` (~0.91s), speed 0.58, −1 damage, turn 140. First utility purchase auto-equips if empty |
+| Ricochet | 170 | **Utility** only. Lime bolt, **2** rim bounces. Hold LT / E. Own CD `0.38×1.5` (~0.57s) |
 | Shield Matrix | 185 | Requires two Shield Cells; shield cap 3 |
 
 Hull is 3 hits. Large asteroids take 2 hits then split into 3 small shards. Small shards and enemies are destroyable. Mid is 4 HP, Scout/Drone are 3 HP, Gunner is 4 HP, Bomber is 5 HP, Brute is 10 HP, Swarm is 6 HP. Damaging arena spikes deal 2. Fail screen names the enemy kind (`Enemy contact (Scout)` / `Enemy contact (Brute)`) and frames it as **your hull**. 0 lives is a full run reset (hangar / start, wave 1, empty loadout) — not Retry Wave. Mid-run death with lives left respawns in-wave. When 1–3 threats remain it adds **Almost had it**. Arena spike contact reads `Arena hazard`. Hangar status teases **Wave 5 Brute** (sidestep the charge) and **Wave 6 Swarm** (break the nest).

@@ -4,8 +4,9 @@ namespace AsteroidsGoneRogue
 {
     /// <summary>
     /// Legacy Input Manager Xbox / pad map. Keyboard and mouse stay live (hot-plug).
-    /// Left stick flies. RT fires (axes read separately so they cannot cancel).
-    /// LB cycles. Right stick aims; otherwise face the left-stick fly vector.
+    /// Left stick flies. RT fires primary (axes read separately so they cannot cancel).
+    /// LT holds utility (FireTrigger3 / UtilityTrigger). LB/RB cycle primary.
+    /// Right stick aims; otherwise face the left-stick fly vector.
     /// </summary>
     public static class GamepadInput
     {
@@ -20,6 +21,7 @@ namespace AsteroidsGoneRogue
         public const string FireTrigger = "FireTrigger";
         public const string FireTrigger3 = "FireTrigger3";
         public const string FireTrigger6 = "FireTrigger6";
+        public const string UtilityTrigger = "UtilityTrigger";
         public const string FirePad = "FirePad";
         public const string CycleFire = "CycleFire";
         public const string Pause = "Pause";
@@ -57,15 +59,41 @@ namespace AsteroidsGoneRogue
                 return true;
             }
 
-            return TriggerHeld(FireTrigger) || TriggerHeld(FireTrigger3) || TriggerHeld(FireTrigger6);
+            return TriggerHeld(FireTrigger) || TriggerHeld(FireTrigger6);
+        }
+
+        public static bool UtilityHeld()
+        {
+            if (Input.GetKey(KeyCode.E) || Input.GetMouseButton(1))
+            {
+                return true;
+            }
+
+            if (TriggerHeld(UtilityTrigger))
+            {
+                return true;
+            }
+
+            if (Axis(FireTrigger3) <= -TriggerFire)
+            {
+                return true;
+            }
+
+            return TriggerHeld(FireTrigger3)
+                && !TriggerHeld(FireTrigger)
+                && !TriggerHeld(FireTrigger6);
         }
 
         public static bool CyclePressed()
         {
             return Input.GetKeyDown(KeyCode.Q)
-                || Input.GetMouseButtonDown(1)
                 || Input.GetKeyDown(KeyCode.JoystickButton4)
                 || ButtonDown(CycleFire);
+        }
+
+        public static bool CyclePrevPressed()
+        {
+            return Input.GetKeyDown(KeyCode.JoystickButton5);
         }
 
         public static bool PausePressed()
