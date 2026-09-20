@@ -110,7 +110,8 @@ namespace AsteroidsGoneRogue
 
             if (ay > ax)
             {
-                return y > 0f ? 1 : -1;
+                // Stick / D-pad up is +Y; hangar grid +Y walks down the shop, so invert.
+                return y > 0f ? -1 : 1;
             }
 
             return 0;
@@ -132,7 +133,10 @@ namespace AsteroidsGoneRogue
                 && Step(EasySlot, 1, 0) == NormalSlot
                 && Step(LangEnSlot, 1, 0) == LangSvSlot
                 && Step(LangSvSlot, 1, 0) == MuteSlot
-                && Step(CreditsSlot, 0, -1) != CreditsSlot;
+                && Step(CreditsSlot, 0, -1) != CreditsSlot
+                && DominantStepY(0f, -1f, Flick) == 1
+                && DominantStepY(0f, 1f, Flick) == -1
+                && DominantStep(1f, 0f, Flick) == 1;
         }
 
         private static int ClampSlot(int slot)
