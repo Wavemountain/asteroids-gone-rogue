@@ -923,7 +923,6 @@ namespace AsteroidsGoneRogue
 
         private void ApplyFailChrome(bool failed)
         {
-            bool win = !failed;
             if (_summaryHeader != null)
             {
                 _summaryHeader.color = failed ? UiTheme.DangerHeader : UiTheme.HeaderWash;
@@ -954,7 +953,7 @@ namespace AsteroidsGoneRogue
                 _continueHint.color = failed ? UiTheme.Accent : UiTheme.Secondary;
             }
 
-            if (win && _primary != null)
+            if (_primary != null)
             {
                 UiTheme.ApplyButton(_primary, true, false, false);
             }
@@ -1376,7 +1375,7 @@ namespace AsteroidsGoneRogue
         private static void BuildUsFlag(Transform parent)
         {
             Color red = new Color(0.55f, 0.12f, 0.16f, 0.78f);
-            Color white = new Color(0.88f, 0.88f, 0.86f, 0.72f);
+            Color white = UiTheme.WithAlpha(UiTheme.Secondary, 0.72f);
             Color blue = new Color(0.10f, 0.14f, 0.32f, 0.78f);
             const int Stripes = 7;
             for (int i = 0; i < Stripes; i++)
@@ -1401,7 +1400,7 @@ namespace AsteroidsGoneRogue
         private static void BuildSwedishFlag(Transform parent)
         {
             Color blue = new Color(0.08f, 0.36f, 0.52f, 0.78f);
-            Color yellow = new Color(0.83f, 0.70f, 0.22f, 0.78f);
+            Color yellow = UiTheme.WithAlpha(UiTheme.Primary, 0.78f);
             CreateFill("SvField", parent, blue, new Vector2(0.06f, 0.06f), new Vector2(0.94f, 0.94f));
             CreateFill("SvCrossH", parent, yellow, new Vector2(0.06f, 0.38f), new Vector2(0.94f, 0.62f));
             CreateFill("SvCrossV", parent, yellow, new Vector2(0.30f, 0.06f), new Vector2(0.50f, 0.94f));
@@ -1761,9 +1760,8 @@ namespace AsteroidsGoneRogue
                 float pulse = Mathf.PingPong(Time.unscaledTime * 3.2f, 1f);
                 _world.fontSize = 30 + (int)(4f * pulse);
                 bool world3 = _flashedWorld == MedalCatalog.World3EntryWorld;
-                _world.color = world3
-                    ? Color.Lerp(new Color(0.82f, 0.94f, 1f), new Color(0.32f, 0.68f, 0.95f), pulse)
-                    : Color.Lerp(new Color(1f, 0.92f, 0.62f), new Color(1f, 0.58f, 0.18f), pulse);
+                Color flashTone = world3 ? UiTheme.Secondary : UiTheme.Primary;
+                _world.color = Color.Lerp(flashTone, UiTheme.Brighten(flashTone, 0.18f), pulse);
                 ArenaLayoutId flashId = ArenaLayout.ForWorld(_flashedWorld);
                 _flashedLayout = ArenaLayout.Title(flashId);
                 _flashedBadge = ArenaLayout.Badge(flashId);
@@ -1837,7 +1835,7 @@ namespace AsteroidsGoneRogue
             }
 
             float pulse = Mathf.PingPong(Time.unscaledTime * 3.4f, 1f);
-            _achievementToast.color = Color.Lerp(UiAmber, new Color(1f, 0.92f, 0.62f), pulse);
+            _achievementToast.color = Color.Lerp(UiTheme.Primary, UiTheme.Focus, pulse);
         }
 
         private void NavigateHangarPad()

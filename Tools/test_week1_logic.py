@@ -3210,10 +3210,26 @@ def test_ui_theme_pad_menus_044() -> None:
     assert "UiTheme.HudPlate" in ui
     assert "UiTheme.DangerHeader" in ui
     assert "UiTheme.Primary" in ui.split("private void ApplyFailChrome")[1]
+    chrome = ui.split("private void ApplyFailChrome")[1].split("public void FlashHit")[0]
+    assert "if (win &&" not in chrome
+    assert "ApplyButton(_primary, true, false, false)" in chrome
     assert "UiTheme.DangerTint" in ui
     assert "ApplyButton(_abortButton, false, true, false)" in ui
     assert "ApplyButton(_primary, true, false, false)" in ui
     assert "ApplyButton(button, false, false, true)" in ui
+    flash = ui.split("if (Time.unscaledTime < _worldFlashUntil)")[1].split("private void PulseHangarLaunch")[0]
+    assert "UiTheme.Secondary" in flash and "UiTheme.Primary" in flash
+    assert "0.82f, 0.94f, 1f" not in flash
+    assert "1f, 0.58f, 0.18f" not in flash
+    toast = ui.split("private void PulseAchievementToast()")[1].split("private void")[0]
+    assert "UiTheme.Primary" in toast and "UiTheme.Focus" in toast
+    assert "1f, 0.92f, 0.62f" not in toast
+    us_flag = ui.split("private static void BuildUsFlag")[1].split("private static void")[0]
+    sv_flag = ui.split("private static void BuildSwedishFlag")[1].split("private void")[0]
+    assert "UiTheme.Secondary" in us_flag
+    assert "UiTheme.Primary" in sv_flag
+    assert "0.88f, 0.88f, 0.86f" not in us_flag
+    assert "0.83f, 0.70f, 0.22f" not in sv_flag
     assert "PaintLanguageChip" in ui or "PaintChip" in ui
     assert "InactiveDesat" in theme
     assert 'Loc.T("ui.owned", "OWNED") + UiTheme.OwnedCheck' in ui
