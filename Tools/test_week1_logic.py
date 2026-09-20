@@ -1088,7 +1088,7 @@ def test_sniper_fardrift_037() -> None:
     assert "ScoutWingTitle" in summary
     assert "RunSummary.ShowContinueHint(" in ui
     assert "persist.LadderLine()" in ui
-    assert "playing ? 14 : 16" in ui
+    assert "playing ? 12 : 14" in ui
     complete = manager.split("private void CompleteWave()")[1].split("private bool TryAwardWorldMedal")[0]
     assert "PlayFarDriftAward" in complete
     assert "PlayWaveClear" in complete
@@ -2613,7 +2613,8 @@ def test_difficulty_economy_043() -> None:
     assert "ShipPreviewCanvasName" in ui
     assert "GraphicRaycaster" in ui
     assert "HangarPanelMin" in ui and "ShipPreviewMin" in ui
-    assert "0.014f, 0.035f" in ui and "0.55f, 0.725f" in ui
+    assert "0.014f, 0.080f" in ui and "0.55f, 0.888f" in ui
+    assert "0.014f, 0.035f" not in ui and "0.55f, 0.725f" not in ui
     assert "0.562f, 0.080f" in ui and "0.986f, 0.708f" in ui
     assert "0.575f, 0.725f" not in ui
     assert "0.590f, 0.085f" not in ui
@@ -2712,7 +2713,8 @@ def test_hotfix_042_flags_colliders() -> None:
 
     assert "LanguageFlagScale = 0.48f" in ui
     assert "LanguageFlagRect" in ui
-    assert "0.548f, 0.778f" in ui
+    assert "0.635f, 0.905f" in ui
+    assert "0.548f, 0.778f" not in ui
     assert "0.475f, 0.72f" not in ui
     assert "raycastTarget = true" in ui.split("private static Image CreateFlagButton")[1].split("private static void")[0]
     assert "0.55f, 0.12f, 0.16f, 0.78f" in ui
@@ -3251,6 +3253,8 @@ def test_ui_theme_pad_menus_044() -> None:
     assert "JoystickButton1" in ui or "CancelPressed" in ui
     assert "LangEnSlot" in padnav
     assert "Step(PrimarySlot, 0, -1) == NormalSlot" in padnav
+    assert "DominantStepY(0f, -1f, Flick) == 1" in padnav
+    assert "DominantStepY(0f, 1f, Flick) == -1" in padnav
     assert "LayoutSelfCheck" in padnav
 
     assert "#D4A04A" in checklist and "#6AA8C8" in checklist
@@ -3264,6 +3268,86 @@ def test_ui_theme_pad_menus_044() -> None:
     assert "com.unity.modules.xr" not in lock
     assert "com.unity.modules.screencapture" in manifest
     assert (root / "Assets/Scripts/UI/UiTheme.cs.meta").is_file()
+
+
+def _overlap(a: tuple[float, float, float, float], b: tuple[float, float, float, float]) -> bool:
+    ax0, ay0, ax1, ay1 = a
+    bx0, by0, bx1, by1 = b
+    return ax0 < bx1 and ax1 > bx0 and ay0 < by1 and ay1 > by0
+
+
+def test_hangar_wave_clear_layout() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    padnav = (root / "Assets/Scripts/Core/HangarPadNav.cs").read_text(encoding="utf-8")
+    hangar = (root / "Assets/Scripts/Hangar/HangarShop.cs").read_text(encoding="utf-8")
+    manifest = (root / "Packages/manifest.json").read_text(encoding="utf-8")
+    lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
+
+    assert "HangarPanelMin = new Vector2(0.014f, 0.080f)" in ui
+    assert "HangarPanelMax = new Vector2(0.55f, 0.888f)" in ui
+    assert "ShipPreviewMin = new Vector2(0.562f, 0.080f)" in ui
+    assert "ShipPreviewMax = new Vector2(0.986f, 0.708f)" in ui
+    assert "ShopGridTop = 0.665f" in ui
+    assert "ShopCellHeight = 0.094f" in ui
+    assert "ShopCellGutter = 0.016f" in ui
+    assert '"HullCol"' in ui and '"WeaponsCol"' in ui and '"DefenseCol"' in ui
+    assert "hullIndex % 4" in ui
+    assert "TryBuy" in hangar and "CanApply" in hangar
+
+    top_bar = (0.012, 0.905, 0.988, 0.995)
+    hangar_panel = (0.014, 0.080, 0.55, 0.888)
+    preview = (0.562, 0.080, 0.986, 0.708)
+    hint = (0.14, 0.008, 0.86, 0.072)
+    credits_btn = (0.014, 0.010, 0.128, 0.070)
+    audio = (0.735, 0.905, 0.988, 0.995)
+    lang = (0.635, 0.905, 0.728, 0.995)
+    diff = (0.478, 0.905, 0.628, 0.995)
+    assert not _overlap(top_bar, hangar_panel)
+    assert not _overlap(hint, hangar_panel)
+    assert not _overlap(credits_btn, hangar_panel)
+    assert not _overlap(audio, hangar_panel)
+    assert not _overlap(lang, hangar_panel)
+    assert not _overlap(diff, hangar_panel)
+    assert abs(hangar_panel[1] - preview[1]) < 0.0001
+    assert hangar_panel[3] < top_bar[1]
+    assert hint[3] < hangar_panel[1]
+
+    strip = (0.02, 0.82, 0.98, 0.995)
+    cta = (0.03, 0.735, 0.97, 0.805)
+    headers = (0.02, 0.675, 0.98, 0.728)
+    status = (0.03, 0.016, 0.97, 0.088)
+    assert not _overlap(strip, cta)
+    assert not _overlap(cta, headers)
+    assert cta[3] < strip[1]
+    assert headers[3] < cta[1]
+    assert status[3] < 0.665 - 5 * (0.094 + 0.016) + 0.016 + 0.02
+
+    assert "new Vector2(0.03f, 0.735f)" in ui and "new Vector2(0.97f, 0.805f)" in ui
+    assert "ClampOneLine" in ui
+    assert '_statusBase = Loc.T("ui.hangar_controls"' not in ui
+    assert "_hud.gameObject.SetActive(playing)" in ui
+    assert "_credits.gameObject.SetActive(false)" in ui
+    assert "y > 0f ? -1 : 1" in padnav
+    assert "DominantStepY(0f, -1f, Flick) == 1" in padnav
+
+    def dominant_y(x: float, y: float, flick: float) -> int:
+        ax, ay = abs(x), abs(y)
+        if ax < flick and ay < flick:
+            return 0
+        if ay > ax:
+            return -1 if y > 0 else 1
+        return 0
+
+    assert dominant_y(0.0, -1.0, 0.55) == 1
+    assert dominant_y(0.0, 1.0, 0.55) == -1
+    assert dominant_y(1.0, 0.0, 0.55) == 0
+    assert "com.unity.modules.vr" not in manifest
+    assert "com.unity.modules.xr" not in lock
+    assert "com.unity.inputsystem" not in manifest
+    assert "com.unity.textmeshpro" not in manifest
 
 
 def main() -> int:
@@ -3306,6 +3390,7 @@ def main() -> int:
     test_campaign_cap_and_session_best()
     test_steam_slice_044()
     test_ui_theme_pad_menus_044()
+    test_hangar_wave_clear_layout()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

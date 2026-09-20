@@ -13,8 +13,8 @@ Short checklist for Unity Hub / Speltest on `main`. No VR/XR Continue dialog.
 ## Hangar
 
 - First-flight card on first session (Got it / Start Wave / B).
-- Shop left, LOADOUT preview right (diagonal cam, idle spin).
-- D-pad **and** LS move Start Wave / Continue ↔ hull 4-col ↔ weapons ↔ defense (ghost preview on LOCKED) **and** Easy/Normal/Hard, LANG, Mute, Credits, Got it.
+- Shop left, LOADOUT preview right (diagonal cam, idle spin). WAVE CLEAR strip under the top bar; NEXT WAVE full-width left column; shop 3 columns share cell height. Hint row is screen-bottom only.
+- D-pad **and** LS move Start Wave / Continue ↔ hull 4-col ↔ weapons ↔ defense (ghost preview on LOCKED) **and** Easy/Normal/Hard, LANG, Mute, Credits, Got it. **Down moves down.**
 - **A** confirm, **B** back, **Start** pause. Focus-ring on pad-selected shop rows. D-pad is **not** fly (not aliased onto Horizontal).
 - HUD plates (`HudPlate` / `HealthRack`) share surface `#0E1520` @ 0.72 + primary header rules. Fail = danger header; wave-clear / win = primary. Abort = danger-tint.
 - LANG chips: inactive desat 40%, selected secondary ring, pad focus-ring.
