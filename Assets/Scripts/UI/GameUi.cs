@@ -111,10 +111,10 @@ namespace AsteroidsGoneRogue
         private bool _padHeld;
         private float _padRepeatAt;
 
-        private static readonly Color UiAmber = new Color(0.831f, 0.627f, 0.29f, 1f);
-        private static readonly Color UiBody = new Color(0.784f, 0.808f, 0.839f, 1f);
-        private static readonly Color UiHull = new Color(0.788f, 0.537f, 0.227f, 1f);
-        private static readonly Color UiShield = new Color(0.373f, 0.627f, 0.722f, 1f);
+        private static readonly Color UiAmber = UiTheme.Primary;
+        private static readonly Color UiBody = UiTheme.Accent;
+        private static readonly Color UiHull = UiTheme.Primary;
+        private static readonly Color UiShield = UiTheme.Secondary;
 
         public const float LanguageFlagScale = 0.48f;
         public static readonly Vector2 HangarPanelMin = new Vector2(0.014f, 0.035f);
@@ -363,15 +363,20 @@ namespace AsteroidsGoneRogue
             Loc.EnsureLoaded();
             Font display = UiFonts.Display();
             Font body = UiFonts.Body();
-            _scrim = CreateFill("Scrim", transform, new Color(0.015f, 0.02f, 0.04f, 0.22f), new Vector2(0f, 0f), new Vector2(1f, 1f));
+            _scrim = CreateFill("Scrim", transform, UiTheme.WithAlpha(UiTheme.Void, 0.22f), new Vector2(0f, 0f), new Vector2(1f, 1f));
             _vignette = BuildPlayVignette();
             _hitFlash = CreateFill("ScreenFlash", transform, new Color(1f, 0.96f, 0.92f, 0f),
                 new Vector2(0f, 0f), new Vector2(1f, 1f)).GetComponent<Image>();
 
-            _hudPlate = CreatePanel("HudPlate", transform, new Color(0.02f, 0.035f, 0.06f, 0.72f),
-                new Vector2(0.012f, 0.555f), new Vector2(0.395f, 0.875f));
-            CreateFill("HudPlateRule", _hudPlate.transform, new Color(1f, 0.72f, 0.28f, 0.55f),
-                new Vector2(0.04f, 0.0f), new Vector2(0.96f, 0.018f));
+            _hudPlate = UiTheme.BuildPanel(
+                "HudPlate",
+                transform,
+                new Vector2(0.012f, 0.555f),
+                new Vector2(0.395f, 0.875f),
+                0.982f,
+                UiTheme.HeaderWash,
+                UiTheme.HeaderRule,
+                UiTheme.HudPlate);
 
             _title = CreateText("Title", transform, display, 46, TextAnchor.UpperCenter, FontStyle.Bold);
             Stretch(_title.rectTransform, new Vector2(0.16f, 0.875f), new Vector2(0.84f, 0.985f));
@@ -397,22 +402,22 @@ namespace AsteroidsGoneRogue
 
             _achievementLadder = CreateText("AchievementLadder", transform, body, 13, TextAnchor.UpperLeft, FontStyle.Normal);
             Stretch(_achievementLadder.rectTransform, new Vector2(0.03f, 0.555f), new Vector2(0.62f, 0.605f));
-            _achievementLadder.color = new Color(0.92f, 0.82f, 0.55f, 0.95f);
+            _achievementLadder.color = UiTheme.WithAlpha(UiTheme.Primary, 0.95f);
             AddReadability(_achievementLadder, false);
 
             _hint = CreateText("Hint", transform, body, 18, TextAnchor.LowerCenter, FontStyle.Normal);
             Stretch(_hint.rectTransform, new Vector2(0.1f, 0.018f), new Vector2(0.9f, 0.078f));
-            _hint.color = new Color(0.82f, 0.88f, 0.92f);
+            _hint.color = UiTheme.FooterHint;
             _hint.text = "WASD / LS move  ·  Mouse / RS aim  ·  LMB / Space / RT fire";
             AddReadability(_hint, false);
 
-            _menuRoot = CreatePanel("HangarPanel", transform, new Color(0.025f, 0.038f, 0.06f, 0.96f),
-                HangarPanelMin, HangarPanelMax);
-            CreateFill("HangarHeader", _menuRoot.transform, new Color(1f, 0.58f, 0.16f, 0.28f),
-                new Vector2(0f, 0.962f), new Vector2(1f, 1f));
-            CreateFill("HangarRule", _menuRoot.transform, new Color(1f, 0.78f, 0.34f, 0.88f),
-                new Vector2(0.04f, 0.955f), new Vector2(0.96f, 0.962f));
-            CreateFill("HangarInner", _menuRoot.transform, new Color(0.04f, 0.07f, 0.1f, 0.35f),
+            _menuRoot = UiTheme.BuildPanel(
+                "HangarPanel",
+                transform,
+                HangarPanelMin,
+                HangarPanelMax,
+                0.962f);
+            CreateFill("HangarInner", _menuRoot.transform, UiTheme.InnerWash,
                 new Vector2(0.012f, 0.018f), new Vector2(0.988f, 0.948f));
 
             BuildRunSummary(display, body);
@@ -425,20 +430,17 @@ namespace AsteroidsGoneRogue
 
             _status = CreateText("Status", _menuRoot.transform, body, 17, TextAnchor.UpperCenter, FontStyle.Bold);
             Stretch(_status.rectTransform, new Vector2(0.04f, 0.84f), new Vector2(0.96f, 0.95f));
-            _status.color = new Color(0.97f, 0.95f, 0.88f);
+            _status.color = UiTheme.Accent;
 
             _credits = CreateText("Credits", _menuRoot.transform, body, 20, TextAnchor.UpperCenter, FontStyle.Bold);
             Stretch(_credits.rectTransform, new Vector2(0.06f, 0.785f), new Vector2(0.94f, 0.84f));
-            _credits.color = new Color(0.45f, 0.92f, 1f);
+            _credits.color = UiTheme.Secondary;
 
             _primary = CreateButton("Primary", _menuRoot.transform, display, new Vector2(0.28f, 0.675f), new Vector2(0.72f, 0.75f));
             _primaryLabel = _primary.GetComponentInChildren<Text>();
             _primary.onClick.AddListener(OnPrimary);
             _primaryPlate = _primary.targetGraphic as Image;
-            if (_primaryPlate != null)
-            {
-                _primaryPlate.color = new Color(0.42f, 0.26f, 0.08f, 0.98f);
-            }
+            UiTheme.ApplyButton(_primary, true, false, false);
 
             _abortButton = CreateButton("AbortWave", transform, body, new Vector2(0.78f, 0.09f), new Vector2(0.97f, 0.155f));
             _abortLabel = _abortButton.GetComponentInChildren<Text>();
@@ -446,6 +448,7 @@ namespace AsteroidsGoneRogue
             _abortLabel.fontSize = 16;
             _abortButton.onClick.AddListener(OnAbort);
             _abortPlate = _abortButton.targetGraphic as Image;
+            UiTheme.ApplyButton(_abortButton, false, true, false);
             _abortButton.gameObject.SetActive(false);
 
             _creditsButton = CreateButton("OpenCredits", transform, body, new Vector2(0.018f, 0.09f), new Vector2(0.168f, 0.155f));
@@ -453,6 +456,7 @@ namespace AsteroidsGoneRogue
             _creditsButtonLabel.text = "Credits";
             _creditsButtonLabel.fontSize = 16;
             _creditsButton.onClick.AddListener(ShowEndCredits);
+            UiTheme.ApplyButton(_creditsButton, false, false, false);
 
             BuildShop(display, body);
             BuildAudioControls(body);
@@ -526,15 +530,15 @@ namespace AsteroidsGoneRogue
             {
                 _previewRoot = CreatePanel("ShipPreviewFrame", _previewCanvas.transform, UiAmber,
                     ShipPreviewMin, ShipPreviewMax);
-                CreateFill("PreviewHeader", _previewRoot.transform, new Color(0.831f, 0.627f, 0.29f, 0.55f),
+                CreateFill("PreviewHeader", _previewRoot.transform, UiTheme.WithAlpha(UiTheme.Primary, 0.55f),
                     new Vector2(0f, 0.922f), new Vector2(1f, 1f));
-                CreateFill("PreviewRule", _previewRoot.transform, new Color(1f, 0.82f, 0.38f, 1f),
+                CreateFill("PreviewRule", _previewRoot.transform, UiTheme.HeaderRule,
                     new Vector2(0.05f, 0.914f), new Vector2(0.95f, 0.922f));
-                CreateFill("PreviewOuterBezel", _previewRoot.transform, new Color(0.831f, 0.627f, 0.29f, 1f),
+                CreateFill("PreviewOuterBezel", _previewRoot.transform, UiTheme.Primary,
                     new Vector2(0f, 0f), new Vector2(1f, 0.908f));
-                CreateFill("PreviewInnerBezel", _previewRoot.transform, new Color(0.04f, 0.05f, 0.07f, 1f),
+                CreateFill("PreviewInnerBezel", _previewRoot.transform, UiTheme.Void,
                     new Vector2(0.028f, 0.028f), new Vector2(0.972f, 0.880f));
-                CreateFill("PreviewInnerAmber", _previewRoot.transform, new Color(0.831f, 0.627f, 0.29f, 1f),
+                CreateFill("PreviewInnerAmber", _previewRoot.transform, UiTheme.Primary,
                     new Vector2(0.036f, 0.036f), new Vector2(0.964f, 0.872f));
 
                 _previewCaption = CreateText("PreviewCaption", _previewRoot.transform, display, 16, TextAnchor.MiddleCenter, FontStyle.Bold);
@@ -543,13 +547,13 @@ namespace AsteroidsGoneRogue
                 _previewCaption.text = "LOADOUT";
                 AddReadability(_previewCaption, true);
 
-                GameObject well = CreateFill("PreviewWell", _previewRoot.transform, new Color(0.022f, 0.032f, 0.05f, 1f),
+                GameObject well = CreateFill("PreviewWell", _previewRoot.transform, UiTheme.Void,
                     new Vector2(0.048f, 0.048f), new Vector2(0.952f, 0.860f));
 
                 GameObject view = new GameObject("PreviewViewport", typeof(RectTransform));
                 view.transform.SetParent(well.transform, false);
                 RawImage raw = view.AddComponent<RawImage>();
-                raw.color = new Color(0.05f, 0.07f, 0.1f, 1f);
+                raw.color = UiTheme.Surface2;
                 raw.texture = PreviewPlaceholder();
                 raw.raycastTarget = false;
                 raw.enabled = true;
@@ -604,7 +608,7 @@ namespace AsteroidsGoneRogue
                 if (_previewViewport.texture == null)
                 {
                     _previewViewport.texture = PreviewPlaceholder();
-                    _previewViewport.color = new Color(0.05f, 0.07f, 0.1f, 1f);
+                    _previewViewport.color = UiTheme.Surface2;
                 }
                 else
                 {
@@ -623,7 +627,7 @@ namespace AsteroidsGoneRogue
             Texture2D tex = new Texture2D(8, 8, TextureFormat.ARGB32, false);
             tex.wrapMode = TextureWrapMode.Clamp;
             tex.filterMode = FilterMode.Point;
-            Color fill = new Color(0.05f, 0.07f, 0.1f, 1f);
+            Color fill = UiTheme.Surface2;
             for (int y = 0; y < 8; y++)
             {
                 for (int x = 0; x < 8; x++)
@@ -662,8 +666,9 @@ namespace AsteroidsGoneRogue
                 BindShopHover(button, item);
                 _buyButtons[i] = button;
                 _buyLabels[i] = button.GetComponentInChildren<Text>();
-                _buyLabels[i].fontSize = 13;
+                _buyLabels[i].fontSize = 14;
                 _buyLabels[i].fontStyle = FontStyle.Bold;
+                UiTheme.ApplyButton(button, false, false, true);
             }
         }
 
@@ -709,7 +714,7 @@ namespace AsteroidsGoneRogue
             Stretch(header.rectTransform, min, max);
             header.color = UiAmber;
             header.text = label;
-            CreateFill("Rule_" + label, _menuRoot.transform, new Color(1f, 0.7f, 0.28f, 0.7f),
+            CreateFill("Rule_" + label, _menuRoot.transform, UiTheme.HeaderRule,
                 new Vector2(min.x, min.y), new Vector2(max.x, min.y + 0.008f));
             return header;
         }
@@ -773,28 +778,30 @@ namespace AsteroidsGoneRogue
 
         private void BuildRunSummary(Font display, Font body)
         {
-            _summaryRoot = CreatePanel("RunSummaryCard", _menuRoot.transform, new Color(0.04f, 0.07f, 0.11f, 0.97f),
-                new Vector2(0.04f, 0.81f), new Vector2(0.96f, 0.965f));
-            _summaryHeader = CreateFill("SummaryHeader", _summaryRoot.transform, new Color(1f, 0.58f, 0.16f, 0.3f),
-                new Vector2(0f, 0.78f), new Vector2(1f, 1f)).GetComponent<Image>();
-            _summaryRule = CreateFill("SummaryRule", _summaryRoot.transform, new Color(1f, 0.78f, 0.34f, 0.85f),
-                new Vector2(0.06f, 0.77f), new Vector2(0.94f, 0.79f)).GetComponent<Image>();
+            _summaryRoot = UiTheme.BuildPanel(
+                "RunSummaryCard",
+                _menuRoot.transform,
+                new Vector2(0.04f, 0.81f),
+                new Vector2(0.96f, 0.965f),
+                0.78f);
+            _summaryHeader = _summaryRoot.transform.Find("RunSummaryCardHeader").GetComponent<Image>();
+            _summaryRule = _summaryRoot.transform.Find("RunSummaryCardRule").GetComponent<Image>();
 
-            _summaryTitle = CreateText("SummaryTitle", _summaryRoot.transform, display, 17, TextAnchor.UpperCenter, FontStyle.Bold);
+            _summaryTitle = CreateText("SummaryTitle", _summaryRoot.transform, display, UiTheme.HeaderMin, TextAnchor.UpperCenter, FontStyle.Bold);
             Stretch(_summaryTitle.rectTransform, new Vector2(0.04f, 0.78f), new Vector2(0.96f, 0.97f));
-            _summaryTitle.color = new Color(1f, 0.86f, 0.44f);
+            _summaryTitle.color = UiTheme.Primary;
 
             _summaryBody = CreateText("SummaryBody", _summaryRoot.transform, body, 16, TextAnchor.UpperCenter, FontStyle.Normal);
             Stretch(_summaryBody.rectTransform, new Vector2(0.04f, 0.28f), new Vector2(0.96f, 0.76f));
-            _summaryBody.color = new Color(0.95f, 0.94f, 0.88f);
+            _summaryBody.color = UiTheme.Accent;
 
             _waveMedal = CreateText("WaveMedal", _summaryRoot.transform, display, 14, TextAnchor.MiddleCenter, FontStyle.Bold);
             Stretch(_waveMedal.rectTransform, new Vector2(0.04f, 0.155f), new Vector2(0.96f, 0.28f));
-            _waveMedal.color = new Color(1f, 0.86f, 0.42f);
+            _waveMedal.color = UiTheme.Primary;
 
             _continueHint = CreateText("ContinueHint", _summaryRoot.transform, body, 15, TextAnchor.LowerCenter, FontStyle.Bold);
             Stretch(_continueHint.rectTransform, new Vector2(0.04f, 0.03f), new Vector2(0.96f, 0.155f));
-            _continueHint.color = new Color(0.5f, 0.92f, 1f);
+            _continueHint.color = UiTheme.Secondary;
             _summaryRoot.SetActive(false);
         }
 
@@ -839,8 +846,8 @@ namespace AsteroidsGoneRogue
             ApplyFailChrome(failed);
             if (_session.Phase == GamePhase.CampaignClear && _summaryTitle != null)
             {
-                _summaryTitle.color = UiAmber;
-                _summaryTitle.fontSize = 20;
+                _summaryTitle.color = UiTheme.Primary;
+                _summaryTitle.fontSize = UiTheme.HeaderMin;
             }
             _summaryTitle.text = RunSummary.Title(_session.Phase, FailReasonText());
             string body = RunSummary.StatsLine(_session.Score, wave, world)
@@ -872,8 +879,8 @@ namespace AsteroidsGoneRogue
                 {
                     _waveMedal.text = RunSummary.WaveMedal(_session.LastResolvedWave);
                     _waveMedal.color = RunSummary.IsWorld3EntryLine(_session.LastResolvedWave)
-                        ? new Color(0.55f, 0.9f, 1f)
-                        : new Color(1f, 0.84f, 0.38f);
+                        ? UiTheme.Secondary
+                        : UiTheme.Primary;
                 }
             }
 
@@ -916,22 +923,21 @@ namespace AsteroidsGoneRogue
 
         private void ApplyFailChrome(bool failed)
         {
+            bool win = !failed;
             if (_summaryHeader != null)
             {
-                _summaryHeader.color = failed
-                    ? new Color(0.10f, 0.09f, 0.08f, 0.98f)
-                    : new Color(1f, 0.58f, 0.16f, 0.3f);
+                _summaryHeader.color = failed ? UiTheme.DangerHeader : UiTheme.HeaderWash;
             }
 
             if (_summaryRule != null)
             {
-                _summaryRule.color = failed ? UiAmber : new Color(1f, 0.78f, 0.34f, 0.85f);
+                _summaryRule.color = failed ? UiTheme.Danger : UiTheme.HeaderRule;
             }
 
             if (_summaryTitle != null)
             {
-                _summaryTitle.fontSize = failed ? 20 : 17;
-                _summaryTitle.color = failed ? UiAmber : new Color(1f, 0.86f, 0.44f);
+                _summaryTitle.fontSize = UiTheme.HeaderMin;
+                _summaryTitle.color = failed ? UiTheme.Danger : UiTheme.Primary;
             }
 
             if (_summaryRoot != null)
@@ -939,15 +945,18 @@ namespace AsteroidsGoneRogue
                 Image plate = _summaryRoot.GetComponent<Image>();
                 if (plate != null)
                 {
-                    plate.color = failed
-                        ? new Color(0.055f, 0.06f, 0.075f, 0.98f)
-                        : new Color(0.04f, 0.07f, 0.11f, 0.97f);
+                    plate.color = UiTheme.PanelPlate;
                 }
             }
 
             if (_continueHint != null)
             {
-                _continueHint.color = failed ? UiBody : new Color(0.5f, 0.92f, 1f);
+                _continueHint.color = failed ? UiTheme.Accent : UiTheme.Secondary;
+            }
+
+            if (win && _primary != null)
+            {
+                UiTheme.ApplyButton(_primary, true, false, false);
             }
         }
 
@@ -956,7 +965,7 @@ namespace AsteroidsGoneRogue
             _abortUrgent = stranded;
             if (!stranded && _abortPlate != null)
             {
-                _abortPlate.color = new Color(0.16f, 0.2f, 0.28f, 0.96f);
+                _abortPlate.color = UiTheme.DangerTint;
             }
         }
 
@@ -988,21 +997,21 @@ namespace AsteroidsGoneRogue
         private void BuildFirstHangarHint(Font display, Font body)
         {
             _tutorialDismissed = PlayerPrefs.GetInt(FirstHangarHintKey, 0) == 1;
-            _tutorialRoot = CreatePanel("FirstHangarHint", transform, new Color(0.03f, 0.045f, 0.07f, 0.96f),
-                new Vector2(0.012f, 0.18f), new Vector2(0.22f, 0.52f));
-            CreateFill("HintHeader", _tutorialRoot.transform, new Color(1f, 0.58f, 0.16f, 0.3f),
-                new Vector2(0f, 0.94f), new Vector2(1f, 1f));
-            CreateFill("HintRule", _tutorialRoot.transform, new Color(1f, 0.78f, 0.34f, 0.85f),
-                new Vector2(0.08f, 0.932f), new Vector2(0.92f, 0.94f));
+            _tutorialRoot = UiTheme.BuildPanel(
+                "FirstHangarHint",
+                transform,
+                new Vector2(0.012f, 0.18f),
+                new Vector2(0.22f, 0.52f),
+                0.94f);
 
             _firstFlightTitle = CreateText("HintTitle", _tutorialRoot.transform, display, 16, TextAnchor.UpperCenter, FontStyle.Bold);
             Stretch(_firstFlightTitle.rectTransform, new Vector2(0.06f, 0.86f), new Vector2(0.94f, 0.97f));
-            _firstFlightTitle.color = new Color(1f, 0.86f, 0.44f);
+            _firstFlightTitle.color = UiTheme.Primary;
             _firstFlightTitle.text = "First flight";
 
             _firstFlightBody = CreateText("HintBody", _tutorialRoot.transform, body, 14, TextAnchor.UpperLeft, FontStyle.Normal);
             Stretch(_firstFlightBody.rectTransform, new Vector2(0.07f, 0.2f), new Vector2(0.93f, 0.85f));
-            _firstFlightBody.color = new Color(0.92f, 0.92f, 0.88f);
+            _firstFlightBody.color = UiTheme.Accent;
             _firstFlightBody.text = HangarHintBody;
 
             _gotItButton = CreateButton("DismissHint", _tutorialRoot.transform, display,
@@ -1011,6 +1020,7 @@ namespace AsteroidsGoneRogue
             _gotItLabel.text = "Got it";
             _gotItLabel.fontSize = 15;
             _gotItButton.onClick.AddListener(OnDismissHintClicked);
+            UiTheme.ApplyButton(_gotItButton, true, false, false);
             _tutorialRoot.SetActive(false);
         }
 
@@ -1059,19 +1069,22 @@ namespace AsteroidsGoneRogue
 
         private void BuildEndCredits(Font display, Font body)
         {
-            _endCreditsRoot = CreatePanel("EndCredits", transform, new Color(0.012f, 0.018f, 0.04f, 0.96f),
-                new Vector2(0f, 0f), new Vector2(1f, 1f));
+            _endCreditsRoot = UiTheme.BuildPanel(
+                "EndCredits",
+                transform,
+                new Vector2(0f, 0f),
+                new Vector2(1f, 1f),
+                0.86f,
+                UiTheme.HeaderWash,
+                UiTheme.HeaderRule,
+                UiTheme.WithAlpha(UiTheme.Void, 0.96f));
             Image scrim = _endCreditsRoot.GetComponent<Image>();
             if (scrim != null)
             {
                 scrim.raycastTarget = true;
             }
 
-            CreateFill("CreditsHeader", _endCreditsRoot.transform, new Color(1f, 0.58f, 0.16f, 0.32f),
-                new Vector2(0.18f, 0.86f), new Vector2(0.82f, 0.94f));
-            CreateFill("CreditsRule", _endCreditsRoot.transform, new Color(1f, 0.82f, 0.44f, 0.9f),
-                new Vector2(0.22f, 0.852f), new Vector2(0.78f, 0.86f));
-            CreateFill("CreditsPlate", _endCreditsRoot.transform, new Color(0.03f, 0.05f, 0.08f, 0.72f),
+            CreateFill("CreditsPlate", _endCreditsRoot.transform, UiTheme.WithAlpha(UiTheme.Surface, 0.72f),
                 new Vector2(0.2f, 0.16f), new Vector2(0.8f, 0.84f));
 
             Text title = CreateText("CreditsTitle", _endCreditsRoot.transform, display, EndCredits.TitleSize,
@@ -1081,7 +1094,7 @@ namespace AsteroidsGoneRogue
             title.text = EndCredits.Title();
             AddReadability(title, true);
 
-            GameObject window = CreatePanel("CreditsWindow", _endCreditsRoot.transform, new Color(0.02f, 0.04f, 0.07f, 0.35f),
+            GameObject window = CreatePanel("CreditsWindow", _endCreditsRoot.transform, UiTheme.InnerWash,
                 new Vector2(0.24f, 0.22f), new Vector2(0.76f, 0.76f));
             window.AddComponent<RectMask2D>();
             Image windowImage = window.GetComponent<Image>();
@@ -1102,11 +1115,7 @@ namespace AsteroidsGoneRogue
             _creditsContinueLabel = _creditsContinue.GetComponentInChildren<Text>();
             _creditsContinueLabel.text = "Continue";
             _creditsContinueLabel.fontSize = 20;
-            Image contPlate = _creditsContinue.targetGraphic as Image;
-            if (contPlate != null)
-            {
-                contPlate.color = new Color(1f, 0.82f, 0.44f, 0.98f);
-            }
+            UiTheme.ApplyButton(_creditsContinue, true, false, false);
 
             _creditsContinue.onClick.AddListener(() => HideEndCredits(true));
             _endCreditsRoot.SetActive(false);
@@ -1184,13 +1193,21 @@ namespace AsteroidsGoneRogue
 
         private void BuildAudioControls(Font font)
         {
-            _audioPanel = CreatePanel("AudioPanel", transform, new Color(0.03f, 0.05f, 0.08f, 0.88f),
-                new Vector2(0.68f, 0.72f), new Vector2(0.98f, 0.86f));
+            _audioPanel = UiTheme.BuildPanel(
+                "AudioPanel",
+                transform,
+                new Vector2(0.68f, 0.72f),
+                new Vector2(0.98f, 0.86f),
+                0.92f,
+                UiTheme.HeaderWash,
+                UiTheme.HeaderRule,
+                UiTheme.WithAlpha(UiTheme.Surface, 0.88f));
             GameObject panel = _audioPanel;
 
             _muteButton = CreateButton("Mute", panel.transform, font, new Vector2(0.04f, 0.55f), new Vector2(0.36f, 0.9f));
             _muteLabel = _muteButton.GetComponentInChildren<Text>();
             _muteButton.onClick.AddListener(OnMute);
+            UiTheme.ApplyButton(_muteButton, false, false, false);
 
             _sfxLabel = CreateText("SfxLabel", panel.transform, font, 16, TextAnchor.MiddleLeft, FontStyle.Normal);
             _sfxLabel.text = "SFX";
@@ -1277,16 +1294,19 @@ namespace AsteroidsGoneRogue
 
         private void BuildLanguagePicker(Font display, Font body)
         {
-            _langPanel = CreatePanel("LanguagePanel", transform, new Color(0.025f, 0.04f, 0.07f, 0.62f),
-                new Vector2(0.548f, 0.778f), new Vector2(0.668f, 0.858f));
-            CreateFill("LangHeader", _langPanel.transform, new Color(0.831f, 0.627f, 0.29f, 0.16f),
-                new Vector2(0f, 0.78f), new Vector2(1f, 1f));
-            CreateFill("LangRule", _langPanel.transform, new Color(0.831f, 0.627f, 0.29f, 0.45f),
-                new Vector2(0.12f, 0.76f), new Vector2(0.88f, 0.8f));
+            _langPanel = UiTheme.BuildPanel(
+                "LanguagePanel",
+                transform,
+                new Vector2(0.548f, 0.778f),
+                new Vector2(0.668f, 0.858f),
+                0.78f,
+                UiTheme.HeaderWash,
+                UiTheme.HeaderRule,
+                UiTheme.WithAlpha(UiTheme.Surface, 0.88f));
 
             _langTitle = CreateText("LangTitle", _langPanel.transform, display, 10, TextAnchor.MiddleCenter, FontStyle.Bold);
             Stretch(_langTitle.rectTransform, new Vector2(0.06f, 0.78f), new Vector2(0.94f, 0.98f));
-            _langTitle.color = new Color(0.831f, 0.627f, 0.29f, 0.82f);
+            _langTitle.color = UiTheme.Primary;
 
             Vector2 flagMin;
             Vector2 flagMax;
@@ -1310,12 +1330,12 @@ namespace AsteroidsGoneRogue
 
             Text enCaption = CreateText("EnCaption", _langPanel.transform, body, 9, TextAnchor.MiddleCenter, FontStyle.Bold);
             Stretch(enCaption.rectTransform, new Vector2(0.10f, 0.04f), new Vector2(0.46f, 0.22f));
-            enCaption.color = new Color(0.784f, 0.808f, 0.839f, 0.72f);
+            enCaption.color = UiTheme.Accent;
             enCaption.text = "EN";
 
             Text svCaption = CreateText("SvCaption", _langPanel.transform, body, 9, TextAnchor.MiddleCenter, FontStyle.Bold);
             Stretch(svCaption.rectTransform, new Vector2(0.54f, 0.04f), new Vector2(0.90f, 0.22f));
-            svCaption.color = new Color(0.784f, 0.808f, 0.839f, 0.72f);
+            svCaption.color = UiTheme.Accent;
             svCaption.text = "SV";
         }
 
@@ -1339,20 +1359,17 @@ namespace AsteroidsGoneRogue
             GameObject go = new GameObject(name);
             go.transform.SetParent(parent, false);
             Image image = go.AddComponent<Image>();
-            image.color = new Color(0.18f, 0.16f, 0.12f, 0.55f);
+            image.color = UiTheme.Surface2;
             image.raycastTarget = true;
             Button button = go.AddComponent<Button>();
-            ColorBlock colors = button.colors;
-            colors.normalColor = Color.white;
-            colors.highlightedColor = new Color(1f, 0.92f, 0.72f, 0.85f);
-            colors.pressedColor = new Color(0.95f, 0.7f, 0.28f, 0.9f);
-            colors.selectedColor = new Color(1f, 0.84f, 0.42f, 1f);
-            button.colors = colors;
+            button.colors = UiTheme.MenuButtonColors();
             Navigation nav = button.navigation;
             nav.mode = Navigation.Mode.None;
             button.navigation = nav;
             button.onClick.AddListener(onClick);
             Stretch(go.GetComponent<RectTransform>(), min, max);
+            UiTheme.EnsureFocusFill(go);
+            UiTheme.EnsureRing(go);
             return image;
         }
 
@@ -1404,16 +1421,19 @@ namespace AsteroidsGoneRogue
 
         private void BuildDifficultyPicker(Font display, Font body)
         {
-            _diffPanel = CreatePanel("DifficultyPanel", transform, new Color(0.025f, 0.04f, 0.07f, 0.62f),
-                new Vector2(0.368f, 0.778f), new Vector2(0.540f, 0.858f));
-            CreateFill("DiffHeader", _diffPanel.transform, new Color(0.831f, 0.627f, 0.29f, 0.16f),
-                new Vector2(0f, 0.78f), new Vector2(1f, 1f));
-            CreateFill("DiffRule", _diffPanel.transform, new Color(0.831f, 0.627f, 0.29f, 0.45f),
-                new Vector2(0.10f, 0.76f), new Vector2(0.90f, 0.8f));
+            _diffPanel = UiTheme.BuildPanel(
+                "DifficultyPanel",
+                transform,
+                new Vector2(0.368f, 0.778f),
+                new Vector2(0.540f, 0.858f),
+                0.78f,
+                UiTheme.HeaderWash,
+                UiTheme.HeaderRule,
+                UiTheme.WithAlpha(UiTheme.Surface, 0.88f));
 
             _diffTitle = CreateText("DiffTitle", _diffPanel.transform, display, 10, TextAnchor.MiddleCenter, FontStyle.Bold);
             Stretch(_diffTitle.rectTransform, new Vector2(0.04f, 0.78f), new Vector2(0.96f, 0.98f));
-            _diffTitle.color = new Color(0.831f, 0.627f, 0.29f, 0.82f);
+            _diffTitle.color = UiTheme.Primary;
 
             _easyBezel = CreateDifficultyButton(
                 "DiffEasy",
@@ -1480,23 +1500,12 @@ namespace AsteroidsGoneRogue
 
         private void RefreshDifficultyChrome()
         {
-            Color selected = new Color(0.831f, 0.627f, 0.29f, 0.72f);
-            Color idle = new Color(0.18f, 0.16f, 0.12f, 0.4f);
             DifficultyGrade grade = DifficultySettings.Current;
-            if (_easyBezel != null)
-            {
-                _easyBezel.color = grade == DifficultyGrade.Easy ? selected : idle;
-            }
-
-            if (_normalBezel != null)
-            {
-                _normalBezel.color = grade == DifficultyGrade.Normal ? selected : idle;
-            }
-
-            if (_hardBezel != null)
-            {
-                _hardBezel.color = grade == DifficultyGrade.Hard ? selected : idle;
-            }
+            EventSystem es = EventSystem.current;
+            GameObject selected = es != null ? es.currentSelectedGameObject : null;
+            PaintChip(_easyBezel, grade == DifficultyGrade.Easy, selected);
+            PaintChip(_normalBezel, grade == DifficultyGrade.Normal, selected);
+            PaintChip(_hardBezel, grade == DifficultyGrade.Hard, selected);
         }
 
         public void AnnounceLifeLost(int livesLeft)
@@ -1529,17 +1538,21 @@ namespace AsteroidsGoneRogue
 
         private void RefreshLanguageChrome()
         {
-            Color selected = new Color(0.831f, 0.627f, 0.29f, 0.72f);
-            Color idle = new Color(0.18f, 0.16f, 0.12f, 0.4f);
-            if (_enBezel != null)
+            EventSystem es = EventSystem.current;
+            GameObject selected = es != null ? es.currentSelectedGameObject : null;
+            PaintChip(_enBezel, Loc.Language == GameLanguage.English, selected);
+            PaintChip(_svBezel, Loc.Language == GameLanguage.Swedish, selected);
+        }
+
+        private static void PaintChip(Image bezel, bool chosen, GameObject padFocus)
+        {
+            if (bezel == null)
             {
-                _enBezel.color = Loc.Language == GameLanguage.English ? selected : idle;
+                return;
             }
 
-            if (_svBezel != null)
-            {
-                _svBezel.color = Loc.Language == GameLanguage.Swedish ? selected : idle;
-            }
+            bool focused = padFocus != null && padFocus == bezel.gameObject;
+            UiTheme.PaintLanguageChip(bezel, chosen, focused);
         }
 
         private void ApplyLocalizedStaticLabels()
@@ -1681,6 +1694,19 @@ namespace AsteroidsGoneRogue
                 OnDismissHintClicked();
             }
 
+            if (_session != null && _session.Phase != GamePhase.Playing && !_creditsVisible
+                && (_tutorialRoot == null || !_tutorialRoot.activeSelf)
+                && GamepadInput.CancelPressed()
+                && !Input.GetKeyDown(KeyCode.Escape))
+            {
+                EventSystem back = EventSystem.current;
+                if (back != null && _primary != null)
+                {
+                    back.SetSelectedGameObject(_primary.gameObject);
+                    _padSlot = HangarPadNav.PrimarySlot;
+                }
+            }
+
             if (_session != null && _session.Phase == GamePhase.Playing
                 && (GamepadInput.PausePressed() || Input.GetKeyDown(KeyCode.Escape)))
             {
@@ -1778,15 +1804,12 @@ namespace AsteroidsGoneRogue
             bool first = !_tutorialDismissed && _session.WaveIndex == 1 && _session.Phase == GamePhase.Hangar;
             if (!first)
             {
-                _primaryPlate.color = new Color(0.42f, 0.26f, 0.08f, 0.98f);
+                _primaryPlate.color = UiTheme.PrimaryCta;
                 return;
             }
 
             float pulse = Mathf.PingPong(Time.unscaledTime * 2.4f, 1f);
-            _primaryPlate.color = Color.Lerp(
-                new Color(0.42f, 0.26f, 0.08f, 0.98f),
-                new Color(0.92f, 0.62f, 0.18f, 1f),
-                pulse);
+            _primaryPlate.color = Color.Lerp(UiTheme.PrimaryCta, UiTheme.Brighten(UiTheme.Primary, 0.12f), pulse);
         }
 
         private void PulseAbortIfUrgent()
@@ -1797,10 +1820,7 @@ namespace AsteroidsGoneRogue
             }
 
             float pulse = Mathf.PingPong(Time.unscaledTime * 4.2f, 1f);
-            _abortPlate.color = Color.Lerp(
-                new Color(0.32f, 0.16f, 0.08f, 0.96f),
-                new Color(0.95f, 0.55f, 0.18f, 1f),
-                pulse);
+            _abortPlate.color = Color.Lerp(UiTheme.DangerTint, UiTheme.Brighten(UiTheme.Danger, 0.18f), pulse);
         }
 
         private void PulseAchievementToast()
@@ -1822,14 +1842,21 @@ namespace AsteroidsGoneRogue
 
         private void NavigateHangarPad()
         {
-            if (_session == null || _session.Phase == GamePhase.Playing || _creditsVisible)
+            if (_session == null || _session.Phase == GamePhase.Playing)
             {
                 _padHeld = false;
+                EventSystem playing = EventSystem.current;
+                if (playing != null && playing.currentSelectedGameObject != null)
+                {
+                    playing.SetSelectedGameObject(null);
+                }
+
                 return;
             }
 
-            if (_tutorialRoot != null && _tutorialRoot.activeSelf)
+            if (_creditsVisible)
             {
+                _padHeld = false;
                 return;
             }
 
@@ -1852,7 +1879,7 @@ namespace AsteroidsGoneRogue
                     if (idle != null)
                     {
                         es.SetSelectedGameObject(idle.gameObject);
-                        _padSlot = HangarPadNav.PrimarySlot;
+                        _padSlot = SlotFromSelected(idle.gameObject);
                     }
                 }
 
@@ -1872,7 +1899,7 @@ namespace AsteroidsGoneRogue
                 _padSlot = SlotFromSelected(selected);
             }
 
-            _padSlot = HangarPadNav.Step(_padSlot, dx, dy);
+            _padSlot = StepActivePad(_padSlot, dx, dy);
             Button next = ButtonFromSlot(_padSlot);
             if (next != null)
             {
@@ -1883,8 +1910,78 @@ namespace AsteroidsGoneRogue
             _padHeld = true;
         }
 
+        private int StepActivePad(int slot, int dx, int dy)
+        {
+            int next = HangarPadNav.Step(slot, dx, dy);
+            int guard = 0;
+            while (guard < HangarPadNav.SlotCount)
+            {
+                Button button = ButtonFromSlot(next);
+                if (button != null && button.gameObject.activeInHierarchy)
+                {
+                    return next;
+                }
+
+                int again = HangarPadNav.Step(next, dx, dy);
+                if (again == next)
+                {
+                    return slot;
+                }
+
+                next = again;
+                guard++;
+            }
+
+            return slot;
+        }
+
         private Button ButtonFromSlot(int slot)
         {
+            if (slot == HangarPadNav.CreditsSlot)
+            {
+                return ButtonIfActive(_creditsButton);
+            }
+
+            if (slot == HangarPadNav.EasySlot)
+            {
+                return BezelButton(_easyBezel);
+            }
+
+            if (slot == HangarPadNav.NormalSlot)
+            {
+                return BezelButton(_normalBezel);
+            }
+
+            if (slot == HangarPadNav.HardSlot)
+            {
+                return BezelButton(_hardBezel);
+            }
+
+            if (slot == HangarPadNav.LangEnSlot)
+            {
+                return BezelButton(_enBezel);
+            }
+
+            if (slot == HangarPadNav.LangSvSlot)
+            {
+                return BezelButton(_svBezel);
+            }
+
+            if (slot == HangarPadNav.MuteSlot)
+            {
+                return ButtonIfActive(_muteButton);
+            }
+
+            if (slot == HangarPadNav.GotItSlot)
+            {
+                if (_tutorialRoot != null && _tutorialRoot.activeSelf)
+                {
+                    return _gotItButton;
+                }
+
+                return null;
+            }
+
             if (slot <= HangarPadNav.PrimarySlot)
             {
                 return _primary;
@@ -1902,9 +1999,29 @@ namespace AsteroidsGoneRogue
             return _primary;
         }
 
+        private static Button BezelButton(Image bezel)
+        {
+            if (bezel == null || !bezel.gameObject.activeInHierarchy)
+            {
+                return null;
+            }
+
+            return bezel.GetComponent<Button>();
+        }
+
+        private static Button ButtonIfActive(Button button)
+        {
+            if (button == null || !button.gameObject.activeInHierarchy)
+            {
+                return null;
+            }
+
+            return button;
+        }
+
         private int SlotFromSelected(GameObject go)
         {
-            if (go == null || _buyButtons == null)
+            if (go == null)
             {
                 return HangarPadNav.PrimarySlot;
             }
@@ -1914,11 +2031,54 @@ namespace AsteroidsGoneRogue
                 return HangarPadNav.PrimarySlot;
             }
 
-            for (int i = 0; i < _buyButtons.Length; i++)
+            if (_creditsButton != null && go == _creditsButton.gameObject)
             {
-                if (_buyButtons[i] != null && go == _buyButtons[i].gameObject)
+                return HangarPadNav.CreditsSlot;
+            }
+
+            if (_easyBezel != null && go == _easyBezel.gameObject)
+            {
+                return HangarPadNav.EasySlot;
+            }
+
+            if (_normalBezel != null && go == _normalBezel.gameObject)
+            {
+                return HangarPadNav.NormalSlot;
+            }
+
+            if (_hardBezel != null && go == _hardBezel.gameObject)
+            {
+                return HangarPadNav.HardSlot;
+            }
+
+            if (_enBezel != null && go == _enBezel.gameObject)
+            {
+                return HangarPadNav.LangEnSlot;
+            }
+
+            if (_svBezel != null && go == _svBezel.gameObject)
+            {
+                return HangarPadNav.LangSvSlot;
+            }
+
+            if (_muteButton != null && go == _muteButton.gameObject)
+            {
+                return HangarPadNav.MuteSlot;
+            }
+
+            if (_gotItButton != null && go == _gotItButton.gameObject)
+            {
+                return HangarPadNav.GotItSlot;
+            }
+
+            if (_buyButtons != null)
+            {
+                for (int i = 0; i < _buyButtons.Length; i++)
                 {
-                    return HangarPadNav.ShopSlot(i);
+                    if (_buyButtons[i] != null && go == _buyButtons[i].gameObject)
+                    {
+                        return HangarPadNav.ShopSlot(i);
+                    }
                 }
             }
 
@@ -1952,9 +2112,11 @@ namespace AsteroidsGoneRogue
 
             if (current == _lastPadSelected)
             {
+                ApplyPadFocus(current);
                 return;
             }
 
+            ApplyPadFocus(current);
             _lastPadSelected = current;
             UpgradeId id;
             if (TryShopUpgradeFrom(current, out id) && _game != null)
@@ -1970,7 +2132,31 @@ namespace AsteroidsGoneRogue
                 return _creditsContinue;
             }
 
+            if (_tutorialRoot != null && _tutorialRoot.activeSelf && _gotItButton != null)
+            {
+                return _gotItButton;
+            }
+
             return _primary;
+        }
+
+        private void ApplyPadFocus(GameObject current)
+        {
+            ApplyPadFocusOne(_lastPadSelected, false);
+            ApplyPadFocusOne(current, true);
+            RefreshLanguageChrome();
+            RefreshDifficultyChrome();
+        }
+
+        private void ApplyPadFocusOne(GameObject go, bool focused)
+        {
+            if (go == null)
+            {
+                return;
+            }
+
+            bool shop = go.name.StartsWith("Buy_");
+            UiTheme.SetPadFocus(go, focused, shop);
         }
 
         private static bool TryShopUpgradeFrom(GameObject go, out UpgradeId id)
@@ -1997,7 +2183,7 @@ namespace AsteroidsGoneRogue
                 "WORLD {0}  ·  {1}",
                 world,
                 ArenaLayout.Badge(ArenaLayout.ForWorld(world)));
-            _world.color = new Color(1f, 0.82f, 0.28f);
+            _world.color = UiTheme.Primary;
         }
 
         private void RefreshBadgeRow(bool playing)
@@ -2016,8 +2202,8 @@ namespace AsteroidsGoneRogue
                 _badgeRow.text = Loc.T("ui.medals", MedalLadderPrefix) + "\n" + row;
                 _badgeRow.fontSize = playing ? 14 : 16;
                 _badgeRow.color = playing
-                    ? new Color(1f, 0.84f, 0.38f, 0.92f)
-                    : new Color(1f, 0.84f, 0.38f);
+                    ? UiTheme.WithAlpha(UiTheme.Primary, 0.92f)
+                    : UiTheme.Primary;
             }
         }
 
@@ -2045,54 +2231,35 @@ namespace AsteroidsGoneRogue
             bool canApply = _loadout.State.CanApply(item.Id);
             bool locked = !owned && !canApply;
             bool tooPoor = !owned && canApply && _session.Credits < item.Cost;
-            _buyButtons[index].interactable = _session.ShopOpen;
+            _buyButtons[index].interactable = _session.ShopOpen && !owned && !locked && !tooPoor;
 
             Image plate = _buyButtons[index].targetGraphic as Image;
-            if (plate != null)
-            {
-                if (owned)
-                {
-                    plate.color = new Color(0.1f, 0.2f, 0.18f, 0.92f);
-                }
-                else if (locked)
-                {
-                    plate.color = new Color(0.07f, 0.07f, 0.08f, 0.88f);
-                }
-                else if (tooPoor)
-                {
-                    plate.color = new Color(0.12f, 0.1f, 0.09f, 0.9f);
-                }
-                else
-                {
-                    plate.color = new Color(0.28f, 0.2f, 0.08f, 0.98f);
-                }
-            }
+            UiTheme.PaintShopPlate(plate, _buyLabels[index], owned, locked, tooPoor);
+            EventSystem es = EventSystem.current;
+            bool focused = es != null
+                && es.currentSelectedGameObject != null
+                && es.currentSelectedGameObject == _buyButtons[index].gameObject;
+            UiTheme.SetPadFocus(_buyButtons[index].gameObject, focused, true);
 
             string costLine;
-            Color labelColor;
             if (owned)
             {
-                costLine = Loc.T("ui.owned", "OWNED");
-                labelColor = new Color(0.55f, 0.82f, 0.72f, 0.95f);
+                costLine = Loc.T("ui.owned", "OWNED") + UiTheme.OwnedCheck;
             }
             else if (locked)
             {
                 costLine = Loc.T("ui.locked", "LOCKED");
-                labelColor = new Color(0.4f, 0.4f, 0.42f, 0.85f);
             }
             else if (tooPoor)
             {
                 costLine = Loc.Tf("ui.need_cr", "need {0} cr", item.Cost);
-                labelColor = new Color(0.62f, 0.54f, 0.46f, 0.92f);
             }
             else
             {
                 costLine = Loc.Tf("ui.cost_cr", "{0} cr", item.Cost);
-                labelColor = new Color(1f, 0.93f, 0.78f);
             }
 
             _buyLabels[index].text = item.Title + "\n" + costLine;
-            _buyLabels[index].color = labelColor;
         }
 
         private string BestCardLine()
@@ -2187,12 +2354,15 @@ namespace AsteroidsGoneRogue
 
         private void BuildHealthRack(Font display, Font body)
         {
-            _healthRoot = CreatePanel("HealthRack", transform, new Color(0.02f, 0.032f, 0.055f, 0.72f),
-                new Vector2(0.012f, 0.105f), new Vector2(0.38f, 0.305f));
-            CreateFill("HealthHeader", _healthRoot.transform, new Color(0.831f, 0.627f, 0.29f, 0.3f),
-                new Vector2(0f, 0.82f), new Vector2(1f, 1f));
-            CreateFill("HealthRule", _healthRoot.transform, new Color(0.831f, 0.627f, 0.29f, 0.88f),
-                new Vector2(0.06f, 0.8f), new Vector2(0.94f, 0.84f));
+            _healthRoot = UiTheme.BuildPanel(
+                "HealthRack",
+                transform,
+                new Vector2(0.012f, 0.105f),
+                new Vector2(0.38f, 0.305f),
+                0.82f,
+                UiTheme.HeaderWash,
+                UiTheme.HeaderRule,
+                UiTheme.HudPlate);
 
             _healthTitle = CreateText("HealthTitle", _healthRoot.transform, display, 15, TextAnchor.MiddleLeft, FontStyle.Bold);
             Stretch(_healthTitle.rectTransform, new Vector2(0.07f, 0.8f), new Vector2(0.48f, 0.98f));
@@ -2289,9 +2459,9 @@ namespace AsteroidsGoneRogue
             Stretch(count.rectTransform, new Vector2(0.5f, 0.64f), new Vector2(1f, 1f));
             count.color = UiBody;
 
-            CreateFill(name + "Bezel", row.transform, new Color(0.75f, 0.82f, 0.9f, 0.35f),
+            CreateFill(name + "Bezel", row.transform, UiTheme.WithAlpha(UiTheme.Accent, 0.35f),
                 new Vector2(0f, 0.02f), new Vector2(1f, 0.6f));
-            GameObject track = CreateFill(name + "Track", row.transform, new Color(0.05f, 0.06f, 0.08f, 0.96f),
+            GameObject track = CreateFill(name + "Track", row.transform, UiTheme.WithAlpha(UiTheme.Void, 0.96f),
                 new Vector2(0.012f, 0.07f), new Vector2(0.988f, 0.55f));
             GameObject fillGo = new GameObject(name + "Fill");
             fillGo.transform.SetParent(track.transform, false);
@@ -2363,7 +2533,7 @@ namespace AsteroidsGoneRogue
             {
                 _hullFill.fillAmount = Mathf.Clamp01(hull / (float)maxHull);
                 _hullFill.color = hull <= 1
-                    ? new Color(0.72f, 0.35f, 0.16f, 1f)
+                    ? UiTheme.Danger
                     : UiHull;
             }
 
@@ -2442,7 +2612,7 @@ namespace AsteroidsGoneRogue
             }
 
             Outline outline = text.gameObject.AddComponent<Outline>();
-            outline.effectColor = new Color(0.02f, 0.03f, 0.05f, strong ? 0.92f : 0.78f);
+            outline.effectColor = UiTheme.WithAlpha(UiTheme.Void, strong ? 0.92f : 0.78f);
             outline.effectDistance = strong ? new Vector2(1.35f, -1.35f) : new Vector2(1f, -1f);
             Shadow shadow = text.gameObject.AddComponent<Shadow>();
             shadow.effectColor = new Color(0f, 0f, 0f, strong ? 0.55f : 0.4f);
@@ -2487,18 +2657,9 @@ namespace AsteroidsGoneRogue
             GameObject go = new GameObject(name);
             go.transform.SetParent(parent, false);
             Image image = go.AddComponent<Image>();
-            image.color = new Color(0.16f, 0.2f, 0.28f, 0.96f);
+            image.color = UiTheme.Surface2;
             Button button = go.AddComponent<Button>();
-            ColorBlock colors = button.colors;
-            colors.normalColor = Color.white;
-            colors.highlightedColor = new Color(1f, 0.9f, 0.55f, 1f);
-            colors.pressedColor = new Color(0.92f, 0.62f, 0.22f, 1f);
-            colors.selectedColor = new Color(1f, 0.84f, 0.42f, 1f);
-            colors.disabledColor = new Color(0.78f, 0.78f, 0.8f, 1f);
-            button.colors = colors;
-            Navigation nav = button.navigation;
-            nav.mode = Navigation.Mode.None;
-            button.navigation = nav;
+            UiTheme.ApplyButton(button, false, false, false);
             Stretch(go.GetComponent<RectTransform>(), min, max);
 
             Text label = CreateText("Label", go.transform, font, 20, TextAnchor.MiddleCenter, FontStyle.Normal);
@@ -2518,7 +2679,7 @@ namespace AsteroidsGoneRogue
             GameObject root = new GameObject(name);
             root.transform.SetParent(parent, false);
             Image background = root.AddComponent<Image>();
-            background.color = new Color(0.1f, 0.12f, 0.16f, 0.95f);
+            background.color = UiTheme.Surface2;
             Stretch(root.GetComponent<RectTransform>(), min, max);
 
             GameObject fillArea = new GameObject("Fill Area");
@@ -2531,7 +2692,7 @@ namespace AsteroidsGoneRogue
             GameObject fill = new GameObject("Fill");
             fill.transform.SetParent(fillArea.transform, false);
             Image fillImage = fill.AddComponent<Image>();
-            fillImage.color = new Color(0.95f, 0.68f, 0.22f, 1f);
+            fillImage.color = UiTheme.Primary;
             RectTransform fillRect = fill.GetComponent<RectTransform>();
             Stretch(fillRect, Vector2.zero, Vector2.one);
 

@@ -248,6 +248,7 @@ def main() -> int:
         "class ArtImport",
         "class GameBootstrap",
         "class GameUi",
+        "class UiTheme",
         "class UiFonts",
         "class HangarPersist",
         "class MedalCatalog",

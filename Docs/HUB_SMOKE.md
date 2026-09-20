@@ -14,10 +14,12 @@ Short checklist for Unity Hub / Speltest on `main`. No VR/XR Continue dialog.
 
 - First-flight card on first session (Got it / Start Wave / B).
 - Shop left, LOADOUT preview right (diagonal cam, idle spin).
-- D-pad **and** LS move Start Wave ↔ hull 4-col ↔ weapons ↔ defense (ghost preview on LOCKED).
-- **A** confirm, **B** cancel. D-pad is **not** fly (not aliased onto Horizontal).
+- D-pad **and** LS move Start Wave / Continue ↔ hull 4-col ↔ weapons ↔ defense (ghost preview on LOCKED) **and** Easy/Normal/Hard, LANG, Mute, Credits, Got it.
+- **A** confirm, **B** back, **Start** pause. Focus-ring on pad-selected shop rows. D-pad is **not** fly (not aliased onto Horizontal).
+- HUD plates (`HudPlate` / `HealthRack`) share surface `#0E1520` @ 0.72 + primary header rules. Fail = danger header; wave-clear / win = primary. Abort = danger-tint.
+- LANG chips: inactive desat 40%, selected secondary ring, pad focus-ring.
 - HUD: Session highscore + Best. ACHIEVEMENTS ladder under medals.
-- LANG + Easy/Normal/Hard + Credits.
+- LANG + difficulty (Easy/Normal/Hard) + Mute + Credits.
 
 ## Play
 
