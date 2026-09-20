@@ -238,54 +238,6 @@ namespace AsteroidsGoneRogue
             }
         }
 
-        public static float ColliderRadialKeep(EnemyKind kind)
-        {
-            switch (kind)
-            {
-                case EnemyKind.Scout:
-                    return 0.42f;
-                case EnemyKind.Gunner:
-                    return 0.48f;
-                case EnemyKind.Drone:
-                    return 0.48f;
-                case EnemyKind.Bomber:
-                    return 0.36f;
-                case EnemyKind.Sniper:
-                    return 0.40f;
-                case EnemyKind.Brute:
-                    return 0.68f;
-                case EnemyKind.Swarm:
-                    return 0.72f;
-                case EnemyKind.Swarmling:
-                    return 0.70f;
-                default:
-                    return 0.50f;
-            }
-        }
-
-        public static float ColliderLengthKeep(EnemyKind kind)
-        {
-            switch (kind)
-            {
-                case EnemyKind.Scout:
-                    return 0.70f;
-                case EnemyKind.Gunner:
-                    return 0.68f;
-                case EnemyKind.Drone:
-                    return 0.72f;
-                case EnemyKind.Bomber:
-                    return 0.68f;
-                case EnemyKind.Sniper:
-                    return 0.70f;
-                case EnemyKind.Brute:
-                    return 0.90f;
-                case EnemyKind.Swarm:
-                    return 0.86f;
-                default:
-                    return 0.78f;
-            }
-        }
-
         public static EnemyKind FromVisual(string visualName)
         {
             if (visualName == "Enemy_Scout"

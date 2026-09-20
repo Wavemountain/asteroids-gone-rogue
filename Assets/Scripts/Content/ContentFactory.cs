@@ -806,7 +806,7 @@ namespace AsteroidsGoneRogue
                 ScaleImportedVisual(root.transform, 0.45f);
             }
 
-            FitEnemyCollider(collider, root.transform, kind);
+            FitEnemyCollider(collider, root.transform);
 
             if (EnemyCatalog.IsMonster(kind) || kind == EnemyKind.Swarmling)
             {
@@ -1056,6 +1056,8 @@ namespace AsteroidsGoneRogue
                 CreatePrimitive(faceted ? PrimitiveType.Cube : PrimitiveType.Sphere, "Mesh", root.transform, rock,
                     Vector3.zero, scale, Quaternion.identity);
             }
+
+            FitAsteroidCollider(collider, root.transform);
 
             Asteroid asteroid = root.AddComponent<Asteroid>();
             asteroid.Initialize(size, waves, this, drift);
@@ -1365,7 +1367,7 @@ namespace AsteroidsGoneRogue
                 : new Color(0.12f, 0.85f, 1f) * 1.5f);
         }
 
-        private static void FitEnemyCollider(CapsuleCollider collider, Transform root, EnemyKind kind)
+        private static void FitEnemyCollider(CapsuleCollider collider, Transform root)
         {
             if (collider == null || root == null)
             {
@@ -1379,19 +1381,47 @@ namespace AsteroidsGoneRogue
             }
 
             Vector3 size = local.size;
-            float radialKeep = EnemyCatalog.ColliderRadialKeep(kind);
-            float lengthKeep = EnemyCatalog.ColliderLengthKeep(kind);
-            float cross = kind == EnemyKind.Brute || kind == EnemyKind.Swarm || kind == EnemyKind.Swarmling
-                ? Mathf.Max(size.x, size.y)
-                : Mathf.Min(size.x, size.y);
-            float radius = Mathf.Max(0.12f, cross * 0.5f * radialKeep);
-            float height = Mathf.Max(radius * 2.05f, size.z * lengthKeep);
+            float radius = 0.5f * Mathf.Max(size.x, size.y);
+            float height = Mathf.Max(radius * 2f, size.z);
+            if (radius < 0.01f)
+            {
+                return;
+            }
+
             collider.center = local.center;
             collider.radius = radius;
             collider.height = height;
         }
 
+        private static void FitAsteroidCollider(SphereCollider collider, Transform root)
+        {
+            if (collider == null || root == null)
+            {
+                return;
+            }
+
+            Bounds local;
+            if (!TryRendererLocalBounds(root, out local, false))
+            {
+                return;
+            }
+
+            float radius = Mathf.Max(local.extents.x, Mathf.Max(local.extents.y, local.extents.z));
+            if (radius < 0.01f)
+            {
+                return;
+            }
+
+            collider.center = local.center;
+            collider.radius = radius;
+        }
+
         private static bool TryEnemyMeshBounds(Transform root, out Bounds local)
+        {
+            return TryRendererLocalBounds(root, out local, true);
+        }
+
+        private static bool TryRendererLocalBounds(Transform root, out Bounds local, bool hullOnly)
         {
             local = new Bounds(Vector3.zero, Vector3.zero);
             MeshRenderer[] renderers = root.GetComponentsInChildren<MeshRenderer>(true);
@@ -1399,39 +1429,71 @@ namespace AsteroidsGoneRogue
             for (int i = 0; i < renderers.Length; i++)
             {
                 MeshRenderer renderer = renderers[i];
-                if (renderer == null || !IsEnemyHullRenderer(renderer))
+                if (renderer == null || (hullOnly && !IsEnemyHullRenderer(renderer)))
                 {
                     continue;
                 }
 
-                Bounds world = renderer.bounds;
-                Vector3[] corners =
+                MeshFilter filter = renderer.GetComponent<MeshFilter>();
+                if (filter != null && filter.sharedMesh != null)
                 {
-                    new Vector3(world.min.x, world.min.y, world.min.z),
-                    new Vector3(world.min.x, world.min.y, world.max.z),
-                    new Vector3(world.min.x, world.max.y, world.min.z),
-                    new Vector3(world.min.x, world.max.y, world.max.z),
-                    new Vector3(world.max.x, world.min.y, world.min.z),
-                    new Vector3(world.max.x, world.min.y, world.max.z),
-                    new Vector3(world.max.x, world.max.y, world.min.z),
-                    new Vector3(world.max.x, world.max.y, world.max.z)
-                };
-                for (int c = 0; c < corners.Length; c++)
-                {
-                    Vector3 p = root.InverseTransformPoint(corners[c]);
-                    if (!any)
-                    {
-                        local = new Bounds(p, Vector3.zero);
-                        any = true;
-                    }
-                    else
-                    {
-                        local.Encapsulate(p);
-                    }
+                    EncapsulateMeshBounds(root, renderer.transform, filter.sharedMesh.bounds, ref local, ref any);
+                    continue;
                 }
+
+                EncapsulateWorldAabb(root, renderer.bounds, ref local, ref any);
             }
 
             return any && local.size.sqrMagnitude > 0.0001f;
+        }
+
+        private static void EncapsulateMeshBounds(
+            Transform root,
+            Transform source,
+            Bounds meshBounds,
+            ref Bounds local,
+            ref bool any)
+        {
+            Vector3 center = meshBounds.center;
+            Vector3 extents = meshBounds.extents;
+            for (int x = -1; x <= 1; x += 2)
+            {
+                for (int y = -1; y <= 1; y += 2)
+                {
+                    for (int z = -1; z <= 1; z += 2)
+                    {
+                        Vector3 corner = center + new Vector3(extents.x * x, extents.y * y, extents.z * z);
+                        EncapsulateRootPoint(root, source.TransformPoint(corner), ref local, ref any);
+                    }
+                }
+            }
+        }
+
+        private static void EncapsulateWorldAabb(Transform root, Bounds world, ref Bounds local, ref bool any)
+        {
+            Vector3 min = world.min;
+            Vector3 max = world.max;
+            EncapsulateRootPoint(root, new Vector3(min.x, min.y, min.z), ref local, ref any);
+            EncapsulateRootPoint(root, new Vector3(min.x, min.y, max.z), ref local, ref any);
+            EncapsulateRootPoint(root, new Vector3(min.x, max.y, min.z), ref local, ref any);
+            EncapsulateRootPoint(root, new Vector3(min.x, max.y, max.z), ref local, ref any);
+            EncapsulateRootPoint(root, new Vector3(max.x, min.y, min.z), ref local, ref any);
+            EncapsulateRootPoint(root, new Vector3(max.x, min.y, max.z), ref local, ref any);
+            EncapsulateRootPoint(root, new Vector3(max.x, max.y, min.z), ref local, ref any);
+            EncapsulateRootPoint(root, new Vector3(max.x, max.y, max.z), ref local, ref any);
+        }
+
+        private static void EncapsulateRootPoint(Transform root, Vector3 world, ref Bounds local, ref bool any)
+        {
+            Vector3 p = root.InverseTransformPoint(world);
+            if (!any)
+            {
+                local = new Bounds(p, Vector3.zero);
+                any = true;
+                return;
+            }
+
+            local.Encapsulate(p);
         }
 
         private static bool IsEnemyHullRenderer(Renderer renderer)

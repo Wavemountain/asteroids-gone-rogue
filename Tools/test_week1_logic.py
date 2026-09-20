@@ -2553,7 +2553,13 @@ def test_difficulty_economy_043() -> None:
     assert "IdleSpinDegrees = 18f" in preview
     assert "PreviewX = 6.35f" in preview
     assert "StudioZ = -140f" in preview
-    assert "ShowcaseScale = 2.25f" in preview
+    assert "ShowcaseScale = 1.25f" in preview
+    assert "ShowcaseScale = 2.25f" not in preview
+    assert "CameraFov = 40f" in preview
+    assert "CameraFov = 32f" not in preview
+    assert "new Vector3(0.2f, 3.7f, -11.5f)" in preview
+    assert "new Vector3(0.2f, 2.05f, -5.7f)" not in preview
+    assert "farClipPlane = 24f" in preview
     assert "PlayScale = 1f" in preview
     assert "ApplyPreviewScale" in preview
     assert "PreviewLayer = 8" in preview
@@ -2684,8 +2690,8 @@ def test_hotfix_042_flags_colliders() -> None:
     assert "0.08f, 0.36f, 0.52f, 0.78f" in ui
 
     assert "ColliderCenter" in enemies
-    assert "ColliderRadialKeep" in enemies
-    assert "ColliderLengthKeep" in enemies
+    assert "ColliderRadialKeep" not in enemies
+    assert "ColliderLengthKeep" not in enemies
     assert "new Vector3(0f, 0.42f, 1.35f)" in enemies
     assert "new Vector3(0f, 0.22f, 0.13f)" in enemies
     assert "new Vector3(0f, 0.55f, 0.34f)" in enemies
@@ -2706,12 +2712,23 @@ def test_hotfix_042_flags_colliders() -> None:
 
     assert "collider.center = EnemyCatalog.ColliderCenter(kind)" in factory
     assert "FitEnemyCollider" in factory
+    assert "FitAsteroidCollider" in factory
     assert "TryEnemyMeshBounds" in factory
-    fit = factory.split("private static void FitEnemyCollider")[1].split("private static bool TryEnemyMeshBounds")[0]
-    assert "ColliderRadialKeep" in fit
-    assert "ColliderLengthKeep" in fit
+    assert "TryRendererLocalBounds" in factory
+    assert "sharedMesh.bounds" in factory
+    fit = factory.split("private static void FitEnemyCollider")[1].split("private static void FitAsteroidCollider")[0]
+    assert "ColliderRadialKeep" not in fit
+    assert "ColliderLengthKeep" not in fit
+    assert "Mathf.Max(size.x, size.y)" in fit
+    assert "Mathf.Max(radius * 2f, size.z)" in fit
+    rock = factory.split("private static void FitAsteroidCollider")[1].split("private static bool TryEnemyMeshBounds")[0]
+    assert "local.extents" in rock
+    assert "collider.radius = radius" in rock
+    assert "Mathf.Max(local.extents.x" in rock
     create = factory.split("public EnemySeeker CreateEnemy(Vector3 position, Transform player, WaveManager waves, string visualName)")[1].split("public GameObject CreatePickup")[0]
     assert create.index("FitEnemyCollider") < create.index("DressMonsterPresence")
+    asteroid_fn = factory.split("private Asteroid CreateAsteroid")[1].split("public GameObject CreatePickup")[0]
+    assert asteroid_fn.index("TryVisual") < asteroid_fn.index("FitAsteroidCollider")
     assert "com.unity.modules.vr" not in manifest
     assert "com.unity.modules.xr" not in lock
 
