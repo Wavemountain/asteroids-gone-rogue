@@ -1,0 +1,255 @@
+namespace AsteroidsGoneRogue
+{
+    /// <summary>
+    /// Hangar D-pad / stick shop grid. Primary sits above a 4-col hull tree,
+    /// weapons column, defense column. Unity-free so tests can walk neighbors
+    /// without EventSystem. D-pad is not aliased onto move axes.
+    /// </summary>
+    public static class HangarPadNav
+    {
+        public const int PrimarySlot = 0;
+        public const int ShopSlot0 = 1;
+        public const float RepeatFirstSeconds = 0.28f;
+        public const float RepeatNextSeconds = 0.14f;
+        public const float Flick = 0.55f;
+
+        public static int SlotCount
+        {
+            get { return ShopSlot0 + ShopCatalog.Items.Length; }
+        }
+
+        public static int ShopSlot(int shopIndex)
+        {
+            return ShopSlot0 + shopIndex;
+        }
+
+        public static bool TryShopIndex(int slot, out int shopIndex)
+        {
+            shopIndex = slot - ShopSlot0;
+            return shopIndex >= 0 && shopIndex < ShopCatalog.Items.Length;
+        }
+
+        public static int Step(int slot, int dx, int dy)
+        {
+            if (dx == 0 && dy == 0)
+            {
+                return ClampSlot(slot);
+            }
+
+            if (dx != 0 && dy != 0)
+            {
+                if (dx * dx >= dy * dy)
+                {
+                    dy = 0;
+                }
+                else
+                {
+                    dx = 0;
+                }
+            }
+
+            int from = ClampSlot(slot);
+            int x;
+            int y;
+            Coord(from, out x, out y);
+
+            int exact = FindAt(x + dx, y + dy);
+            if (exact >= 0)
+            {
+                return exact;
+            }
+
+            int along = FindAlong(from, x, y, dx, dy, false);
+            if (along >= 0)
+            {
+                return along;
+            }
+
+            int wrap = FindAlong(from, x, y, dx, dy, true);
+            return wrap >= 0 ? wrap : from;
+        }
+
+        public static int DominantStep(float x, float y, float flick)
+        {
+            float ax = x < 0f ? -x : x;
+            float ay = y < 0f ? -y : y;
+            if (ax < flick && ay < flick)
+            {
+                return 0;
+            }
+
+            if (ax >= ay)
+            {
+                return x > 0f ? 1 : -1;
+            }
+
+            return 0;
+        }
+
+        public static int DominantStepY(float x, float y, float flick)
+        {
+            float ax = x < 0f ? -x : x;
+            float ay = y < 0f ? -y : y;
+            if (ax < flick && ay < flick)
+            {
+                return 0;
+            }
+
+            if (ay > ax)
+            {
+                return y > 0f ? 1 : -1;
+            }
+
+            return 0;
+        }
+
+        public static bool LayoutSelfCheck()
+        {
+            int hullNose02 = ShopSlot(3);
+            int spread = ShopSlot(10);
+            int shield = ShopSlot(15);
+            return Step(PrimarySlot, 0, 1) == ShopSlot(1)
+                && Step(ShopSlot(1), 0, -1) == PrimarySlot
+                && Step(hullNose02, 1, 0) == spread
+                && Step(spread, -1, 0) == hullNose02
+                && Step(spread, 1, 0) == shield
+                && Step(shield, -1, 0) == spread;
+        }
+
+        private static int ClampSlot(int slot)
+        {
+            if (slot < 0)
+            {
+                return PrimarySlot;
+            }
+
+            int last = SlotCount - 1;
+            return slot > last ? last : slot;
+        }
+
+        private static void Coord(int slot, out int x, out int y)
+        {
+            if (slot <= PrimarySlot)
+            {
+                x = 1;
+                y = -1;
+                return;
+            }
+
+            int hull = 0;
+            int weapon = 0;
+            int defense = 0;
+            int shopIndex = slot - ShopSlot0;
+            for (int i = 0; i < ShopCatalog.Items.Length; i++)
+            {
+                ShopGroup group = ShopCatalog.Items[i].Group;
+                int cx;
+                int cy;
+                if (group == ShopGroup.Weapons)
+                {
+                    cx = 4;
+                    cy = weapon;
+                    weapon++;
+                }
+                else if (group == ShopGroup.Defense)
+                {
+                    cx = 5;
+                    cy = defense;
+                    defense++;
+                }
+                else
+                {
+                    cx = hull % 4;
+                    cy = hull / 4;
+                    hull++;
+                }
+
+                if (i == shopIndex)
+                {
+                    x = cx;
+                    y = cy;
+                    return;
+                }
+            }
+
+            x = 1;
+            y = -1;
+        }
+
+        private static int FindAt(int x, int y)
+        {
+            for (int slot = 0; slot < SlotCount; slot++)
+            {
+                int sx;
+                int sy;
+                Coord(slot, out sx, out sy);
+                if (sx == x && sy == y)
+                {
+                    return slot;
+                }
+            }
+
+            return -1;
+        }
+
+        private static int FindAlong(int from, int x, int y, int dx, int dy, bool wrap)
+        {
+            int best = -1;
+            int bestScore = int.MaxValue;
+            for (int slot = 0; slot < SlotCount; slot++)
+            {
+                if (slot == from)
+                {
+                    continue;
+                }
+
+                int sx;
+                int sy;
+                Coord(slot, out sx, out sy);
+                int delx = sx - x;
+                int dely = sy - y;
+                bool dirOk;
+                int score;
+                if (dx != 0)
+                {
+                    dirOk = wrap ? Sign(delx) == -Sign(dx) : Sign(delx) == Sign(dx);
+                    int yDist = dely < 0 ? -dely : dely;
+                    int xDist = wrap ? (delx < 0 ? -delx : delx) : (dx > 0 ? delx : -delx);
+                    score = yDist * 20 + xDist;
+                }
+                else
+                {
+                    dirOk = wrap ? Sign(dely) == -Sign(dy) : Sign(dely) == Sign(dy);
+                    int xDist = delx < 0 ? -delx : delx;
+                    int yDist = wrap ? (dely < 0 ? -dely : dely) : (dy > 0 ? dely : -dely);
+                    score = xDist * 20 + yDist;
+                }
+
+                if (!dirOk || score >= bestScore)
+                {
+                    continue;
+                }
+
+                bestScore = score;
+                best = slot;
+            }
+
+            return best;
+        }
+
+        private static int Sign(int value)
+        {
+            if (value > 0)
+            {
+                return 1;
+            }
+
+            if (value < 0)
+            {
+                return -1;
+            }
+
+            return 0;
+        }
+    }
+}

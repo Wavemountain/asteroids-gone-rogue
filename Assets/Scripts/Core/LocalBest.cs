@@ -104,5 +104,27 @@ namespace AsteroidsGoneRogue
 
             return Loc.Tf("best.card", "Best {0}  ·  Wave {1}  ·  World {2}", Score, Wave, World);
         }
+
+        public string SessionCardLine()
+        {
+            if (!HasRecord)
+            {
+                return Loc.T("session.empty", "Session —");
+            }
+
+            return Loc.Tf("session.card", "Session {0}  ·  Wave {1}", Score, Wave);
+        }
+
+        public string DeathRetryLine(int lastRunScore)
+        {
+            string session = HasRecord
+                ? Loc.Tf("session.score", "Session {0}", Score)
+                : Loc.T("session.empty", "Session —");
+            return Loc.Tf(
+                "session.death",
+                "This run {0}  ·  {1}",
+                lastRunScore,
+                session);
+        }
     }
 }

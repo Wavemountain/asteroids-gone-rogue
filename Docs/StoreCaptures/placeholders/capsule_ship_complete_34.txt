@@ -1,0 +1,4 @@
+Placeholder — Steam capsule, 3/4 Ship_Complete, amber #D4A04A, anti-epa.
+
+Pose: cam (-6.4, 3.1, -4.8) look (-8.6, 0.55, 8.2) FOV 32.
+Drop PNG at Docs/StoreCaptures/out/capsule_ship_complete_34.png

@@ -155,6 +155,8 @@ def main() -> int:
     require(ROOT / "Assets/Art/Import/MANIFEST.md")
     require(ROOT / "README.md")
     require(ROOT / "MERGE_CHECKLIST.md")
+    require(ROOT / "Docs/HUB_SMOKE.md")
+    require(ROOT / "Docs/StoreCaptures/README.md")
     checklist = read(ROOT / "MERGE_CHECKLIST.md")
     if "Do not merge until Wagge" not in checklist and "until Wagge says yes" not in checklist:
         err("MERGE_CHECKLIST.md must say not to merge until Wagge says yes")
@@ -260,6 +262,13 @@ def main() -> int:
         "class GamepadInput",
         "class HangarShipPreview",
         "class ArenaEnv",
+        "class AchievementCatalog",
+        "class AchievementPersist",
+        "class SteamAchievements",
+        "class CampaignCap",
+        "class HangarPadNav",
+        "class StoreCapturePoses",
+        "class StoreCaptureDirector",
         "enum GamePhase",
     ]
     blob = "\n".join(read(p) for p in scripts + editor_scripts)
@@ -267,7 +276,7 @@ def main() -> int:
         if token not in blob:
             err(f"missing C# {token}")
 
-    for phase in ("Hangar", "Playing", "WaveClear", "Failed"):
+    for phase in ("Hangar", "Playing", "WaveClear", "Failed", "CampaignClear"):
         if phase not in blob:
             err(f"state machine missing {phase}")
 

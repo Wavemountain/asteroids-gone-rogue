@@ -25,6 +25,9 @@ class Session:
         self.last_run_score = 0
         self.lives = 3
         self.max_lives = 5
+        self.campaign_won = False
+        self.wave_took_hit = False
+        self.extra_life_streak = 0
 
     @property
     def can_start(self) -> bool:
@@ -33,6 +36,8 @@ class Session:
     def begin(self) -> None:
         assert self.can_start
         self.fail_reason = ""
+        self.campaign_won = False
+        self.wave_took_hit = False
         self.phase = Phase.PLAYING
 
     def add_score(self, amount: int) -> None:
@@ -47,6 +52,22 @@ class Session:
         self.last_run_score = self.score
         self.wave += 1
         self.phase = Phase.WAVE_CLEAR
+
+    def complete_campaign(self, bonus: int = 100, credits: int = 150) -> None:
+        assert self.phase == Phase.PLAYING
+        self.last_resolved_wave = self.wave
+        self.last_credits_awarded = credits
+        self.score += bonus
+        self.credits += credits
+        self.last_run_score = self.score
+        self.campaign_won = True
+        self.phase = "CampaignClear"
+
+    def note_extra_life(self) -> None:
+        self.extra_life_streak += 1
+
+    def note_life_lost(self) -> None:
+        self.extra_life_streak = 0
 
     def fail(self, reason: str | None = None) -> None:
         assert self.phase == Phase.PLAYING
@@ -74,7 +95,10 @@ class Session:
         if self.phase != Phase.PLAYING or self.lives <= 0:
             return False
         self.lives -= 1
-        return self.lives > 0
+        if self.lives <= 0:
+            return False
+        self.note_life_lost()
+        return True
 
     def gain_life(self) -> bool:
         if self.lives >= self.max_lives:
@@ -2626,7 +2650,7 @@ def test_difficulty_economy_043() -> None:
     assert "GamepadInput.MoveStick" in ship
     assert "GamepadInput.PadMoveStick" in ship
     assert "SyncHangarPadSelection" in ui
-    assert "Navigation.Mode.Automatic" in ui
+    assert "Navigation.Mode.None" in ui
     assert "GamepadInput.CancelPressed" in ui
     assert "m_Name: AimX" in inputs
     assert "m_Name: AimY" in inputs
@@ -2884,6 +2908,163 @@ def test_hotfix_043_gamepad() -> None:
     assert "no 0.45" in checklist
 
 
+def test_campaign_cap_and_session_best() -> None:
+    s = Session()
+    s.begin()
+    s.wave = 5
+    s.add_score(400)
+    s.complete_campaign()
+    assert s.phase == "CampaignClear"
+    assert s.wave == 5
+    assert s.campaign_won is True
+    assert s.last_resolved_wave == 5
+    assert s.score == 500
+    assert s.credits == 150
+    s.note_extra_life()
+    s.note_extra_life()
+    assert s.extra_life_streak == 2
+    s.note_life_lost()
+    assert s.extra_life_streak == 0
+
+
+def test_steam_slice_044() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
+    phase = (root / "Assets/Scripts/Core/GamePhase.cs").read_text(encoding="utf-8")
+    cap = (root / "Assets/Scripts/Core/CampaignCap.cs").read_text(encoding="utf-8")
+    ach = (root / "Assets/Scripts/Core/AchievementCatalog.cs").read_text(encoding="utf-8")
+    persist = (root / "Assets/Scripts/Core/AchievementPersist.cs").read_text(encoding="utf-8")
+    steam = (root / "Assets/Scripts/Core/SteamAchievements.cs").read_text(encoding="utf-8")
+    padnav = (root / "Assets/Scripts/Core/HangarPadNav.cs").read_text(encoding="utf-8")
+    pad = (root / "Assets/Scripts/Core/GamepadInput.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    best = (root / "Assets/Scripts/Core/LocalBest.cs").read_text(encoding="utf-8")
+    health = (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
+    follow = (root / "Assets/Scripts/Player/FollowCamera.cs").read_text(encoding="utf-8")
+    bootstrap = (root / "Assets/Scripts/Content/GameBootstrap.cs").read_text(encoding="utf-8")
+    poses = (root / "Assets/Scripts/Content/StoreCapturePoses.cs").read_text(encoding="utf-8")
+    director = (root / "Assets/Scripts/Content/StoreCaptureDirector.cs").read_text(encoding="utf-8")
+    menu = (root / "Assets/Editor/StoreCaptureMenu.cs").read_text(encoding="utf-8")
+    inputs = (root / "ProjectSettings/InputManager.asset").read_text(encoding="utf-8")
+    manifest = (root / "Packages/manifest.json").read_text(encoding="utf-8")
+    lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    checklist = (root / "MERGE_CHECKLIST.md").read_text(encoding="utf-8")
+    hub = (root / "Docs/HUB_SMOKE.md").read_text(encoding="utf-8")
+    store = (root / "Docs/StoreCaptures/README.md").read_text(encoding="utf-8")
+
+    assert "CampaignClear" in phase
+    assert "FinalWave = 5" in cap
+    assert "FinalWorld = 1" in cap
+    assert "CompleteCampaign" in session
+    assert "CampaignWon" in session
+    assert "WaveTookHit" in session
+    assert "ExtraLifeStreak" in session
+    assert "MarkWaveHit" in session
+    assert "GamePhase.CampaignClear" in session
+    assert "CampaignCap.IsFinalWave" in manager
+    assert "CompleteCampaign" in manager
+    assert "TryUnlockAchievement" in manager
+    assert "SessionBest" in manager
+    assert "AchievementPersist" in manager
+    assert "NotifyPlayerHit" in manager
+    assert "NotifyPlayerHit" in health
+    assert "AchievementId.FirstClear" in ach
+    assert "AchievementId.NoHitWave" in ach
+    assert "AchievementId.HardClear" in ach
+    assert "AchievementId.ExtraLifeStreak" in ach
+    assert 'AGR_FIRST_CLEAR' in ach
+    assert 'AGR_NO_HIT_WAVE' in ach
+    assert 'AGR_HARD_CLEAR' in ach
+    assert 'AGR_EXTRALIFE_STREAK' in ach
+    assert "ExtraLifeStreakNeed = 2" in ach
+    assert 'PrefsKey = "agr.achievements.mask"' in ach
+    assert "SteamUserStats" in steam
+    assert "SetAchievement" in steam
+    assert persist.count("SteamAchievements.Unlock") >= 1
+    assert "AchievementCatalog.PrefsKey" in persist
+    assert "LayoutSelfCheck" in padnav
+    assert "Step(PrimarySlot, 0, 1) == ShopSlot(1)" in padnav
+    assert "PadDpadX" in pad and "PadDpadY" in pad
+    assert "UiNavDpad" in pad
+    assert "UiNavCombined" in pad
+    assert "JoystickButton11" in pad
+    assert "m_Name: PadDpadX" in inputs
+    assert "m_Name: PadDpadY" in inputs
+    assert "m_Name: DpadUp" in inputs
+    assert "m_Name: DpadDown" in inputs
+    assert "m_Name: DpadLeft" in inputs
+    assert "m_Name: DpadRight" in inputs
+    assert "axis: 6" in inputs and "axis: 7" in inputs
+    assert "joystick button 11" in inputs
+    assert "joystick button 13" in inputs
+    dpad_x = inputs.split("m_Name: PadDpadX")[1].split("m_Name:")[0]
+    assert "axis: 6" in dpad_x
+    assert "not aliased onto move" in dpad_x.lower() or "not aliased onto move" in inputs
+    hangar_h = inputs.split("m_Name: Horizontal")[1].split("m_Name:")[0]
+    assert "PadDpad" not in hangar_h
+    assert "UiNavCombined" in ui
+    assert "HangarPadNav.Step" in ui
+    assert "Navigation.Mode.None" in ui
+    assert "AnnounceAchievement" in ui
+    assert "SessionBest" in ui
+    assert "DeathRetryLine" in ui and "DeathRetryLine" in best
+    assert "RETRY" in ui or "retry_hangar" in loc
+    assert "CampaignClear" in ui
+    assert "New Run" in ui
+    assert "SECTOR CLEAR" in cap
+    assert "CampaignCap.WinLine" in summary
+    assert "run.next_sector" in summary
+    assert "run.fail_retry" in loc
+    assert "session.card" in loc and "ach.first" in loc
+    assert "StoreCaptureDirector.Ensure" in bootstrap
+    assert "HoldCapturePose" in follow
+    assert "KeyCode.F12" in director
+    assert "KeyCode.F9" in director
+    assert 'CapsuleHex = "#D4A04A"' in poses
+    assert "01_hangar_shop_health_launchsign" in poses
+    assert "02_play_void_astrofloor" in poses
+    assert "03_combat_juice_bolt_spread" in poses
+    assert "04_brute_swarm_beat" in poses
+    assert "05_fail_or_win" in poses
+    assert "capsule_ship_complete_34" in poses
+    assert "Store Captures" in menu
+    assert "#D4A04A" in store
+    assert "Ship_Complete" in store
+    assert "F12" in store and "F9" in hub
+    assert "0.44-steam-slice" in checklist
+    assert "0.44-juice-firstrun" in checklist
+    assert "no 0.45" in checklist
+    assert "future tag is `0.44`" in checklist
+    assert "Docs/HUB_SMOKE.md" in readme
+    assert "Docs/StoreCaptures" in readme
+    assert "SECTOR CLEAR" in readme
+    assert "com.rlabrecque.steamworks.net" not in manifest
+    assert "com.unity.modules.vr" not in manifest
+    assert "com.unity.modules.xr" not in lock
+    assert (root / "Docs/HUB_SMOKE.md").is_file()
+    assert (root / "Docs/StoreCaptures/README.md").is_file()
+    for name in (
+        "01_hangar_shop_health_launchsign",
+        "02_play_void_astrofloor",
+        "03_combat_juice_bolt_spread",
+        "04_brute_swarm_beat",
+        "05_fail_or_win",
+        "capsule_ship_complete_34",
+    ):
+        assert (root / "Docs/StoreCaptures/placeholders" / f"{name}.txt").is_file()
+    assert (root / "Docs/StoreCaptures/out/.gitkeep").is_file()
+    assert "6000.6.0f1" in checklist
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    assert "ArenaMusicScale = 0.65f" in audio
+    assert "ExtraLifePickupScale = 0.82f" in audio
+
+
 def test_juice_firstrun_044() -> None:
     from pathlib import Path
 
@@ -3011,6 +3192,8 @@ def main() -> int:
     test_hotfix_043_gamepad()
     test_asteroid_play_plane_and_turn()
     test_juice_firstrun_044()
+    test_campaign_cap_and_session_best()
+    test_steam_slice_044()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

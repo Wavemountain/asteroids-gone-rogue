@@ -5,6 +5,7 @@ namespace AsteroidsGoneRogue
         Hangar,
         Playing,
         WaveClear,
-        Failed
+        Failed,
+        CampaignClear
     }
 }

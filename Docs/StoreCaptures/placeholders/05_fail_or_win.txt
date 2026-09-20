@@ -1,0 +1,4 @@
+Placeholder — SHIP LOST fail chrome or SECTOR CLEAR win (HIT07).
+
+Pose: hangar follow (0, 31, -19) look (0.25, 0.4, 0) FOV 54.
+Drop PNG at Docs/StoreCaptures/out/05_fail_or_win.png

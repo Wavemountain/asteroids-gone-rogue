@@ -23,6 +23,12 @@ namespace AsteroidsGoneRogue
         public const string FirePad = "FirePad";
         public const string CycleFire = "CycleFire";
         public const string Pause = "Pause";
+        public const string PadDpadX = "PadDpadX";
+        public const string PadDpadY = "PadDpadY";
+        public const string DpadUp = "DpadUp";
+        public const string DpadDown = "DpadDown";
+        public const string DpadLeft = "DpadLeft";
+        public const string DpadRight = "DpadRight";
 
         public static Vector2 MoveStick()
         {
@@ -88,6 +94,50 @@ namespace AsteroidsGoneRogue
             return Deadzone(new Vector2(Axis(MoveX), Axis(MoveY)));
         }
 
+        /// <summary>
+        /// Hangar D-pad only. Not aliased onto Horizontal / move (that mapped RT
+        /// into fly on some backends). Axes 7/8 + joystick buttons 11–14.
+        /// </summary>
+        public static Vector2 UiNavDpad()
+        {
+            float x = 0f;
+            float y = 0f;
+            if (ButtonHeld(DpadRight) || Input.GetKey(KeyCode.JoystickButton12))
+            {
+                x += 1f;
+            }
+
+            if (ButtonHeld(DpadLeft) || Input.GetKey(KeyCode.JoystickButton11))
+            {
+                x -= 1f;
+            }
+
+            if (ButtonHeld(DpadUp) || Input.GetKey(KeyCode.JoystickButton13))
+            {
+                y += 1f;
+            }
+
+            if (ButtonHeld(DpadDown) || Input.GetKey(KeyCode.JoystickButton14))
+            {
+                y -= 1f;
+            }
+
+            x += Axis(PadDpadX);
+            y += Axis(PadDpadY);
+            return Deadzone(new Vector2(x, y));
+        }
+
+        public static Vector2 UiNavCombined()
+        {
+            Vector2 dpad = UiNavDpad();
+            if (dpad.sqrMagnitude >= StickDead * StickDead)
+            {
+                return dpad;
+            }
+
+            return UiNavStick();
+        }
+
         public static Vector2 MouseDelta()
         {
             return new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"));
@@ -107,6 +157,18 @@ namespace AsteroidsGoneRogue
             catch (System.ArgumentException)
             {
                 return 0f;
+            }
+        }
+
+        private static bool ButtonHeld(string name)
+        {
+            try
+            {
+                return Input.GetButton(name);
+            }
+            catch (System.ArgumentException)
+            {
+                return false;
             }
         }
 

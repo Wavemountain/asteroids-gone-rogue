@@ -22,6 +22,9 @@ namespace AsteroidsGoneRogue
         public int LastRunScore { get; private set; }
         public int Lives { get; private set; } = DifficultySettings.NormalStartLives;
         public int MaxLives { get; private set; } = DifficultySettings.MaxLives;
+        public bool CampaignWon { get; private set; }
+        public bool WaveTookHit { get; private set; }
+        public int ExtraLifeStreak { get; private set; }
 
         public bool CanStartWave
         {
@@ -29,7 +32,8 @@ namespace AsteroidsGoneRogue
             {
                 return Phase == GamePhase.Hangar
                     || Phase == GamePhase.WaveClear
-                    || Phase == GamePhase.Failed;
+                    || Phase == GamePhase.Failed
+                    || Phase == GamePhase.CampaignClear;
             }
         }
 
@@ -42,7 +46,7 @@ namespace AsteroidsGoneRogue
         {
             if (!CanStartWave)
             {
-                throw new InvalidOperationException("Wave can only start from hangar, wave-clear, or fail.");
+                throw new InvalidOperationException("Wave can only start from hangar, wave-clear, fail, or campaign-clear.");
             }
 
             FailReason = string.Empty;
@@ -51,6 +55,8 @@ namespace AsteroidsGoneRogue
             HasStructuredFail = false;
             FailRemainingThreats = 0;
             LastCreditsAwarded = 0;
+            CampaignWon = false;
+            WaveTookHit = false;
             if (Lives <= 0)
             {
                 ResetLives(DifficultySettings.StartLives);
@@ -86,8 +92,26 @@ namespace AsteroidsGoneRogue
             FailEnemyKind = EnemyKind.Mid01;
             HasStructuredFail = false;
             FailRemainingThreats = 0;
+            CampaignWon = false;
+            WaveTookHit = false;
+            ExtraLifeStreak = 0;
             ResetLives(DifficultySettings.StartLives);
             Phase = GamePhase.Hangar;
+        }
+
+        public void MarkWaveHit()
+        {
+            WaveTookHit = true;
+        }
+
+        public void NoteExtraLife()
+        {
+            ExtraLifeStreak += 1;
+        }
+
+        public void NoteLifeLost()
+        {
+            ExtraLifeStreak = 0;
         }
 
         /// <summary>
@@ -139,6 +163,26 @@ namespace AsteroidsGoneRogue
             LastRunScore = Score;
             WaveIndex += 1;
             Phase = GamePhase.WaveClear;
+        }
+
+        /// <summary>
+        /// World 1 content-cap win. Score/credits award like a wave clear, but
+        /// the wave index stays on the final wave and play does not continue.
+        /// </summary>
+        public void CompleteCampaign(int bonusScore, int credits)
+        {
+            if (Phase != GamePhase.Playing)
+            {
+                return;
+            }
+
+            LastResolvedWave = WaveIndex;
+            LastCreditsAwarded = credits;
+            Score += bonusScore;
+            Credits += credits;
+            LastRunScore = Score;
+            CampaignWon = true;
+            Phase = GamePhase.CampaignClear;
         }
 
         public void FailWave()
