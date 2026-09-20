@@ -63,6 +63,7 @@ namespace AsteroidsGoneRogue
             { "ui.health", "HÄLSA" },
             { "ui.hull_label", "SKROV" },
             { "ui.shield_label", "SKÖLD" },
+            { "ui.ship_preview", "UTRUSTNING" },
             { "ui.hud_hull", "Skrov {0}   ·   Sköld {1}" },
             { "ui.hud_remaining", "   ·   Kvar {0}" },
             { "ui.hud_fire", "\nEld {0}" },

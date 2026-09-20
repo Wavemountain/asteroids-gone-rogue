@@ -2068,6 +2068,7 @@ def test_localization_040() -> None:
         "credits.body", "best.card",
         "ui.difficulty", "ui.diff.easy", "ui.diff.normal", "ui.diff.hard",
         "ui.lives", "ui.hud_lives", "ui.life_lost",
+        "ui.ship_preview",
     }
     missing_required = required - swedish
     assert not missing_required, missing_required
@@ -2554,6 +2555,18 @@ def test_difficulty_economy_043() -> None:
     assert "ShowcaseScale = 2.25f" in preview
     assert "PlayScale = 1f" in preview
     assert "ApplyPreviewScale" in preview
+    assert "PreviewLayer = 8" in preview
+    assert "BindViewport" in preview
+    assert "RenderTexture" in preview
+    assert "HangarPreviewCamera" in preview
+    assert "ShipPreviewFrame" in ui
+    assert "PreviewViewport" in ui
+    assert "BuildShipPreviewFrame" in ui
+    assert "0.672f, 0.09f" in ui and "0.985f, 0.705f" in ui
+    assert "RawImage" in ui and "BindViewport(_previewViewport)" in ui
+    assert "ui.ship_preview" in loc
+    tags = (root / "ProjectSettings/TagManager.asset").read_text(encoding="utf-8")
+    assert "HangarPreview" in tags
     assert "HangarShipPreview" in factory
     assert "PreviewGhostMaterial" in visuals
     assert "WithPreview" in loadout

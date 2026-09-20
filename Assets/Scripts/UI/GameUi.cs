@@ -93,6 +93,9 @@ namespace AsteroidsGoneRogue
         private Text _normalLabel;
         private Text _hardLabel;
         private Text _livesHud;
+        private GameObject _previewRoot;
+        private Text _previewCaption;
+        private RawImage _previewViewport;
         private bool _creditsVisible;
         private float _creditsScroll;
 
@@ -147,6 +150,12 @@ namespace AsteroidsGoneRogue
             _loadout = loadout;
             _ship = ship;
             _waves = game.GetComponent<WaveManager>();
+            HangarShipPreview preview = ship != null ? ship.GetComponent<HangarShipPreview>() : null;
+            if (preview != null)
+            {
+                preview.BindViewport(_previewViewport);
+            }
+
             Refresh();
         }
 
@@ -199,6 +208,11 @@ namespace AsteroidsGoneRogue
             if (_diffPanel != null)
             {
                 _diffPanel.SetActive(!playing);
+            }
+
+            if (_previewRoot != null)
+            {
+                _previewRoot.SetActive(!playing && !_creditsVisible);
             }
 
             ApplyLocalizedStaticLabels();
@@ -400,6 +414,7 @@ namespace AsteroidsGoneRogue
             _creditsButton.onClick.AddListener(ShowEndCredits);
 
             BuildShop(display, body);
+            BuildShipPreviewFrame(display);
             BuildAudioControls(body);
             BuildLanguagePicker(display, body);
             BuildDifficultyPicker(display, body);
@@ -408,6 +423,37 @@ namespace AsteroidsGoneRogue
             ApplyLocalizedStaticLabels();
             RefreshLanguageChrome();
             RefreshDifficultyChrome();
+        }
+
+        private void BuildShipPreviewFrame(Font display)
+        {
+            _previewRoot = CreatePanel("ShipPreviewFrame", transform, new Color(0.016f, 0.024f, 0.042f, 0.98f),
+                new Vector2(0.672f, 0.09f), new Vector2(0.985f, 0.705f));
+            CreateFill("PreviewHeader", _previewRoot.transform, new Color(0.831f, 0.627f, 0.29f, 0.26f),
+                new Vector2(0f, 0.922f), new Vector2(1f, 1f));
+            CreateFill("PreviewRule", _previewRoot.transform, new Color(0.831f, 0.627f, 0.29f, 0.92f),
+                new Vector2(0.06f, 0.914f), new Vector2(0.94f, 0.922f));
+            CreateFill("PreviewInner", _previewRoot.transform, new Color(0.04f, 0.06f, 0.09f, 0.4f),
+                new Vector2(0.018f, 0.018f), new Vector2(0.982f, 0.908f));
+
+            _previewCaption = CreateText("PreviewCaption", _previewRoot.transform, display, 16, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Stretch(_previewCaption.rectTransform, new Vector2(0.06f, 0.922f), new Vector2(0.94f, 0.992f));
+            _previewCaption.color = UiAmber;
+            _previewCaption.text = "LOADOUT";
+            AddReadability(_previewCaption, true);
+
+            GameObject bezel = CreateFill("PreviewBezel", _previewRoot.transform, new Color(0.831f, 0.627f, 0.29f, 0.7f),
+                new Vector2(0.038f, 0.036f), new Vector2(0.962f, 0.888f));
+            GameObject well = CreateFill("PreviewWell", bezel.transform, new Color(0.022f, 0.032f, 0.05f, 1f),
+                new Vector2(0.016f, 0.014f), new Vector2(0.984f, 0.986f));
+
+            GameObject view = new GameObject("PreviewViewport");
+            view.transform.SetParent(well.transform, false);
+            RawImage raw = view.AddComponent<RawImage>();
+            raw.color = Color.white;
+            raw.raycastTarget = false;
+            Stretch(view.GetComponent<RectTransform>(), Vector2.zero, Vector2.one);
+            _previewViewport = raw;
         }
 
         private void BuildShop(Font display, Font body)
@@ -858,6 +904,11 @@ namespace AsteroidsGoneRogue
 
             _endCreditsRoot.SetActive(true);
             _endCreditsRoot.transform.SetAsLastSibling();
+            if (_previewRoot != null)
+            {
+                _previewRoot.SetActive(false);
+            }
+
             if (_creditsButton != null)
             {
                 _creditsButton.gameObject.SetActive(false);
@@ -882,6 +933,11 @@ namespace AsteroidsGoneRogue
             if (_endCreditsRoot != null)
             {
                 _endCreditsRoot.SetActive(false);
+            }
+
+            if (_previewRoot != null && _session != null && _session.Phase != GamePhase.Playing)
+            {
+                _previewRoot.SetActive(true);
             }
 
             if (_creditsButton != null && _session != null && _session.Phase != GamePhase.Playing)
@@ -1313,6 +1369,11 @@ namespace AsteroidsGoneRogue
             if (_shieldBarLabel != null)
             {
                 _shieldBarLabel.text = Loc.T("ui.shield_label", "SHIELD");
+            }
+
+            if (_previewCaption != null)
+            {
+                _previewCaption.text = Loc.T("ui.ship_preview", "LOADOUT");
             }
 
             if (_hullHeader != null)
