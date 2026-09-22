@@ -4,7 +4,8 @@ namespace AsteroidsGoneRogue
     {
         Hull,
         Weapons,
-        Defense
+        Defense,
+        Doctrine
     }
 
     public sealed class ShopItem
@@ -130,7 +131,7 @@ namespace AsteroidsGoneRogue
             new ShopItem(
                 UpgradeId.Ricochet,
                 "Ricochet",
-                "Utility slot: lime bolt, 2 rim bounces. Hold LT / E. Own cooldown.",
+                "Utility slot: lime bolt, 2 rim bounces. Hold LT / E. Wildcard on every doctrine. No capstone.",
                 170,
                 ShopGroup.Weapons),
             new ShopItem(
@@ -144,7 +145,43 @@ namespace AsteroidsGoneRogue
                 "Shield Matrix",
                 "Requires two Shield Cells. Raises shield cap to 3.",
                 185,
-                ShopGroup.Defense)
+                ShopGroup.Defense),
+            new ShopItem(
+                UpgradeId.Rail,
+                "Rail",
+                "Lance mid. Primary: hold RT 0.55s, release. Damage ×3, speed ×1.2, no pierce. CD ×1.6. Miss or cancel pays half.",
+                160,
+                ShopGroup.Doctrine),
+            new ShopItem(
+                UpgradeId.FlakFeed,
+                "Flak Feed",
+                "Barrage mid. Spread cooldown ×0.85 and half-angle +4°. Soft-locks other paths.",
+                150,
+                ShopGroup.Doctrine),
+            new ShopItem(
+                UpgradeId.Storm,
+                "Storm",
+                "Barrage capstone. Spread fires 5 pellets. Cooldown ×1.8, at least 1.5s.",
+                240,
+                ShopGroup.Doctrine),
+            new ShopItem(
+                UpgradeId.OverchargeLance,
+                "Overcharge Lance",
+                "Lance capstone. Pierce hits +1 target. Twin cooldown ×0.9.",
+                235,
+                ShopGroup.Doctrine),
+            new ShopItem(
+                UpgradeId.SeekerCadence,
+                "Seeker Cadence",
+                "Hunter mid. Utility cooldown ×0.75. Seeker turn 165. Soft-locks other paths.",
+                155,
+                ShopGroup.Doctrine),
+            new ShopItem(
+                UpgradeId.TwinSeek,
+                "Twin Seek",
+                "Hunter capstone. Hold LT for 2 seekers at 70% damage. Utility cooldown ×1.2.",
+                225,
+                ShopGroup.Doctrine)
         };
 
         public static string HeaderFor(ShopGroup group)

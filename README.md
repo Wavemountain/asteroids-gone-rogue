@@ -83,9 +83,17 @@ Upgrades persist into the next wave.
 | Spread Bolt | 110 | **Primary** only. 3 lower-damage amber pellets (SpreadCore). LB / Q cycle. CD ×1.35, pellet `max(1, dmg/3)` |
 | Pierce | 155 | **Primary** only. Cyan needle through targets (PierceNeedle). LB / Q cycle |
 | Twin Guns | 140 | **Primary** only. Two parallel full-damage bolts (not a fan). CD ×1.1 |
-| Seeker | 125 | **Utility** only. Magenta missile; hold LT / E. Own CD `0.38×2.4` (~0.91s), speed 0.58, −1 damage, turn 140. First utility purchase auto-equips if empty |
-| Ricochet | 170 | **Utility** only. Lime bolt, **2** rim bounces. Hold LT / E. Own CD `0.38×1.5` (~0.57s) |
+| Seeker | 125 | **Utility** only. Magenta missile; hold LT / E. Own CD `0.38×2.4` (~0.91s), speed 0.58, −1 damage, turn 165. First utility purchase auto-equips if empty |
+| Ricochet | 170 | **Utility** only. Lime bolt, **2** rim bounces. Hold LT / E. Own CD `0.38×1.5` (~0.57s). Wildcard on every doctrine, no capstone |
+| Rail | 160 | **Lance mid / primary.** Hold RT 0.55s, release. Damage ×3, speed ×1.2, no pierce. CD ×1.6. Miss or cancel pays half. LB cycle |
+| Flak Feed | 150 | **Barrage mid.** Spread CD ×0.85, half-angle +4°. Soft-locks other paths |
+| Storm | 240 | **Barrage cap.** 5 pellets, CD ×1.8, at least 1.5s |
+| Overcharge Lance | 235 | **Lance cap.** Pierce +1 target / Twin CD ×0.9 |
+| Seeker Cadence | 155 | **Hunter mid.** Utility CD ×0.75, seeker turn 165 |
+| Twin Seek | 225 | **Hunter cap.** Hold LT: 2 seekers at 70% damage, utility CD ×1.2 |
 | Shield Matrix | 185 | Requires two Shield Cells; shield cap 3 |
+
+Doctrine unlocks in the hangar after wave 1 clears (not on the title card). Three pick buttons: **Barrage** (own Spread, 150 cr), **Lance** (own Pierce or Twin), **Hunter** (own Seeker). One doctrine per run; swap means **New Run**. Buying the mid soft-locks the other paths: off-path weapons cost and cooldown ×1.35, and their capstones cannot be bought. HUD badge reads **DOCTRINE · NAME**. Wave-clear credits: Easy 185, Normal 165, Hard 140. Rail meshes: `Rail_Hardpoint` on the v4 primary slot, `Rail_Muzzle` charge glow, optional `Rail_Seeker` projectile. Store pose `06_rail_charge` (F9 / F12 → `Docs/StoreCaptures/out/`).
 
 Hull is 3 hits. Large asteroids take 2 hits then split into 3 small shards. Small shards and enemies are destroyable. Mid is 4 HP, Scout/Drone are 3 HP, Gunner is 4 HP, Bomber is 5 HP, Brute is 10 HP, Swarm is 6 HP. Damaging arena spikes deal 2. Fail screen names the enemy kind (`Enemy contact (Scout)` / `Enemy contact (Brute)`) and frames it as **your hull**. 0 lives is a full run reset (hangar / start, wave 1, empty loadout) — not Retry Wave. Mid-run death with lives left respawns in-wave. When 1–3 threats remain it adds **Almost had it**. Arena spike contact reads `Arena hazard`. Hangar status teases **Wave 5 Brute** (sidestep the charge) and **Wave 6 Swarm** (break the nest).
 

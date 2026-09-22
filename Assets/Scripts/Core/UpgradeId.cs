@@ -18,6 +18,12 @@ namespace AsteroidsGoneRogue
         Ricochet,
         ShieldMatrix,
         Overcharger,
-        Afterburner
+        Afterburner,
+        Rail,
+        FlakFeed,
+        Storm,
+        OverchargeLance,
+        SeekerCadence,
+        TwinSeek
     }
 }

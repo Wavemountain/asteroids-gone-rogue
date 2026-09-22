@@ -77,7 +77,11 @@ namespace AsteroidsGoneRogue
                 _shooter.CycleFireMode(-1);
             }
 
-            if (GamepadInput.FireHeld())
+            if (_shooter != null && _shooter.ChargesPrimary)
+            {
+                _shooter.TickRailCharge(GamepadInput.FireHeld());
+            }
+            else if (GamepadInput.FireHeld())
             {
                 _shooter.TryFire();
             }

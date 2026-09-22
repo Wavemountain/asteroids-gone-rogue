@@ -1584,7 +1584,7 @@ def test_monsters_arenas_040() -> None:
     assert "DressPulse" in hazard
 
     warm = art.split("PlayModeAssets")[1].split("};")[0]
-    assert warm.count("\n            \"") == 54
+    assert warm.count("\n            \"") == 57
     assert "Monster_Brute" in warm
     assert "Monster_Swarm" in warm
     assert "Arena_Hazard_Spike" in warm
@@ -1765,7 +1765,7 @@ def test_weapons_upgrades_040b() -> None:
     credits = (root / "CREDITS.md").read_text(encoding="utf-8")
     checklist = (root / "MERGE_CHECKLIST.md").read_text(encoding="utf-8")
 
-    assert catalog.count("new ShopItem(") == 17
+    assert catalog.count("new ShopItem(") == 23
     assert catalog.index("ShopGroup.Hull") < catalog.index("ShopGroup.Weapons")
     assert catalog.index("ShopGroup.Weapons") < catalog.index("ShopGroup.Defense")
     for token in (
@@ -1910,7 +1910,7 @@ def test_art_parity_040c() -> None:
     require_mesh = enemies.split("public static bool RequiresImportedMesh")[1].split("public static")[0]
     assert "EnemyKind.Bomber" in require_mesh
     warm = art.split("PlayModeAssets")[1].split("};")[0]
-    assert warm.count("\n            \"") == 54
+    assert warm.count("\n            \"") == 57
     assert "Ship_Complete" in warm and "Enemy_Bomber" in warm
     assert "Ship_Body_Upgrade02" not in warm
 
@@ -2222,7 +2222,7 @@ def test_astro_env_040() -> None:
     assert "Arena_AstroFloor_v2" in blockout
     assert "Arena_AstroFloor" in blockout
     warm = art.split("PlayModeAssets")[1].split("};")[0]
-    assert warm.count("\n            \"") == 54
+    assert warm.count("\n            \"") == 57
     assert "Arena_AstroFloor" not in warm
     assert "AstroFloor_v2" not in warm
     assert "Arena_AstroFloor_v2" not in warm
@@ -2447,8 +2447,8 @@ def test_difficulty_economy_043() -> None:
     assert "NormalExtraLifeChance = 0.045f" in settings
     assert "HardExtraLifeChance = 0.02f" in settings
     assert "EasyWaveClearCredits = 185" in settings
-    assert "NormalWaveClearCredits = 150" in settings
-    assert "HardWaveClearCredits = 110" in settings
+    assert "NormalWaveClearCredits = 165" in settings
+    assert "HardWaveClearCredits = 140" in settings
     assert "EasyPlayerHullBonus = 1" in settings
     assert "ScaleEnemyHp" in settings
     assert "ScaleIncomingDamage" in settings
@@ -2481,7 +2481,7 @@ def test_difficulty_economy_043() -> None:
     assert "SeekerFireCooldown = BaseFireCooldown * SeekerCooldownMul" in loadout
     assert "SeekerSpeedScale = 0.58f" in loadout
     assert "SeekerDamagePenalty = 1" in loadout
-    assert "SeekerTurnDegrees = 140f" in projectile
+    assert "SeekerTurnDegrees = 165f" in projectile
     assert "SeekerSpeedScale" in shooter and "SeekerDamagePenalty" in shooter
 
     def item_cost(upgrade_id: str) -> int:
@@ -3426,6 +3426,91 @@ def test_dual_fire_v1() -> None:
     assert (root / "Assets/Scripts/Core/WeaponSlots.cs.meta").is_file()
 
 
+def test_doctrine_rail_045() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    rules = (root / "Assets/Scripts/Core/DoctrineRules.cs").read_text(encoding="utf-8")
+    loadout = (root / "Assets/Scripts/Core/LoadoutState.cs").read_text(encoding="utf-8")
+    slots = (root / "Assets/Scripts/Core/WeaponSlots.cs").read_text(encoding="utf-8")
+    shooter = (root / "Assets/Scripts/Player/ShipShooter.cs").read_text(encoding="utf-8")
+    ship = (root / "Assets/Scripts/Player/ShipController.cs").read_text(encoding="utf-8")
+    projectile = (root / "Assets/Scripts/Player/Projectile.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    art = (root / "Assets/Scripts/Content/ArtImport.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    catalog = (root / "Assets/Scripts/Core/ShopCatalog.cs").read_text(encoding="utf-8")
+    poses = (root / "Assets/Scripts/Content/StoreCapturePoses.cs").read_text(encoding="utf-8")
+    settings = (root / "Assets/Scripts/Core/DifficultySettings.cs").read_text(encoding="utf-8")
+    hangar = (root / "Assets/Scripts/Hangar/HangarShop.cs").read_text(encoding="utf-8")
+    manifest = (root / "Packages/manifest.json").read_text(encoding="utf-8")
+    lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
+
+    assert "UnlockWave = 2" in rules
+    assert "BarrageGateCost = 150" in rules
+    assert "OffPathMul = 1.35f" in rules
+    assert "FlakFeedCooldownMul = 0.85f" in rules
+    assert "FlakFeedHalfAngleBonus = 4f" in rules
+    assert "StormPelletCount = 5" in rules
+    assert "StormCooldownMul = 1.8f" in rules
+    assert "StormSeconds = 1.5f" in rules
+    assert "RailHoldSeconds = 0.55f" in rules
+    assert "RailDamageMul = 3f" in rules
+    assert "RailSpeedMul = 1.2f" in rules
+    assert "RailCooldownMul = 1.6f" in rules
+    assert "RailMissCancelCooldownMul = 0.5f" in rules
+    assert "RailCost = 160" in rules
+    assert "OverchargeTwinCooldownMul = 0.9f" in rules
+    assert "OverchargePierceBonusTargets = 1" in rules
+    assert "SeekerCadenceCooldownMul = 0.75f" in rules
+    assert "SeekerCadenceTurnDegrees = 165f" in rules
+    assert "TwinSeekCount = 2" in rules
+    assert "TwinSeekDamageScale = 0.70f" in rules
+    assert "TwinSeekCooldownMul = 1.2f" in rules
+    assert "HangarUnlocked" in rules
+    assert "PenalizedCost" in rules
+    assert "SoftLocked" in loadout and "SetDoctrine" in loadout
+    assert "EffectiveCost" in loadout and "EffectiveCost" in hangar
+    assert "TryPickDoctrine" in hangar
+    assert "FireMode.Rail" in slots
+    assert "TickRailCharge" in shooter and "TickRailCharge" in ship
+    assert "ArmRailMiss" in projectile and "NotifyRailMiss" in shooter
+    assert "SeekerTurnDegrees = 165f" in projectile
+    assert "Rail_Hardpoint" in factory and "Rail_Muzzle" in factory and "Rail_Seeker" in factory
+    assert "Mat_Ship_Accent_Hot" in factory and "Mat_Ship_Glow" in factory
+    assert "Mat_Ship_Hull" in factory and "Mat_Ship_Accent" in factory
+    assert "localPosition = Vector3.zero" in factory
+    assert "CreateRailChargeVfx" in factory and "RailChargeGlow" in factory
+    assert "RailHardpoint" in factory
+    warm = art.split("PlayModeAssets")[1].split("};")[0]
+    assert "Rail_Hardpoint" in warm and "Rail_Muzzle" in warm and "Rail_Seeker" in warm
+    assert "DoctrineCard" in ui and "UiTheme.BuildPanel" in ui
+    assert "ui.hud_doctrine" in ui and "ui.doctrine.tip" in ui
+    assert "ui.hint_rail" in ui and "ui.hint_dual" in ui
+    assert "ui.doctrine.barrage" in loc and "ui.hud_doctrine" in loc
+    assert "shop.title.Rail" in loc and "shop.title.FlakFeed" in loc
+    assert "shop.title.Storm" in loc and "shop.title.OverchargeLance" in loc
+    assert "shop.title.SeekerCadence" in loc and "shop.title.TwinSeek" in loc
+    assert "ui.hint_rail" in loc and "ui.hint_dual" in loc
+    assert "06_rail_charge" in poses
+    assert "NormalWaveClearCredits = 165" in settings
+    assert "HardWaveClearCredits = 140" in settings
+    assert "SpreadCooldownMul = 1.35f" in slots
+    assert "TwinCooldownMul = 1.1f" in slots
+    assert 'UpgradeId.SpreadBolt' in catalog and "110," in catalog.split("UpgradeId.SpreadBolt")[1].split("new ShopItem")[0]
+    assert "com.unity.modules.vr" not in manifest and "com.unity.modules.xr" not in lock
+    lfs_prefix = b"version https://git-lfs.github.com/spec/v1"
+    for name in ("Rail_Hardpoint", "Rail_Muzzle", "Rail_Seeker"):
+        for folder in ("Assets/Art/Import", "Assets/Resources/Art/Import"):
+            path = root / folder / f"{name}.fbx"
+            assert path.is_file() and path.stat().st_size > 1000
+            assert not path.read_bytes()[:64].startswith(lfs_prefix), f"{path} is an LFS pointer"
+            assert path.read_bytes()[:21] == b"Kaydara FBX Binary  \x00"
+    assert (root / "Docs/StoreCaptures/placeholders/06_rail_charge.txt").is_file()
+    assert "Docs/StoreCaptures/out" in poses or "Docs/StoreCaptures/out" in (root / "Assets/Scripts/Content/StoreCapturePoses.cs").read_text(encoding="utf-8")
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -3468,6 +3553,7 @@ def main() -> int:
     test_ui_theme_pad_menus_044()
     test_hangar_wave_clear_layout()
     test_dual_fire_v1()
+    test_doctrine_rail_045()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

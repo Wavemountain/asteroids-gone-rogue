@@ -18,6 +18,9 @@ FBX in this folder are instantiated on Press Play by `ArtImport` / `ContentFacto
 - [x] `Ship_Nose_Upgrade01` (hangar nose slot)
 - [x] `Ship_Engine_Upgrade01` (hangar engine slot)
 - [x] `Ship_Body_Upgrade01` (imported, no shop swap)
+- [x] `Rail_Hardpoint` — v4 primary slot, pivot 0,0,0, mats Hull / Accent / Glow / Accent_Hot
+- [x] `Rail_Muzzle` — charge VFX, pivot 0,0,0
+- [x] `Rail_Seeker` — optional seeker projectile mesh, pivot 0,0,0
 - [x] `Ship_Complete_Upgrade01` (preview only)
 
 ## Combat / arena meshes

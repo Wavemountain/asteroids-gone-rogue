@@ -657,6 +657,22 @@ namespace AsteroidsGoneRogue
                 new Vector3(0f, -0.16f, 1.18f), new Vector3(0.28f, 0.16f, 0.28f), Quaternion.Euler(0f, 35f, 0f));
             ricochetFacet.SetActive(false);
 
+            GameObject railHardpoint;
+            if (!TryVisual("Rail_Hardpoint", noseSlot, _hull, out railHardpoint))
+            {
+                railHardpoint = CreatePrimitive(PrimitiveType.Cylinder, "RailHardpoint", noseSlot, _accentHot,
+                    new Vector3(0f, 0.18f, 1.35f), new Vector3(0.08f, 0.62f, 0.08f), Quaternion.Euler(90f, 0f, 0f));
+            }
+            else
+            {
+                railHardpoint.name = "RailHardpoint";
+                railHardpoint.transform.localPosition = Vector3.zero;
+                railHardpoint.transform.localRotation = Quaternion.identity;
+                railHardpoint.transform.localScale = Vector3.one;
+            }
+
+            railHardpoint.SetActive(false);
+
             GameObject overchargerGlow = CreatePrimitive(PrimitiveType.Sphere, "OverchargerGlow", noseSlot, _accentHot,
                 new Vector3(0f, 0.05f, 1.42f), new Vector3(0.42f, 0.42f, 0.42f), Quaternion.identity);
             overchargerGlow.SetActive(false);
@@ -688,6 +704,7 @@ namespace AsteroidsGoneRogue
             visuals.PierceNeedle = pierceNeedle;
             visuals.SeekerRail = seekerRail;
             visuals.RicochetFacet = ricochetFacet;
+            visuals.RailHardpoint = railHardpoint;
             visuals.OverchargerGlow = overchargerGlow;
             visuals.AfterburnerGlow = afterburnerGlow;
             visuals.PreviewGhostMaterial = MakePreviewGhostMaterial();
@@ -703,6 +720,27 @@ namespace AsteroidsGoneRogue
             preview.Bind(slots);
             ApplyLoadoutVisuals(controller, loadout.State);
             return controller;
+        }
+
+        public GameObject CreateRailChargeVfx(Transform muzzle)
+        {
+            Transform parent = muzzle != null ? muzzle : transform;
+            GameObject glow;
+            if (!TryVisual("Rail_Muzzle", parent, _glow, out glow))
+            {
+                glow = CreatePrimitive(PrimitiveType.Sphere, "RailChargeGlow", parent, _glow,
+                    Vector3.zero, new Vector3(0.42f, 0.42f, 0.72f), Quaternion.identity);
+            }
+            else
+            {
+                glow.name = "RailChargeGlow";
+                glow.transform.localPosition = Vector3.zero;
+                glow.transform.localRotation = Quaternion.identity;
+                glow.transform.localScale = Vector3.one;
+            }
+
+            glow.SetActive(false);
+            return glow;
         }
 
         public void ApplyLoadoutVisuals(ShipController ship, LoadoutState loadout)
@@ -900,15 +938,28 @@ namespace AsteroidsGoneRogue
             bool seeker = !hostile && style == FireMode.Seeker;
             bool ricochet = !hostile && style == FireMode.Ricochet;
             bool twin = !hostile && style == FireMode.Twin;
+            bool rail = !hostile && style == FireMode.Rail;
             Material boltMat = hostile
                 ? _projectileEnemy
                 : (pierce ? _projectilePierce
                     : (spread ? _projectileSpread
                         : (seeker ? _projectileSeeker
-                            : (ricochet ? _projectileRicochet : _projectile))));
+                            : (ricochet ? _projectileRicochet : (rail ? _glow : _projectile)))));
             string visual = hostile ? "Projectile_EnemyBolt" : "Projectile_Bolt";
-            GameObject mesh;
-            if (!TryVisual(visual, root.transform, boltMat, out mesh))
+            GameObject mesh = null;
+            bool railSeeker = false;
+            if (seeker)
+            {
+                railSeeker = TryVisual("Rail_Seeker", root.transform, boltMat, out mesh);
+            }
+
+            if (railSeeker && mesh != null)
+            {
+                mesh.transform.localPosition = Vector3.zero;
+                mesh.transform.localRotation = Quaternion.identity;
+                mesh.transform.localScale = Vector3.one;
+            }
+            else if (!TryVisual(visual, root.transform, boltMat, out mesh))
             {
                 Vector3 fallbackScale = pierce
                     ? new Vector3(0.1f, 0.1f, 1.25f)
@@ -920,7 +971,7 @@ namespace AsteroidsGoneRogue
                 mesh = CreatePrimitive(primitive, "Mesh", root.transform, boltMat,
                     Vector3.zero, fallbackScale, Quaternion.identity);
             }
-            else if (mesh != null)
+            else if (mesh != null && !railSeeker)
             {
                 if (pierce)
                 {
@@ -954,10 +1005,15 @@ namespace AsteroidsGoneRogue
                 CreatePrimitive(PrimitiveType.Sphere, "SpreadCore", root.transform, boltMat,
                     Vector3.zero, new Vector3(0.46f, 0.46f, 0.26f), Quaternion.identity);
             }
-            else if (seeker)
+            else if (seeker && !railSeeker)
             {
                 CreatePrimitive(PrimitiveType.Sphere, "SeekerCore", root.transform, boltMat,
                     Vector3.zero, new Vector3(0.42f, 0.42f, 0.42f), Quaternion.identity);
+            }
+            else if (rail)
+            {
+                CreatePrimitive(PrimitiveType.Capsule, "RailCore", root.transform, _glow,
+                    Vector3.zero, new Vector3(0.16f, 0.16f, 1.8f), Quaternion.Euler(90f, 0f, 0f));
             }
             else if (ricochet)
             {
@@ -1912,6 +1968,26 @@ namespace AsteroidsGoneRogue
         private Material RemapImported(string importedName, Material fallback)
         {
             string name = importedName ?? string.Empty;
+            if (ContainsIgnoreCase(name, "Mat_Ship_Accent_Hot"))
+            {
+                return _accentHot;
+            }
+
+            if (ContainsIgnoreCase(name, "Mat_Ship_Glow"))
+            {
+                return _glow;
+            }
+
+            if (ContainsIgnoreCase(name, "Mat_Ship_Hull"))
+            {
+                return _hull;
+            }
+
+            if (ContainsIgnoreCase(name, "Mat_Ship_Accent"))
+            {
+                return _accent;
+            }
+
             if (ContainsIgnoreCase(name, "LaunchSign") || ContainsIgnoreCase(name, "Launch_Go")
                 || ContainsIgnoreCase(name, "LaunchGo"))
             {

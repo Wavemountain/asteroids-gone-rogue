@@ -10,7 +10,7 @@ Play Mode (`Assets/Scenes/Play.unity`):
 
 | Key / menu | What |
 | --- | --- |
-| **F9** | Cycle the five screen poses |
+| **F9** | Cycle the store poses (includes `06_rail_charge`) |
 | **F12** | Write PNG to `Docs/StoreCaptures/out/` (Editor) or `persistentDataPath/StoreCaptures/` (player) |
 | **Asteroids gone rogue → Store Captures → Pose …** | Apply a named cam hold |
 | **Release pose hold** | Restore FollowCamera hangar/play framing |
@@ -28,6 +28,7 @@ Write these names (placeholders live in `placeholders/` until Atmos drops PNG):
 | `03_combat_juice_bolt_spread` | `out/03_combat_juice_bolt_spread.png` | `(4.2, 18, -16)` → `(0.4, 0.2, 1.2)` FOV 48 | Bolt + Spread juice, hit spark |
 | `04_brute_swarm_beat` | `out/04_brute_swarm_beat.png` | `(-6, 22, -18)` → `(2, 0.4, 4)` FOV 50 | Wave 5 Brute / wave 6 Swarm (pose only if you spawn) |
 | `05_fail_or_win` | `out/05_fail_or_win.png` | hangar fail/win card FOV 54 | **SHIP LOST** fail chrome **or** SECTOR CLEAR + HIT07 |
+| `06_rail_charge` | `out/06_rail_charge.png` | `(1.6, 6.4, -8.2)` → `(0.15, 0.45, 1.35)` FOV 36 | Combat cam, ship Rail charge glow |
 | `capsule_ship_complete_34` | `out/capsule_ship_complete_34.png` | `(-6.4, 3.1, -4.8)` → parked Ship_Complete `(-8.6, 0.55, 8.2)` FOV 32 | Steam capsule 3/4 hero |
 
 ## Capsule notes (Atmos)

@@ -18,6 +18,7 @@ namespace AsteroidsGoneRogue
         public const string CombatJuice = "03_combat_juice_bolt_spread";
         public const string BruteSwarm = "04_brute_swarm_beat";
         public const string FailOrWin = "05_fail_or_win";
+        public const string RailCharge = "06_rail_charge";
         public const string Capsule = "capsule_ship_complete_34";
 
         public static readonly string[] ShotIds =
@@ -26,7 +27,8 @@ namespace AsteroidsGoneRogue
             PlayVoid,
             CombatJuice,
             BruteSwarm,
-            FailOrWin
+            FailOrWin,
+            RailCharge
         };
 
         public static string FileName(string id)
@@ -85,6 +87,18 @@ namespace AsteroidsGoneRogue
                 lx = 0.25f;
                 ly = 0.4f;
                 lz = 0f;
+                return;
+            }
+
+            if (id == RailCharge)
+            {
+                px = 1.6f;
+                py = 6.4f;
+                pz = -8.2f;
+                lx = 0.15f;
+                ly = 0.45f;
+                lz = 1.35f;
+                fov = 36f;
                 return;
             }
 

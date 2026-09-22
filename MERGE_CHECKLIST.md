@@ -4,6 +4,8 @@
 
 This is the Week 1–2 playable core for **Asteroids gone rogue**. Branch: `0.44-steam-slice` (from `0.44-juice-firstrun` / tip of `main` `68c0cb1655e66cec9dc79e4e59394c94b980790a`; tag `0.43` / `0.43-difficulty-economy`; base tag `0.42` / `0.42-fair-death`, from `0.40-monsters-arenas` / `0.39-ui-fonts` / tag `0.39`; skip 0.41 / no 0.41; skip 0.45 / no 0.45; do not merge into older version tags; **no tag/Release**, no 0.45 — future tag is `0.44` after Speltest PASS + SpelPM). Prefer PR → merge **main** when playable (Hub/Speltest on main).
 
+0.45 doctrine + Rail (this build, **no tag / no Release / no 0.46**): hangar doctrine after wave 1 clear (Barrage / Lance / Hunter, one per run, New Run to swap). Mid buy soft-locks other paths (off-path weapons ×1.35 CD and cost, no off-path capstone). Rail primary hold RT 0.55s. Real FBX `Rail_Hardpoint` / `Rail_Muzzle` / `Rail_Seeker` (not LFS). Store pose `06_rail_charge`.
+
 ## Unity
 
 - **Unity 6.6** (`6000.6.0f1`, changeset `f7f8ed4d1e24`)

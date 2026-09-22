@@ -54,6 +54,9 @@ These filenames are instantiated by `ContentFactory` / `ArtImport` when the file
 - `Arena_Hazard_Spike.fbx` — layout pylons / mine-belt / island spikes. `DressHazardSpike` adds ring, well, light, and pulse (professional, not prototype). Damaging on the mine belt + one debris spike.
 - `Arena_Blockout.fbx` — World 1 hangar / arena
 - `Projectile_Bolt.fbx` — player shot visual (GameBot Bolt Buffer v2; also accepted as `Projectile_Bolt_Buffer_v2`)
+- `Rail_Hardpoint.fbx` — 0.45 primary hardpoint on the v4 nose slot. Pivot `0,0,0`. Mats `Mat_Ship_Hull` / `Mat_Ship_Accent` / `Mat_Ship_Glow` / `Mat_Ship_Accent_Hot`. Shown when Rail is owned.
+- `Rail_Muzzle.fbx` — charge glow on the muzzle (same mats, pivot `0,0,0`). Primitive glow if the FBX is missing.
+- `Rail_Seeker.fbx` — optional seeker projectile mesh (same mats, pivot `0,0,0`). Falls back to `Projectile_Bolt` / SeekerCore.
 - `Projectile_EnemyBolt.fbx` — Gunner / Sniper shot visual (also accepted as `Projectile_EnemyBolt_Buffer`)
 
 `Arena_World2_Blockout.fbx` / `Arena_World3_Blockout.fbx` are not Week 1 play worlds.

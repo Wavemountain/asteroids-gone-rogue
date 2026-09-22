@@ -115,6 +115,17 @@ namespace AsteroidsGoneRogue
         private int _padSlot;
         private bool _padHeld;
         private float _padRepeatAt;
+        private GameObject _doctrineRoot;
+        private Text _doctrineTitle;
+        private Text _doctrineHint;
+        private Button _barrageButton;
+        private Button _lanceButton;
+        private Button _hunterButton;
+        private Text _barrageLabel;
+        private Text _lanceLabel;
+        private Text _hunterLabel;
+        private GameObject _doctrineShopRow;
+        private Text _doctrineBadge;
 
         private static readonly Color UiAmber = UiTheme.Primary;
         private static readonly Color UiBody = UiTheme.Accent;
@@ -145,6 +156,8 @@ namespace AsteroidsGoneRogue
             + "Clear a wave to earn credits and upgrades.\n"
             + "Medal ladder (top-left): ★ Scout Wing at wave 3.";
         public const string FirstWaveCoach = "Shoot rocks  ·  Abort (Start) if one flies off";
+        public const string HintDual = "LT utility · LB cycle primary · RT fire";
+        public const string HintRail = "Hold RT 0.55s, release — Rail. Miss or cancel pays half CD.";
 
         public static GameUi Instance { get; private set; }
 
@@ -266,16 +279,30 @@ namespace AsteroidsGoneRogue
             RefreshLanguageChrome();
             RefreshDifficultyChrome();
 
-            _hint.text = playing
-                ? Loc.T("ui.hint_play", "WASD / LS move  ·  Mouse / RS aim  ·  LMB / Space / RT fire  ·  E / RMB / LT utility  ·  Q / LB cycle primary  ·  Esc / Start abort")
-                : Loc.Tf(
-                    "ui.hint_hangar",
-                    "WASD / LS move  ·  Mouse / RS aim  ·  LMB / Space / RT fire  ·  {0}",
-                    Loc.T("ui.hangar_controls", HangarControlsHint));
+            bool railHint = playing
+                && _loadout != null
+                && _loadout.State != null
+                && _loadout.State.ResolvedPrimary() == FireMode.Rail;
+            _hint.text = railHint
+                ? Loc.T("ui.hint_rail", HintRail)
+                : (playing
+                    ? Loc.T("ui.hint_play", "WASD / LS move  ·  Mouse / RS aim  ·  LMB / Space / RT fire  ·  E / RMB / LT utility  ·  Q / LB cycle primary  ·  Esc / Start abort")
+                    : Loc.Tf(
+                        "ui.hint_hangar",
+                        "WASD / LS move  ·  Mouse / RS aim  ·  LMB / Space / RT fire  ·  {0}",
+                        Loc.T("ui.hangar_controls", HangarControlsHint)));
             ClampOneLine(_hint);
             RefreshWorldBadge();
             RefreshBadgeRow(playing);
+            RefreshDoctrineBadge(playing);
             RefreshAchievementLadder(playing);
+            if (_doctrineRoot != null)
+            {
+                bool showDoctrine = !playing
+                    && _session != null
+                    && DoctrineRules.HangarUnlocked(_session.WaveIndex);
+                _doctrineRoot.SetActive(showDoctrine);
+            }
             RefreshFirstHangarHint();
 
             if (playing)
@@ -311,6 +338,7 @@ namespace AsteroidsGoneRogue
 
             RefreshRunSummary(playing);
             ApplyStatusText();
+            RefreshDoctrinePicks();
 
             for (int i = 0; i < ShopCatalog.Items.Length; i++)
             {
@@ -511,6 +539,7 @@ namespace AsteroidsGoneRogue
             _creditsButton.onClick.AddListener(ShowEndCredits);
             UiTheme.ApplyButton(_creditsButton, false, false, false);
 
+            BuildDoctrine(display, body);
             BuildShop(display, body);
             BuildAudioControls(body);
             BuildLanguagePicker(display, body);
@@ -724,13 +753,17 @@ namespace AsteroidsGoneRogue
             int hullIndex = 0;
             int weaponIndex = 0;
             int defenseIndex = 0;
+            int doctrineIndex = 0;
             for (int i = 0; i < shopCount; i++)
             {
                 ShopItem item = ShopCatalog.Items[i];
                 Vector2 min;
                 Vector2 max;
-                ShopButtonRect(item.Group, ref hullIndex, ref weaponIndex, ref defenseIndex, out min, out max);
-                Button button = CreateButton("Buy_" + item.Id, _menuRoot.transform, body, min, max);
+                ShopButtonRect(item.Group, ref hullIndex, ref weaponIndex, ref defenseIndex, ref doctrineIndex, out min, out max);
+                Transform parent = item.Group == ShopGroup.Doctrine && _doctrineShopRow != null
+                    ? _doctrineShopRow.transform
+                    : _menuRoot.transform;
+                Button button = CreateButton("Buy_" + item.Id, parent, body, min, max);
                 int captured = i;
                 button.onClick.AddListener(() => OnBuy(ShopCatalog.Items[captured].Id));
                 BindShopHover(button, item);
@@ -749,9 +782,20 @@ namespace AsteroidsGoneRogue
             ref int hullIndex,
             ref int weaponIndex,
             ref int defenseIndex,
+            ref int doctrineIndex,
             out Vector2 min,
             out Vector2 max)
         {
+            if (group == ShopGroup.Doctrine)
+            {
+                int doctrineCol = doctrineIndex % 2;
+                float x0 = 0.04f + doctrineCol * 0.48f;
+                min = new Vector2(x0, 0.08f);
+                max = new Vector2(x0 + 0.44f, 0.92f);
+                doctrineIndex++;
+                return;
+            }
+
             float rowStep = ShopCellHeight + ShopCellGutter;
             // Shared cell height + gutter; all three columns share ShopGridTop.
             if (group == ShopGroup.Weapons)
@@ -2092,6 +2136,21 @@ namespace AsteroidsGoneRogue
                 return null;
             }
 
+            if (slot == HangarPadNav.BarrageSlot)
+            {
+                return ButtonIfActive(_barrageButton);
+            }
+
+            if (slot == HangarPadNav.LanceSlot)
+            {
+                return ButtonIfActive(_lanceButton);
+            }
+
+            if (slot == HangarPadNav.HunterSlot)
+            {
+                return ButtonIfActive(_hunterButton);
+            }
+
             if (slot <= HangarPadNav.PrimarySlot)
             {
                 return _primary;
@@ -2179,6 +2238,21 @@ namespace AsteroidsGoneRogue
             if (_gotItButton != null && go == _gotItButton.gameObject)
             {
                 return HangarPadNav.GotItSlot;
+            }
+
+            if (_barrageButton != null && go == _barrageButton.gameObject)
+            {
+                return HangarPadNav.BarrageSlot;
+            }
+
+            if (_lanceButton != null && go == _lanceButton.gameObject)
+            {
+                return HangarPadNav.LanceSlot;
+            }
+
+            if (_hunterButton != null && go == _hunterButton.gameObject)
+            {
+                return HangarPadNav.HunterSlot;
             }
 
             if (_buyButtons != null)
@@ -2347,10 +2421,23 @@ namespace AsteroidsGoneRogue
 
         private void RefreshBuyButton(int index, ShopItem item)
         {
+            bool doctrineRow = item.Group == ShopGroup.Doctrine;
+            bool showRow = !doctrineRow || (_loadout != null && _loadout.State != null && _loadout.State.ShowDoctrineShopItem(item.Id));
+            if (_buyButtons[index] != null)
+            {
+                _buyButtons[index].gameObject.SetActive(showRow);
+            }
+
+            if (!showRow)
+            {
+                return;
+            }
+
+            int price = _loadout.State.EffectiveCost(item);
             bool owned = _loadout.State.Owns(item.Id);
             bool canApply = _loadout.State.CanApply(item.Id);
             bool locked = !owned && !canApply;
-            bool tooPoor = !owned && canApply && _session.Credits < item.Cost;
+            bool tooPoor = !owned && canApply && _session.Credits < price;
             bool weapon = WeaponSlots.IsWeapon(item.Id);
             bool equipped = owned && weapon && _loadout.State.IsEquipped(item.Id);
             _buyButtons[index].interactable = _session.ShopOpen
@@ -2383,11 +2470,11 @@ namespace AsteroidsGoneRogue
             }
             else if (tooPoor)
             {
-                costLine = Loc.Tf("ui.need_cr", "need {0} cr", item.Cost);
+                costLine = Loc.Tf("ui.need_cr", "need {0} cr", price);
             }
             else
             {
-                costLine = Loc.Tf("ui.cost_cr", "{0} cr", item.Cost);
+                costLine = Loc.Tf("ui.cost_cr", "{0} cr", price);
             }
 
             _buyLabels[index].text = item.Title + "\n" + costLine;
@@ -2885,6 +2972,177 @@ namespace AsteroidsGoneRogue
             image.raycastTarget = false;
             Stretch(go.GetComponent<RectTransform>(), min, max);
             return go;
+        }
+
+        private void BuildDoctrine(Font display, Font body)
+        {
+            _doctrineRoot = UiTheme.BuildPanel(
+                "DoctrineCard",
+                transform,
+                new Vector2(0.562f, 0.716f),
+                new Vector2(0.986f, 0.892f),
+                0.74f);
+            _doctrineRoot.SetActive(false);
+
+            _doctrineTitle = CreateText("DoctrineTitle", _doctrineRoot.transform, display, UiTheme.HeaderMin, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Stretch(_doctrineTitle.rectTransform, new Vector2(0.04f, 0.76f), new Vector2(0.96f, 0.97f));
+            _doctrineTitle.color = UiTheme.Primary;
+            ClampOneLine(_doctrineTitle);
+
+            _barrageButton = CreateButton("DoctrineBarrage", _doctrineRoot.transform, body, new Vector2(0.04f, 0.46f), new Vector2(0.34f, 0.74f));
+            _lanceButton = CreateButton("DoctrineLance", _doctrineRoot.transform, body, new Vector2(0.35f, 0.46f), new Vector2(0.65f, 0.74f));
+            _hunterButton = CreateButton("DoctrineHunter", _doctrineRoot.transform, body, new Vector2(0.66f, 0.46f), new Vector2(0.96f, 0.74f));
+            _barrageLabel = _barrageButton.GetComponentInChildren<Text>();
+            _lanceLabel = _lanceButton.GetComponentInChildren<Text>();
+            _hunterLabel = _hunterButton.GetComponentInChildren<Text>();
+            _barrageLabel.fontSize = UiTheme.BodyMin;
+            _lanceLabel.fontSize = UiTheme.BodyMin;
+            _hunterLabel.fontSize = UiTheme.BodyMin;
+            _barrageButton.onClick.AddListener(() => OnPickDoctrine(DoctrineId.Barrage));
+            _lanceButton.onClick.AddListener(() => OnPickDoctrine(DoctrineId.Lance));
+            _hunterButton.onClick.AddListener(() => OnPickDoctrine(DoctrineId.Hunter));
+            UiTheme.ApplyButton(_barrageButton, false, false, true);
+            UiTheme.ApplyButton(_lanceButton, false, false, true);
+            UiTheme.ApplyButton(_hunterButton, false, false, true);
+
+            _doctrineShopRow = CreateFill("DoctrineShopRow", _doctrineRoot.transform, UiTheme.InnerWash, new Vector2(0.04f, 0.20f), new Vector2(0.96f, 0.44f));
+            _doctrineHint = CreateText("DoctrineHint", _doctrineRoot.transform, body, UiTheme.BodyMin, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Stretch(_doctrineHint.rectTransform, new Vector2(0.04f, 0.02f), new Vector2(0.96f, 0.18f));
+            _doctrineHint.color = UiTheme.Secondary;
+            ClampOneLine(_doctrineHint);
+            _doctrineHint.text = Loc.T("ui.hint_dual", HintDual);
+
+            _doctrineBadge = CreateText("DoctrineBadge", transform, display, 18, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Stretch(_doctrineBadge.rectTransform, new Vector2(0.012f, 0.452f), new Vector2(0.30f, 0.540f));
+            _doctrineBadge.color = UiTheme.Primary;
+            ClampOneLine(_doctrineBadge);
+            AddReadability(_doctrineBadge, true);
+            _doctrineBadge.gameObject.SetActive(false);
+        }
+
+        private void OnPickDoctrine(DoctrineId id)
+        {
+            if (_shop == null)
+            {
+                return;
+            }
+
+            _shop.TryPickDoctrine(id);
+        }
+
+        private void RefreshDoctrinePicks()
+        {
+            if (_doctrineTitle == null || _loadout == null || _loadout.State == null || _session == null)
+            {
+                return;
+            }
+
+            LoadoutState state = _loadout.State;
+            if (state.Doctrine == DoctrineId.None)
+            {
+                _doctrineTitle.text = Loc.T("ui.doctrine.tip", "Choose a doctrine.");
+            }
+            else
+            {
+                _doctrineTitle.text = Loc.Tf(
+                    "ui.hud_doctrine",
+                    "DOCTRINE  ·  {0}",
+                    DoctrineLabel(state.Doctrine));
+            }
+
+            if (_doctrineHint != null)
+            {
+                _doctrineHint.text = state.Rail
+                    ? Loc.T("ui.hint_rail", HintRail)
+                    : Loc.T("ui.hint_dual", HintDual);
+            }
+
+            PaintDoctrineButton(_barrageButton, _barrageLabel, DoctrineId.Barrage, state);
+            PaintDoctrineButton(_lanceButton, _lanceLabel, DoctrineId.Lance, state);
+            PaintDoctrineButton(_hunterButton, _hunterLabel, DoctrineId.Hunter, state);
+        }
+
+        private void PaintDoctrineButton(Button button, Text label, DoctrineId id, LoadoutState state)
+        {
+            if (button == null || label == null)
+            {
+                return;
+            }
+
+            bool chosen = state.Doctrine == id;
+            bool other = state.Doctrine != DoctrineId.None && !chosen;
+            bool gate = state.GateMet(id);
+            int cost = state.DoctrinePickCost(id);
+            bool tooPoor = !chosen && !other && gate && cost > 0 && _session.Credits < cost;
+            bool locked = other || !gate;
+            button.interactable = _session.ShopOpen && !chosen && !locked && !tooPoor;
+            Image plate = button.targetGraphic as Image;
+            UiTheme.PaintShopPlate(plate, label, chosen, locked, tooPoor);
+            string costLine;
+            if (chosen)
+            {
+                costLine = Loc.T("ui.owned", "OWNED") + UiTheme.OwnedCheck;
+            }
+            else if (other)
+            {
+                costLine = Loc.T("ui.doctrine.swap", "New Run to swap");
+            }
+            else if (!gate)
+            {
+                costLine = Loc.T("ui.locked", "LOCKED");
+            }
+            else if (tooPoor)
+            {
+                costLine = Loc.Tf("ui.need_cr", "need {0} cr", cost);
+            }
+            else if (cost > 0)
+            {
+                costLine = Loc.Tf("ui.cost_cr", "{0} cr", cost);
+            }
+            else
+            {
+                costLine = Loc.T("ui.doctrine.pick", "Choose");
+            }
+
+            label.text = DoctrineLabel(id) + "\n" + costLine;
+        }
+
+        private static string DoctrineLabel(DoctrineId id)
+        {
+            switch (id)
+            {
+                case DoctrineId.Barrage:
+                    return Loc.T("ui.doctrine.barrage", "Barrage");
+                case DoctrineId.Lance:
+                    return Loc.T("ui.doctrine.lance", "Lance");
+                case DoctrineId.Hunter:
+                    return Loc.T("ui.doctrine.hunter", "Hunter");
+                default:
+                    return Loc.T("ui.doctrine.none", "—");
+            }
+        }
+
+        private void RefreshDoctrineBadge(bool playing)
+        {
+            if (_doctrineBadge == null)
+            {
+                return;
+            }
+
+            LoadoutState state = _loadout != null ? _loadout.State : null;
+            bool show = playing && state != null && state.Doctrine != DoctrineId.None;
+            _doctrineBadge.gameObject.SetActive(show);
+            if (!show)
+            {
+                return;
+            }
+
+            _doctrineBadge.text = Loc.Tf(
+                "ui.hud_doctrine",
+                "DOCTRINE  ·  {0}",
+                DoctrineLabel(state.Doctrine));
+            _doctrineBadge.color = UiTheme.Primary;
+            ClampOneLine(_doctrineBadge);
         }
 
         private static Text CreateText(string name, Transform parent, Font font, int size, TextAnchor anchor, FontStyle style)

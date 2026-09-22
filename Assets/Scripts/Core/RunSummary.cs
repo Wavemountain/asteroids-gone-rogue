@@ -76,6 +76,12 @@ namespace AsteroidsGoneRogue
             AppendOwned(ref names, loadout.TwinGuns, Loc.T("up.Twin", "Twin"));
             AppendOwned(ref names, loadout.Seeker, Loc.T("up.Seeker", "Seeker"));
             AppendOwned(ref names, loadout.Ricochet, Loc.T("up.Ricochet", "Ricochet"));
+            AppendOwned(ref names, loadout.Rail, Loc.T("up.Rail", "Rail"));
+            AppendOwned(ref names, loadout.FlakFeed, Loc.T("up.FlakFeed", "Flak Feed"));
+            AppendOwned(ref names, loadout.Storm, Loc.T("up.Storm", "Storm"));
+            AppendOwned(ref names, loadout.OverchargeLance, Loc.T("up.Overcharge", "Overcharge Lance"));
+            AppendOwned(ref names, loadout.SeekerCadence, Loc.T("up.Cadence", "Seeker Cadence"));
+            AppendOwned(ref names, loadout.TwinSeek, Loc.T("up.TwinSeek", "Twin Seek"));
             if (loadout.ShieldCharges > 0)
             {
                 AppendOwned(ref names, true, Loc.Tf("up.Shield", "Shield x{0}", loadout.ShieldCharges));

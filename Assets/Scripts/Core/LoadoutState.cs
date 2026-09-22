@@ -52,6 +52,13 @@ namespace AsteroidsGoneRogue
         public bool ShieldMatrix { get; private set; }
         public bool Overcharger { get; private set; }
         public bool Afterburner { get; private set; }
+        public bool FlakFeed { get; private set; }
+        public bool Storm { get; private set; }
+        public bool Rail { get; private set; }
+        public bool OverchargeLance { get; private set; }
+        public bool SeekerCadence { get; private set; }
+        public bool TwinSeek { get; private set; }
+        public DoctrineId Doctrine { get; private set; }
 
         /// <summary>Equipped primary. Default Bolt. Cycle LB/RB among owned primaries.</summary>
         public FireMode PrimaryMode { get; private set; }
@@ -80,6 +87,13 @@ namespace AsteroidsGoneRogue
             ShieldMatrix = false;
             Overcharger = false;
             Afterburner = false;
+            FlakFeed = false;
+            Storm = false;
+            Rail = false;
+            OverchargeLance = false;
+            SeekerCadence = false;
+            TwinSeek = false;
+            Doctrine = DoctrineId.None;
             PrimaryMode = FireMode.Bolt;
             UtilityMode = FireMode.Bolt;
             HasUtility = false;
@@ -193,7 +207,133 @@ namespace AsteroidsGoneRogue
 
         public bool HasPrimaryAlt
         {
-            get { return SpreadBolt || Pierce || TwinGuns; }
+            get { return SpreadBolt || Pierce || TwinGuns || Rail; }
+        }
+
+        public bool SoftLocked
+        {
+            get { return FlakFeed || Rail || SeekerCadence; }
+        }
+
+        public float RailCooldown
+        {
+            get { return FireCooldown * DoctrineRules.RailCooldownMul * OffPathMul(FireMode.Rail); }
+        }
+
+        public float PrimaryExtraMul(FireMode mode)
+        {
+            float mul = OffPathMul(mode);
+            if (mode == FireMode.Spread)
+            {
+                if (FlakFeed)
+                {
+                    mul *= DoctrineRules.FlakFeedCooldownMul;
+                }
+
+                if (Storm)
+                {
+                    mul *= DoctrineRules.StormCooldownMul;
+                }
+            }
+            else if (mode == FireMode.Twin && OverchargeLance)
+            {
+                mul *= DoctrineRules.OverchargeTwinCooldownMul;
+            }
+
+            return mul;
+        }
+
+        public float SeekerUtilityMul()
+        {
+            float mul = OffPathMul(FireMode.Seeker);
+            if (SeekerCadence)
+            {
+                mul *= DoctrineRules.SeekerCadenceCooldownMul;
+            }
+
+            if (TwinSeek)
+            {
+                mul *= DoctrineRules.TwinSeekCooldownMul;
+            }
+
+            return mul;
+        }
+
+        public float OffPathMul(FireMode mode)
+        {
+            return IsOffPath(mode) ? DoctrineRules.OffPathMul : 1f;
+        }
+
+        public bool IsOffPath(FireMode mode)
+        {
+            if (!SoftLocked || Doctrine == DoctrineId.None)
+            {
+                return false;
+            }
+
+            DoctrineId path = DoctrineRules.PathOf(mode);
+            return path != DoctrineId.None && path != Doctrine;
+        }
+
+        public bool IsOffPath(UpgradeId id)
+        {
+            if (!SoftLocked || Doctrine == DoctrineId.None || DoctrineRules.IsWildcard(id))
+            {
+                return false;
+            }
+
+            DoctrineId path = DoctrineRules.PathOf(id);
+            return path != DoctrineId.None && path != Doctrine;
+        }
+
+        public int EffectiveCost(ShopItem item)
+        {
+            if (item == null)
+            {
+                return 0;
+            }
+
+            return DoctrineRules.PenalizedCost(item.Cost, IsOffPath(item.Id));
+        }
+
+        public bool GateMet(DoctrineId id)
+        {
+            switch (id)
+            {
+                case DoctrineId.Barrage:
+                    return SpreadBolt;
+                case DoctrineId.Lance:
+                    return Pierce || TwinGuns;
+                case DoctrineId.Hunter:
+                    return Seeker;
+                default:
+                    return false;
+            }
+        }
+
+        public int DoctrinePickCost(DoctrineId id)
+        {
+            return id == DoctrineId.Barrage ? DoctrineRules.BarrageGateCost : 0;
+        }
+
+        public bool CanPickDoctrine(DoctrineId id)
+        {
+            return Doctrine == DoctrineId.None && GateMet(id);
+        }
+
+        public void SetDoctrine(DoctrineId id)
+        {
+            if (Doctrine != DoctrineId.None || id == DoctrineId.None)
+            {
+                return;
+            }
+
+            Doctrine = id;
+        }
+
+        public bool ShowDoctrineShopItem(UpgradeId id)
+        {
+            return Doctrine != DoctrineId.None && DoctrineRules.PathOf(id) == Doctrine;
         }
 
         public bool HasAltFire
@@ -256,6 +396,11 @@ namespace AsteroidsGoneRogue
             if (mode == FireMode.Ricochet)
             {
                 return Ricochet;
+            }
+
+            if (mode == FireMode.Rail)
+            {
+                return Rail;
             }
 
             return false;
@@ -395,6 +540,13 @@ namespace AsteroidsGoneRogue
             copy.ShieldMatrix = ShieldMatrix;
             copy.Overcharger = Overcharger;
             copy.Afterburner = Afterburner;
+            copy.FlakFeed = FlakFeed;
+            copy.Storm = Storm;
+            copy.Rail = Rail;
+            copy.OverchargeLance = OverchargeLance;
+            copy.SeekerCadence = SeekerCadence;
+            copy.TwinSeek = TwinSeek;
+            copy.Doctrine = Doctrine;
             copy.PrimaryMode = PrimaryMode;
             copy.UtilityMode = UtilityMode;
             copy.HasUtility = HasUtility;
@@ -450,6 +602,18 @@ namespace AsteroidsGoneRogue
                     return Overcharger;
                 case UpgradeId.Afterburner:
                     return Afterburner;
+                case UpgradeId.FlakFeed:
+                    return FlakFeed;
+                case UpgradeId.Storm:
+                    return Storm;
+                case UpgradeId.Rail:
+                    return Rail;
+                case UpgradeId.OverchargeLance:
+                    return OverchargeLance;
+                case UpgradeId.SeekerCadence:
+                    return SeekerCadence;
+                case UpgradeId.TwinSeek:
+                    return TwinSeek;
                 default:
                     return false;
             }
@@ -477,6 +641,18 @@ namespace AsteroidsGoneRogue
                     return ShieldCharges >= MaxShieldCharges && !ShieldMatrix;
                 case UpgradeId.ShieldCell:
                     return ShieldCharges < CurrentMaxShield;
+                case UpgradeId.FlakFeed:
+                    return Doctrine == DoctrineId.Barrage && SpreadBolt && !FlakFeed;
+                case UpgradeId.Storm:
+                    return Doctrine == DoctrineId.Barrage && FlakFeed && !Storm && !IsOffPath(id);
+                case UpgradeId.Rail:
+                    return Doctrine == DoctrineId.Lance && !Rail;
+                case UpgradeId.OverchargeLance:
+                    return Doctrine == DoctrineId.Lance && Rail && (Pierce || TwinGuns) && !OverchargeLance && !IsOffPath(id);
+                case UpgradeId.SeekerCadence:
+                    return Doctrine == DoctrineId.Hunter && Seeker && !SeekerCadence;
+                case UpgradeId.TwinSeek:
+                    return Doctrine == DoctrineId.Hunter && SeekerCadence && !TwinSeek && !IsOffPath(id);
                 default:
                     return !Owns(id);
             }
@@ -540,6 +716,24 @@ namespace AsteroidsGoneRogue
                     break;
                 case UpgradeId.Afterburner:
                     Afterburner = true;
+                    break;
+                case UpgradeId.FlakFeed:
+                    FlakFeed = true;
+                    break;
+                case UpgradeId.Storm:
+                    Storm = true;
+                    break;
+                case UpgradeId.Rail:
+                    Rail = true;
+                    break;
+                case UpgradeId.OverchargeLance:
+                    OverchargeLance = true;
+                    break;
+                case UpgradeId.SeekerCadence:
+                    SeekerCadence = true;
+                    break;
+                case UpgradeId.TwinSeek:
+                    TwinSeek = true;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException("id");

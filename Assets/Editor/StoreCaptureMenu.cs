@@ -40,6 +40,12 @@ namespace AsteroidsGoneRogue.EditorTools
             Apply(StoreCapturePoses.FailOrWin);
         }
 
+        [MenuItem("Asteroids gone rogue/Store Captures/Pose Rail charge glow")]
+        public static void PoseRailCharge()
+        {
+            Apply(StoreCapturePoses.RailCharge);
+        }
+
         [MenuItem("Asteroids gone rogue/Store Captures/Pose Capsule 3/4 Ship_Complete")]
         public static void PoseCapsule()
         {

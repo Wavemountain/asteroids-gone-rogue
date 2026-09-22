@@ -25,10 +25,13 @@ namespace AsteroidsGoneRogue
         public static int LangSvSlot { get { return CreditsSlot + 5; } }
         public static int MuteSlot { get { return CreditsSlot + 6; } }
         public static int GotItSlot { get { return CreditsSlot + 7; } }
+        public static int BarrageSlot { get { return GotItSlot + 1; } }
+        public static int LanceSlot { get { return GotItSlot + 2; } }
+        public static int HunterSlot { get { return GotItSlot + 3; } }
 
         public static int SlotCount
         {
-            get { return GotItSlot + 1; }
+            get { return HunterSlot + 1; }
         }
 
         public static int ShopSlot(int shopIndex)
@@ -215,9 +218,31 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (slot == BarrageSlot)
+            {
+                x = 6;
+                y = -2;
+                return;
+            }
+
+            if (slot == LanceSlot)
+            {
+                x = 7;
+                y = -2;
+                return;
+            }
+
+            if (slot == HunterSlot)
+            {
+                x = 8;
+                y = -2;
+                return;
+            }
+
             int hull = 0;
             int weapon = 0;
             int defense = 0;
+            int doctrine = 0;
             int shopIndex = slot - ShopSlot0;
             for (int i = 0; i < ShopCatalog.Items.Length; i++)
             {
@@ -235,6 +260,12 @@ namespace AsteroidsGoneRogue
                     cx = 5;
                     cy = defense;
                     defense++;
+                }
+                else if (group == ShopGroup.Doctrine)
+                {
+                    cx = 6 + (doctrine % 3);
+                    cy = -5 - (doctrine / 3);
+                    doctrine++;
                 }
                 else
                 {

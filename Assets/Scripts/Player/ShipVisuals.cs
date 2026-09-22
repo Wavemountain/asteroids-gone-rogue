@@ -25,6 +25,7 @@ namespace AsteroidsGoneRogue
         public GameObject PierceNeedle;
         public GameObject SeekerRail;
         public GameObject RicochetFacet;
+        public GameObject RailHardpoint;
         public GameObject OverchargerGlow;
         public GameObject AfterburnerGlow;
         public Material PreviewGhostMaterial;
@@ -117,6 +118,7 @@ namespace AsteroidsGoneRogue
             SetCosmetic(PierceNeedle, loadout != null && loadout.Pierce);
             SetCosmetic(SeekerRail, loadout != null && loadout.Seeker);
             SetCosmetic(RicochetFacet, loadout != null && loadout.Ricochet);
+            SetCosmetic(RailHardpoint, loadout != null && loadout.Rail);
             SetCosmetic(OverchargerGlow, loadout != null && loadout.Overcharger);
             SetCosmetic(AfterburnerGlow, loadout != null && loadout.Afterburner);
             bool shieldOn = loadout != null && (loadout.ShieldCharges > 0 || loadout.ShieldMatrix);
@@ -146,6 +148,7 @@ namespace AsteroidsGoneRogue
                 GhostIfNew(PierceNeedle, loadout.Pierce && !owned.Pierce);
                 GhostIfNew(SeekerRail, loadout.Seeker && !owned.Seeker);
                 GhostIfNew(RicochetFacet, loadout.Ricochet && !owned.Ricochet);
+                GhostIfNew(RailHardpoint, loadout.Rail && !owned.Rail);
                 GhostIfNew(OverchargerGlow, loadout.Overcharger && !owned.Overcharger);
                 GhostIfNew(AfterburnerGlow, loadout.Afterburner && !owned.Afterburner);
                 GhostIfNew(ShieldBubble, shieldOn && owned.ShieldCharges <= 0 && !owned.ShieldMatrix);

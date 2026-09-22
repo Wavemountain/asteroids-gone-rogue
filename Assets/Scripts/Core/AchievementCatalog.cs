@@ -10,7 +10,9 @@ namespace AsteroidsGoneRogue
         FirstClear = 1,
         NoHitWave = 2,
         HardClear = 4,
-        ExtraLifeStreak = 8
+        ExtraLifeStreak = 8,
+        Doctrine = 16,
+        RailCharge = 32
     }
 
     public static class AchievementCatalog
@@ -21,13 +23,17 @@ namespace AsteroidsGoneRogue
         public const string NoHitWaveTitle = "No-Hit Wave";
         public const string HardClearTitle = "Hard Clear";
         public const string ExtraLifeStreakTitle = "Extra-Life Streak";
+        public const string DoctrineTitle = "Doctrine";
+        public const string RailChargeTitle = "Rail Charge";
 
         public static readonly AchievementId[] All =
         {
             AchievementId.FirstClear,
             AchievementId.NoHitWave,
             AchievementId.HardClear,
-            AchievementId.ExtraLifeStreak
+            AchievementId.ExtraLifeStreak,
+            AchievementId.Doctrine,
+            AchievementId.RailCharge
         };
 
         public static string Title(AchievementId id)
@@ -40,6 +46,10 @@ namespace AsteroidsGoneRogue
                     return Loc.T("ach.hard", HardClearTitle);
                 case AchievementId.ExtraLifeStreak:
                     return Loc.T("ach.streak", ExtraLifeStreakTitle);
+                case AchievementId.Doctrine:
+                    return Loc.T("ach.doctrine", DoctrineTitle);
+                case AchievementId.RailCharge:
+                    return Loc.T("ach.rail", RailChargeTitle);
                 default:
                     return Loc.T("ach.first", FirstClearTitle);
             }
@@ -55,6 +65,10 @@ namespace AsteroidsGoneRogue
                     return "AGR_HARD_CLEAR";
                 case AchievementId.ExtraLifeStreak:
                     return "AGR_EXTRALIFE_STREAK";
+                case AchievementId.Doctrine:
+                    return "AGR_DOCTRINE";
+                case AchievementId.RailCharge:
+                    return "AGR_RAIL_CHARGE";
                 default:
                     return "AGR_FIRST_CLEAR";
             }

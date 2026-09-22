@@ -7,8 +7,8 @@ namespace AsteroidsGoneRogue
     }
 
     /// <summary>
-    /// Dual-fire v1 slot rules. Primary cycles Bolt + owned Spread/Twin/Pierce.
-    /// Utility is Seeker / Ricochet (Hook later). No new FireModes this pass.
+    /// Dual-fire slots. Primary cycles Bolt + owned Spread/Twin/Pierce/Rail.
+    /// Utility is Seeker / Ricochet (wildcard, Hook later).
     /// </summary>
     public static class WeaponSlots
     {
@@ -18,13 +18,15 @@ namespace AsteroidsGoneRogue
         public const float PierceCooldownMul = 1f;
         public const float SeekerCooldownMul = 2.4f;
         public const float RicochetCooldownMul = 1.5f;
+        public const float RailCooldownMul = DoctrineRules.RailCooldownMul;
 
         public static readonly FireMode[] PrimaryCycle =
         {
             FireMode.Bolt,
             FireMode.Spread,
             FireMode.Twin,
-            FireMode.Pierce
+            FireMode.Pierce,
+            FireMode.Rail
         };
 
         public static bool IsPrimary(FireMode mode)
@@ -32,7 +34,8 @@ namespace AsteroidsGoneRogue
             return mode == FireMode.Bolt
                 || mode == FireMode.Spread
                 || mode == FireMode.Twin
-                || mode == FireMode.Pierce;
+                || mode == FireMode.Pierce
+                || mode == FireMode.Rail;
         }
 
         public static bool IsUtility(FireMode mode)
@@ -70,6 +73,10 @@ namespace AsteroidsGoneRogue
                     mode = FireMode.Ricochet;
                     slot = WeaponSlot.Utility;
                     return true;
+                case UpgradeId.Rail:
+                    mode = FireMode.Rail;
+                    slot = WeaponSlot.Primary;
+                    return true;
                 default:
                     mode = FireMode.Bolt;
                     slot = WeaponSlot.Primary;
@@ -98,6 +105,11 @@ namespace AsteroidsGoneRogue
             if (mode == FireMode.Pierce)
             {
                 return PierceCooldownMul;
+            }
+
+            if (mode == FireMode.Rail)
+            {
+                return RailCooldownMul;
             }
 
             return BoltCooldownMul;

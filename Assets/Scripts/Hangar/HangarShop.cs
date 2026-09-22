@@ -26,7 +26,7 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (!_session.TrySpend(item.Cost))
+            if (!_session.TrySpend(_loadout.State.EffectiveCost(item)))
             {
                 return false;
             }
@@ -52,6 +52,40 @@ namespace AsteroidsGoneRogue
             if (!_loadout.State.TryEquip(id))
             {
                 return false;
+            }
+
+            _game.NotifyLoadoutChanged();
+            return true;
+        }
+
+        public bool TryPickDoctrine(DoctrineId id)
+        {
+            if (_session == null || !_session.ShopOpen || _loadout == null || _loadout.State == null)
+            {
+                return false;
+            }
+
+            if (!DoctrineRules.HangarUnlocked(_session.WaveIndex))
+            {
+                return false;
+            }
+
+            LoadoutState state = _loadout.State;
+            if (!state.CanPickDoctrine(id))
+            {
+                return false;
+            }
+
+            int cost = state.DoctrinePickCost(id);
+            if (cost > 0 && !_session.TrySpend(cost))
+            {
+                return false;
+            }
+
+            state.SetDoctrine(id);
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayHangarPurchase();
             }
 
             _game.NotifyLoadoutChanged();

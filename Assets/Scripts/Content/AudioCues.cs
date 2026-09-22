@@ -189,6 +189,14 @@ namespace AsteroidsGoneRogue
             Play(_shootPierce != null ? _shootPierce : _shoot, PierceShotScale);
         }
 
+        public void PlayShootRail()
+        {
+            PlayPitched(
+                _shootPierce != null ? _shootPierce : _shoot,
+                0.78f,
+                0.72f);
+        }
+
         public void PlayShootSeeker()
         {
             Play(_shootSeeker != null ? _shootSeeker : _shootPierce, SeekerShotScale);

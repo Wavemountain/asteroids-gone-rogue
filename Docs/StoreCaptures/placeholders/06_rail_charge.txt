@@ -1,0 +1,5 @@
+Placeholder — Rail charge glow.
+
+Pose: combat cam (1.6, 6.4, -8.2) look (0.15, 0.45, 1.35) FOV 36.
+Ship muzzle glow (Rail_Muzzle) on the v4 primary hardpoint. UiTheme doctrine card stays chrome-only.
+Drop PNG at Docs/StoreCaptures/out/06_rail_charge.png

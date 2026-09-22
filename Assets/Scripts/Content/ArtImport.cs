@@ -74,6 +74,9 @@ namespace AsteroidsGoneRogue
             "Pickup_RapidFire",
             "Vfx_MuzzleFlash",
             "Vfx_Explosion_Lowpoly",
+            "Rail_Hardpoint",
+            "Rail_Muzzle",
+            "Rail_Seeker",
         };
 
         private static readonly Dictionary<string, GameObject> Cache = new Dictionary<string, GameObject>();

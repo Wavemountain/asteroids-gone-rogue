@@ -7,6 +7,7 @@ namespace AsteroidsGoneRogue
         Pierce,
         Twin,
         Seeker,
-        Ricochet
+        Ricochet,
+        Rail
     }
 }
