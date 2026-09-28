@@ -33,10 +33,18 @@ namespace AsteroidsGoneRogue
         public void SetInputEnabled(bool enabled)
         {
             _inputEnabled = enabled;
-            if (!enabled && _body != null)
+            if (!enabled)
             {
-                _body.linearVelocity = Vector3.zero;
-                _body.angularVelocity = Vector3.zero;
+                if (_body != null)
+                {
+                    _body.linearVelocity = Vector3.zero;
+                    _body.angularVelocity = Vector3.zero;
+                }
+
+                if (_shooter != null)
+                {
+                    _shooter.CancelCharge();
+                }
             }
         }
 

@@ -522,10 +522,24 @@ namespace AsteroidsGoneRogue
 
         public void DuckMusic(float seconds, float scale)
         {
-            _duckSeconds = Mathf.Max(0.05f, seconds);
-            _duckTarget = Mathf.Clamp01(scale);
-            _duckUntil = Time.unscaledTime + _duckSeconds;
-            _duckScale = _duckTarget;
+            float duration = Mathf.Max(0.05f, seconds);
+            float target = Mathf.Clamp01(scale);
+            float now = Time.unscaledTime;
+            if (now < _duckUntil)
+            {
+                _duckTarget = Mathf.Min(_duckTarget, target);
+                _duckUntil = Mathf.Max(_duckUntil, now + duration);
+                _duckSeconds = Mathf.Max(_duckSeconds, duration);
+            }
+            else
+            {
+                _duckSeconds = duration;
+                _duckTarget = target;
+                _duckUntil = now + _duckSeconds;
+            }
+
+            float remain = _duckUntil - now;
+            _duckScale = Mathf.Lerp(1f, _duckTarget, Mathf.Clamp01(remain / _duckSeconds));
             ApplyVolumes();
         }
 

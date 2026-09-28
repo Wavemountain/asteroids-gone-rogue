@@ -200,6 +200,14 @@ namespace AsteroidsGoneRogue
             _nextFireTime = Time.time + full * DoctrineRules.RailMissCancelCooldownMul;
         }
 
+        public void CancelCharge()
+        {
+            _charging = false;
+            _chargeStart = 0f;
+            StopRailAudio();
+            HideCharge();
+        }
+
         public void NotifyRailMiss()
         {
             if (_railFullCd <= 0f)
@@ -529,6 +537,16 @@ namespace AsteroidsGoneRogue
             return loadout.OwnsMode(requested) && WeaponSlots.IsPrimary(requested)
                 ? requested
                 : FireMode.Bolt;
+        }
+
+        private void OnDisable()
+        {
+            CancelCharge();
+        }
+
+        private void OnDestroy()
+        {
+            CancelCharge();
         }
     }
 }

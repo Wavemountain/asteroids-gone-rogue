@@ -3590,6 +3590,40 @@ def test_doctrine_rail_045() -> None:
     assert "AnnounceAchievement" in ui
 
 
+def test_hotfix_045_rail_cancel_and_duck_merge() -> None:
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    ship = (root / "Assets/Scripts/Player/ShipController.cs").read_text(encoding="utf-8")
+    shooter = (root / "Assets/Scripts/Player/ShipShooter.cs").read_text(encoding="utf-8")
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+
+    set_fn = ship.split("public void SetInputEnabled(bool enabled)")[1].split("public void ResetForWave")[0]
+    assert "if (!enabled)" in set_fn
+    disabled = set_fn.split("if (!enabled)", 1)[1]
+    assert "_shooter.CancelCharge()" in disabled
+
+    cancel = shooter.split("public void CancelCharge()")[1].split("public void ")[0]
+    assert "StopRailAudio()" in cancel
+    assert "HideCharge()" in cancel
+    assert "FireRail" not in cancel
+    assert "_nextFireTime" not in cancel
+    assert "RailMissCancelCooldownMul" not in cancel
+    assert "_charging = false" in cancel
+
+    on_disable = shooter.split("void OnDisable()")[1].split("void OnDestroy()")[0]
+    assert "CancelCharge()" in on_disable
+    assert "StopRailAudio()" in cancel
+    on_destroy = shooter.split("void OnDestroy()")[1].split("}", 1)[0]
+    assert "CancelCharge()" in on_destroy
+
+    duck = audio.split("public void DuckMusic(")[1].split("public void ")[0]
+    assert re.search(r"now\s*<\s*_duckUntil", duck)
+    assert re.search(r"_duckTarget\s*=\s*Mathf\.Min\(_duckTarget,\s*target\)", duck)
+    assert re.search(r"_duckUntil\s*=\s*Mathf\.Max\(_duckUntil,\s*now\s*\+\s*duration\)", duck)
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -3633,6 +3667,7 @@ def main() -> int:
     test_hangar_wave_clear_layout()
     test_dual_fire_v1()
     test_doctrine_rail_045()
+    test_hotfix_045_rail_cancel_and_duck_merge()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
