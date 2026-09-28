@@ -33,6 +33,11 @@ namespace AsteroidsGoneRogue
 
         public static string FileName(string id)
         {
+            if (string.IsNullOrEmpty(id))
+            {
+                return string.Empty;
+            }
+
             return id + ".png";
         }
 
@@ -41,9 +46,69 @@ namespace AsteroidsGoneRogue
             return id + ".txt";
         }
 
+        public static bool HasPose(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return false;
+            }
+
+            return id == HangarShop
+                || id == PlayVoid
+                || id == CombatJuice
+                || id == BruteSwarm
+                || id == FailOrWin
+                || id == RailCharge
+                || id == Capsule;
+        }
+
+        public static bool TryIndex(string id, out int index)
+        {
+            index = -1;
+            if (string.IsNullOrEmpty(id) || ShotIds == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < ShotIds.Length; i++)
+            {
+                if (ShotIds[i] == id)
+                {
+                    index = i;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public static bool TryShot(string id, out string fileName)
+        {
+            fileName = string.Empty;
+            if (!HasPose(id))
+            {
+                return false;
+            }
+
+            fileName = FileName(id);
+            return !string.IsNullOrEmpty(fileName);
+        }
+
         public static void Pose(string id, out float px, out float py, out float pz, out float lx, out float ly, out float lz, out float fov)
         {
             fov = 54f;
+            if (id == HangarShop)
+            {
+                px = 2.4f;
+                py = 12.5f;
+                pz = -11.5f;
+                lx = 1.95f;
+                ly = 0.8f;
+                lz = -2.55f;
+                fov = 46f;
+                return;
+            }
+
             if (id == PlayVoid)
             {
                 px = 0f;

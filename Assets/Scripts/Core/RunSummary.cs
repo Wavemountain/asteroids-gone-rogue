@@ -43,6 +43,40 @@ namespace AsteroidsGoneRogue
             return Loc.Tf("run.stats", "Score {0}  ·  Wave {1}  ·  World {2}", score, wave, world);
         }
 
+        /// <summary>
+        /// Death card line, e.g. "Lance run — wave 7". Empty when there is no
+        /// doctrine, or the ship was lost on wave 1 (before that wave cleared).
+        /// Wave index only advances after a clear, so wave 1 is that case.
+        /// </summary>
+        public static string DoctrineRunLine(DoctrineId doctrine, int deathWave)
+        {
+            if (doctrine == DoctrineId.None || deathWave < DoctrineRules.UnlockWave)
+            {
+                return string.Empty;
+            }
+
+            return Loc.Tf(
+                "run.doctrine_wave",
+                "{0} run — wave {1}",
+                DoctrineDisplay(doctrine),
+                deathWave);
+        }
+
+        public static string DoctrineDisplay(DoctrineId doctrine)
+        {
+            switch (doctrine)
+            {
+                case DoctrineId.Barrage:
+                    return Loc.T("ui.doctrine.barrage", "Barrage");
+                case DoctrineId.Lance:
+                    return Loc.T("ui.doctrine.lance", "Lance");
+                case DoctrineId.Hunter:
+                    return Loc.T("ui.doctrine.hunter", "Hunter");
+                default:
+                    return string.Empty;
+            }
+        }
+
         public static string CreditsLine(int credits, int awarded)
         {
             if (awarded > 0)

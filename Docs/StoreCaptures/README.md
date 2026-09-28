@@ -10,7 +10,7 @@ Play Mode (`Assets/Scenes/Play.unity`):
 
 | Key / menu | What |
 | --- | --- |
-| **F9** | Cycle the store poses (includes `06_rail_charge`) |
+| **F9** | Cycle every `ShotIds` entry, including `06_rail_charge` (each id has a pose and a non-empty png name) |
 | **F12** | Write PNG to `Docs/StoreCaptures/out/` (Editor) or `persistentDataPath/StoreCaptures/` (player) |
 | **Asteroids gone rogue → Store Captures → Pose …** | Apply a named cam hold |
 | **Release pose hold** | Restore FollowCamera hangar/play framing |

@@ -12,7 +12,10 @@ namespace AsteroidsGoneRogue
         HardClear = 4,
         ExtraLifeStreak = 8,
         Doctrine = 16,
-        RailCharge = 32
+        RailCharge = 32,
+        Storm = 64,
+        OverchargeLance = 128,
+        TwinSeek = 256
     }
 
     public static class AchievementCatalog
@@ -25,6 +28,9 @@ namespace AsteroidsGoneRogue
         public const string ExtraLifeStreakTitle = "Extra-Life Streak";
         public const string DoctrineTitle = "Doctrine";
         public const string RailChargeTitle = "Rail Charge";
+        public const string StormTitle = "Storm";
+        public const string OverchargeLanceTitle = "Overcharge Lance";
+        public const string TwinSeekTitle = "Twin Seek";
 
         public static readonly AchievementId[] All =
         {
@@ -33,7 +39,10 @@ namespace AsteroidsGoneRogue
             AchievementId.HardClear,
             AchievementId.ExtraLifeStreak,
             AchievementId.Doctrine,
-            AchievementId.RailCharge
+            AchievementId.RailCharge,
+            AchievementId.Storm,
+            AchievementId.OverchargeLance,
+            AchievementId.TwinSeek
         };
 
         public static string Title(AchievementId id)
@@ -50,6 +59,12 @@ namespace AsteroidsGoneRogue
                     return Loc.T("ach.doctrine", DoctrineTitle);
                 case AchievementId.RailCharge:
                     return Loc.T("ach.rail", RailChargeTitle);
+                case AchievementId.Storm:
+                    return Loc.T("ach.storm", StormTitle);
+                case AchievementId.OverchargeLance:
+                    return Loc.T("ach.overcharge", OverchargeLanceTitle);
+                case AchievementId.TwinSeek:
+                    return Loc.T("ach.twinseek", TwinSeekTitle);
                 default:
                     return Loc.T("ach.first", FirstClearTitle);
             }
@@ -69,6 +84,12 @@ namespace AsteroidsGoneRogue
                     return "AGR_DOCTRINE";
                 case AchievementId.RailCharge:
                     return "AGR_RAIL_CHARGE";
+                case AchievementId.Storm:
+                    return "AGR_STORM";
+                case AchievementId.OverchargeLance:
+                    return "AGR_OVERCHARGE_LANCE";
+                case AchievementId.TwinSeek:
+                    return "AGR_TWIN_SEEK";
                 default:
                     return "AGR_FIRST_CLEAR";
             }
@@ -134,6 +155,30 @@ namespace AsteroidsGoneRogue
         public static bool ShouldUnlockExtraLifeStreak(int streak)
         {
             return streak >= ExtraLifeStreakNeed;
+        }
+
+        public static bool ShouldUnlockCapstone(UpgradeId id, bool owned)
+        {
+            return owned && DoctrineRules.IsCapstone(id);
+        }
+
+        public static bool TryCapstoneAchievement(UpgradeId id, out AchievementId achievement)
+        {
+            switch (id)
+            {
+                case UpgradeId.Storm:
+                    achievement = AchievementId.Storm;
+                    return true;
+                case UpgradeId.OverchargeLance:
+                    achievement = AchievementId.OverchargeLance;
+                    return true;
+                case UpgradeId.TwinSeek:
+                    achievement = AchievementId.TwinSeek;
+                    return true;
+                default:
+                    achievement = AchievementId.FirstClear;
+                    return false;
+            }
         }
     }
 }

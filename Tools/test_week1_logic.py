@@ -3448,7 +3448,9 @@ def test_doctrine_rail_045() -> None:
     lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
 
     assert "UnlockWave = 2" in rules
-    assert "BarrageGateCost = 150" in rules
+    assert "BarrageGateCost = 90" in rules
+    assert "LanceGateCost = 90" in rules
+    assert "HunterGateCost = 90" in rules
     assert "OffPathMul = 1.35f" in rules
     assert "FlakFeedCooldownMul = 0.85f" in rules
     assert "FlakFeedHalfAngleBonus = 4f" in rules
@@ -3509,6 +3511,45 @@ def test_doctrine_rail_045() -> None:
             assert path.read_bytes()[:21] == b"Kaydara FBX Binary  \x00"
     assert (root / "Docs/StoreCaptures/placeholders/06_rail_charge.txt").is_file()
     assert "Docs/StoreCaptures/out" in poses or "Docs/StoreCaptures/out" in (root / "Assets/Scripts/Content/StoreCapturePoses.cs").read_text(encoding="utf-8")
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    director = (root / "Assets/Scripts/Content/StoreCaptureDirector.cs").read_text(encoding="utf-8")
+    menu = (root / "Assets/Editor/StoreCaptureMenu.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    ach = (root / "Assets/Scripts/Core/AchievementCatalog.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    theme = (root / "Assets/Scripts/UI/UiTheme.cs").read_text(encoding="utf-8")
+    assert "DoctrineBadge = 18" in theme
+    assert "OffPathTint" in theme and "PaintOffPathCue" in theme
+    assert "UiTheme.DoctrineBadge" in ui
+    assert 'Loc.T("ui.off_path", "off-path")' in ui
+    assert "ui.off_path" in loc and "av vägen" in loc
+    assert "DoctrineRunLine" in summary and "run.doctrine_wave" in summary and "run.doctrine_wave" in loc
+    assert "Lance run — wave {1}" in summary or "{0} run — wave {1}" in summary
+    assert "PlayRailChargeRise" in audio and "PlayRailRelease" in audio and "PlayDoctrinePick" in audio
+    assert "rail_charge_rise" in audio and "rail_release_thump" in audio and "doctrine_pick" in audio
+    assert "phaserUp5" in audio and "lowFrequency_explosion_000" in audio and "threeTone2" in audio
+    assert "PlayRailChargeRise" in shooter and "PlayDoctrinePick" in hangar
+    muzzle = factory.split("public GameObject CreateRailChargeVfx")[1].split("public void ApplyLoadoutVisuals")[0]
+    assert "_projectilePierce" in muzzle
+    assert 'TryVisual("Rail_Muzzle", parent, _glow' not in muzzle
+    assert "HasPose" in poses and "TryShot" in poses and "06_rail_charge" in poses
+    assert "RailCharge" in menu and "CyclePose" in menu and "CyclePose" in director
+    for shot in (
+        "HangarShop",
+        "PlayVoid",
+        "CombatJuice",
+        "BruteSwarm",
+        "FailOrWin",
+        "RailCharge",
+    ):
+        assert shot in poses.split("public static bool HasPose")[1].split("public static bool TryIndex")[0]
+    assert "AchievementId.Storm" in ach
+    assert "AchievementId.OverchargeLance" in ach
+    assert "AchievementId.TwinSeek" in ach
+    assert "AGR_STORM" in ach and "AGR_OVERCHARGE_LANCE" in ach and "AGR_TWIN_SEEK" in ach
+    assert "ach.storm" in loc and "ach.overcharge" in loc and "ach.twinseek" in loc
+    assert "TryUnlockCapstones" in manager and "ShouldUnlockCapstone" in ach
+    assert "AnnounceAchievement" in ui
 
 
 def main() -> int:

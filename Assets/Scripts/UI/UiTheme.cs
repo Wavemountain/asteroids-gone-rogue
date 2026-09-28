@@ -31,6 +31,7 @@ namespace AsteroidsGoneRogue
         public const int HeaderMax = 46;
         public const int BodyMin = 14;
         public const int BodyMax = 22;
+        public const int DoctrineBadge = 18;
         public const int PanelPadMin = 16;
         public const int PanelPadMax = 24;
         public const int ButtonPadMin = 8;
@@ -110,6 +111,15 @@ namespace AsteroidsGoneRogue
         public static Color ShopLocked
         {
             get { return WithAlpha(DisabledRgb, 0.55f); }
+        }
+
+        /// <summary>
+        /// Soft-lock chrome: danger plate washed with secondary so an off-path
+        /// row reads as penalized, not as a normal buy.
+        /// </summary>
+        public static Color OffPathTint
+        {
+            get { return Color.Lerp(DangerTint, WithAlpha(Secondary, 0.72f), 0.45f); }
         }
 
         public static Color FooterHint
@@ -361,6 +371,19 @@ namespace AsteroidsGoneRogue
             else
             {
                 label.color = Accent;
+            }
+        }
+
+        public static void PaintOffPathCue(Image plate, Text label)
+        {
+            if (plate != null)
+            {
+                plate.color = OffPathTint;
+            }
+
+            if (label != null)
+            {
+                label.color = Secondary;
             }
         }
 

@@ -413,7 +413,35 @@ namespace AsteroidsGoneRogue
                 }
             }
 
+            TryUnlockCapstones();
             RaiseStateChanged();
+        }
+
+        private void TryUnlockCapstones()
+        {
+            if (_loadout == null || _loadout.State == null)
+            {
+                return;
+            }
+
+            LoadoutState state = _loadout.State;
+            TryCapstone(UpgradeId.Storm, state.Storm);
+            TryCapstone(UpgradeId.OverchargeLance, state.OverchargeLance);
+            TryCapstone(UpgradeId.TwinSeek, state.TwinSeek);
+        }
+
+        private void TryCapstone(UpgradeId upgrade, bool owned)
+        {
+            if (!AchievementCatalog.ShouldUnlockCapstone(upgrade, owned))
+            {
+                return;
+            }
+
+            AchievementId id;
+            if (AchievementCatalog.TryCapstoneAchievement(upgrade, out id))
+            {
+                TryUnlockAchievement(id);
+            }
         }
 
         public void RefreshHud()

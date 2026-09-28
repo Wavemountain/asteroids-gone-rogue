@@ -30,6 +30,7 @@ Mirror used: https://opengameart.org/content/sci-fi-sounds (`sci-fi_sounds.zip`)
 | Player damage | `Assets/Resources/Audio/Sfx/forceField_000.ogg` | `Audio/forceField_000.ogg` |
 | Swarm spawn layer (optional) | `Assets/Resources/Audio/Sfx/slime_000.ogg` | `Audio/slime_000.ogg` |
 | Brute death layer | `Assets/Resources/Audio/Sfx/lowFrequency_explosion_000.ogg` | `Audio/lowFrequency_explosion_000.ogg` (unique boom; not the generic metal punch) |
+| Rail release thump (fallback) | `Assets/Resources/Audio/Sfx/lowFrequency_explosion_000.ogg` | same clip when `Audio/Sfx/rail_release_thump` is absent |
 
 Pack: **Kenney Digital Audio** (CC0)  
 Author: Kenney  
@@ -45,6 +46,8 @@ Source: https://kenney.nl/assets/digital-audio
 | Shoot (twin layer) | `Assets/Resources/Audio/Sfx/twoTone1.ogg` | `Audio/twoTone1.ogg` (layer @ 0.45; Retry Wave solo @ 0.75) |
 | Shoot (seeker) | `Assets/Resources/Audio/Sfx/phaserUp5.ogg` | `Audio/phaserUp5.ogg` (0.72; also SwarmPod spawn) |
 | Shoot (ricochet) | `Assets/Resources/Audio/Sfx/zap1.ogg` | `Audio/zap1.ogg` (0.88 ±4% pitch) |
+| Rail charge rise (fallback) | `Assets/Resources/Audio/Sfx/phaserUp5.ogg` | played when `Audio/Sfx/rail_charge_rise` is absent |
+| Doctrine pick (fallback) | `Assets/Resources/Audio/Sfx/threeTone2.ogg` | played when `Audio/Sfx/doctrine_pick` is absent |
 | Extra-life pickup | `Assets/Resources/Audio/Sfx/powerUp7.ogg` | `Audio/powerUp7.ogg` (0.82; only power-up fanfare) |
 | Extra-life pickup alt | `Assets/Resources/Audio/Sfx/threeTone2.ogg` | `Audio/threeTone2.ogg` (0.78 if powerUp7 missing) |
 | Extra-life timeout miss | `Assets/Resources/Audio/Sfx/phaserDown3.ogg` | `Audio/phaserDown3.ogg` (0.48, no duck) |

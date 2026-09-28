@@ -31,6 +31,6 @@ Short checklist for Unity Hub / Speltest on `main`. No VR/XR Continue dialog.
 
 ## Store F12
 
-Play Mode: **F9** cycle poses, **F12** PNG → `Docs/StoreCaptures/out/`. Menu **Asteroids gone rogue → Store Captures**. See `Docs/StoreCaptures/README.md`. Capsule amber `#D4A04A`, 3/4 `Ship_Complete`.
+Play Mode: **F9** cycles every ShotId (including `06_rail_charge`), **F12** PNG → `Docs/StoreCaptures/out/`. Menu **Asteroids gone rogue → Store Captures** (named poses + Cycle pose). See `Docs/StoreCaptures/README.md`. Capsule amber `#D4A04A`, 3/4 `Ship_Complete`. PNGs are captured at Hub-smoke, not in repo.
 
 Repo checks (no Editor): `python3 Tools/validate_week1_project.py` and `python3 Tools/test_week1_logic.py`.

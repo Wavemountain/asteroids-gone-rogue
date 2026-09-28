@@ -77,6 +77,21 @@ namespace AsteroidsGoneRogue
         public const float SeekerShotScale = 0.72f;
         public const float RicochetShotScale = 0.88f;
         public const float RicochetPitchJitter = 0.04f;
+        public const float RailChargeRiseScale = 0.7f;
+        public const float RailChargeRisePitch = 0.84f;
+        public const float RailReleaseScale = 0.86f;
+        public const float DoctrinePickScale = 0.92f;
+
+        /// <summary>
+        /// Atmos CC0 drop-in keys. Missing clips fall back to Kenney already in
+        /// the repo so a later wire is a path swap, not a new download.
+        /// </summary>
+        public const string RailChargeRiseKey = "Audio/Sfx/rail_charge_rise";
+        public const string RailReleaseThumpKey = "Audio/Sfx/rail_release_thump";
+        public const string DoctrinePickKey = "Audio/Sfx/doctrine_pick";
+        public const string RailChargeRiseFallbackKey = "Audio/Sfx/phaserUp5";
+        public const string RailReleaseThumpFallbackKey = "Audio/Sfx/lowFrequency_explosion_000";
+        public const string DoctrinePickFallbackKey = "Audio/Sfx/threeTone2";
 
         public static AudioCues Instance { get; private set; }
 
@@ -92,6 +107,9 @@ namespace AsteroidsGoneRogue
         private AudioClip _shootSeeker;
         private AudioClip _shootTwin;
         private AudioClip _shootRicochet;
+        private AudioClip _railChargeRise;
+        private AudioClip _railRelease;
+        private AudioClip _doctrinePick;
         private AudioClip _shootEnemy;
         private AudioClip _hit;
         private AudioClip[] _hits;
@@ -191,10 +209,25 @@ namespace AsteroidsGoneRogue
 
         public void PlayShootRail()
         {
-            PlayPitched(
-                _shootPierce != null ? _shootPierce : _shoot,
-                0.78f,
-                0.72f);
+            PlayRailRelease();
+        }
+
+        public void PlayRailChargeRise()
+        {
+            AudioClip clip = _railChargeRise != null ? _railChargeRise : _shootSeeker;
+            PlayPitched(clip, RailChargeRiseScale, RailChargeRisePitch);
+        }
+
+        public void PlayRailRelease()
+        {
+            AudioClip clip = _railRelease != null ? _railRelease : _hitPunch;
+            Play(clip != null ? clip : _hit, RailReleaseScale);
+        }
+
+        public void PlayDoctrinePick()
+        {
+            AudioClip clip = _doctrinePick != null ? _doctrinePick : _purchase;
+            Play(clip, DoctrinePickScale);
         }
 
         public void PlayShootSeeker()
@@ -573,6 +606,22 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        private static AudioClip LoadCue(string key, string fallbackKey)
+        {
+            AudioClip clip = Resources.Load<AudioClip>(key);
+            if (clip != null)
+            {
+                return clip;
+            }
+
+            if (string.IsNullOrEmpty(fallbackKey))
+            {
+                return null;
+            }
+
+            return Resources.Load<AudioClip>(fallbackKey);
+        }
+
         private static AudioClip[] LoadPool(params string[] keys)
         {
             AudioClip[] clips = new AudioClip[keys.Length];
@@ -751,6 +800,9 @@ namespace AsteroidsGoneRogue
             _shootSeeker = Resources.Load<AudioClip>("Audio/Sfx/phaserUp5");
             _shootTwin = Resources.Load<AudioClip>("Audio/Sfx/twoTone1");
             _shootRicochet = Resources.Load<AudioClip>("Audio/Sfx/zap1");
+            _railChargeRise = LoadCue(RailChargeRiseKey, RailChargeRiseFallbackKey);
+            _railRelease = LoadCue(RailReleaseThumpKey, RailReleaseThumpFallbackKey);
+            _doctrinePick = LoadCue(DoctrinePickKey, DoctrinePickFallbackKey);
             _shootEnemy = Resources.Load<AudioClip>("Audio/Sfx/laserSmall_001");
             _hit = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_003");
             _hits = LoadPool(

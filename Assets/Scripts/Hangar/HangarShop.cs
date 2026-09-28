@@ -85,7 +85,7 @@ namespace AsteroidsGoneRogue
             state.SetDoctrine(id);
             if (AudioCues.Instance != null)
             {
-                AudioCues.Instance.PlayHangarPurchase();
+                AudioCues.Instance.PlayDoctrinePick();
             }
 
             _game.NotifyLoadoutChanged();

@@ -15,7 +15,7 @@ namespace AsteroidsGoneRogue
 
         private FollowCamera _follow;
         private Camera _camera;
-        private int _poseIndex;
+        private int _poseIndex = -1;
         private bool _holding;
         private float _shotArmed = -1f;
         private string _pendingName = string.Empty;
@@ -39,6 +39,26 @@ namespace AsteroidsGoneRogue
             Instance = this;
             _camera = Camera.main;
             _follow = _camera != null ? _camera.GetComponent<FollowCamera>() : null;
+            WarnIfShotTableBroken();
+        }
+
+        private static void WarnIfShotTableBroken()
+        {
+            string[] ids = StoreCapturePoses.ShotIds;
+            if (ids == null)
+            {
+                Debug.LogError("Store capture ShotIds is null");
+                return;
+            }
+
+            for (int i = 0; i < ids.Length; i++)
+            {
+                string fileName;
+                if (!StoreCapturePoses.TryShot(ids[i], out fileName))
+                {
+                    Debug.LogError("Store capture missing pose or path: " + ids[i]);
+                }
+            }
         }
 
         private void OnDestroy()
@@ -70,12 +90,45 @@ namespace AsteroidsGoneRogue
 
         public void CyclePose()
         {
-            _poseIndex = (_poseIndex + 1) % StoreCapturePoses.ShotIds.Length;
-            ApplyPose(StoreCapturePoses.ShotIds[_poseIndex]);
+            string[] ids = StoreCapturePoses.ShotIds;
+            if (ids == null || ids.Length == 0)
+            {
+                return;
+            }
+
+            for (int step = 0; step < ids.Length; step++)
+            {
+                int next = _poseIndex + 1;
+                if (next < 0 || next >= ids.Length)
+                {
+                    next = 0;
+                }
+
+                _poseIndex = next;
+                string id = ids[_poseIndex];
+                if (StoreCapturePoses.HasPose(id))
+                {
+                    ApplyPose(id);
+                    return;
+                }
+            }
         }
 
         public void ApplyPose(string id)
         {
+            string fileName;
+            if (!StoreCapturePoses.TryShot(id, out fileName))
+            {
+                Debug.LogWarning("Store capture skipped (missing pose or path): " + id);
+                return;
+            }
+
+            int index;
+            if (StoreCapturePoses.TryIndex(id, out index))
+            {
+                _poseIndex = index;
+            }
+
             if (_camera == null)
             {
                 _camera = Camera.main;
@@ -102,7 +155,7 @@ namespace AsteroidsGoneRogue
             }
 
             _holding = true;
-            _pendingName = StoreCapturePoses.FileName(id);
+            _pendingName = fileName;
         }
 
         public void ReleasePose()
@@ -126,9 +179,27 @@ namespace AsteroidsGoneRogue
 
         private void FlushPendingShot()
         {
+            string name = _pendingName;
+            if (string.IsNullOrEmpty(name))
+            {
+                name = "capture.png";
+            }
+
             string folder = ResolveOutFolder();
+            if (string.IsNullOrEmpty(folder))
+            {
+                Debug.LogWarning("Store capture skipped (null folder)");
+                return;
+            }
+
             Directory.CreateDirectory(folder);
-            string path = Path.Combine(folder, _pendingName);
+            string path = Path.Combine(folder, name);
+            if (string.IsNullOrEmpty(path))
+            {
+                Debug.LogWarning("Store capture skipped (null path)");
+                return;
+            }
+
             UnityEngine.ScreenCapture.CaptureScreenshot(path);
             Debug.Log("Store capture → " + path);
         }

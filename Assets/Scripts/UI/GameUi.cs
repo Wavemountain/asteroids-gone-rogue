@@ -990,6 +990,17 @@ namespace AsteroidsGoneRogue
             string stats = RunSummary.StatsLine(_session.Score, wave, world)
                 + "  ·  "
                 + RunSummary.CreditsLine(_session.Credits, summaryPhase ? _session.LastCreditsAwarded : 0);
+            if (failed && summaryPhase)
+            {
+                string doctrineLine = RunSummary.DoctrineRunLine(
+                    loadout != null ? loadout.Doctrine : DoctrineId.None,
+                    _session.WaveIndex);
+                if (!string.IsNullOrEmpty(doctrineLine))
+                {
+                    stats = doctrineLine + "  ·  " + stats;
+                }
+            }
+
             _summaryBody.text = stats;
             ClampOneLine(_summaryBody);
 
@@ -2443,6 +2454,7 @@ namespace AsteroidsGoneRogue
             _buyButtons[index].interactable = _session.ShopOpen
                 && ((owned && weapon) || (!owned && !locked && !tooPoor));
 
+            bool offPath = _loadout.State.IsOffPath(item.Id);
             Image plate = _buyButtons[index].targetGraphic as Image;
             UiTheme.PaintShopPlate(plate, _buyLabels[index], owned, locked, tooPoor);
             if (equipped && plate != null)
@@ -2452,6 +2464,10 @@ namespace AsteroidsGoneRogue
             if (equipped && _buyLabels[index] != null)
             {
                 _buyLabels[index].color = UiTheme.Primary;
+            }
+            if (offPath)
+            {
+                UiTheme.PaintOffPathCue(plate, _buyLabels[index]);
             }
             EventSystem es = EventSystem.current;
             bool focused = es != null
@@ -2475,6 +2491,11 @@ namespace AsteroidsGoneRogue
             else
             {
                 costLine = Loc.Tf("ui.cost_cr", "{0} cr", price);
+            }
+
+            if (offPath)
+            {
+                costLine = Loc.T("ui.off_path", "off-path") + "  ·  " + costLine;
             }
 
             _buyLabels[index].text = item.Title + "\n" + costLine;
@@ -3012,7 +3033,7 @@ namespace AsteroidsGoneRogue
             ClampOneLine(_doctrineHint);
             _doctrineHint.text = Loc.T("ui.hint_dual", HintDual);
 
-            _doctrineBadge = CreateText("DoctrineBadge", transform, display, 18, TextAnchor.MiddleLeft, FontStyle.Bold);
+            _doctrineBadge = CreateText("DoctrineBadge", transform, display, UiTheme.DoctrineBadge, TextAnchor.MiddleLeft, FontStyle.Bold);
             Stretch(_doctrineBadge.rectTransform, new Vector2(0.012f, 0.452f), new Vector2(0.30f, 0.540f));
             _doctrineBadge.color = UiTheme.Primary;
             ClampOneLine(_doctrineBadge);
@@ -3137,6 +3158,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            _doctrineBadge.fontSize = UiTheme.DoctrineBadge;
             _doctrineBadge.text = Loc.Tf(
                 "ui.hud_doctrine",
                 "DOCTRINE  ·  {0}",

@@ -725,10 +725,16 @@ namespace AsteroidsGoneRogue
         public GameObject CreateRailChargeVfx(Transform muzzle)
         {
             Transform parent = muzzle != null ? muzzle : transform;
-            GameObject glow;
-            if (!TryVisual("Rail_Muzzle", parent, _glow, out glow))
+            // Pierce/steel base. Mat_Ship_Glow is amber and reads as a flash.
+            Material steel = _hull;
+            if (_projectilePierce != null)
             {
-                glow = CreatePrimitive(PrimitiveType.Sphere, "RailChargeGlow", parent, _glow,
+                steel = _projectilePierce;
+            }
+            GameObject glow;
+            if (!TryVisual("Rail_Muzzle", parent, steel, out glow))
+            {
+                glow = CreatePrimitive(PrimitiveType.Sphere, "RailChargeGlow", parent, steel,
                     Vector3.zero, new Vector3(0.42f, 0.42f, 0.72f), Quaternion.identity);
             }
             else
@@ -737,10 +743,44 @@ namespace AsteroidsGoneRogue
                 glow.transform.localPosition = Vector3.zero;
                 glow.transform.localRotation = Quaternion.identity;
                 glow.transform.localScale = Vector3.one;
+                StampSharedMaterial(glow, steel);
             }
 
             glow.SetActive(false);
             return glow;
+        }
+
+        private static void StampSharedMaterial(GameObject root, Material material)
+        {
+            if (root == null || material == null)
+            {
+                return;
+            }
+
+            Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null)
+                {
+                    continue;
+                }
+
+                Material[] shared = renderer.sharedMaterials;
+                if (shared == null || shared.Length == 0)
+                {
+                    renderer.sharedMaterial = material;
+                    continue;
+                }
+
+                Material[] stamped = new Material[shared.Length];
+                for (int m = 0; m < stamped.Length; m++)
+                {
+                    stamped[m] = material;
+                }
+
+                renderer.sharedMaterials = stamped;
+            }
         }
 
         public void ApplyLoadoutVisuals(ShipController ship, LoadoutState loadout)

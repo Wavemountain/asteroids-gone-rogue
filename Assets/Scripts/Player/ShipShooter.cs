@@ -151,6 +151,10 @@ namespace AsteroidsGoneRogue
                 {
                     _charging = true;
                     _chargeStart = Time.time;
+                    if (AudioCues.Instance != null)
+                    {
+                        AudioCues.Instance.PlayRailChargeRise();
+                    }
                 }
 
                 float charge = (Time.time - _chargeStart) / DoctrineRules.RailHoldSeconds;

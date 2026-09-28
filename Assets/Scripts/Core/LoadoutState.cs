@@ -313,7 +313,17 @@ namespace AsteroidsGoneRogue
 
         public int DoctrinePickCost(DoctrineId id)
         {
-            return id == DoctrineId.Barrage ? DoctrineRules.BarrageGateCost : 0;
+            switch (id)
+            {
+                case DoctrineId.Barrage:
+                    return DoctrineRules.BarrageGateCost;
+                case DoctrineId.Lance:
+                    return DoctrineRules.LanceGateCost;
+                case DoctrineId.Hunter:
+                    return DoctrineRules.HunterGateCost;
+                default:
+                    return 0;
+            }
         }
 
         public bool CanPickDoctrine(DoctrineId id)

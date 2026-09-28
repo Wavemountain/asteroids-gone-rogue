@@ -46,6 +46,19 @@ namespace AsteroidsGoneRogue.EditorTools
             Apply(StoreCapturePoses.RailCharge);
         }
 
+        [MenuItem("Asteroids gone rogue/Store Captures/Cycle pose (F9)")]
+        public static void CyclePose()
+        {
+            if (!Application.isPlaying)
+            {
+                Debug.Log("Enter Play Mode, then cycle. Paths: " + StoreCapturePoses.OutFolder);
+            }
+
+            StoreCaptureDirector director = StoreCaptureDirector.Ensure();
+            director.CyclePose();
+            Selection.activeGameObject = Camera.main != null ? Camera.main.gameObject : null;
+        }
+
         [MenuItem("Asteroids gone rogue/Store Captures/Pose Capsule 3/4 Ship_Complete")]
         public static void PoseCapsule()
         {
