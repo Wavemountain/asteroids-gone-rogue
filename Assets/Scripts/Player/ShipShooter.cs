@@ -140,6 +140,11 @@ namespace AsteroidsGoneRogue
 
             if (Time.time < _nextFireTime)
             {
+                if (_charging)
+                {
+                    StopRailAudio();
+                }
+
                 _charging = false;
                 SetChargeGlow(0f);
                 return;
@@ -159,6 +164,11 @@ namespace AsteroidsGoneRogue
 
                 float charge = (Time.time - _chargeStart) / DoctrineRules.RailHoldSeconds;
                 SetChargeGlow(charge);
+                if (AudioCues.Instance != null)
+                {
+                    AudioCues.Instance.TickRailHold(charge);
+                }
+
                 return;
             }
 
@@ -170,6 +180,7 @@ namespace AsteroidsGoneRogue
             float heldFor = Time.time - _chargeStart;
             _charging = false;
             SetChargeGlow(0f);
+            StopRailAudio();
             LoadoutState loadout = CurrentLoadout();
             if (loadout == null)
             {
@@ -450,8 +461,21 @@ namespace AsteroidsGoneRogue
 
         private void HideCharge()
         {
+            if (_charging)
+            {
+                StopRailAudio();
+            }
+
             _charging = false;
             SetChargeGlow(0f);
+        }
+
+        private static void StopRailAudio()
+        {
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.StopRailCharge();
+            }
         }
 
         private void SetChargeGlow(float charge01)

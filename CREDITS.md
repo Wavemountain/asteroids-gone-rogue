@@ -30,7 +30,9 @@ Mirror used: https://opengameart.org/content/sci-fi-sounds (`sci-fi_sounds.zip`)
 | Player damage | `Assets/Resources/Audio/Sfx/forceField_000.ogg` | `Audio/forceField_000.ogg` |
 | Swarm spawn layer (optional) | `Assets/Resources/Audio/Sfx/slime_000.ogg` | `Audio/slime_000.ogg` |
 | Brute death layer | `Assets/Resources/Audio/Sfx/lowFrequency_explosion_000.ogg` | `Audio/lowFrequency_explosion_000.ogg` (unique boom; not the generic metal punch) |
-| Rail release thump (fallback) | `Assets/Resources/Audio/Sfx/lowFrequency_explosion_000.ogg` | same clip when `Audio/Sfx/rail_release_thump` is absent |
+| Rail shot | `Assets/Resources/Audio/Sfx/laserLarge_002.ogg` | `Audio/laserLarge_002.ogg` (scale 1.0, pitch 0.92 ±0.03; not pierce `laserLarge_000`) |
+| Rail hold loop | `Assets/Resources/Audio/Sfx/engineCircular_001.ogg` | `Audio/engineCircular_001.ogg` (loop @ 0.2 after full charge, pitch 0.9→1.15, 0.08s fade) |
+| Rail release thump | `Assets/Resources/Audio/Sfx/lowFrequency_explosion_001.ogg` | `Audio/lowFrequency_explosion_001.ogg` (layer @ 0.5 under the rail shot) |
 
 Pack: **Kenney Digital Audio** (CC0)  
 Author: Kenney  
@@ -46,8 +48,7 @@ Source: https://kenney.nl/assets/digital-audio
 | Shoot (twin layer) | `Assets/Resources/Audio/Sfx/twoTone1.ogg` | `Audio/twoTone1.ogg` (layer @ 0.45; Retry Wave solo @ 0.75) |
 | Shoot (seeker) | `Assets/Resources/Audio/Sfx/phaserUp5.ogg` | `Audio/phaserUp5.ogg` (0.72; also SwarmPod spawn) |
 | Shoot (ricochet) | `Assets/Resources/Audio/Sfx/zap1.ogg` | `Audio/zap1.ogg` (0.88 ±4% pitch) |
-| Rail charge rise (fallback) | `Assets/Resources/Audio/Sfx/phaserUp5.ogg` | played when `Audio/Sfx/rail_charge_rise` is absent |
-| Doctrine pick (fallback) | `Assets/Resources/Audio/Sfx/threeTone2.ogg` | played when `Audio/Sfx/doctrine_pick` is absent |
+| Rail charge rise | `Assets/Resources/Audio/Sfx/phaserUp3.ogg` | `Audio/phaserUp3.ogg` (one-shot @ 0.6, pitch 0.95; stopped on release or cancel) |
 | Extra-life pickup | `Assets/Resources/Audio/Sfx/powerUp7.ogg` | `Audio/powerUp7.ogg` (0.82; only power-up fanfare) |
 | Extra-life pickup alt | `Assets/Resources/Audio/Sfx/threeTone2.ogg` | `Audio/threeTone2.ogg` (0.78 if powerUp7 missing) |
 | Extra-life timeout miss | `Assets/Resources/Audio/Sfx/phaserDown3.ogg` | `Audio/phaserDown3.ogg` (0.48, no duck) |
@@ -81,6 +82,7 @@ Mirror used: https://opengameart.org/content/85-short-music-jingles (`jingleSoun
 | Far Drift award | `Assets/Resources/Audio/Sfx/jingles_PIZZA16.ogg` | `Audio/Pizzicato jingles/jingles_PIZZI16.ogg` (`jingles_HIT12.ogg` fallback) |
 | Credits open | `Assets/Resources/Audio/Sfx/jingles_NES07.ogg` | `Audio/8-Bit jingles/jingles_NES07.ogg` |
 | Credits close | `Assets/Resources/Audio/Sfx/jingles_NES12.ogg` | `Audio/8-Bit jingles/jingles_NES12.ogg` (fallback: PIZZA16) |
+| Doctrine pick | `Assets/Resources/Audio/Sfx/jingles_NES03.ogg` | `Audio/8-Bit jingles/jingles_NES03.ogg` (0.68; duck 0.3s @ 0.4; shop buys stay `confirmation_002`) |
 
 Pack: **Kenney Music Loops** (CC0)  
 Author: Kenney  

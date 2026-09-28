@@ -131,9 +131,9 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 | Shoot (twin) | Kenney Sci-Fi + Digital | `laserSmall_001` + `twoTone1` layer @ 0.45 |
 | Shoot (seeker) | Kenney Digital Audio | `phaserUp5` @ 0.72 |
 | Shoot (ricochet) | Kenney Digital Audio | `zap1` @ 0.88 ±4% pitch |
-| Rail charge rise | Kenney fallback until Atmos | hook `Audio/Sfx/rail_charge_rise`; else `phaserUp5` @ 0.7 pitch 0.84 |
-| Rail release thump | Kenney fallback until Atmos | hook `Audio/Sfx/rail_release_thump`; else `lowFrequency_explosion_000` @ 0.86 |
-| Doctrine pick | Kenney fallback until Atmos | hook `Audio/Sfx/doctrine_pick`; else `threeTone2` @ 0.92 (`confirmation_002` if that clip is missing) |
+| Rail charge rise | Kenney Digital Audio | `phaserUp3` one-shot @ 0.6 pitch 0.95; stop on release/cancel. Past full charge: `engineCircular_001` loop @ 0.2, pitch 0.9→1.15, 0.08s fade |
+| Rail release | Kenney Sci-Fi Sounds | `laserLarge_002` @ 1.0 pitch 0.92±0.03 + `lowFrequency_explosion_001` @ 0.5; duck 0.18s @ 0.6 |
+| Doctrine pick | Kenney Music Jingles | `jingles_NES03` @ 0.68; duck 0.3s @ 0.4. Shop buys stay `confirmation_002` |
 | Enemy bolt | Kenney Sci-Fi Sounds | `laserSmall_001.ogg` |
 | Hit | Kenney Sci-Fi Sounds | `impactMetal_000`–`003` pool ±4% pitch; punch `impactMetal_000` @ 0.55 |
 | SwarmPod / Mid hit | Kenney Sci-Fi Sounds | `impactMetal_001.ogg` (no punch) |

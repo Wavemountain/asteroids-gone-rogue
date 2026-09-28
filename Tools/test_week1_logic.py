@@ -3512,6 +3512,7 @@ def test_doctrine_rail_045() -> None:
     assert (root / "Docs/StoreCaptures/placeholders/06_rail_charge.txt").is_file()
     assert "Docs/StoreCaptures/out" in poses or "Docs/StoreCaptures/out" in (root / "Assets/Scripts/Content/StoreCapturePoses.cs").read_text(encoding="utf-8")
     audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    credits = (root / "CREDITS.md").read_text(encoding="utf-8")
     director = (root / "Assets/Scripts/Content/StoreCaptureDirector.cs").read_text(encoding="utf-8")
     menu = (root / "Assets/Editor/StoreCaptureMenu.cs").read_text(encoding="utf-8")
     summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
@@ -3526,9 +3527,46 @@ def test_doctrine_rail_045() -> None:
     assert "DoctrineRunLine" in summary and "run.doctrine_wave" in summary and "run.doctrine_wave" in loc
     assert "Lance run — wave {1}" in summary or "{0} run — wave {1}" in summary
     assert "PlayRailChargeRise" in audio and "PlayRailRelease" in audio and "PlayDoctrinePick" in audio
-    assert "rail_charge_rise" in audio and "rail_release_thump" in audio and "doctrine_pick" in audio
-    assert "phaserUp5" in audio and "lowFrequency_explosion_000" in audio and "threeTone2" in audio
-    assert "PlayRailChargeRise" in shooter and "PlayDoctrinePick" in hangar
+    assert "StopRailCharge" in audio and "TickRailHold" in audio
+    assert "RailChargeScale = 0.6f" in audio and "RailChargePitch = 0.95f" in audio
+    assert "RailHoldLoopScale = 0.2f" in audio
+    assert "RailHoldPitchMin = 0.9f" in audio and "RailHoldPitchMax = 1.15f" in audio
+    assert "RailHoldFadeSeconds = 0.08f" in audio
+    assert "RailShotScale = 1.0f" in audio and "RailShotPitch = 0.92f" in audio
+    assert "RailShotPitchJitter = 0.03f" in audio
+    assert "RailThumpLayerScale = 0.5f" in audio
+    assert "RailDuckSeconds = 0.18f" in audio and "RailDuckScale = 0.6f" in audio
+    assert "DoctrinePickScale = 0.68f" in audio
+    assert "DoctrinePickDuckSeconds = 0.3f" in audio and "DoctrinePickDuckScale = 0.4f" in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/phaserUp3")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/engineCircular_001")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/laserLarge_002")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/lowFrequency_explosion_001")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/jingles_NES03")' in audio
+    release = audio.split("public void PlayRailRelease()")[1].split("public void")[0]
+    assert "laserLarge_000" not in release
+    assert "DuckMusic(RailDuckSeconds, RailDuckScale)" in release
+    assert "_railRise.Stop()" in audio
+    pick = audio.split("public void PlayDoctrinePick()")[1].split("public void")[0]
+    assert "confirmation_002" not in pick
+    assert "DuckMusic(DoctrinePickDuckSeconds, DoctrinePickDuckScale)" in pick
+    assert "PlayRailChargeRise" in shooter and "TickRailHold" in shooter and "StopRailCharge" in shooter
+    assert "PlayDoctrinePick" in hangar and "PlayHangarPurchase" in hangar
+    assert "phaserUp3" in credits and "engineCircular_001" in credits
+    assert "laserLarge_002" in credits and "lowFrequency_explosion_001" in credits
+    assert "jingles_NES03" in credits
+    for name in (
+        "phaserUp3",
+        "engineCircular_001",
+        "laserLarge_002",
+        "lowFrequency_explosion_001",
+        "jingles_NES03",
+    ):
+        ogg = root / "Assets/Resources/Audio/Sfx" / f"{name}.ogg"
+        assert ogg.is_file() and ogg.stat().st_size > 1000
+        head = ogg.read_bytes()[:64]
+        assert head.startswith(b"OggS"), f"{ogg} is not an Ogg file"
+        assert not head.startswith(lfs_prefix), f"{ogg} is an LFS pointer"
     muzzle = factory.split("public GameObject CreateRailChargeVfx")[1].split("public void ApplyLoadoutVisuals")[0]
     assert "_projectilePierce" in muzzle
     assert 'TryVisual("Rail_Muzzle", parent, _glow' not in muzzle

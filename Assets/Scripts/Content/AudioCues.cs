@@ -9,7 +9,8 @@ namespace AsteroidsGoneRogue
     /// (retro-modern chip/arcade, AAA mix polish). Distinct from UI clicks.
     /// 0.44 ExtraLife: powerUp7 @ 0.82 (threeTone2 alt), miss phaserDown3 @ 0.48,
     /// duck 0.22s @ 0.5 on pickup only. Hit pool impactMetal_000-003 ±4% + punch 0.55.
-    /// Weapons stay on the 0.43 Kenney pools.
+    /// Weapons stay on the 0.43 Kenney pools. Rail charge is phaserUp3,
+    /// release is laserLarge_002 plus lowFrequency_explosion_001, doctrine pick is jingles_NES03.
     /// </summary>
     public sealed class AudioCues : MonoBehaviour
     {
@@ -77,21 +78,24 @@ namespace AsteroidsGoneRogue
         public const float SeekerShotScale = 0.72f;
         public const float RicochetShotScale = 0.88f;
         public const float RicochetPitchJitter = 0.04f;
-        public const float RailChargeRiseScale = 0.7f;
-        public const float RailChargeRisePitch = 0.84f;
-        public const float RailReleaseScale = 0.86f;
-        public const float DoctrinePickScale = 0.92f;
 
-        /// <summary>
-        /// Atmos CC0 drop-in keys. Missing clips fall back to Kenney already in
-        /// the repo so a later wire is a path swap, not a new download.
-        /// </summary>
-        public const string RailChargeRiseKey = "Audio/Sfx/rail_charge_rise";
-        public const string RailReleaseThumpKey = "Audio/Sfx/rail_release_thump";
-        public const string DoctrinePickKey = "Audio/Sfx/doctrine_pick";
-        public const string RailChargeRiseFallbackKey = "Audio/Sfx/phaserUp5";
-        public const string RailReleaseThumpFallbackKey = "Audio/Sfx/lowFrequency_explosion_000";
-        public const string DoctrinePickFallbackKey = "Audio/Sfx/threeTone2";
+        // Rail mix sits under Brute death (1.04 + 1.12 layer) and over a lone bolt.
+        // Charge 0.6 and the hold loop 0.2 stay under Swarm hit (0.88).
+        public const float RailChargeScale = 0.6f;
+        public const float RailChargePitch = 0.95f;
+        public const float RailHoldLoopScale = 0.2f;
+        public const float RailHoldPitchMin = 0.9f;
+        public const float RailHoldPitchMax = 1.15f;
+        public const float RailHoldFadeSeconds = 0.08f;
+        public const float RailShotScale = 1.0f;
+        public const float RailShotPitch = 0.92f;
+        public const float RailShotPitchJitter = 0.03f;
+        public const float RailThumpLayerScale = 0.5f;
+        public const float RailDuckSeconds = 0.18f;
+        public const float RailDuckScale = 0.6f;
+        public const float DoctrinePickScale = 0.68f;
+        public const float DoctrinePickDuckSeconds = 0.3f;
+        public const float DoctrinePickDuckScale = 0.4f;
 
         public static AudioCues Instance { get; private set; }
 
@@ -99,6 +103,8 @@ namespace AsteroidsGoneRogue
         private AudioSource _vary;
         private AudioSource _music;
         private AudioSource _hangarLayer;
+        private AudioSource _railRise;
+        private AudioSource _railHold;
         private AudioClip _shoot;
         private AudioClip[] _boltShots;
         private AudioClip _shootSpread;
@@ -107,9 +113,14 @@ namespace AsteroidsGoneRogue
         private AudioClip _shootSeeker;
         private AudioClip _shootTwin;
         private AudioClip _shootRicochet;
-        private AudioClip _railChargeRise;
-        private AudioClip _railRelease;
+        private AudioClip _railCharge;
+        private AudioClip _railHoldClip;
+        private AudioClip _railShot;
+        private AudioClip _railThump;
         private AudioClip _doctrinePick;
+        private float _railHoldFadeUntil;
+        private float _railHoldFadeStart;
+        private float _railHoldFadeFrom;
         private AudioClip _shootEnemy;
         private AudioClip _hit;
         private AudioClip[] _hits;
@@ -185,6 +196,8 @@ namespace AsteroidsGoneRogue
             _vary = CreateSource("VarySfxSource", false);
             _music = CreateSource("MusicSource", true);
             _hangarLayer = CreateSource("HangarLayerSource", true);
+            _railRise = CreateSource("RailRiseSource", false);
+            _railHold = CreateSource("RailHoldSource", true);
             LoadClips();
             _muted = PlayerPrefs.GetInt(MuteKey, 0) == 1;
             _sfxVolume = PlayerPrefs.GetFloat(SfxKey, DefaultSfxVolume);
@@ -212,22 +225,102 @@ namespace AsteroidsGoneRogue
             PlayRailRelease();
         }
 
+        /// <summary>
+        /// phaserUp3 one-shot on its own source so release or cancel can stop it.
+        /// </summary>
         public void PlayRailChargeRise()
         {
-            AudioClip clip = _railChargeRise != null ? _railChargeRise : _shootSeeker;
-            PlayPitched(clip, RailChargeRiseScale, RailChargeRisePitch);
+            _railHoldFadeUntil = 0f;
+            if (_railHold != null && _railHold.isPlaying)
+            {
+                _railHold.Stop();
+            }
+
+            AudioClip clip = _railCharge != null ? _railCharge : _shootSeeker;
+            if (_railRise == null || clip == null)
+            {
+                return;
+            }
+
+            _railRise.Stop();
+            _railRise.clip = clip;
+            _railRise.loop = false;
+            _railRise.pitch = RailChargePitch;
+            _railRise.volume = _muted ? 0f : _sfxVolume * RailChargeScale;
+            if (!_muted)
+            {
+                _railRise.Play();
+            }
+        }
+
+        /// <summary>
+        /// Hold loop only after the charge is full. Pitch runs 0.9 to 1.15
+        /// across one more hold-length (charge 1 to 2).
+        /// </summary>
+        public void TickRailHold(float charge01)
+        {
+            if (_railHold == null || _railHoldClip == null || charge01 < 1f)
+            {
+                return;
+            }
+
+            if (_muted)
+            {
+                _railHold.volume = 0f;
+                return;
+            }
+
+            float along = Mathf.Clamp01(charge01 - 1f);
+            _railHoldFadeUntil = 0f;
+            _railHold.pitch = Mathf.Lerp(RailHoldPitchMin, RailHoldPitchMax, along);
+            _railHold.volume = _sfxVolume * RailHoldLoopScale;
+            if (_railHold.clip != _railHoldClip)
+            {
+                _railHold.clip = _railHoldClip;
+                _railHold.loop = true;
+            }
+
+            if (!_railHold.isPlaying)
+            {
+                _railHold.Play();
+            }
+        }
+
+        /// <summary>
+        /// Stops the charge-rise source immediately. The hold loop fades out.
+        /// </summary>
+        public void StopRailCharge()
+        {
+            if (_railRise != null && _railRise.isPlaying)
+            {
+                _railRise.Stop();
+            }
+
+            if (_railHold == null || !_railHold.isPlaying)
+            {
+                return;
+            }
+
+            _railHoldFadeFrom = _railHold.volume;
+            _railHoldFadeStart = Time.unscaledTime;
+            _railHoldFadeUntil = _railHoldFadeStart + RailHoldFadeSeconds;
         }
 
         public void PlayRailRelease()
         {
-            AudioClip clip = _railRelease != null ? _railRelease : _hitPunch;
-            Play(clip != null ? clip : _hit, RailReleaseScale);
+            AudioClip shot = _railShot != null ? _railShot : _shootPierce;
+            float pitch = RailShotPitch + Random.Range(-RailShotPitchJitter, RailShotPitchJitter);
+            PlayPitched(shot, RailShotScale, pitch);
+            AudioClip thump = _railThump != null ? _railThump : _bruteDeathLayer;
+            Play(thump, RailThumpLayerScale);
+            DuckMusic(RailDuckSeconds, RailDuckScale);
         }
 
         public void PlayDoctrinePick()
         {
             AudioClip clip = _doctrinePick != null ? _doctrinePick : _purchase;
             Play(clip, DoctrinePickScale);
+            DuckMusic(DoctrinePickDuckSeconds, DoctrinePickDuckScale);
         }
 
         public void PlayShootSeeker()
@@ -606,22 +699,6 @@ namespace AsteroidsGoneRogue
             }
         }
 
-        private static AudioClip LoadCue(string key, string fallbackKey)
-        {
-            AudioClip clip = Resources.Load<AudioClip>(key);
-            if (clip != null)
-            {
-                return clip;
-            }
-
-            if (string.IsNullOrEmpty(fallbackKey))
-            {
-                return null;
-            }
-
-            return Resources.Load<AudioClip>(fallbackKey);
-        }
-
         private static AudioClip[] LoadPool(params string[] keys)
         {
             AudioClip[] clips = new AudioClip[keys.Length];
@@ -675,23 +752,32 @@ namespace AsteroidsGoneRogue
 
         private void Update()
         {
-            if (_duckUntil <= 0f)
+            bool refresh = false;
+            if (_duckUntil > 0f)
             {
-                return;
+                if (Time.unscaledTime >= _duckUntil)
+                {
+                    _duckScale = 1f;
+                    _duckUntil = 0f;
+                }
+                else
+                {
+                    float remain = _duckUntil - Time.unscaledTime;
+                    _duckScale = Mathf.Lerp(1f, _duckTarget, Mathf.Clamp01(remain / _duckSeconds));
+                }
+
+                refresh = true;
             }
 
-            if (Time.unscaledTime >= _duckUntil)
+            if (_railHoldFadeUntil > 0f)
             {
-                _duckScale = 1f;
-                _duckUntil = 0f;
-            }
-            else
-            {
-                float remain = _duckUntil - Time.unscaledTime;
-                _duckScale = Mathf.Lerp(1f, _duckTarget, Mathf.Clamp01(remain / _duckSeconds));
+                refresh = true;
             }
 
-            ApplyVolumes();
+            if (refresh)
+            {
+                ApplyVolumes();
+            }
         }
 
         private void PlayLoop(AudioClip clip, float scale, float pitch)
@@ -735,6 +821,13 @@ namespace AsteroidsGoneRogue
                 _vary.volume = _muted ? 0f : _sfxVolume;
             }
 
+            if (_railRise != null)
+            {
+                _railRise.volume = _muted ? 0f : _sfxVolume * RailChargeScale;
+            }
+
+            ApplyRailHoldVolume();
+
             if (_music != null)
             {
                 _music.pitch = _musicPitch;
@@ -750,6 +843,39 @@ namespace AsteroidsGoneRogue
             }
 
             ApplyHangarLayer();
+        }
+
+        private void ApplyRailHoldVolume()
+        {
+            if (_railHold == null)
+            {
+                return;
+            }
+
+            if (_railHoldFadeUntil > 0f)
+            {
+                float dur = RailHoldFadeSeconds;
+                float u = dur <= 0.0001f ? 1f : (Time.unscaledTime - _railHoldFadeStart) / dur;
+                if (u >= 1f)
+                {
+                    _railHold.volume = 0f;
+                    if (_railHold.isPlaying)
+                    {
+                        _railHold.Stop();
+                    }
+
+                    _railHoldFadeUntil = 0f;
+                    return;
+                }
+
+                _railHold.volume = Mathf.Lerp(_railHoldFadeFrom, 0f, Mathf.Clamp01(u));
+                return;
+            }
+
+            if (_railHold.isPlaying)
+            {
+                _railHold.volume = _muted ? 0f : _sfxVolume * RailHoldLoopScale;
+            }
         }
 
         private void ApplyHangarLayer()
@@ -800,9 +926,31 @@ namespace AsteroidsGoneRogue
             _shootSeeker = Resources.Load<AudioClip>("Audio/Sfx/phaserUp5");
             _shootTwin = Resources.Load<AudioClip>("Audio/Sfx/twoTone1");
             _shootRicochet = Resources.Load<AudioClip>("Audio/Sfx/zap1");
-            _railChargeRise = LoadCue(RailChargeRiseKey, RailChargeRiseFallbackKey);
-            _railRelease = LoadCue(RailReleaseThumpKey, RailReleaseThumpFallbackKey);
-            _doctrinePick = LoadCue(DoctrinePickKey, DoctrinePickFallbackKey);
+            _railCharge = Resources.Load<AudioClip>("Audio/Sfx/phaserUp3");
+            if (_railCharge == null)
+            {
+                _railCharge = Resources.Load<AudioClip>("Audio/Sfx/phaserUp5");
+            }
+
+            _railHoldClip = Resources.Load<AudioClip>("Audio/Sfx/engineCircular_001");
+            _railShot = Resources.Load<AudioClip>("Audio/Sfx/laserLarge_002");
+            if (_railShot == null)
+            {
+                _railShot = Resources.Load<AudioClip>("Audio/Sfx/laserLarge_000");
+            }
+
+            _railThump = Resources.Load<AudioClip>("Audio/Sfx/lowFrequency_explosion_001");
+            if (_railThump == null)
+            {
+                _railThump = Resources.Load<AudioClip>("Audio/Sfx/lowFrequency_explosion_000");
+            }
+
+            _doctrinePick = Resources.Load<AudioClip>("Audio/Sfx/jingles_NES03");
+            if (_doctrinePick == null)
+            {
+                _doctrinePick = Resources.Load<AudioClip>("Audio/Sfx/threeTone2");
+            }
+
             _shootEnemy = Resources.Load<AudioClip>("Audio/Sfx/laserSmall_001");
             _hit = Resources.Load<AudioClip>("Audio/Sfx/impactMetal_003");
             _hits = LoadPool(
