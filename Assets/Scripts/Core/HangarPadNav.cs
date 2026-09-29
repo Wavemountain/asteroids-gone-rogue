@@ -86,6 +86,182 @@ namespace AsteroidsGoneRogue
             return wrap >= 0 ? wrap : from;
         }
 
+        /// <summary>
+        /// Slot 0 is the Next Wave / Start Wave control. The nav list always contains it.
+        /// </summary>
+        public static bool NavIncludesPrimary()
+        {
+            return PrimarySlot >= 0 && PrimarySlot < SlotCount;
+        }
+
+        public static void ForcePrimarySelectable(bool[] selectable)
+        {
+            if (selectable == null || selectable.Length <= PrimarySlot)
+            {
+                return;
+            }
+
+            selectable[PrimarySlot] = true;
+        }
+
+        /// <summary>
+        /// Invalid, hidden, owned, or locked selection falls back to Next Wave.
+        /// A selectable slot is left alone.
+        /// </summary>
+        public static int ResolveFallback(int slot, bool[] selectable)
+        {
+            if (selectable == null || selectable.Length == 0)
+            {
+                return PrimarySlot;
+            }
+
+            if (slot >= 0 && slot < selectable.Length && selectable[slot])
+            {
+                return slot;
+            }
+
+            if (PrimarySlot < selectable.Length && selectable[PrimarySlot])
+            {
+                return PrimarySlot;
+            }
+
+            return PrimarySlot;
+        }
+
+        /// <summary>
+        /// Walk one D-pad step, skipping slots that are not selectable.
+        /// An invalid current slot snaps to Next Wave and does not consume the step,
+        /// so a purchase that disables the focused row cannot leave the stick on a dead cell.
+        /// If the direction has no selectable slot, the result is Next Wave.
+        /// </summary>
+        public static int StepSelectable(int slot, int dx, int dy, bool[] selectable)
+        {
+            ForcePrimarySelectable(selectable);
+            bool currentOk = selectable != null
+                && slot >= 0
+                && slot < selectable.Length
+                && selectable[slot];
+            int origin = currentOk ? slot : PrimarySlot;
+            if (!currentOk || (dx == 0 && dy == 0))
+            {
+                return origin;
+            }
+
+            int count = selectable.Length;
+            int candidate = Step(origin, dx, dy);
+            int guard = 0;
+            while (guard < count)
+            {
+                if (candidate >= 0 && candidate < count && selectable[candidate])
+                {
+                    return candidate;
+                }
+
+                int stepped = Step(candidate, dx, dy);
+                if (stepped == candidate)
+                {
+                    return PrimarySlot;
+                }
+
+                candidate = stepped;
+                guard++;
+            }
+
+            return PrimarySlot;
+        }
+
+        public static bool Overlaps(
+            float ax0,
+            float ay0,
+            float ax1,
+            float ay1,
+            float bx0,
+            float by0,
+            float bx1,
+            float by1)
+        {
+            return ax0 < bx1 && ax1 > bx0 && ay0 < by1 && ay1 > by0;
+        }
+
+        public static void MapAnchors(
+            float parentX0,
+            float parentY0,
+            float parentX1,
+            float parentY1,
+            float childX0,
+            float childY0,
+            float childX1,
+            float childY1,
+            out float screenX0,
+            out float screenY0,
+            out float screenX1,
+            out float screenY1)
+        {
+            float width = parentX1 - parentX0;
+            float height = parentY1 - parentY0;
+            screenX0 = parentX0 + childX0 * width;
+            screenY0 = parentY0 + childY0 * height;
+            screenX1 = parentX0 + childX1 * width;
+            screenY1 = parentY0 + childY1 * height;
+        }
+
+        /// <summary>
+        /// Screen-space Next Wave rect against the wave-clear strip, shop headers,
+        /// first-flight card, doctrine card, loadout preview, and top bar.
+        /// </summary>
+        public static bool NextWaveScreenClear()
+        {
+            float waveX0;
+            float waveY0;
+            float waveX1;
+            float waveY1;
+            MapAnchors(0.014f, 0.080f, 0.55f, 0.888f, 0.03f, 0.735f, 0.97f, 0.800f, out waveX0, out waveY0, out waveX1, out waveY1);
+
+            float stripX0;
+            float stripY0;
+            float stripX1;
+            float stripY1;
+            MapAnchors(0.014f, 0.080f, 0.55f, 0.888f, 0.02f, 0.82f, 0.98f, 0.995f, out stripX0, out stripY0, out stripX1, out stripY1);
+
+            float headX0;
+            float headY0;
+            float headX1;
+            float headY1;
+            MapAnchors(0.014f, 0.080f, 0.55f, 0.888f, 0.02f, 0.675f, 0.98f, 0.728f, out headX0, out headY0, out headX1, out headY1);
+
+            if (Overlaps(waveX0, waveY0, waveX1, waveY1, stripX0, stripY0, stripX1, stripY1))
+            {
+                return false;
+            }
+
+            if (Overlaps(waveX0, waveY0, waveX1, waveY1, headX0, headY0, headX1, headY1))
+            {
+                return false;
+            }
+
+            if (Overlaps(waveX0, waveY0, waveX1, waveY1, 0.018f, 0.730f, 0.545f, 0.888f))
+            {
+                return false;
+            }
+
+            if (Overlaps(waveX0, waveY0, waveX1, waveY1, 0.562f, 0.608f, 0.986f, 0.898f))
+            {
+                return false;
+            }
+
+            if (Overlaps(waveX0, waveY0, waveX1, waveY1, 0.562f, 0.080f, 0.986f, 0.596f))
+            {
+                return false;
+            }
+
+            if (Overlaps(waveX0, waveY0, waveX1, waveY1, 0.012f, 0.905f, 0.988f, 0.995f))
+            {
+                return false;
+            }
+
+            return waveY1 <= 0.730f && waveY0 >= 0.080f;
+        }
+
         public static int DominantStep(float x, float y, float flick)
         {
             float ax = x < 0f ? -x : x;
@@ -140,7 +316,25 @@ namespace AsteroidsGoneRogue
                 && Step(CreditsSlot, 0, -1) != CreditsSlot
                 && DominantStepY(0f, -1f, Flick) == 1
                 && DominantStepY(0f, 1f, Flick) == -1
-                && DominantStep(1f, 0f, Flick) == 1;
+                && DominantStep(1f, 0f, Flick) == 1
+                && NavIncludesPrimary()
+                && NextWaveScreenClear();
+        }
+
+        public static bool LockedShopFallsBackToPrimary()
+        {
+            bool[] onlyPrimary = new bool[SlotCount];
+            ForcePrimarySelectable(onlyPrimary);
+            int lockedShop = ShopSlot(0);
+            int cardUp = Step(BarrageSlot, 0, -1);
+            int cardShopIndex;
+            bool cardUpIsShop = TryShopIndex(cardUp, out cardShopIndex);
+            return !cardUpIsShop
+                && cardUp != BarrageSlot
+                && ResolveFallback(lockedShop, onlyPrimary) == PrimarySlot
+                && StepSelectable(lockedShop, 0, -1, onlyPrimary) == PrimarySlot
+                && StepSelectable(BarrageSlot, 1, 0, onlyPrimary) == PrimarySlot
+                && StepSelectable(PrimarySlot, 0, 0, onlyPrimary) == PrimarySlot;
         }
 
         private static int ClampSlot(int slot)
@@ -271,8 +465,10 @@ namespace AsteroidsGoneRogue
                 }
                 else if (group == ShopGroup.Doctrine)
                 {
+                    // Below the doctrine cards (y = -2). Negative y is up, so a
+                    // hidden shop row must not sit above the card or D-pad up sticks there.
                     cx = 6 + (doctrine % 3);
-                    cy = -5 - (doctrine / 3);
+                    cy = 5 + (doctrine / 3);
                     doctrine++;
                 }
                 else

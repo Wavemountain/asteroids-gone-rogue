@@ -1622,6 +1622,24 @@ def main() -> int:
                 )
     if "FindObjectsSortMode" in blob:
         err("scripts still pass FindObjectsSortMode to FindObjectsByType")
+    padnav = read(ROOT / "Assets/Scripts/Core/HangarPadNav.cs")
+    game_ui = read(ROOT / "Assets/Scripts/UI/GameUi.cs")
+    if "ResolveFallback" not in padnav or "StepSelectable" not in padnav or "NavIncludesPrimary" not in padnav:
+        err("HangarPadNav must keep Next Wave in the pad order and fall back to it")
+    if "NextWaveScreenClear" not in padnav or "LockedShopFallsBackToPrimary" not in padnav:
+        err("HangarPadNav should self-check Next Wave clearance and locked-shop fallback")
+    if "HangarPadNav.StepSelectable" not in game_ui or "OnHangarEscape" not in game_ui:
+        err("GameUi hangar pad must fall back to Next Wave")
+    if "OnHangarStart" not in game_ui or "CardIsAction" not in game_ui:
+        err("GameUi must keep Start as the launch shortcut and doctrine swap text passive")
+    escape_fn = game_ui.split("private void OnHangarEscape()")[1].split("private void")[0]
+    if "OnPrimary" in escape_fn:
+        err("Esc in the hangar must not launch Next Wave / New Run")
+    if "PrimaryRestartsRun" not in read(ROOT / "Assets/Scripts/Core/GameSession.cs"):
+        err("primary New Run must be limited to fail and campaign clear")
+    if "CardIsAction" not in read(ROOT / "Assets/Scripts/Core/DoctrineRules.cs"):
+        err("doctrine 'New Run to swap' must not be an action")
+
     if "body.velocity" in blob or "_body.velocity" in blob:
         err("scripts still assign Rigidbody.velocity; use linearVelocity")
     if "body.drag" in blob or "body.angularDrag" in blob:
