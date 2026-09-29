@@ -37,6 +37,15 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        /// <summary>
+        /// The hangar primary control restarts the run only after death or the campaign cap.
+        /// Wave-clear stays "Next Wave". Hangar stays "Start Wave".
+        /// </summary>
+        public static bool PrimaryRestartsRun(GamePhase phase)
+        {
+            return phase == GamePhase.Failed || phase == GamePhase.CampaignClear;
+        }
+
         public bool ShopOpen
         {
             get { return Phase != GamePhase.Playing; }

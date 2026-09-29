@@ -152,9 +152,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (_session.Phase == GamePhase.Failed
-                || _session.Phase == GamePhase.CampaignClear
-                || _session.Lives <= 0)
+            if (GameSession.PrimaryRestartsRun(_session.Phase))
             {
                 ResetFullRun();
                 if (_ship != null)

@@ -116,6 +116,7 @@ namespace AsteroidsGoneRogue
         private int _padSlot;
         private bool _padHeld;
         private float _padRepeatAt;
+        private bool[] _padSelectable;
         private GameObject _doctrineRoot;
         private Text _doctrineTitle;
         private Text _doctrineHint;
@@ -162,7 +163,7 @@ namespace AsteroidsGoneRogue
         public const string DoctrineHintBody =
             "Doctrines are open. Pick Barrage, Lance, or Hunter.";
         public const string HangarControlsHint =
-            "LT utility · LB cycle primary · RT fire  ·  A confirm  ·  Esc / Start abort";
+            "LT utility · LB cycle · A confirm · B / Esc Next Wave";
         public const string MedalLadderPrefix = "MEDALS";
         public const string HangarHintBody =
             "LS / WASD fly  ·  RT / LMB shoot  ·  LT / E utility\nStart Wave (A)  ·  Abort (Esc) / Start\n"
@@ -302,7 +303,7 @@ namespace AsteroidsGoneRogue
                     ? Loc.T("ui.hint_play", "WASD / LS move  ·  Mouse / RS aim  ·  LMB / Space / RT fire  ·  E / RMB / LT utility  ·  Q / LB cycle primary  ·  Esc / Start abort")
                     : Loc.Tf(
                         "ui.hint_hangar",
-                        "WASD / LS move  ·  Mouse / RS aim  ·  LMB / Space / RT fire  ·  {0}",
+                        "LS move · RS aim · RT fire · {0}",
                         Loc.T("ui.hangar_controls", HangarControlsHint)));
             ClampOneLine(_hint);
             RefreshWorldBadge();
@@ -360,6 +361,7 @@ namespace AsteroidsGoneRogue
             }
 
             RefreshAudioControls();
+            EnsurePrimaryClickable();
         }
 
         private string HangarReadyStatus()
@@ -529,7 +531,7 @@ namespace AsteroidsGoneRogue
                 _menuRoot.transform,
                 display,
                 new Vector2(0.03f, 0.735f),
-                new Vector2(0.97f, 0.805f));
+                new Vector2(0.97f, 0.800f));
             _primaryLabel = _primary.GetComponentInChildren<Text>();
             _primary.onClick.AddListener(OnPrimary);
             _primaryPlate = _primary.targetGraphic as Image;
@@ -564,6 +566,7 @@ namespace AsteroidsGoneRogue
             ApplyLocalizedStaticLabels();
             RefreshLanguageChrome();
             RefreshDifficultyChrome();
+            EnsurePrimaryClickable();
         }
 
         private void OnDestroy()
@@ -871,6 +874,7 @@ namespace AsteroidsGoneRogue
             }
 
             DismissFirstHangarHint();
+            DismissDoctrineIntro();
             if (_session != null && _session.WaveIndex == 1)
             {
                 _firstRunCoachUntil = Time.unscaledTime + 6.5f;
@@ -1930,34 +1934,25 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (_tutorialRoot != null && _tutorialRoot.activeSelf && GamepadInput.CancelPressed())
-            {
-                OnDismissHintClicked();
-            }
-
-            if (_session != null && _session.Phase != GamePhase.Playing && !_creditsVisible
-                && (_tutorialRoot == null || !_tutorialRoot.activeSelf)
-                && GamepadInput.CancelPressed()
-                && !Input.GetKeyDown(KeyCode.Escape))
-            {
-                EventSystem back = EventSystem.current;
-                if (back != null && _primary != null)
-                {
-                    back.SetSelectedGameObject(_primary.gameObject);
-                    _padSlot = HangarPadNav.PrimarySlot;
-                }
-            }
-
             if (_session != null && _session.Phase == GamePhase.Playing
                 && (GamepadInput.PausePressed() || Input.GetKeyDown(KeyCode.Escape)))
             {
                 OnAbort();
             }
-
-            if (_session != null && _session.Phase != GamePhase.Playing && !_creditsVisible
-                && GamepadInput.PausePressed())
+            else if (_session != null && _session.Phase != GamePhase.Playing && !_creditsVisible)
             {
-                OnPrimary();
+                if (Input.GetKeyDown(KeyCode.Escape))
+                {
+                    OnHangarEscape();
+                }
+                else if (GamepadInput.PausePressed())
+                {
+                    OnHangarStart();
+                }
+                else if (GamepadInput.CancelPressed())
+                {
+                    OnHangarBack();
+                }
             }
 
             NavigateHangarPad();
@@ -2081,6 +2076,170 @@ namespace AsteroidsGoneRogue
             _achievementToast.color = Color.Lerp(UiTheme.Primary, UiTheme.Focus, pulse);
         }
 
+        private void OnHangarEscape()
+        {
+            DismissHangarHints();
+            FocusHangarSlot(HangarPadNav.PrimarySlot);
+        }
+
+        private void OnHangarStart()
+        {
+            OnPrimary();
+        }
+
+        private void OnHangarBack()
+        {
+            DismissHangarHints();
+            FocusHangarSlot(HangarPadNav.PrimarySlot);
+        }
+
+        private void DismissHangarHints()
+        {
+            if (_tutorialRoot != null && _tutorialRoot.activeSelf)
+            {
+                OnDismissHintClicked();
+            }
+
+            if (DoctrineIntroOpen())
+            {
+                OnDismissDoctrineIntroClicked();
+            }
+        }
+
+        private void EnsurePrimaryClickable()
+        {
+            if (_primary == null)
+            {
+                return;
+            }
+
+            _primary.interactable = true;
+            Image plate = _primary.targetGraphic as Image;
+            if (plate != null)
+            {
+                plate.raycastTarget = true;
+            }
+
+            _primary.transform.SetAsLastSibling();
+        }
+
+        private void FocusHangarSlot(int slot)
+        {
+            _padSlot = slot;
+            EventSystem focus = EventSystem.current;
+            if (focus == null)
+            {
+                return;
+            }
+
+            Button button = ButtonFromSlot(slot);
+            if (button == null)
+            {
+                return;
+            }
+
+            focus.SetSelectedGameObject(button.gameObject);
+        }
+
+        private void FocusPrimaryIfSelectionInvalid()
+        {
+            if (_creditsVisible)
+            {
+                return;
+            }
+
+            EventSystem focus = EventSystem.current;
+            if (focus == null)
+            {
+                return;
+            }
+
+            GameObject current = focus.currentSelectedGameObject;
+            if (!SelectionNeedsPrimaryFallback(current))
+            {
+                _padSlot = SlotFromSelected(current);
+                return;
+            }
+
+            FocusHangarSlot(HangarPadNav.PrimarySlot);
+        }
+
+        private bool SelectionNeedsPrimaryFallback(GameObject current)
+        {
+            if (_creditsVisible)
+            {
+                return current == null || !current.activeInHierarchy;
+            }
+
+            if (current == null || !current.activeInHierarchy)
+            {
+                return true;
+            }
+
+            Button button = current.GetComponent<Button>();
+            if (button == null)
+            {
+                return false;
+            }
+
+            if (!button.IsInteractable())
+            {
+                return true;
+            }
+
+            if (_primary != null && current == _primary.gameObject)
+            {
+                return false;
+            }
+
+            int slot = SlotFromSelected(current);
+            if (slot == HangarPadNav.PrimarySlot)
+            {
+                return false;
+            }
+
+            bool[] padMask = PadSelectableMask();
+            if (slot < 0 || slot >= padMask.Length)
+            {
+                return true;
+            }
+
+            return !padMask[slot];
+        }
+
+        private bool[] PadSelectableMask()
+        {
+            int count = HangarPadNav.SlotCount;
+            if (_padSelectable == null || _padSelectable.Length != count)
+            {
+                _padSelectable = new bool[count];
+            }
+
+            for (int index = 0; index < count; index++)
+            {
+                _padSelectable[index] = SlotIsSelectable(index);
+            }
+
+            HangarPadNav.ForcePrimarySelectable(_padSelectable);
+            return _padSelectable;
+        }
+
+        private bool SlotIsSelectable(int slot)
+        {
+            if (slot == HangarPadNav.GotItSlot || slot == HangarPadNav.DoctrineHintSlot)
+            {
+                return false;
+            }
+
+            Button button = ButtonFromSlot(slot);
+            if (button == null || !button.gameObject.activeInHierarchy || !button.IsInteractable())
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         private void NavigateHangarPad()
         {
             if (_session == null || _session.Phase == GamePhase.Playing)
@@ -2113,19 +2272,11 @@ namespace AsteroidsGoneRogue
             if (dx == 0 && dy == 0)
             {
                 _padHeld = false;
-                GameObject current = es.currentSelectedGameObject;
-                if (current == null || !current.activeInHierarchy)
-                {
-                    Button idle = DefaultHangarButton();
-                    if (idle != null)
-                    {
-                        es.SetSelectedGameObject(idle.gameObject);
-                        _padSlot = SlotFromSelected(idle.gameObject);
-                    }
-                }
-
+                FocusPrimaryIfSelectionInvalid();
                 return;
             }
+
+            DismissHangarHints();
 
             float now = Time.unscaledTime;
             if (_padHeld && now < _padRepeatAt)
@@ -2133,47 +2284,28 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            Button from = ButtonFromSlot(_padSlot);
+            bool[] padMask = PadSelectableMask();
             GameObject selected = es.currentSelectedGameObject;
-            if (from == null || selected != from.gameObject)
+            int fromSlot = _padSlot;
+            int selectedSlot = SlotFromSelected(selected);
+            if (selected != null && HangarPadNav.ResolveFallback(selectedSlot, padMask) == selectedSlot)
             {
-                _padSlot = SlotFromSelected(selected);
+                fromSlot = selectedSlot;
             }
 
-            _padSlot = StepActivePad(_padSlot, dx, dy);
-            Button next = ButtonFromSlot(_padSlot);
-            if (next != null)
+            _padSlot = HangarPadNav.StepSelectable(fromSlot, dx, dy, padMask);
+            Button stepped = ButtonFromSlot(_padSlot);
+            if (stepped != null && stepped.gameObject.activeInHierarchy && stepped.IsInteractable())
             {
-                es.SetSelectedGameObject(next.gameObject);
+                es.SetSelectedGameObject(stepped.gameObject);
+            }
+            else
+            {
+                FocusHangarSlot(HangarPadNav.PrimarySlot);
             }
 
             _padRepeatAt = now + (_padHeld ? HangarPadNav.RepeatNextSeconds : HangarPadNav.RepeatFirstSeconds);
             _padHeld = true;
-        }
-
-        private int StepActivePad(int slot, int dx, int dy)
-        {
-            int next = HangarPadNav.Step(slot, dx, dy);
-            int guard = 0;
-            while (guard < HangarPadNav.SlotCount)
-            {
-                Button button = ButtonFromSlot(next);
-                if (button != null && button.gameObject.activeInHierarchy)
-                {
-                    return next;
-                }
-
-                int again = HangarPadNav.Step(next, dx, dy);
-                if (again == next)
-                {
-                    return slot;
-                }
-
-                next = again;
-                guard++;
-            }
-
-            return slot;
         }
 
         private Button ButtonFromSlot(int slot)
@@ -2381,13 +2513,17 @@ namespace AsteroidsGoneRogue
             }
 
             GameObject current = es.currentSelectedGameObject;
-            if (current == null || !current.activeInHierarchy)
+            if (SelectionNeedsPrimaryFallback(current))
             {
                 Button pick = DefaultHangarButton();
                 if (pick != null)
                 {
                     es.SetSelectedGameObject(pick.gameObject);
                     current = pick.gameObject;
+                    if (!_creditsVisible)
+                    {
+                        _padSlot = HangarPadNav.PrimarySlot;
+                    }
                 }
             }
 
@@ -2419,11 +2555,6 @@ namespace AsteroidsGoneRogue
             if (_creditsVisible && _creditsContinue != null)
             {
                 return _creditsContinue;
-            }
-
-            if (_tutorialRoot != null && _tutorialRoot.activeSelf && _gotItButton != null)
-            {
-                return _gotItButton;
             }
 
             return _primary;
@@ -3162,7 +3293,18 @@ namespace AsteroidsGoneRogue
 
         private void OnPickDoctrine(DoctrineId id)
         {
-            if (_shop == null)
+            if (_shop == null || _loadout == null || _loadout.State == null || _session == null)
+            {
+                return;
+            }
+
+            LoadoutState picked = _loadout.State;
+            bool chosenCard = picked.Doctrine == id;
+            bool otherCard = picked.Doctrine != DoctrineId.None && !chosenCard;
+            bool gateMet = picked.GateMet(id);
+            int pickCost = picked.DoctrinePickCost(id);
+            bool cannotAfford = !chosenCard && !otherCard && gateMet && pickCost > 0 && _session.Credits < pickCost;
+            if (!DoctrineRules.CardIsAction(_session.ShopOpen, chosenCard, otherCard, gateMet, cannotAfford))
             {
                 return;
             }
@@ -3215,8 +3357,13 @@ namespace AsteroidsGoneRogue
             int cost = state.DoctrinePickCost(id);
             bool tooPoor = !chosen && !other && gate && cost > 0 && _session.Credits < cost;
             bool locked = other || !gate;
-            button.interactable = _session.ShopOpen && !chosen && !locked && !tooPoor;
+            bool action = DoctrineRules.CardIsAction(_session.ShopOpen, chosen, other, gate, tooPoor);
+            button.interactable = action;
             Image plate = button.targetGraphic as Image;
+            if (plate != null)
+            {
+                plate.raycastTarget = action;
+            }
             UiTheme.PaintShopPlate(plate, label, chosen, locked, tooPoor);
             label.text = DoctrineLabel(id) + "\n" + DoctrineBlurb(id) + "\n" + DoctrineStatusLine(id, gate, cost, chosen, other, tooPoor);
         }
