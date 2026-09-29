@@ -163,7 +163,7 @@ namespace AsteroidsGoneRogue
         public const string DoctrineHintBody =
             "Doctrines are open. Pick Barrage, Lance, or Hunter.";
         public const string HangarControlsHint =
-            "LT utility · LB cycle primary · RT fire  ·  A confirm  ·  B / Esc Next Wave  ·  Start launch";
+            "LT utility · LB cycle · A confirm · B / Esc Next Wave";
         public const string MedalLadderPrefix = "MEDALS";
         public const string HangarHintBody =
             "LS / WASD fly  ·  RT / LMB shoot  ·  LT / E utility\nStart Wave (A)  ·  Abort (Esc) / Start\n"
@@ -303,7 +303,7 @@ namespace AsteroidsGoneRogue
                     ? Loc.T("ui.hint_play", "WASD / LS move  ·  Mouse / RS aim  ·  LMB / Space / RT fire  ·  E / RMB / LT utility  ·  Q / LB cycle primary  ·  Esc / Start abort")
                     : Loc.Tf(
                         "ui.hint_hangar",
-                        "WASD / LS move  ·  Mouse / RS aim  ·  LMB / Space / RT fire  ·  {0}",
+                        "LS move · RS aim · RT fire · {0}",
                         Loc.T("ui.hangar_controls", HangarControlsHint)));
             ClampOneLine(_hint);
             RefreshWorldBadge();
@@ -2306,11 +2306,6 @@ namespace AsteroidsGoneRogue
 
             _padRepeatAt = now + (_padHeld ? HangarPadNav.RepeatNextSeconds : HangarPadNav.RepeatFirstSeconds);
             _padHeld = true;
-        }
-
-        private int StepActivePad(int slot, int dx, int dy)
-        {
-            return HangarPadNav.StepSelectable(slot, dx, dy, PadSelectableMask());
         }
 
         private Button ButtonFromSlot(int slot)

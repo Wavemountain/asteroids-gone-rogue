@@ -48,6 +48,16 @@ namespace AsteroidsGoneRogue
 
         public static int Step(int slot, int dx, int dy)
         {
+            return Step(slot, dx, dy, null);
+        }
+
+        /// <summary>
+        /// One grid step. When <paramref name="selectable"/> is set, hidden and
+        /// non-interactable slots are not candidates, so a locked cell cannot
+        /// steal the move from a farther live control.
+        /// </summary>
+        public static int Step(int slot, int dx, int dy, bool[] selectable)
+        {
             if (dx == 0 && dy == 0)
             {
                 return ClampSlot(slot);
@@ -70,19 +80,19 @@ namespace AsteroidsGoneRogue
             int y;
             Coord(from, out x, out y);
 
-            int exact = FindAt(x + dx, y + dy);
+            int exact = FindAt(x + dx, y + dy, selectable);
             if (exact >= 0)
             {
                 return exact;
             }
 
-            int along = FindAlong(from, x, y, dx, dy, false);
+            int along = FindAlong(from, x, y, dx, dy, false, selectable);
             if (along >= 0)
             {
                 return along;
             }
 
-            int wrap = FindAlong(from, x, y, dx, dy, true);
+            int wrap = FindAlong(from, x, y, dx, dy, true, selectable);
             return wrap >= 0 ? wrap : from;
         }
 
@@ -148,7 +158,7 @@ namespace AsteroidsGoneRogue
             }
 
             int count = selectable.Length;
-            int candidate = Step(origin, dx, dy);
+            int candidate = Step(origin, dx, dy, selectable);
             int guard = 0;
             while (guard < count)
             {
@@ -157,7 +167,7 @@ namespace AsteroidsGoneRogue
                     return candidate;
                 }
 
-                int stepped = Step(candidate, dx, dy);
+                int stepped = Step(candidate, dx, dy, selectable);
                 if (stepped == candidate)
                 {
                     return PrimarySlot;
@@ -308,6 +318,7 @@ namespace AsteroidsGoneRogue
                 && Step(spread, -1, 0) == hullNose02
                 && Step(spread, 1, 0) == shield
                 && Step(shield, -1, 0) == spread
+                && DoctrineShopStripSharesNextWaveRow()
                 && Step(PrimarySlot, 0, -1) == NormalSlot
                 && Step(NormalSlot, 0, 1) == PrimarySlot
                 && Step(EasySlot, 1, 0) == NormalSlot
@@ -465,10 +476,13 @@ namespace AsteroidsGoneRogue
                 }
                 else if (group == ShopGroup.Doctrine)
                 {
-                    // Below the doctrine cards (y = -2). Negative y is up, so a
-                    // hidden shop row must not sit above the card or D-pad up sticks there.
-                    cx = 6 + (doctrine % 3);
-                    cy = 5 + (doctrine / 3);
+                    // Two columns inside the doctrine card strip, same screen band
+                    // as Next Wave (see DoctrinePadCell). Not the far y=5 cells.
+                    int doctrineX;
+                    int doctrineY;
+                    DoctrinePadCell(doctrine, out doctrineX, out doctrineY);
+                    cx = doctrineX;
+                    cy = doctrineY;
                     doctrine++;
                 }
                 else
@@ -490,10 +504,15 @@ namespace AsteroidsGoneRogue
             y = -1;
         }
 
-        private static int FindAt(int x, int y)
+        private static int FindAt(int x, int y, bool[] selectable)
         {
             for (int slot = 0; slot < SlotCount; slot++)
             {
+                if (!Accepts(slot, selectable))
+                {
+                    continue;
+                }
+
                 int sx;
                 int sy;
                 Coord(slot, out sx, out sy);
@@ -506,13 +525,13 @@ namespace AsteroidsGoneRogue
             return -1;
         }
 
-        private static int FindAlong(int from, int x, int y, int dx, int dy, bool wrap)
+        private static int FindAlong(int from, int x, int y, int dx, int dy, bool wrap, bool[] selectable)
         {
             int best = -1;
             int bestScore = int.MaxValue;
             for (int slot = 0; slot < SlotCount; slot++)
             {
-                if (slot == from)
+                if (slot == from || !Accepts(slot, selectable))
                 {
                     continue;
                 }
@@ -564,6 +583,127 @@ namespace AsteroidsGoneRogue
             }
 
             return 0;
+        }
+
+        private static bool Accepts(int slot, bool[] selectable)
+        {
+            if (selectable == null)
+            {
+                return true;
+            }
+
+            return slot >= 0 && slot < selectable.Length && selectable[slot];
+        }
+
+        /// <summary>
+        /// Doctrine shop buttons are parented to the card strip (GameUi doctrine
+        /// shop row 0.190–0.397, two columns). That strip shares a screen row
+        /// with Next Wave and sits to the right of the defense column (pad x = 5).
+        /// </summary>
+        private static void DoctrinePadCell(int doctrineIndex, out int padX, out int padY)
+        {
+            float shopMidY = DoctrineShopMidY();
+            float nextWaveMidY = NextWaveMidY();
+            float shopPitch = (0.094f + 0.016f) * (0.888f - 0.080f);
+            float deltaY = shopMidY - nextWaveMidY;
+            if (deltaY < 0f)
+            {
+                deltaY = -deltaY;
+            }
+
+            padX = 6 + (doctrineIndex % 2);
+            padY = deltaY <= shopPitch * 0.5f ? -1 : 5;
+        }
+
+        private static float NextWaveMidY()
+        {
+            float waveX0;
+            float waveY0;
+            float waveX1;
+            float waveY1;
+            MapAnchors(0.014f, 0.080f, 0.55f, 0.888f, 0.03f, 0.735f, 0.97f, 0.800f, out waveX0, out waveY0, out waveX1, out waveY1);
+            if (waveX1 <= waveX0)
+            {
+                return 0f;
+            }
+
+            return (waveY0 + waveY1) * 0.5f;
+        }
+
+        private static float DoctrineShopMidY()
+        {
+            float rowX0;
+            float rowY0;
+            float rowX1;
+            float rowY1;
+            MapAnchors(0.562f, 0.608f, 0.986f, 0.898f, 0.012f, 0.190f, 0.988f, 0.397f, out rowX0, out rowY0, out rowX1, out rowY1);
+            float btnX0;
+            float btnY0;
+            float btnX1;
+            float btnY1;
+            MapAnchors(rowX0, rowY0, rowX1, rowY1, 0.04f, 0.08f, 0.48f, 0.92f, out btnX0, out btnY0, out btnX1, out btnY1);
+            if (btnX1 <= btnX0 || rowX1 <= rowX0)
+            {
+                return 0f;
+            }
+
+            return (btnY0 + btnY1) * 0.5f;
+        }
+
+        /// <summary>
+        /// Screen centers of the doctrine shop strip and Next Wave share one row,
+        /// and the pad cells for the two visual columns sit on that row.
+        /// </summary>
+        public static bool DoctrineShopStripSharesNextWaveRow()
+        {
+            float waveX0;
+            float waveY0;
+            float waveX1;
+            float waveY1;
+            MapAnchors(0.014f, 0.080f, 0.55f, 0.888f, 0.03f, 0.735f, 0.97f, 0.800f, out waveX0, out waveY0, out waveX1, out waveY1);
+
+            float stripX0;
+            float stripY0;
+            float stripX1;
+            float stripY1;
+            MapAnchors(0.562f, 0.608f, 0.986f, 0.898f, 0.012f, 0.190f, 0.988f, 0.397f, out stripX0, out stripY0, out stripX1, out stripY1);
+
+            float leftX0;
+            float leftY0;
+            float leftX1;
+            float leftY1;
+            MapAnchors(stripX0, stripY0, stripX1, stripY1, 0.04f, 0.08f, 0.48f, 0.92f, out leftX0, out leftY0, out leftX1, out leftY1);
+
+            float rightX0;
+            float rightY0;
+            float rightX1;
+            float rightY1;
+            MapAnchors(stripX0, stripY0, stripX1, stripY1, 0.52f, 0.08f, 0.96f, 0.92f, out rightX0, out rightY0, out rightX1, out rightY1);
+
+            float waveMidY = (waveY0 + waveY1) * 0.5f;
+            float leftMidY = (leftY0 + leftY1) * 0.5f;
+            float rowPitch = (0.094f + 0.016f) * (0.888f - 0.080f);
+            float bandDy = leftMidY - waveMidY;
+            if (bandDy < 0f)
+            {
+                bandDy = -bandDy;
+            }
+
+            int padLeftX;
+            int padLeftY;
+            int padRightX;
+            int padRightY;
+            DoctrinePadCell(0, out padLeftX, out padLeftY);
+            DoctrinePadCell(1, out padRightX, out padRightY);
+            return bandDy <= rowPitch * 0.5f
+                && leftX0 > waveX1
+                && rightX0 > leftX1
+                && padLeftY == -1
+                && padRightY == -1
+                && padRightX == padLeftX + 1
+                && waveX0 < waveX1
+                && stripY0 < stripY1
+                && rightY0 < rightY1;
         }
     }
 }

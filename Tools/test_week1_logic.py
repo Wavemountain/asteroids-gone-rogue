@@ -3313,7 +3313,8 @@ def test_ui_theme_pad_menus_044() -> None:
     assert "!owned && !locked && !tooPoor" in ui
     assert "ShipPreviewFrame" in ui
     assert "LOADOUT" in ui
-    assert "StepActivePad" in ui
+    assert "StepActivePad" not in ui
+    assert "HangarPadNav.StepSelectable(fromSlot, dx, dy, padMask)" in ui
     assert "HangarPadNav.EasySlot" in ui
     assert "HangarPadNav.LangEnSlot" in ui
     assert "HangarPadNav.MuteSlot" in ui
@@ -3846,7 +3847,10 @@ def test_hangar_next_wave_always_selectable() -> None:
     assert "ForcePrimarySelectable" in padnav
     assert "LockedShopFallsBackToPrimary" in padnav
     assert "NextWaveScreenClear" in padnav
-    assert "cy = 5 + (doctrine / 3)" in padnav
+    assert "DoctrinePadCell" in padnav
+    assert "padY = deltaY <= shopPitch * 0.5f ? -1 : 5" in padnav
+    assert "Accepts(slot, selectable)" in padnav
+    assert "cy = 5 + (doctrine / 3)" not in padnav
     assert "HangarPadNav.StepSelectable" in ui
     assert "FocusPrimaryIfSelectionInvalid" in ui
     assert "SelectionNeedsPrimaryFallback" in ui
@@ -3953,6 +3957,497 @@ def test_hangar_next_wave_always_selectable() -> None:
             assert not _overlap(wave_px, block_px), (width, height, block_px)
 
 
+_PAD_ITEMS = (
+    ("BodyUpgrade01", "Hull", 90),
+    ("BodyUpgrade02", "Hull", 175),
+    ("NoseHardpoint", "Hull", 120),
+    ("NoseUpgrade02", "Hull", 150),
+    ("NoseUpgrade03", "Hull", 200),
+    ("RapidFire", "Hull", 100),
+    ("EngineUpgrade02", "Hull", 140),
+    ("EngineUpgrade03", "Hull", 190),
+    ("Overcharger", "Hull", 230),
+    ("Afterburner", "Hull", 230),
+    ("SpreadBolt", "Weapons", 110),
+    ("Pierce", "Weapons", 155),
+    ("TwinGuns", "Weapons", 140),
+    ("Seeker", "Weapons", 125),
+    ("Ricochet", "Weapons", 170),
+    ("ShieldCell", "Defense", 80),
+    ("ShieldMatrix", "Defense", 185),
+    ("Rail", "Doctrine", 160),
+    ("FlakFeed", "Doctrine", 150),
+    ("Storm", "Doctrine", 240),
+    ("OverchargeLance", "Doctrine", 235),
+    ("SeekerCadence", "Doctrine", 155),
+    ("TwinSeek", "Doctrine", 225),
+)
+_PAD_N = len(_PAD_ITEMS)
+_PAD_SHOP0 = 1
+_PAD_CREDITS = _PAD_SHOP0 + _PAD_N
+_PAD_EASY = _PAD_CREDITS + 1
+_PAD_NORMAL = _PAD_CREDITS + 2
+_PAD_HARD = _PAD_CREDITS + 3
+_PAD_EN = _PAD_CREDITS + 4
+_PAD_SV = _PAD_CREDITS + 5
+_PAD_MUTE = _PAD_CREDITS + 6
+_PAD_GOTIT = _PAD_CREDITS + 7
+_PAD_BARRAGE = _PAD_GOTIT + 1
+_PAD_LANCE = _PAD_GOTIT + 2
+_PAD_HUNTER = _PAD_GOTIT + 3
+_PAD_HINT = _PAD_HUNTER + 1
+_PAD_SLOTS = _PAD_HINT + 1
+_PAD_WEAPONS = {"SpreadBolt", "Pierce", "TwinGuns", "Seeker", "Ricochet", "Rail"}
+_PAD_PATH = {
+    "Rail": "Lance",
+    "FlakFeed": "Barrage",
+    "Storm": "Barrage",
+    "OverchargeLance": "Lance",
+    "SeekerCadence": "Hunter",
+    "TwinSeek": "Hunter",
+    "SpreadBolt": "Barrage",
+    "Pierce": "Lance",
+    "TwinGuns": "Lance",
+    "Seeker": "Hunter",
+}
+_PAD_DIRS = ((1, 0), (-1, 0), (0, 1), (0, -1))
+_PAD_INDEX = {name: index for index, (name, _group, _cost) in enumerate(_PAD_ITEMS)}
+
+
+def _pad_sign(value: int) -> int:
+    if value > 0:
+        return 1
+    if value < 0:
+        return -1
+    return 0
+
+
+def _pad_coord(slot: int, legacy: bool) -> tuple[int, int]:
+    if slot <= 0:
+        return 1, -1
+    if slot == _PAD_CREDITS:
+        return 0, 8
+    if slot == _PAD_EASY:
+        return 0, -3
+    if slot == _PAD_NORMAL:
+        return 1, -3
+    if slot == _PAD_HARD:
+        return 2, -3
+    if slot == _PAD_EN:
+        return 3, -3
+    if slot == _PAD_SV:
+        return 4, -3
+    if slot == _PAD_MUTE:
+        return 5, -3
+    if slot == _PAD_GOTIT:
+        return 0, -4
+    if slot == _PAD_BARRAGE:
+        return 6, -2
+    if slot == _PAD_LANCE:
+        return 7, -2
+    if slot == _PAD_HUNTER:
+        return 8, -2
+    if slot == _PAD_HINT:
+        return 8, -1
+    hull = weapon = defense = doctrine = 0
+    shop_index = slot - _PAD_SHOP0
+    for index, (_name, group, _cost) in enumerate(_PAD_ITEMS):
+        if group == "Weapons":
+            cx, cy = 4, weapon
+            weapon += 1
+        elif group == "Defense":
+            cx, cy = 5, defense
+            defense += 1
+        elif group == "Doctrine":
+            if legacy:
+                cx = 6 + (doctrine % 3)
+                cy = 5 + (doctrine // 3)
+            else:
+                cx = 6 + (doctrine % 2)
+                cy = -1
+            doctrine += 1
+        else:
+            cx = hull % 4
+            cy = hull // 4
+            hull += 1
+        if index == shop_index:
+            return cx, cy
+    return 1, -1
+
+
+def _pad_coords(legacy: bool) -> list[tuple[int, int]]:
+    return [_pad_coord(slot, legacy) for slot in range(_PAD_SLOTS)]
+
+
+def _pad_accepts(slot: int, selectable) -> bool:
+    if selectable is None:
+        return True
+    return 0 <= slot < len(selectable) and selectable[slot]
+
+
+def _pad_find_at(x: int, y: int, coords, selectable) -> int:
+    for slot, (sx, sy) in enumerate(coords):
+        if _pad_accepts(slot, selectable) and sx == x and sy == y:
+            return slot
+    return -1
+
+
+def _pad_find_along(frm: int, x: int, y: int, dx: int, dy: int, wrap: bool, coords, selectable) -> int:
+    best = -1
+    best_score = 10**18
+    for slot, (sx, sy) in enumerate(coords):
+        if slot == frm or not _pad_accepts(slot, selectable):
+            continue
+        delx = sx - x
+        dely = sy - y
+        if dx:
+            dir_ok = _pad_sign(delx) == (-_pad_sign(dx) if wrap else _pad_sign(dx))
+            y_dist = abs(dely)
+            x_dist = abs(delx) if wrap else (delx if dx > 0 else -delx)
+            score = y_dist * 20 + x_dist
+        else:
+            dir_ok = _pad_sign(dely) == (-_pad_sign(dy) if wrap else _pad_sign(dy))
+            x_dist = abs(delx)
+            y_dist = abs(dely) if wrap else (dely if dy > 0 else -dely)
+            score = x_dist * 20 + y_dist
+        if dir_ok and score < best_score:
+            best_score = score
+            best = slot
+    return best
+
+
+def _pad_step(slot: int, dx: int, dy: int, coords, selectable) -> int:
+    if dx == 0 and dy == 0:
+        return slot
+    if dx and dy:
+        if dx * dx >= dy * dy:
+            dy = 0
+        else:
+            dx = 0
+    x, y = coords[slot]
+    exact = _pad_find_at(x + dx, y + dy, coords, selectable)
+    if exact >= 0:
+        return exact
+    along = _pad_find_along(slot, x, y, dx, dy, False, coords, selectable)
+    if along >= 0:
+        return along
+    wrap = _pad_find_along(slot, x, y, dx, dy, True, coords, selectable)
+    return wrap if wrap >= 0 else slot
+
+
+def _pad_step_live(slot: int, dx: int, dy: int, selectable, coords, masked: bool) -> int:
+    """Live path mirrors StepSelectable. Invalid focus snaps to slot 0 and does not step."""
+    mask = _pad_force_primary(selectable)
+    current_ok = 0 <= slot < len(mask) and mask[slot]
+    origin = slot if current_ok else 0
+    if not current_ok or (dx == 0 and dy == 0):
+        return origin
+    count = len(mask)
+    candidate = _pad_step(origin, dx, dy, coords, mask if masked else None)
+    guard = 0
+    while guard < count:
+        if 0 <= candidate < count and mask[candidate]:
+            return candidate
+        stepped = _pad_step(candidate, dx, dy, coords, mask if masked else None)
+        if stepped == candidate:
+            return 0
+        candidate = stepped
+        guard += 1
+    return 0
+
+
+def _pad_penalized(cost: int, off_path: bool) -> int:
+    if not off_path or cost <= 0:
+        return cost
+    return (cost * 135 + 50) // 100
+
+
+def _pad_soft_locked(owned: frozenset[str]) -> bool:
+    return "FlakFeed" in owned or "Rail" in owned or "SeekerCadence" in owned
+
+
+def _pad_off_path(owned: frozenset[str], doctrine: str, upgrade: str) -> bool:
+    if not _pad_soft_locked(owned) or doctrine == "None" or upgrade == "Ricochet":
+        return False
+    path = _PAD_PATH.get(upgrade)
+    return path is not None and path != doctrine
+
+
+def _pad_can_apply(owned: frozenset[str], shield: int, doctrine: str, upgrade: str) -> bool:
+    if upgrade in owned and upgrade != "ShieldCell":
+        return False
+    if upgrade == "BodyUpgrade02":
+        return "BodyUpgrade01" in owned
+    if upgrade == "NoseUpgrade02":
+        return "NoseHardpoint" in owned
+    if upgrade == "NoseUpgrade03":
+        return "NoseUpgrade02" in owned
+    if upgrade == "EngineUpgrade02":
+        return "RapidFire" in owned
+    if upgrade == "EngineUpgrade03":
+        return "EngineUpgrade02" in owned
+    if upgrade == "Overcharger":
+        return "NoseUpgrade03" in owned and "Afterburner" not in owned
+    if upgrade == "Afterburner":
+        return "EngineUpgrade03" in owned and "Overcharger" not in owned
+    if upgrade == "ShieldMatrix":
+        return shield >= 2 and "ShieldMatrix" not in owned
+    if upgrade == "ShieldCell":
+        cap = 3 if "ShieldMatrix" in owned else 2
+        return shield < cap
+    if upgrade == "FlakFeed":
+        return doctrine == "Barrage" and "SpreadBolt" in owned
+    if upgrade == "Storm":
+        return doctrine == "Barrage" and "FlakFeed" in owned
+    if upgrade == "Rail":
+        return doctrine == "Lance"
+    if upgrade == "OverchargeLance":
+        return doctrine == "Lance" and "Rail" in owned and ("Pierce" in owned or "TwinGuns" in owned)
+    if upgrade == "SeekerCadence":
+        return doctrine == "Hunter" and "Seeker" in owned
+    if upgrade == "TwinSeek":
+        return doctrine == "Hunter" and "SeekerCadence" in owned
+    return True
+
+
+def _pad_shop_mask(owned: frozenset[str], shield: int, doctrine: str, credits: int) -> list[bool]:
+    """Selectable hangar controls. Got it / doctrine intro stay out of the pad order."""
+    mask = [False] * _PAD_SLOTS
+    mask[0] = True
+    for slot in (_PAD_CREDITS, _PAD_EASY, _PAD_NORMAL, _PAD_HARD, _PAD_EN, _PAD_SV, _PAD_MUTE):
+        mask[slot] = True
+    if doctrine == "None":
+        gates = (
+            ("SpreadBolt" in owned, 55, _PAD_BARRAGE),
+            ("Pierce" in owned or "TwinGuns" in owned, 25, _PAD_LANCE),
+            ("Seeker" in owned, 40, _PAD_HUNTER),
+        )
+        for gate_met, cost, slot in gates:
+            if gate_met and credits >= cost:
+                mask[slot] = True
+    for index, (name, group, cost) in enumerate(_PAD_ITEMS):
+        if group == "Doctrine" and (doctrine == "None" or _PAD_PATH.get(name) != doctrine):
+            continue
+        if name == "ShieldCell":
+            cap = 3 if "ShieldMatrix" in owned else 2
+            owned_flag = shield >= cap
+            can = shield < cap
+        elif name == "ShieldMatrix":
+            owned_flag = "ShieldMatrix" in owned
+            can = shield >= 2 and not owned_flag
+        else:
+            owned_flag = name in owned
+            can = (not owned_flag) and _pad_can_apply(owned, shield, doctrine, name)
+        price = _pad_penalized(cost, _pad_off_path(owned, doctrine, name))
+        too_poor = (not owned_flag) and can and credits < price
+        locked = (not owned_flag) and (not can)
+        mask[_PAD_SHOP0 + index] = (owned_flag and name in _PAD_WEAPONS) or (
+            (not owned_flag) and (not locked) and (not too_poor)
+        )
+    return mask
+
+
+def _pad_closures(mask: list[bool], step_fn) -> tuple[list[int], list[int], int]:
+    nodes = [index for index, on in enumerate(mask) if on]
+    adj = {node: [] for node in nodes}
+    for node in nodes:
+        for dx, dy in _PAD_DIRS:
+            adj[node].append(step_fn(node, dx, dy, mask))
+    seen = {0: 0}
+    queue = [0]
+    head = 0
+    while head < len(queue):
+        current = queue[head]
+        head += 1
+        for nxt in adj.get(current, ()):
+            if nxt not in seen:
+                seen[nxt] = seen[current] + 1
+                queue.append(nxt)
+    reverse = {node: [] for node in nodes}
+    for node, outs in adj.items():
+        for nxt in outs:
+            if nxt in reverse:
+                reverse[nxt].append(node)
+    back = {0}
+    queue = [0]
+    while queue:
+        current = queue.pop()
+        for prev in reverse.get(current, ()):
+            if prev not in back:
+                back.add(prev)
+                queue.append(prev)
+    missing = [node for node in nodes if node not in seen]
+    trapped = [node for node in nodes if node not in back]
+    farthest = max(seen.values()) if seen else 0
+    return missing, trapped, farthest
+
+
+def _pad_states(doctrine: str, gate: tuple[str, ...], mid: str, bands: tuple[int, ...], mid_owned: bool):
+    free = ("Pierce", "TwinGuns", "Seeker", "Ricochet")
+    for bits in range(16):
+        for shield, matrix in ((0, False), (1, False), (2, False), (2, True)):
+            for nose in (0, 1, 2):
+                for engine in (0, 1):
+                    owned = set(gate)
+                    for bit, name in enumerate(free):
+                        if bits >> bit & 1:
+                            owned.add(name)
+                    if nose >= 1:
+                        owned.add("NoseHardpoint")
+                    if nose >= 2:
+                        owned.add("NoseUpgrade02")
+                    if engine >= 1:
+                        owned.add("RapidFire")
+                    if matrix:
+                        owned.add("ShieldMatrix")
+                    if mid_owned:
+                        owned.add(mid)
+                    charges = 2 if matrix else shield
+                    for credits in bands:
+                        yield frozenset(owned), charges, doctrine, credits
+
+
+def _pad_audit(states, coords, masked: bool) -> tuple[int, int, int, int]:
+    bad = 0
+    dead = 0
+    farthest = 0
+    total = 0
+
+    def step_fn(slot, dx, dy, mask, _coords=coords, _masked=masked):
+        return _pad_step_live(slot, dx, dy, mask, _coords, _masked)
+
+    for owned, shield, doctrine, credits in states:
+        total += 1
+        mask = _pad_shop_mask(owned, shield, doctrine, credits)
+        assert mask[0]
+        assert not mask[_PAD_GOTIT] and not mask[_PAD_HINT]
+        if doctrine != "None":
+            assert not mask[_PAD_BARRAGE] and not mask[_PAD_LANCE] and not mask[_PAD_HUNTER]
+        missing, trapped, dist = _pad_closures(mask, step_fn)
+        if missing:
+            bad += 1
+        if trapped:
+            dead += 1
+        if dist > farthest:
+            farthest = dist
+    return total, bad, dead, farthest
+
+
+def _doctrine_strip_shares_next_wave_row() -> bool:
+    wave = _map_anchors(0.014, 0.080, 0.55, 0.888, 0.03, 0.735, 0.97, 0.800)
+    strip = _map_anchors(0.562, 0.608, 0.986, 0.898, 0.012, 0.190, 0.988, 0.397)
+    left = _map_anchors(strip[0], strip[1], strip[2], strip[3], 0.04, 0.08, 0.48, 0.92)
+    right = _map_anchors(strip[0], strip[1], strip[2], strip[3], 0.52, 0.08, 0.96, 0.92)
+    wave_mid = (wave[1] + wave[3]) * 0.5
+    left_mid = (left[1] + left[3]) * 0.5
+    pitch = (0.094 + 0.016) * (0.888 - 0.080)
+    return abs(left_mid - wave_mid) <= pitch * 0.5 and left[0] > wave[2] and right[0] > left[2]
+
+
+def test_doctrine_rows_pad_reachable() -> None:
+    """Every purchasable hangar row is on the D-pad graph, including Barrage mids.
+
+    The 1536 Barrage states are spread-owned, flak-not-owned, the other four weapons,
+    shield 0/1/2/matrix, nose tier 0–2, rapid-fire on/off, and purses 140/150/160/165.
+    Legacy FindAlong ignored the mask and parked doctrine rows at y=5, so Flak Feed
+    was unreachable whenever Ricochet was not a bridge (576 states).
+    """
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    padnav = (root / "Assets/Scripts/Core/HangarPadNav.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    assert "Step(origin, dx, dy, selectable)" in padnav
+    assert "DoctrineShopStripSharesNextWaveRow" in padnav
+    assert "0.190f" in padnav and "0.397f" in padnav
+    assert _doctrine_strip_shares_next_wave_row()
+
+    legacy_coords = _pad_coords(True)
+    fixed_coords = _pad_coords(False)
+    assert _pad_coord(_PAD_SHOP0 + _PAD_INDEX["FlakFeed"], True) == (7, 5)
+    assert _pad_coord(_PAD_SHOP0 + _PAD_INDEX["FlakFeed"], False) == (7, -1)
+    assert _pad_coord(_PAD_SHOP0 + _PAD_INDEX["Storm"], False) == (6, -1)
+
+    pre_bands = (140, 150, 160, 165)
+    cap_bands = (200, 240, 260, 400)
+    spaces = (
+        ("Barrage", ("SpreadBolt",), "FlakFeed", pre_bands, False),
+        ("Barrage", ("SpreadBolt",), "FlakFeed", cap_bands, True),
+        ("Lance", ("TwinGuns",), "Rail", pre_bands, False),
+        ("Lance", ("TwinGuns",), "Rail", cap_bands, True),
+        ("Hunter", ("Seeker",), "SeekerCadence", pre_bands, False),
+        ("Hunter", ("Seeker",), "SeekerCadence", cap_bands, True),
+    )
+    before = {}
+    after = {}
+    for doctrine, gate, mid, bands, mid_owned in spaces:
+        states = list(_pad_states(doctrine, gate, mid, bands, mid_owned))
+        key = f"{doctrine} {'cap' if mid_owned else 'mid'}"
+        before[key] = _pad_audit(states, legacy_coords, False)
+        after[key] = _pad_audit(states, fixed_coords, True)
+        print(f"pad {key}: legacy unreachable {before[key][1]}/{before[key][0]} dead {before[key][2]} far {before[key][3]}")
+        print(f"pad {key}: fixed  unreachable {after[key][1]}/{after[key][0]} dead {after[key][2]} far {after[key][3]}")
+
+    assert before["Barrage mid"][0] == 1536
+    assert before["Barrage mid"][1] == 576
+    assert before["Lance mid"][0] == 1536
+    assert before["Hunter mid"][0] == 1536
+    for key, (_total, bad, dead, farthest) in after.items():
+        assert bad == 0, key
+        assert dead == 0, key
+        assert farthest <= 8, (key, farthest)
+    for key, (total, _bad, dead, _far) in before.items():
+        assert total == 1536
+        assert dead == 0
+
+    example = _pad_shop_mask(frozenset({"SpreadBolt"}), 0, "Barrage", 160)
+    flak = _PAD_SHOP0 + _PAD_INDEX["FlakFeed"]
+    storm = _PAD_SHOP0 + _PAD_INDEX["Storm"]
+    assert example[flak] and not example[storm]
+
+    def legacy_step(slot, dx, dy, mask):
+        return _pad_step_live(slot, dx, dy, mask, legacy_coords, False)
+
+    def fixed_step(slot, dx, dy, mask):
+        return _pad_step_live(slot, dx, dy, mask, fixed_coords, True)
+
+    legacy_missing, _legacy_trapped, _legacy_far = _pad_closures(example, legacy_step)
+    fixed_missing, fixed_trapped, fixed_far = _pad_closures(example, fixed_step)
+    assert flak in legacy_missing
+    assert flak not in fixed_missing and not fixed_trapped
+    assert fixed_step(0, 1, 0, example) == flak
+    assert fixed_far <= 8
+
+    # Capstone with Ricochet locked out of the purse still sits on the Next Wave row.
+    storm_mask = _pad_shop_mask(frozenset({"SpreadBolt", "FlakFeed"}), 0, "Barrage", 240)
+    assert storm_mask[storm]
+    storm_missing, storm_trapped, _storm_far = _pad_closures(storm_mask, fixed_step)
+    assert storm not in storm_missing and not storm_trapped
+    assert fixed_step(0, 1, 0, storm_mask) == storm
+
+    # Doctrine not chosen: live cards are reachable, passive cards and Got it are not.
+    picking = _pad_shop_mask(frozenset({"SpreadBolt"}), 0, "None", 60)
+    assert picking[_PAD_BARRAGE] and not picking[_PAD_LANCE] and not picking[_PAD_HUNTER]
+    assert not picking[_PAD_GOTIT]
+    pick_missing, pick_trapped, _pick_far = _pad_closures(picking, fixed_step)
+    assert _PAD_BARRAGE not in pick_missing and not pick_trapped
+
+    en_hint = "LS move · RS aim · RT fire · LT utility · LB cycle · A confirm · B / Esc Next Wave"
+    sv_hint = "LS styr · RS sikte · RT skjut · LT utility · LB cykla · A bekräfta · B / Esc nästa våg"
+    assert "LS move · RS aim · RT fire · {0}" in ui
+    assert "LT utility · LB cycle · A confirm · B / Esc Next Wave" in ui
+    assert "LS styr · RS sikte · RT skjut · {0}" in loc
+    assert "LT utility · LB cykla · A bekräfta · B / Esc nästa våg" in loc
+    # Footer is one line in (0.14, 0.008)–(0.86, 0.072). Kenney Future Narrow at
+    # 16px is under 10px/char for this copy, so 1280x800 must not clip it.
+    hint_box = (0.86 - 0.14) * 1280
+    assert len(en_hint) == 82 and len(sv_hint) == 86
+    assert len(en_hint) * 10 < hint_box
+    assert len(sv_hint) * 10 < hint_box
+    assert len(sv_hint) < 165
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -4000,6 +4495,7 @@ def main() -> int:
     test_doctrine_w1_affordability()
     test_hotfix_045_rail_cancel_and_duck_merge()
     test_hangar_next_wave_always_selectable()
+    test_doctrine_rows_pad_reachable()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
