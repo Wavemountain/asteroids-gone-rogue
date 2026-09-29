@@ -11,15 +11,17 @@ namespace AsteroidsGoneRogue
     /// <summary>
     /// 0.45 doctrine + Rail numbers. One doctrine per run. Mid purchase
     /// soft-locks the other paths. No Flak weapon, no mid-run swap.
-    /// Doctrine entry (hangar, after wave 1) is 90 credits on every path:
-    /// Barrage (own Spread), Lance (own Pierce or Twin), Hunter (own Seeker).
+    /// Doctrine entry (hangar, after wave 1) is sized so grind weapon + pick
+    /// fits a Normal wave-1 clear (165) and still misses a Hard clear (140):
+    /// Barrage 55 + Spread 110, Lance 25 + Twin 140 (Pierce stays 180),
+    /// Hunter 40 + Seeker 125. Off-path soft-lock stays ×1.35.
     /// </summary>
     public static class DoctrineRules
     {
         public const int UnlockWave = 2;
-        public const int BarrageGateCost = 90;
-        public const int LanceGateCost = 90;
-        public const int HunterGateCost = 90;
+        public const int BarrageGateCost = 55;
+        public const int LanceGateCost = 25;
+        public const int HunterGateCost = 40;
         public const float OffPathMul = 1.35f;
 
         public const float FlakFeedCooldownMul = 0.85f;

@@ -60,6 +60,7 @@ namespace AsteroidsGoneRogue
         private GameObject _shieldBarRow;
         private static Sprite _barFillSprite;
         private bool _tutorialDismissed;
+        private bool _doctrineIntroDismissed;
         private float _worldFlashUntil;
         private int _flashedWorld = 1;
         private string _flashedLayout = string.Empty;
@@ -125,6 +126,10 @@ namespace AsteroidsGoneRogue
         private Text _lanceLabel;
         private Text _hunterLabel;
         private GameObject _doctrineShopRow;
+        private GameObject _doctrineIntro;
+        private Text _doctrineIntroBody;
+        private Text _doctrineIntroGotIt;
+        private Button _doctrineIntroButton;
         private Text _doctrineBadge;
 
         private static readonly Color UiAmber = UiTheme.Primary;
@@ -140,7 +145,11 @@ namespace AsteroidsGoneRogue
         public static readonly Vector2 TopBarMin = new Vector2(0.012f, 0.905f);
         public static readonly Vector2 TopBarMax = new Vector2(0.988f, 0.995f);
         public static readonly Vector2 ShipPreviewMin = new Vector2(0.562f, 0.080f);
-        public static readonly Vector2 ShipPreviewMax = new Vector2(0.986f, 0.708f);
+        public static readonly Vector2 ShipPreviewMax = new Vector2(0.986f, 0.596f);
+        // Doctrine card sits above the loadout frame and under the top bar (0.905).
+        // 1280x800: panel 543x232. Cards y 0.414–0.862 are ~104px, five 14px lines.
+        public static readonly Vector2 DoctrinePanelMin = new Vector2(0.562f, 0.608f);
+        public static readonly Vector2 DoctrinePanelMax = new Vector2(0.986f, 0.898f);
         // Shared shop cell + gutter (hangar-local). All 3 columns start at ShopGridTop.
         public const float ShopGridTop = 0.665f;
         public const float ShopCellHeight = 0.094f;
@@ -148,6 +157,10 @@ namespace AsteroidsGoneRogue
         public const int ShipPreviewSortOrder = 80;
         public const string ShipPreviewCanvasName = "ShipPreviewCanvas";
         public const string FirstHangarHintKey = "agr.ui.firstHangarHint";
+        public const string DoctrineHintKey = "agr.ui.doctrineHint";
+        public const string DoctrineHintTitle = "Doctrines";
+        public const string DoctrineHintBody =
+            "Doctrines are open. Pick Barrage, Lance, or Hunter.";
         public const string HangarControlsHint =
             "LT utility · LB cycle primary · RT fire  ·  A confirm  ·  Esc / Start abort";
         public const string MedalLadderPrefix = "MEDALS";
@@ -339,6 +352,7 @@ namespace AsteroidsGoneRogue
             RefreshRunSummary(playing);
             ApplyStatusText();
             RefreshDoctrinePicks();
+            RefreshDoctrineIntro();
 
             for (int i = 0; i < ShopCatalog.Items.Length; i++)
             {
@@ -1143,6 +1157,7 @@ namespace AsteroidsGoneRogue
         private void BuildFirstHangarHint(Font display, Font body)
         {
             _tutorialDismissed = PlayerPrefs.GetInt(FirstHangarHintKey, 0) == 1;
+            _doctrineIntroDismissed = PlayerPrefs.GetInt(DoctrineHintKey, 0) == 1;
             // First-flight card occupies the WAVE-CLEAR strip zone (not the shop grid).
             _tutorialRoot = UiTheme.BuildPanel(
                 "FirstHangarHint",
@@ -1192,6 +1207,67 @@ namespace AsteroidsGoneRogue
             {
                 AudioCues.Instance.PlayUiClick();
             }
+        }
+
+        private bool DoctrineIntroOpen()
+        {
+            return _session != null
+                && !_doctrineIntroDismissed
+                && (_session.Phase == GamePhase.Hangar || _session.Phase == GamePhase.WaveClear)
+                && DoctrineRules.HangarUnlocked(_session.WaveIndex);
+        }
+
+        private void RefreshDoctrineIntro()
+        {
+            bool open = DoctrineIntroOpen();
+            if (_doctrineIntro != null)
+            {
+                _doctrineIntro.SetActive(open);
+            }
+
+            if (_doctrineHint != null)
+            {
+                _doctrineHint.gameObject.SetActive(!open);
+            }
+
+            if (!open || _doctrineIntroBody == null)
+            {
+                return;
+            }
+
+            _doctrineIntroBody.text = Loc.T("ui.doctrine.hint_body", DoctrineHintBody);
+            if (_doctrineTitle != null)
+            {
+                _doctrineTitle.text = Loc.T("ui.doctrine.hint_title", DoctrineHintTitle);
+            }
+
+            if (_doctrineIntroGotIt != null)
+            {
+                _doctrineIntroGotIt.text = Loc.T("ui.got_it", "Got it");
+            }
+        }
+
+        private void OnDismissDoctrineIntroClicked()
+        {
+            DismissDoctrineIntro();
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+        }
+
+        private void DismissDoctrineIntro()
+        {
+            if (_doctrineIntroDismissed)
+            {
+                return;
+            }
+
+            _doctrineIntroDismissed = true;
+            PlayerPrefs.SetInt(DoctrineHintKey, 1);
+            PlayerPrefs.Save();
+            RefreshDoctrinePicks();
+            RefreshDoctrineIntro();
         }
 
         private void DismissFirstHangarHint()
@@ -2162,6 +2238,11 @@ namespace AsteroidsGoneRogue
                 return ButtonIfActive(_hunterButton);
             }
 
+            if (slot == HangarPadNav.DoctrineHintSlot)
+            {
+                return ButtonIfActive(_doctrineIntroButton);
+            }
+
             if (slot <= HangarPadNav.PrimarySlot)
             {
                 return _primary;
@@ -2264,6 +2345,11 @@ namespace AsteroidsGoneRogue
             if (_hunterButton != null && go == _hunterButton.gameObject)
             {
                 return HangarPadNav.HunterSlot;
+            }
+
+            if (_doctrineIntroButton != null && go == _doctrineIntroButton.gameObject)
+            {
+                return HangarPadNav.DoctrineHintSlot;
             }
 
             if (_buyButtons != null)
@@ -3000,25 +3086,25 @@ namespace AsteroidsGoneRogue
             _doctrineRoot = UiTheme.BuildPanel(
                 "DoctrineCard",
                 transform,
-                new Vector2(0.562f, 0.716f),
-                new Vector2(0.986f, 0.892f),
-                0.74f);
+                DoctrinePanelMin,
+                DoctrinePanelMax,
+                0.875f);
             _doctrineRoot.SetActive(false);
 
-            _doctrineTitle = CreateText("DoctrineTitle", _doctrineRoot.transform, display, UiTheme.HeaderMin, TextAnchor.MiddleLeft, FontStyle.Bold);
-            Stretch(_doctrineTitle.rectTransform, new Vector2(0.04f, 0.76f), new Vector2(0.96f, 0.97f));
+            _doctrineTitle = CreateText("DoctrineTitle", _doctrineRoot.transform, display, UiTheme.DoctrineBadge, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Stretch(_doctrineTitle.rectTransform, new Vector2(0.04f, 0.879f), new Vector2(0.96f, 0.983f));
             _doctrineTitle.color = UiTheme.Primary;
             ClampOneLine(_doctrineTitle);
 
-            _barrageButton = CreateButton("DoctrineBarrage", _doctrineRoot.transform, body, new Vector2(0.04f, 0.46f), new Vector2(0.34f, 0.74f));
-            _lanceButton = CreateButton("DoctrineLance", _doctrineRoot.transform, body, new Vector2(0.35f, 0.46f), new Vector2(0.65f, 0.74f));
-            _hunterButton = CreateButton("DoctrineHunter", _doctrineRoot.transform, body, new Vector2(0.66f, 0.46f), new Vector2(0.96f, 0.74f));
+            _barrageButton = CreateButton("DoctrineBarrage", _doctrineRoot.transform, body, new Vector2(0.008f, 0.414f), new Vector2(0.331f, 0.862f));
+            _lanceButton = CreateButton("DoctrineLance", _doctrineRoot.transform, body, new Vector2(0.339f, 0.414f), new Vector2(0.662f, 0.862f));
+            _hunterButton = CreateButton("DoctrineHunter", _doctrineRoot.transform, body, new Vector2(0.670f, 0.414f), new Vector2(0.993f, 0.862f));
             _barrageLabel = _barrageButton.GetComponentInChildren<Text>();
             _lanceLabel = _lanceButton.GetComponentInChildren<Text>();
             _hunterLabel = _hunterButton.GetComponentInChildren<Text>();
-            _barrageLabel.fontSize = UiTheme.BodyMin;
-            _lanceLabel.fontSize = UiTheme.BodyMin;
-            _hunterLabel.fontSize = UiTheme.BodyMin;
+            FitDoctrineLabel(_barrageLabel);
+            FitDoctrineLabel(_lanceLabel);
+            FitDoctrineLabel(_hunterLabel);
             _barrageButton.onClick.AddListener(() => OnPickDoctrine(DoctrineId.Barrage));
             _lanceButton.onClick.AddListener(() => OnPickDoctrine(DoctrineId.Lance));
             _hunterButton.onClick.AddListener(() => OnPickDoctrine(DoctrineId.Hunter));
@@ -3026,12 +3112,45 @@ namespace AsteroidsGoneRogue
             UiTheme.ApplyButton(_lanceButton, false, false, true);
             UiTheme.ApplyButton(_hunterButton, false, false, true);
 
-            _doctrineShopRow = CreateFill("DoctrineShopRow", _doctrineRoot.transform, UiTheme.InnerWash, new Vector2(0.04f, 0.20f), new Vector2(0.96f, 0.44f));
+            _doctrineShopRow = CreateFill("DoctrineShopRow", _doctrineRoot.transform, UiTheme.InnerWash, new Vector2(0.012f, 0.190f), new Vector2(0.988f, 0.397f));
             _doctrineHint = CreateText("DoctrineHint", _doctrineRoot.transform, body, UiTheme.BodyMin, TextAnchor.MiddleLeft, FontStyle.Bold);
-            Stretch(_doctrineHint.rectTransform, new Vector2(0.04f, 0.02f), new Vector2(0.96f, 0.18f));
+            Stretch(_doctrineHint.rectTransform, new Vector2(0.04f, 0.017f), new Vector2(0.96f, 0.172f));
             _doctrineHint.color = UiTheme.Secondary;
-            ClampOneLine(_doctrineHint);
+            _doctrineHint.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _doctrineHint.verticalOverflow = VerticalWrapMode.Truncate;
             _doctrineHint.text = Loc.T("ui.hint_dual", HintDual);
+
+            _doctrineIntro = CreateFill(
+                "DoctrineIntro",
+                _doctrineRoot.transform,
+                UiTheme.WithAlpha(UiTheme.Surface2, 0.92f),
+                new Vector2(0.012f, 0.017f),
+                new Vector2(0.988f, 0.172f));
+            _doctrineIntroBody = CreateText(
+                "DoctrineIntroBody",
+                _doctrineIntro.transform,
+                body,
+                UiTheme.BodyMin,
+                TextAnchor.MiddleLeft,
+                FontStyle.Bold);
+            Stretch(_doctrineIntroBody.rectTransform, new Vector2(0.03f, 0f), new Vector2(0.72f, 1f));
+            _doctrineIntroBody.color = UiTheme.Accent;
+            _doctrineIntroBody.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _doctrineIntroBody.verticalOverflow = VerticalWrapMode.Truncate;
+            _doctrineIntroBody.text = DoctrineHintBody;
+            _doctrineIntroButton = CreateButton(
+                "DoctrineIntroDismiss",
+                _doctrineIntro.transform,
+                body,
+                new Vector2(0.74f, 0.14f),
+                new Vector2(0.98f, 0.86f));
+            _doctrineIntroGotIt = _doctrineIntroButton.GetComponentInChildren<Text>();
+            _doctrineIntroGotIt.fontSize = UiTheme.BodyMin;
+            _doctrineIntroGotIt.text = "Got it";
+            ClampOneLine(_doctrineIntroGotIt);
+            _doctrineIntroButton.onClick.AddListener(OnDismissDoctrineIntroClicked);
+            UiTheme.ApplyButton(_doctrineIntroButton, true, false, false);
+            _doctrineIntro.SetActive(false);
 
             _doctrineBadge = CreateText("DoctrineBadge", transform, display, UiTheme.DoctrineBadge, TextAnchor.MiddleLeft, FontStyle.Bold);
             Stretch(_doctrineBadge.rectTransform, new Vector2(0.012f, 0.452f), new Vector2(0.30f, 0.540f));
@@ -3099,33 +3218,91 @@ namespace AsteroidsGoneRogue
             button.interactable = _session.ShopOpen && !chosen && !locked && !tooPoor;
             Image plate = button.targetGraphic as Image;
             UiTheme.PaintShopPlate(plate, label, chosen, locked, tooPoor);
-            string costLine;
-            if (chosen)
+            label.text = DoctrineLabel(id) + "\n" + DoctrineBlurb(id) + "\n" + DoctrineStatusLine(id, gate, cost, chosen, other, tooPoor);
+        }
+
+        private static void FitDoctrineLabel(Text label)
+        {
+            if (label == null)
             {
-                costLine = Loc.T("ui.owned", "OWNED") + UiTheme.OwnedCheck;
-            }
-            else if (other)
-            {
-                costLine = Loc.T("ui.doctrine.swap", "New Run to swap");
-            }
-            else if (!gate)
-            {
-                costLine = Loc.T("ui.locked", "LOCKED");
-            }
-            else if (tooPoor)
-            {
-                costLine = Loc.Tf("ui.need_cr", "need {0} cr", cost);
-            }
-            else if (cost > 0)
-            {
-                costLine = Loc.Tf("ui.cost_cr", "{0} cr", cost);
-            }
-            else
-            {
-                costLine = Loc.T("ui.doctrine.pick", "Choose");
+                return;
             }
 
-            label.text = DoctrineLabel(id) + "\n" + costLine;
+            label.fontSize = UiTheme.BodyMin;
+            label.alignment = TextAnchor.UpperCenter;
+            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+            label.verticalOverflow = VerticalWrapMode.Truncate;
+            Stretch(label.rectTransform, new Vector2(0.02f, 0.05f), new Vector2(0.98f, 0.95f));
+        }
+
+        private static string DoctrineBlurb(DoctrineId id)
+        {
+            switch (id)
+            {
+                case DoctrineId.Barrage:
+                    return Loc.T("ui.doctrine.path.barrage", "Wide shots\nSpread>Flak>Storm");
+                case DoctrineId.Lance:
+                    return Loc.T("ui.doctrine.path.lance", "Heavy line\nTwin>Rail>Lance");
+                case DoctrineId.Hunter:
+                    return Loc.T("ui.doctrine.path.hunter", "Homing\nSeek>Cadence>Twin");
+                default:
+                    return string.Empty;
+            }
+        }
+
+        private static string DoctrineStatusLine(
+            DoctrineId id,
+            bool gate,
+            int cost,
+            bool chosen,
+            bool other,
+            bool tooPoor)
+        {
+            if (chosen)
+            {
+                return Loc.T("ui.owned", "OWNED") + UiTheme.OwnedCheck;
+            }
+
+            if (other)
+            {
+                return Loc.T("ui.doctrine.swap", "New Run to swap");
+            }
+
+            if (!gate)
+            {
+                return DoctrineGateNeed(id);
+            }
+
+            if (tooPoor)
+            {
+                return Loc.Tf("ui.need_cr", "need {0} cr", cost);
+            }
+
+            if (cost > 0)
+            {
+                return Loc.Tf("ui.cost_cr", "{0} cr", cost);
+            }
+
+            return Loc.T("ui.doctrine.pick", "Choose");
+        }
+
+        private static string DoctrineGateNeed(DoctrineId id)
+        {
+            switch (id)
+            {
+                case DoctrineId.Barrage:
+                    return Loc.Tf("ui.doctrine.need", "Needs {0}", Loc.T("up.Spread", "Spread"));
+                case DoctrineId.Lance:
+                    return Loc.Tf(
+                        "ui.doctrine.need_either",
+                        "Needs {0}/{1}",
+                        Loc.T("up.Pierce", "Pierce"),
+                        Loc.T("up.Twin", "Twin"));
+                case DoctrineId.Hunter:
+                    return Loc.Tf("ui.doctrine.need", "Needs {0}", Loc.T("up.Seeker", "Seeker"));
+                default:
+                    return Loc.T("ui.doctrine.none", "—");
+            }
         }
 
         private static string DoctrineLabel(DoctrineId id)

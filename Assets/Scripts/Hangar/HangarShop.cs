@@ -88,6 +88,7 @@ namespace AsteroidsGoneRogue
                 AudioCues.Instance.PlayDoctrinePick();
             }
 
+            _game.NotifyDoctrinePicked(id);
             _game.NotifyLoadoutChanged();
             return true;
         }

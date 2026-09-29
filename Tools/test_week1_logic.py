@@ -2685,7 +2685,7 @@ def test_difficulty_economy_043() -> None:
     assert "HangarPanelMin" in ui and "ShipPreviewMin" in ui
     assert "0.014f, 0.080f" in ui and "0.55f, 0.888f" in ui
     assert "0.014f, 0.035f" not in ui and "0.55f, 0.725f" not in ui
-    assert "0.562f, 0.080f" in ui and "0.986f, 0.708f" in ui
+    assert "0.562f, 0.080f" in ui and "0.986f, 0.596f" in ui
     assert "0.575f, 0.725f" not in ui
     assert "0.590f, 0.085f" not in ui
     assert "0.658f, 0.725f" not in ui
@@ -3364,7 +3364,7 @@ def test_hangar_wave_clear_layout() -> None:
     assert "HangarPanelMin = new Vector2(0.014f, 0.080f)" in ui
     assert "HangarPanelMax = new Vector2(0.55f, 0.888f)" in ui
     assert "ShipPreviewMin = new Vector2(0.562f, 0.080f)" in ui
-    assert "ShipPreviewMax = new Vector2(0.986f, 0.708f)" in ui
+    assert "ShipPreviewMax = new Vector2(0.986f, 0.596f)" in ui
     assert "ShopGridTop = 0.665f" in ui
     assert "ShopCellHeight = 0.094f" in ui
     assert "ShopCellGutter = 0.016f" in ui
@@ -3374,13 +3374,19 @@ def test_hangar_wave_clear_layout() -> None:
 
     top_bar = (0.012, 0.905, 0.988, 0.995)
     hangar_panel = (0.014, 0.080, 0.55, 0.888)
-    preview = (0.562, 0.080, 0.986, 0.708)
+    preview = (0.562, 0.080, 0.986, 0.596)
+    doctrine = (0.562, 0.608, 0.986, 0.898)
     hint = (0.14, 0.008, 0.86, 0.072)
     credits_btn = (0.014, 0.010, 0.128, 0.070)
     audio = (0.735, 0.905, 0.988, 0.995)
     lang = (0.635, 0.905, 0.728, 0.995)
     diff = (0.478, 0.905, 0.628, 0.995)
     assert not _overlap(top_bar, hangar_panel)
+    assert not _overlap(preview, doctrine)
+    assert not _overlap(doctrine, top_bar)
+    assert not _overlap(doctrine, hangar_panel)
+    assert doctrine[1] > preview[3]
+    assert doctrine[3] < top_bar[1]
     assert not _overlap(hint, hangar_panel)
     assert not _overlap(credits_btn, hangar_panel)
     assert not _overlap(audio, hangar_panel)
@@ -3514,9 +3520,9 @@ def test_doctrine_rail_045() -> None:
     lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
 
     assert "UnlockWave = 2" in rules
-    assert "BarrageGateCost = 90" in rules
-    assert "LanceGateCost = 90" in rules
-    assert "HunterGateCost = 90" in rules
+    assert "BarrageGateCost = 55" in rules
+    assert "LanceGateCost = 25" in rules
+    assert "HunterGateCost = 40" in rules
     assert "OffPathMul = 1.35f" in rules
     assert "FlakFeedCooldownMul = 0.85f" in rules
     assert "FlakFeedHalfAngleBonus = 4f" in rules
@@ -3654,6 +3660,82 @@ def test_doctrine_rail_045() -> None:
     assert "ach.storm" in loc and "ach.overcharge" in loc and "ach.twinseek" in loc
     assert "TryUnlockCapstones" in manager and "ShouldUnlockCapstone" in ach
     assert "AnnounceAchievement" in ui
+    assert "ShouldUnlockDoctrine" in ach and "ShouldUnlockRailCharge" in ach
+    assert "NotifyDoctrinePicked" in manager and "AchievementId.Doctrine" in manager
+    assert "NotifyRailCharged" in manager and "AchievementId.RailCharge" in manager
+    assert "NotifyDoctrinePicked" in hangar
+    release_branch = shooter.split("heldFor + 0.0001f >= DoctrineRules.RailHoldSeconds")[1].split("return;")[0]
+    assert "NotifyRailCharged(heldFor)" in release_branch
+    cancel = shooter.split("public void CancelCharge()")[1].split("public void ")[0]
+    assert "NotifyRailCharged" not in cancel
+    assert "ui.doctrine.path.barrage" in ui and "ui.doctrine.path.lance" in ui and "ui.doctrine.path.hunter" in ui
+    assert "ui.doctrine.need" in ui and "ui.doctrine.need_either" in ui
+    assert "ui.doctrine.hint_title" in ui and "ui.doctrine.hint_body" in ui
+    assert "DoctrineHintKey" in ui and "DismissDoctrineIntro" in ui
+    assert "Wide shots" in ui and "Breda skott" in loc
+    assert "Needs {0}" in ui and "Behöver {0}" in loc
+    assert "New Run to swap" in ui
+    gate_need = ui.split("private static string DoctrineGateNeed")[1].split("private static string DoctrineLabel")[0]
+    assert "ui.locked" not in gate_need
+    assert "DoctrinePanelMin" in ui and "0.562f, 0.608f" in ui and "0.986f, 0.898f" in ui
+
+
+def _cs_int(src: str, name: str) -> int:
+    import re
+
+    match = re.search(rf"{name}\s*=\s*(-?\d+)", src)
+    assert match, name
+    return int(match.group(1))
+
+
+def _shop_cost(catalog: str, upgrade_id: str) -> int:
+    block = catalog.split(f"UpgradeId.{upgrade_id}")[1].split("new ShopItem")[0]
+    for line in block.splitlines():
+        token = line.strip().rstrip(",")
+        if token.isdigit():
+            return int(token)
+    raise AssertionError(f"missing cost for {upgrade_id}")
+
+
+def test_doctrine_w1_affordability() -> None:
+    """Regression: all three doctrines fit a Normal wave-1 clear, and none fit Hard.
+
+    Credits are the flat wave-clear purse (kills do not pay credits). A doctrine
+    costs its gate weapon plus the entry pick. Lance's cheaper legal gate is Twin.
+    """
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    rules = (root / "Assets/Scripts/Core/DoctrineRules.cs").read_text(encoding="utf-8")
+    settings = (root / "Assets/Scripts/Core/DifficultySettings.cs").read_text(encoding="utf-8")
+    catalog = (root / "Assets/Scripts/Core/ShopCatalog.cs").read_text(encoding="utf-8")
+
+    normal = _cs_int(settings, "NormalWaveClearCredits")
+    hard = _cs_int(settings, "HardWaveClearCredits")
+    assert normal == 165
+    assert hard == 140
+    assert "OffPathMul = 1.35f" in rules
+
+    spread = _shop_cost(catalog, "SpreadBolt")
+    seeker = _shop_cost(catalog, "Seeker")
+    twin = _shop_cost(catalog, "TwinGuns")
+    pierce = _shop_cost(catalog, "Pierce")
+    barrage_gate = _cs_int(rules, "BarrageGateCost")
+    lance_gate = _cs_int(rules, "LanceGateCost")
+    hunter_gate = _cs_int(rules, "HunterGateCost")
+    assert spread == 110 and seeker == 125 and twin == 140 and pierce == 155
+
+    barrage = spread + barrage_gate
+    hunter = seeker + hunter_gate
+    lance_twin = twin + lance_gate
+    lance_pierce = pierce + lance_gate
+    # Minimal entry costs: each cheapest path lands on the Normal purse exactly.
+    assert barrage == normal
+    assert hunter == normal
+    assert lance_twin == normal
+    assert lance_pierce > normal
+    # Hard wave-1 purse cannot buy any of the three doctrines.
+    assert barrage > hard and hunter > hard and lance_twin > hard
 
 
 def test_hotfix_045_rail_cancel_and_duck_merge() -> None:
@@ -3734,6 +3816,7 @@ def main() -> int:
     test_hangar_wave_clear_layout()
     test_dual_fire_v1()
     test_doctrine_rail_045()
+    test_doctrine_w1_affordability()
     test_hotfix_045_rail_cancel_and_duck_merge()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0

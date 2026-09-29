@@ -162,6 +162,19 @@ namespace AsteroidsGoneRogue
             return owned && DoctrineRules.IsCapstone(id);
         }
 
+        public static bool ShouldUnlockDoctrine(DoctrineId id)
+        {
+            return id != DoctrineId.None;
+        }
+
+        /// <summary>
+        /// Rail Charge awards on a fully charged release, not a short tap or cancel.
+        /// </summary>
+        public static bool ShouldUnlockRailCharge(float heldSeconds)
+        {
+            return heldSeconds + 0.0001f >= DoctrineRules.RailHoldSeconds;
+        }
+
         public static bool TryCapstoneAchievement(UpgradeId id, out AchievementId achievement)
         {
             switch (id)
