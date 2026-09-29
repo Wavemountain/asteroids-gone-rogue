@@ -3397,7 +3397,7 @@ def test_hangar_wave_clear_layout() -> None:
     assert hint[3] < hangar_panel[1]
 
     strip = (0.02, 0.82, 0.98, 0.995)
-    cta = (0.03, 0.735, 0.97, 0.805)
+    cta = (0.03, 0.735, 0.97, 0.800)
     headers = (0.02, 0.675, 0.98, 0.728)
     status = (0.03, 0.016, 0.97, 0.088)
     assert not _overlap(strip, cta)
@@ -3406,7 +3406,7 @@ def test_hangar_wave_clear_layout() -> None:
     assert headers[3] < cta[1]
     assert status[3] < 0.665 - 5 * (0.094 + 0.016) + 0.016 + 0.02
 
-    assert "new Vector2(0.03f, 0.735f)" in ui and "new Vector2(0.97f, 0.805f)" in ui
+    assert "new Vector2(0.03f, 0.735f)" in ui and "new Vector2(0.97f, 0.800f)" in ui
     assert "ClampOneLine" in ui
     assert '_statusBase = Loc.T("ui.hangar_controls"' not in ui
     assert "_hud.gameObject.SetActive(playing)" in ui
@@ -3772,6 +3772,187 @@ def test_hotfix_045_rail_cancel_and_duck_merge() -> None:
     assert re.search(r"_duckUntil\s*=\s*Mathf\.Max\(_duckUntil,\s*now\s*\+\s*duration\)", duck)
 
 
+def _map_anchors(px0, py0, px1, py1, cx0, cy0, cx1, cy1):
+    width = px1 - px0
+    height = py1 - py0
+    return (
+        px0 + cx0 * width,
+        py0 + cy0 * height,
+        px0 + cx1 * width,
+        py0 + cy1 * height,
+    )
+
+
+def _pad_force_primary(selectable):
+    mask = list(selectable)
+    if mask:
+        mask[0] = True
+    return mask
+
+
+def _pad_resolve_fallback(slot, selectable):
+    if not selectable:
+        return 0
+    if 0 <= slot < len(selectable) and selectable[slot]:
+        return slot
+    return 0
+
+
+def _pad_step_selectable(slot, dx, dy, selectable, step_fn):
+    """Mirrors HangarPadNav.StepSelectable. Invalid focus snaps to slot 0 and does not step."""
+    mask = _pad_force_primary(selectable)
+    current_ok = 0 <= slot < len(mask) and mask[slot]
+    origin = slot if current_ok else 0
+    if not current_ok or (dx == 0 and dy == 0):
+        return origin
+    count = len(mask)
+    candidate = step_fn(origin, dx, dy)
+    guard = 0
+    while guard < count:
+        if 0 <= candidate < count and mask[candidate]:
+            return candidate
+        stepped = step_fn(candidate, dx, dy)
+        if stepped == candidate:
+            return 0
+        candidate = stepped
+        guard += 1
+    return 0
+
+
+def _card_is_action(shop_open, chosen, other_path, gate_met, too_poor):
+    if not shop_open or chosen or other_path or not gate_met or too_poor:
+        return False
+    return True
+
+
+def _primary_restarts(phase):
+    return phase in ("Failed", "CampaignClear")
+
+
+def test_hangar_next_wave_always_selectable() -> None:
+    """Next Wave stays on the pad list, wins invalid focus, and is not covered or restarted by mistake."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    padnav = (root / "Assets/Scripts/Core/HangarPadNav.cs").read_text(encoding="utf-8")
+    rules = (root / "Assets/Scripts/Core/DoctrineRules.cs").read_text(encoding="utf-8")
+    session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+
+    assert "NavIncludesPrimary" in padnav
+    assert "ResolveFallback" in padnav and "StepSelectable" in padnav
+    assert "ForcePrimarySelectable" in padnav
+    assert "LockedShopFallsBackToPrimary" in padnav
+    assert "NextWaveScreenClear" in padnav
+    assert "cy = 5 + (doctrine / 3)" in padnav
+    assert "HangarPadNav.StepSelectable" in ui
+    assert "FocusPrimaryIfSelectionInvalid" in ui
+    assert "SelectionNeedsPrimaryFallback" in ui
+    assert "EnsurePrimaryClickable" in ui
+
+    escape = ui.split("private void OnHangarEscape()")[1].split("private void")[0]
+    assert "OnPrimary" not in escape
+    assert "PrimarySlot" in escape
+    back = ui.split("private void OnHangarBack()")[1].split("private void")[0]
+    assert "OnPrimary" not in back
+    assert "DismissHangarHints" in back
+    start = ui.split("private void OnHangarStart()")[1].split("private void")[0]
+    assert "OnPrimary()" in start
+    update = ui.split("private void Update()")[1].split("private void PulseHangarLaunch")[0]
+    assert "OnHangarEscape()" in update
+    assert "OnHangarStart()" in update
+    assert "OnHangarBack()" in update
+
+    default_btn = ui.split("private Button DefaultHangarButton()")[1].split("private void")[0]
+    assert "_gotItButton" not in default_btn
+    slot_ok = ui.split("private bool SlotIsSelectable")[1].split("private void")[0]
+    assert "GotItSlot" in slot_ok and "DoctrineHintSlot" in slot_ok
+
+    pick = ui.split("private void OnPickDoctrine")[1].split("private void RefreshDoctrinePicks")[0]
+    assert "CardIsAction" in pick
+    assert "StartWave" not in pick
+    assert "ResetRun" not in pick
+    assert "ResetFullRun" not in pick
+    paint = ui.split("private void PaintDoctrineButton")[1].split("private static void FitDoctrineLabel")[0]
+    assert "raycastTarget = action" in paint
+    assert "New Run to swap" in ui
+    assert "CardIsAction" in rules
+
+    start_wave = manager.split("public void StartWave()")[1].split("public void ContinueFromResults")[0]
+    assert "PrimaryRestartsRun" in start_wave
+    assert "Lives <= 0" not in start_wave
+    assert "PrimaryRestartsRun" in session
+    assert 'Loc.T("ui.next_wave", "Next Wave")' in ui
+    assert 'Loc.T("ui.new_run", "New Run")' in ui
+    assert "B / Esc Next Wave" in ui
+    assert "B / Esc nästa våg" in loc
+
+    # Invalid / fully locked shop snaps to Next Wave and does not consume the stick step.
+    calls = {"n": 0}
+
+    def exploding_step(_slot, _dx, _dy):
+        calls["n"] += 1
+        return 99
+
+    locked = [False] * 36
+    assert _pad_resolve_fallback(12, locked) == 0
+    assert _pad_resolve_fallback(-1, locked) == 0
+    assert _pad_step_selectable(12, 0, -1, locked, exploding_step) == 0
+    assert calls["n"] == 0
+    assert 0 in range(36)
+
+    def neighbor(_slot, _dx, _dy):
+        return 4
+
+    mixed = [False] * 36
+    mixed[4] = True
+    assert _pad_step_selectable(0, 0, 1, mixed, neighbor) == 4
+
+    def stall(_slot, _dx, _dy):
+        return 3
+
+    assert _pad_step_selectable(0, 1, 0, [True, False, False, False], stall) == 0
+
+    # B / Esc focuses Next Wave in one press from any row. Start launches that control.
+    assert "FocusHangarSlot(HangarPadNav.PrimarySlot)" in escape
+    assert "FocusHangarSlot(HangarPadNav.PrimarySlot)" in back
+
+    assert _card_is_action(True, False, True, True, False) is False
+    assert _card_is_action(True, False, False, True, False) is True
+    assert _card_is_action(True, False, False, False, False) is False
+    assert _card_is_action(True, True, False, True, False) is False
+    assert _card_is_action(False, False, False, True, False) is False
+    assert _primary_restarts("WaveClear") is False
+    assert _primary_restarts("Hangar") is False
+    assert _primary_restarts("Playing") is False
+    assert _primary_restarts("Failed") is True
+    assert _primary_restarts("CampaignClear") is True
+
+    wave = _map_anchors(0.014, 0.080, 0.55, 0.888, 0.03, 0.735, 0.97, 0.800)
+    strip = _map_anchors(0.014, 0.080, 0.55, 0.888, 0.02, 0.82, 0.98, 0.995)
+    headers = _map_anchors(0.014, 0.080, 0.55, 0.888, 0.02, 0.675, 0.98, 0.728)
+    blockers = (
+        strip,
+        headers,
+        (0.018, 0.730, 0.545, 0.888),
+        (0.562, 0.608, 0.986, 0.898),
+        (0.562, 0.080, 0.986, 0.596),
+        (0.012, 0.905, 0.988, 0.995),
+    )
+    for blocker in blockers:
+        assert not _overlap(wave, blocker)
+    assert wave[3] <= 0.730
+    assert wave[1] >= 0.080
+
+    for width, height in ((1280, 800), (1920, 1080), (1366, 768), (1440, 900), (2560, 1080), (3440, 1440)):
+        wave_px = (wave[0] * width, wave[1] * height, wave[2] * width, wave[3] * height)
+        for blocker in blockers:
+            block_px = (blocker[0] * width, blocker[1] * height, blocker[2] * width, blocker[3] * height)
+            assert not _overlap(wave_px, block_px), (width, height, block_px)
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -3818,6 +3999,7 @@ def main() -> int:
     test_doctrine_rail_045()
     test_doctrine_w1_affordability()
     test_hotfix_045_rail_cancel_and_duck_merge()
+    test_hangar_next_wave_always_selectable()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

@@ -50,7 +50,7 @@ namespace AsteroidsGoneRogue
             { "ui.credits_line", "Kredit: {0}" },
             { "ui.hint_play", "WASD / LS styr  ·  Mus / RS sikte  ·  VMB / Mellanslag / RT skjut  ·  E / HMB / LT utility  ·  Q / LB cykla primary  ·  Esc / Start avbryt" },
             { "ui.hint_hangar", "WASD / LS styr  ·  Mus / RS sikte  ·  VMB / Mellanslag / RT skjut  ·  {0}" },
-            { "ui.hangar_controls", "LT utility · LB cykla primary · RT skjut  ·  A bekräfta  ·  Esc / Start avbryt" },
+            { "ui.hangar_controls", "LT utility · LB cykla primary · RT skjut  ·  A bekräfta  ·  B / Esc nästa våg  ·  Start startar" },
             { "ui.hangar_hint_body", "LS / WASD flyg  ·  RT / VMB skjut  ·  LT / E utility\nStarta våg (A)  ·  Avbryt (Esc) / Start\nRensa en våg för kredit och uppgraderingar.\nMedaljstege (uppe till vänster): ★ Spejarvinge på våg 3." },
             { "ui.first_wave_coach", "Skjut stenar  ·  Avbryt (Start) om en flyger bort" },
             { "ui.hangar_clear_wave", "Hangar  ·  Rensa en våg för kredit och uppgraderingar." },

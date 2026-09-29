@@ -58,6 +58,20 @@ namespace AsteroidsGoneRogue
             return waveIndex >= UnlockWave;
         }
 
+        /// <summary>
+        /// A doctrine card is an action only when it can actually be picked.
+        /// "New Run to swap", gate text, owned, and too-poor are lock reasons, not buttons.
+        /// </summary>
+        public static bool CardIsAction(bool shopOpen, bool chosen, bool otherPath, bool gateMet, bool tooPoor)
+        {
+            if (!shopOpen || chosen || otherPath || !gateMet || tooPoor)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         public static bool IsCapstone(UpgradeId id)
         {
             return id == UpgradeId.Storm
