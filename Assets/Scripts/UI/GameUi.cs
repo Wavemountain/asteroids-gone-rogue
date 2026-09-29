@@ -789,9 +789,9 @@ namespace AsteroidsGoneRogue
             if (group == ShopGroup.Doctrine)
             {
                 int doctrineCol = doctrineIndex % 2;
-                float x0 = 0.04f + doctrineCol * 0.48f;
-                min = new Vector2(x0, 0.08f);
-                max = new Vector2(x0 + 0.44f, 0.92f);
+                float dx0 = 0.04f + doctrineCol * 0.48f;
+                min = new Vector2(dx0, 0.08f);
+                max = new Vector2(dx0 + 0.44f, 0.92f);
                 doctrineIndex++;
                 return;
             }

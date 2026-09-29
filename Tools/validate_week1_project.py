@@ -143,6 +143,1147 @@ def is_lfs_pointer(path: Path) -> bool:
     return head.startswith(LFS_POINTER_PREFIX)
 
 
+# Unity's C# compiler (CS0136) rejects a local in a nested block when the same
+# name is declared anywhere in an enclosing block of that method — including
+# textually later. CS0128 is the same name twice in one block. Sibling blocks
+# may reuse a name. This is a heuristic scanner, not a full C# parser.
+_CS_MODIFIERS = frozenset(
+    {
+        "public",
+        "private",
+        "protected",
+        "internal",
+        "static",
+        "sealed",
+        "override",
+        "virtual",
+        "abstract",
+        "async",
+        "new",
+        "partial",
+        "readonly",
+        "volatile",
+        "extern",
+        "unsafe",
+        "required",
+        "file",
+        "ref",
+    }
+)
+_CS_NON_TYPE = frozenset(
+    {
+        "if",
+        "else",
+        "for",
+        "foreach",
+        "while",
+        "do",
+        "switch",
+        "case",
+        "default",
+        "try",
+        "catch",
+        "finally",
+        "lock",
+        "using",
+        "return",
+        "throw",
+        "break",
+        "continue",
+        "goto",
+        "new",
+        "sizeof",
+        "typeof",
+        "checked",
+        "unchecked",
+        "fixed",
+        "unsafe",
+        "const",
+        "out",
+        "ref",
+        "in",
+        "params",
+        "this",
+        "base",
+        "null",
+        "true",
+        "false",
+        "get",
+        "set",
+        "add",
+        "remove",
+        "init",
+        "class",
+        "struct",
+        "enum",
+        "interface",
+        "namespace",
+        "operator",
+        "event",
+        "public",
+        "private",
+        "protected",
+        "internal",
+        "static",
+        "sealed",
+        "override",
+        "virtual",
+        "abstract",
+        "async",
+        "partial",
+        "readonly",
+        "volatile",
+        "extern",
+        "yield",
+        "when",
+        "where",
+        "nameof",
+        "delegate",
+        "implicit",
+        "explicit",
+        "await",
+        "is",
+        "as",
+        "and",
+        "or",
+        "not",
+        "with",
+        "record",
+        "stackalloc",
+        "file",
+        "required",
+    }
+)
+_CS_ACCESSOR = frozenset({"get", "set", "init", "add", "remove"})
+_CS_TOKEN = re.compile(
+    r"@?[A-Za-z_][A-Za-z0-9_]*"
+    r"|==|!=|<=|>=|\+\+|--|&&|\|\||=>|\+=|-=|\*=|/=|%=|\?\?|\?\."
+    r"|0[xX][0-9A-Fa-f]+"
+    r"|\d+\.\d+[fFdDmM]?|\d+[fFdDlLuU]*"
+    r"|[{}()\[\];,.=<>+\-*/%&|^!~?:]"
+)
+
+
+def _strip_cs_preserve_lines(source: str) -> str:
+    """Replace comments, strings, and preprocessor lines with spaces. Keep newlines."""
+    out: list[str] = []
+    i = 0
+    n = len(source)
+    while i < n:
+        c = source[i]
+        nxt = source[i + 1] if i + 1 < n else ""
+        if c == "/" and nxt == "/":
+            while i < n and source[i] != "\n":
+                out.append(" ")
+                i += 1
+            continue
+        if c == "/" and nxt == "*":
+            out.append(" ")
+            out.append(" ")
+            i += 2
+            while i < n and not (source[i] == "*" and i + 1 < n and source[i + 1] == "/"):
+                out.append("\n" if source[i] == "\n" else " ")
+                i += 1
+            if i < n:
+                out.append(" ")
+                out.append(" ")
+                i += 2
+            continue
+        if c == '"':
+            out.append(" ")
+            i += 1
+            while i < n and source[i] != '"':
+                if source[i] == "\\" and i + 1 < n:
+                    out.append(" ")
+                    out.append("\n" if source[i + 1] == "\n" else " ")
+                    i += 2
+                    continue
+                out.append("\n" if source[i] == "\n" else " ")
+                i += 1
+            if i < n:
+                out.append(" ")
+                i += 1
+            continue
+        if c == "'":
+            out.append(" ")
+            i += 1
+            while i < n and source[i] != "'":
+                if source[i] == "\\" and i + 1 < n:
+                    out.append(" ")
+                    out.append(" ")
+                    i += 2
+                    continue
+                out.append("\n" if source[i] == "\n" else " ")
+                i += 1
+            if i < n:
+                out.append(" ")
+                i += 1
+            continue
+        out.append(c)
+        i += 1
+    text = "".join(out)
+    lines = text.split("\n")
+    blanked = [" " * len(line) if line.lstrip().startswith("#") else line for line in lines]
+    return "\n".join(blanked)
+
+
+def _tokenize_cs(source: str) -> list[tuple[str, int]]:
+    tokens: list[tuple[str, int]] = []
+    i = 0
+    line = 1
+    n = len(source)
+    while i < n:
+        ch = source[i]
+        if ch.isspace():
+            if ch == "\n":
+                line += 1
+            i += 1
+            continue
+        match = _CS_TOKEN.match(source, i)
+        if not match:
+            i += 1
+            continue
+        tokens.append((match.group(0), line))
+        i = match.end()
+    return tokens
+
+
+class _CsScope:
+    def __init__(self, parent: "_CsScope | None", method: str) -> None:
+        self.parent = parent
+        self.method = method
+        self.locals: list[tuple[str, int]] = []
+        self.children: list[_CsScope] = []
+
+    def add(self, name: str, line: int) -> None:
+        if name and name != "_":
+            self.locals.append((name, line))
+
+
+class _CsShadowScanner:
+    """Per-method local declaration spaces for CS0136 / CS0128."""
+
+    def __init__(self, tokens: list[tuple[str, int]]) -> None:
+        self.toks = tokens
+        self.i = 0
+        self.roots: list[_CsScope] = []
+        self.warnings: list[str] = []
+
+    def peek(self, k: int = 0) -> str:
+        j = self.i + k
+        if j < 0 or j >= len(self.toks):
+            return ""
+        return self.toks[j][0]
+
+    def line(self, k: int = 0) -> int:
+        j = self.i + k
+        if j < 0 or j >= len(self.toks):
+            return 1
+        return self.toks[j][1]
+
+    def eof(self) -> bool:
+        return self.i >= len(self.toks)
+
+    def check(self, text: str) -> bool:
+        return self.peek() == text
+
+    def advance(self) -> str:
+        if self.eof():
+            return ""
+        text = self.peek()
+        self.i += 1
+        return text
+
+    def expect(self, text: str) -> bool:
+        if self.check(text):
+            self.advance()
+            return True
+        self.warnings.append(f"line {self.line()}: expected {text!r} but found {self.peek()!r}")
+        return False
+
+    def is_ident(self, k: int = 0) -> bool:
+        text = self.peek(k)
+        if not text:
+            return False
+        if text[0] == "@":
+            text = text[1:]
+        return bool(text) and (text[0].isalpha() or text[0] == "_")
+
+    def ident_text(self, raw: str | None = None) -> str:
+        text = self.peek() if raw is None else raw
+        return text[1:] if text.startswith("@") else text
+
+    def can_start_type(self, k: int = 0) -> bool:
+        if not self.is_ident(k):
+            return False
+        return self.ident_text(self.peek(k)) not in _CS_NON_TYPE
+
+    def skip_modifiers(self) -> None:
+        while self.ident_text(self.peek()) in _CS_MODIFIERS:
+            self.advance()
+
+    def skip_attributes(self) -> None:
+        while self.check("["):
+            depth = 0
+            while not self.eof():
+                if self.check("["):
+                    depth += 1
+                elif self.check("]"):
+                    depth -= 1
+                    self.advance()
+                    if depth == 0:
+                        break
+                    continue
+                self.advance()
+
+    def skip_balanced(self, open_tok: str, close_tok: str) -> None:
+        if not self.expect(open_tok):
+            return
+        depth = 1
+        while not self.eof() and depth:
+            if self.check(open_tok):
+                depth += 1
+            elif self.check(close_tok):
+                depth -= 1
+            self.advance()
+
+    def skip_generic_args(self) -> None:
+        if not self.expect("<"):
+            return
+        depth = 1
+        while not self.eof() and depth:
+            if self.check("<"):
+                depth += 1
+            elif self.check(">"):
+                depth -= 1
+            self.advance()
+
+    def is_array_rank(self) -> bool:
+        if not self.check("["):
+            return False
+        j = 1
+        while self.peek(j) == ",":
+            j += 1
+        return self.peek(j) == "]"
+
+    def consume_array_rank(self) -> None:
+        self.advance()  # [
+        while self.check(","):
+            self.advance()
+        self.expect("]")
+
+    def parse_type(self) -> bool:
+        if not self.can_start_type():
+            return False
+        self.advance()
+        while self.check("."):
+            if not self.is_ident(1):
+                break
+            self.advance()
+            self.advance()
+        if self.check("<"):
+            self.skip_generic_args()
+        while True:
+            if self.check("?"):
+                self.advance()
+                continue
+            if self.is_array_rank():
+                self.consume_array_rank()
+                continue
+            break
+        return True
+
+    def generic_end(self) -> int | None:
+        """Index just past a type-argument list, or None when `<` is a comparison."""
+        if not self.check("<"):
+            return None
+        j = self.i + 1
+        depth = 1
+        n = len(self.toks)
+        allowed = {",", ".", "?", "[", "]"}
+        while j < n and depth > 0:
+            text = self.toks[j][0]
+            bare = text[1:] if text.startswith("@") else text
+            if text == "<":
+                depth += 1
+            elif text == ">":
+                depth -= 1
+            elif text in allowed or bare[:1].isalpha() or bare[:1] == "_":
+                pass
+            else:
+                return None
+            j += 1
+        if depth == 0:
+            return j
+        return None
+
+    def _stop_expr(self, paren: int, brack: int, brace: int, stop_comma: bool, stop_colon: bool) -> bool:
+        if paren or brack or brace:
+            return False
+        text = self.peek()
+        if text in {";", ")", "]", "}"}:
+            return True
+        if stop_comma and text == ",":
+            return True
+        if stop_colon and text == ":":
+            return True
+        return False
+
+    def skip_expression(self, scope: _CsScope | None, stop_comma: bool = False, stop_colon: bool = False) -> None:
+        paren = brack = brace = 0
+        while not self.eof():
+            start = self.i
+            if paren == brack == brace == 0 and self._at_lambda():
+                self.parse_lambda(scope)
+                if self.i == start:
+                    self.advance()
+                continue
+            if self.check("out") and self.try_inline_out(scope):
+                continue
+            if self.check("is") and self.try_is_pattern(scope):
+                continue
+            if self._stop_expr(paren, brack, brace, stop_comma, stop_colon):
+                return
+            if self.check("<"):
+                end = self.generic_end()
+                if end is not None:
+                    self.i = end
+                    continue
+            text = self.peek()
+            if text == "(":
+                paren += 1
+            elif text == ")":
+                if paren == 0:
+                    return
+                paren -= 1
+            elif text == "[":
+                brack += 1
+            elif text == "]":
+                if brack == 0:
+                    return
+                brack -= 1
+            elif text == "{":
+                brace += 1
+            elif text == "}":
+                if brace == 0:
+                    return
+                brace -= 1
+            self.advance()
+            if self.i == start:
+                self.advance()
+
+    def _at_lambda(self) -> bool:
+        if self.is_ident() and self.ident_text() not in _CS_NON_TYPE and self.peek(1) == "=>":
+            return True
+        if not self.check("("):
+            return False
+        depth = 0
+        j = self.i
+        n = len(self.toks)
+        while j < n:
+            text = self.toks[j][0]
+            if text == "(":
+                depth += 1
+            elif text == ")":
+                depth -= 1
+                if depth == 0:
+                    return j + 1 < n and self.toks[j + 1][0] == "=>"
+            j += 1
+        return False
+
+    def parse_lambda(self, scope: _CsScope | None) -> None:
+        method = scope.method if scope is not None else "<lambda>"
+        lam = _CsScope(scope, method)
+        if scope is not None:
+            scope.children.append(lam)
+        else:
+            self.roots.append(lam)
+        if self.check("("):
+            self.advance()
+            if not self.check(")"):
+                while not self.eof() and not self.check(")"):
+                    if self._looks_like_typed_param():
+                        self.parse_type()
+                    if self.is_ident():
+                        lam.add(self.ident_text(), self.line())
+                        self.advance()
+                    if self.check(","):
+                        self.advance()
+                        continue
+                    break
+            self.expect(")")
+        elif self.is_ident():
+            lam.add(self.ident_text(), self.line())
+            self.advance()
+        self.expect("=>")
+        if self.check("{"):
+            body = _CsScope(lam, method)
+            lam.children.append(body)
+            self.parse_block(body)
+        else:
+            self.skip_expression(lam, stop_comma=True)
+
+    def try_inline_out(self, scope: _CsScope | None) -> bool:
+        """Consume `out Type name` / `out var name`. Leave bare `out name` alone."""
+        if not self.check("out"):
+            return False
+        if self.peek(1) == "var" and self.is_ident(2) and self.peek(3) in {",", ")", ";"}:
+            if scope is not None:
+                scope.add(self.ident_text(self.peek(2)), self.line(2))
+            self.i += 3
+            return True
+        saved = self.i
+        self.advance()
+        if not self.parse_type() or not self.is_ident() or self.peek(1) not in {",", ")", ";"}:
+            self.i = saved
+            return False
+        if scope is not None:
+            scope.add(self.ident_text(), self.line())
+        self.advance()
+        return True
+
+    def try_is_pattern(self, scope: _CsScope | None) -> bool:
+        if not self.check("is"):
+            return False
+        saved = self.i
+        self.advance()
+        if not self.parse_type() or not self.is_ident():
+            self.i = saved
+            return False
+        nxt = self.peek(1)
+        if nxt not in {")", ";", ",", "&&", "||", "?", "{", ":"}:
+            self.i = saved
+            return False
+        if scope is not None:
+            scope.add(self.ident_text(), self.line())
+        self.advance()
+        return True
+
+    def _looks_like_typed_param(self) -> bool:
+        saved = self.i
+        if not self.parse_type() or not self.is_ident():
+            self.i = saved
+            return False
+        self.advance()
+        ok = self.peek() in {",", ")", "="}
+        self.i = saved
+        return ok
+
+    def looks_like_local_decl(self) -> bool:
+        saved = self.i
+        if self.check("const"):
+            self.advance()
+        if not self.parse_type() or not self.is_ident():
+            self.i = saved
+            return False
+        self.i = saved
+        return True
+
+    def parse_declarators(self, scope: _CsScope | None, first_consumed: bool = False) -> None:
+        if not first_consumed:
+            if not self.is_ident():
+                return
+            if scope is not None:
+                scope.add(self.ident_text(), self.line())
+            self.advance()
+        if self.check("="):
+            self.advance()
+            self.skip_expression(scope, stop_comma=True)
+        while self.check(","):
+            self.advance()
+            if not self.is_ident():
+                break
+            if scope is not None:
+                scope.add(self.ident_text(), self.line())
+            self.advance()
+            if self.check("="):
+                self.advance()
+                self.skip_expression(scope, stop_comma=True)
+
+    def try_parse_local(self, scope: _CsScope) -> bool:
+        saved = self.i
+        if self.check("const"):
+            self.advance()
+        if not self.parse_type() or not self.is_ident():
+            self.i = saved
+            return False
+        name = self.ident_text()
+        name_line = self.line()
+        self.advance()
+        if self.check("("):
+            params = self.parse_param_list()
+            self.skip_where()
+            scope.add(name, name_line)
+            self.finish_method(name, params, scope)
+            return True
+        scope.add(name, name_line)
+        self.parse_declarators(scope, first_consumed=True)
+        if self.check(";"):
+            self.advance()
+        return True
+
+    def parse_param_list(self) -> list[tuple[str, int]]:
+        params: list[tuple[str, int]] = []
+        if not self.expect("("):
+            return params
+        while not self.eof() and not self.check(")"):
+            self.skip_attributes()
+            while self.ident_text() in {"ref", "out", "in", "params", "this"}:
+                self.advance()
+            if self.check(")"):
+                break
+            if not self.parse_type():
+                if self.check(","):
+                    self.advance()
+                    continue
+                break
+            if self.is_ident():
+                params.append((self.ident_text(), self.line()))
+                self.advance()
+            if self.check("="):
+                self.advance()
+                self.skip_expression(None, stop_comma=True)
+            if self.check(","):
+                self.advance()
+                continue
+            break
+        self.expect(")")
+        return params
+
+    def skip_where(self) -> None:
+        while self.check("where"):
+            while not self.eof() and not self.check("{") and not self.check(";") and not self.check("=>"):
+                self.advance()
+
+    def skip_ctor_init(self) -> None:
+        if not self.check(":"):
+            return
+        self.advance()
+        if self.is_ident():
+            self.advance()
+        if self.check("("):
+            self.skip_balanced("(", ")")
+
+    def finish_method(self, name: str, params: list[tuple[str, int]], parent: _CsScope | None) -> None:
+        self.skip_where()
+        self.skip_ctor_init()
+        if self.check(";"):
+            self.advance()
+            return
+        param_scope = _CsScope(parent, name)
+        for pname, pline in params:
+            param_scope.add(pname, pline)
+        if parent is not None:
+            parent.children.append(param_scope)
+        else:
+            self.roots.append(param_scope)
+        if self.check("=>"):
+            self.advance()
+            self.skip_expression(param_scope)
+            self.expect(";")
+            return
+        if self.check("{"):
+            body = _CsScope(param_scope, name)
+            param_scope.children.append(body)
+            self.parse_block(body)
+            return
+        self.warnings.append(f"line {self.line()}: method {name} has no body")
+
+    def parse_block(self, scope: _CsScope) -> None:
+        if not self.expect("{"):
+            return
+        guard = 0
+        limit = len(self.toks) + 2
+        while not self.eof() and not self.check("}"):
+            before = self.i
+            self.parse_statement(scope)
+            if self.i == before:
+                self.advance()
+            guard += 1
+            if guard > limit:
+                self.warnings.append(f"line {self.line()}: stopped parsing block in {scope.method}")
+                break
+        self.expect("}")
+
+    def parse_embedded(self, scope: _CsScope) -> None:
+        if self.check("{"):
+            child = _CsScope(scope, scope.method)
+            scope.children.append(child)
+            self.parse_block(child)
+        else:
+            self.parse_statement(scope)
+
+    def parse_statement(self, scope: _CsScope) -> None:
+        if self.eof() or self.check("}"):
+            return
+        if self.check(";"):
+            self.advance()
+            return
+        if self.check("{"):
+            self.parse_embedded(scope)
+            return
+        text = self.ident_text()
+        if text == "if":
+            self.parse_if(scope)
+            return
+        if text == "for":
+            self.parse_for(scope)
+            return
+        if text == "foreach":
+            self.parse_foreach(scope)
+            return
+        if text == "while":
+            self.advance()
+            self.expect("(")
+            self.skip_expression(scope)
+            self.expect(")")
+            self.parse_embedded(scope)
+            return
+        if text == "do":
+            self.advance()
+            self.parse_embedded(scope)
+            if self.check("while"):
+                self.advance()
+                self.expect("(")
+                self.skip_expression(scope)
+                self.expect(")")
+            self.expect(";")
+            return
+        if text == "switch":
+            self.parse_switch(scope)
+            return
+        if text == "try":
+            self.parse_try(scope)
+            return
+        if text == "lock":
+            self.advance()
+            self.expect("(")
+            self.skip_expression(scope)
+            self.expect(")")
+            self.parse_embedded(scope)
+            return
+        if text == "using":
+            self.parse_using_stmt(scope)
+            return
+        if text in {"return", "throw"}:
+            self.advance()
+            if not self.check(";"):
+                self.skip_expression(scope)
+            self.expect(";")
+            return
+        if text in {"break", "continue"}:
+            self.advance()
+            self.expect(";")
+            return
+        if text == "case":
+            self.advance()
+            self.skip_expression(scope, stop_colon=True)
+            self.expect(":")
+            return
+        if text == "default":
+            self.advance()
+            if self.check(":"):
+                self.advance()
+            elif self.check("("):
+                self.skip_expression(scope)
+                self.expect(";")
+            return
+        if text in {"checked", "unchecked", "unsafe", "fixed"}:
+            self.advance()
+            if self.check("("):
+                self.skip_balanced("(", ")")
+            if self.check("{"):
+                self.parse_embedded(scope)
+            else:
+                self.expect(";")
+            return
+        if self.is_ident() and self.peek(1) == ":" and text not in _CS_NON_TYPE:
+            self.advance()
+            self.advance()
+            return
+        if self.try_parse_local(scope):
+            return
+        self.skip_expression(scope)
+        if self.check(";"):
+            self.advance()
+
+    def parse_if(self, scope: _CsScope) -> None:
+        self.advance()
+        self.expect("(")
+        self.skip_expression(scope)
+        self.expect(")")
+        self.parse_embedded(scope)
+        if self.ident_text() == "else":
+            self.advance()
+            self.parse_embedded(scope)
+
+    def parse_for(self, scope: _CsScope) -> None:
+        self.advance()
+        self.expect("(")
+        for_scope = _CsScope(scope, scope.method)
+        scope.children.append(for_scope)
+        if self.check(";"):
+            self.advance()
+        elif self.looks_like_local_decl():
+            self.try_parse_local(for_scope)
+        else:
+            self.skip_expression(for_scope, stop_comma=False)
+            self.expect(";")
+        if not self.check(";"):
+            self.skip_expression(for_scope)
+        self.expect(";")
+        if not self.check(")"):
+            self.skip_expression(for_scope)
+        self.expect(")")
+        self.parse_embedded(for_scope)
+
+    def parse_foreach(self, scope: _CsScope) -> None:
+        self.advance()
+        self.expect("(")
+        each = _CsScope(scope, scope.method)
+        scope.children.append(each)
+        if self.parse_type() and self.is_ident():
+            each.add(self.ident_text(), self.line())
+            self.advance()
+        if self.ident_text() == "in":
+            self.advance()
+        self.skip_expression(each)
+        self.expect(")")
+        self.parse_embedded(each)
+
+    def parse_switch(self, scope: _CsScope) -> None:
+        self.advance()
+        self.expect("(")
+        self.skip_expression(scope)
+        self.expect(")")
+        if not self.expect("{"):
+            return
+        sw = _CsScope(scope, scope.method)
+        scope.children.append(sw)
+        guard = 0
+        limit = len(self.toks) + 2
+        while not self.eof() and not self.check("}"):
+            before = self.i
+            if self.ident_text() == "case":
+                self.advance()
+                self.skip_expression(sw, stop_colon=True)
+                self.expect(":")
+            elif self.ident_text() == "default" and self.peek(1) == ":":
+                self.advance()
+                self.advance()
+            else:
+                self.parse_statement(sw)
+            if self.i == before:
+                self.advance()
+            guard += 1
+            if guard > limit:
+                break
+        self.expect("}")
+
+    def parse_try(self, scope: _CsScope) -> None:
+        self.advance()
+        self.parse_embedded(scope)
+        while self.ident_text() == "catch":
+            self.advance()
+            caught = _CsScope(scope, scope.method)
+            scope.children.append(caught)
+            if self.check("("):
+                self.advance()
+                if not self.check(")"):
+                    self.parse_type()
+                    if self.is_ident() and self.peek(1) in {")", "when"}:
+                        caught.add(self.ident_text(), self.line())
+                        self.advance()
+                    if self.ident_text() == "when":
+                        self.advance()
+                        self.expect("(")
+                        self.skip_expression(caught)
+                        self.expect(")")
+                self.expect(")")
+            self.parse_embedded(caught)
+        if self.ident_text() == "finally":
+            self.advance()
+            self.parse_embedded(scope)
+
+    def parse_using_stmt(self, scope: _CsScope) -> None:
+        self.advance()
+        if self.check("("):
+            self.advance()
+            used = _CsScope(scope, scope.method)
+            scope.children.append(used)
+            if self.looks_like_local_decl():
+                saved = self.i
+                if self.check("const"):
+                    self.advance()
+                self.parse_type()
+                self.parse_declarators(used)
+                if self.i == saved:
+                    self.skip_expression(used)
+            else:
+                self.skip_expression(used)
+            self.expect(")")
+            self.parse_embedded(used)
+            return
+        self.try_parse_local(scope)
+
+    def parse_enum(self) -> None:
+        self.expect("enum")
+        if self.is_ident():
+            self.advance()
+        if self.check(":"):
+            self.advance()
+            self.parse_type()
+        if self.check("{"):
+            self.skip_balanced("{", "}")
+
+    def parse_class(self) -> None:
+        self.advance()  # class / struct / interface / record
+        name = self.ident_text() if self.is_ident() else ""
+        if self.is_ident():
+            self.advance()
+        if self.check("<"):
+            self.skip_generic_args()
+        while not self.eof() and not self.check("{"):
+            self.advance()
+        if not self.expect("{"):
+            return
+        guard = 0
+        limit = len(self.toks) + 2
+        while not self.eof() and not self.check("}"):
+            before = self.i
+            self.parse_member(name)
+            if self.i == before:
+                self.advance()
+            guard += 1
+            if guard > limit:
+                self.warnings.append(f"line {self.line()}: stopped parsing type {name}")
+                break
+        self.expect("}")
+
+    def parse_member(self, class_name: str) -> None:
+        self.skip_attributes()
+        self.skip_modifiers()
+        if self.eof() or self.check("}"):
+            return
+        kind = self.ident_text()
+        if kind in {"class", "struct", "interface", "record"}:
+            self.parse_class()
+            return
+        if kind == "enum":
+            self.parse_enum()
+            return
+        if kind == "~":
+            self.advance()
+            if self.is_ident():
+                self.advance()
+            params = self.parse_param_list()
+            self.finish_method(class_name, params, None)
+            return
+        if kind == "const":
+            self.advance()
+            if self.parse_type():
+                self.parse_declarators(None)
+            self.expect(";")
+            return
+        if kind == "event":
+            self.advance()
+            if self.parse_type() and self.is_ident():
+                self.advance()
+            if self.check("{"):
+                self.parse_accessors("event")
+            else:
+                if self.check("="):
+                    self.advance()
+                    self.skip_expression(None)
+                self.expect(";")
+            return
+        if self.is_ident() and self.ident_text() not in _CS_NON_TYPE and self.peek(1) == "(":
+            ctor = self.ident_text()
+            self.advance()
+            params = self.parse_param_list()
+            self.finish_method(ctor or class_name, params, None)
+            return
+        if not self.parse_type():
+            self.advance()
+            return
+        if not self.is_ident():
+            if self.check(";"):
+                self.advance()
+            return
+        name = self.ident_text()
+        self.advance()
+        if self.check("("):
+            params = self.parse_param_list()
+            self.finish_method(name, params, None)
+            return
+        if self.check("{"):
+            self.parse_accessors(name)
+            return
+        if self.check("=>"):
+            self.advance()
+            scope = _CsScope(None, name)
+            self.roots.append(scope)
+            self.skip_expression(scope)
+            self.expect(";")
+            return
+        self.parse_declarators(None, first_consumed=True)
+        self.expect(";")
+
+    def parse_accessors(self, prop_name: str) -> None:
+        if not self.expect("{"):
+            return
+        while not self.eof() and not self.check("}"):
+            self.skip_attributes()
+            self.skip_modifiers()
+            acc = self.ident_text()
+            if acc not in _CS_ACCESSOR:
+                if self.check("}"):
+                    break
+                self.advance()
+                continue
+            acc_line = self.line()
+            self.advance()
+            params = [("value", acc_line)] if acc in {"set", "init", "add"} else []
+            if self.check(";"):
+                self.advance()
+            elif self.check("=>"):
+                self.advance()
+                scope = _CsScope(None, f"{prop_name}.{acc}")
+                for pname, pline in params:
+                    scope.add(pname, pline)
+                self.roots.append(scope)
+                self.skip_expression(scope)
+                self.expect(";")
+            elif self.check("{"):
+                self.finish_method(f"{prop_name}.{acc}", params, None)
+            else:
+                self.advance()
+        self.expect("}")
+        if self.check("="):
+            self.advance()
+            scope = _CsScope(None, prop_name)
+            self.roots.append(scope)
+            self.skip_expression(scope)
+            self.expect(";")
+
+    def starts_type_decl(self) -> bool:
+        saved = self.i
+        self.skip_attributes()
+        self.skip_modifiers()
+        ok = self.ident_text() in {"class", "struct", "enum", "interface", "record"}
+        self.i = saved
+        return ok
+
+    def parse_type_decl(self) -> None:
+        self.skip_attributes()
+        self.skip_modifiers()
+        if self.ident_text() == "enum":
+            self.parse_enum()
+        elif self.ident_text() in {"class", "struct", "interface", "record"}:
+            self.parse_class()
+        else:
+            self.advance()
+
+    def parse_namespace(self) -> None:
+        self.expect("namespace")
+        while self.is_ident() or self.check("."):
+            self.advance()
+        if self.check(";"):
+            self.advance()
+            self.parse_namespace_members(until_brace=False)
+            return
+        if not self.expect("{"):
+            return
+        self.parse_namespace_members(until_brace=True)
+        self.expect("}")
+
+    def parse_namespace_members(self, until_brace: bool) -> None:
+        guard = 0
+        limit = len(self.toks) + 2
+        while not self.eof() and not (until_brace and self.check("}")):
+            before = self.i
+            self.skip_attributes()
+            if self.check("namespace"):
+                self.parse_namespace()
+            elif self.starts_type_decl():
+                self.parse_type_decl()
+            else:
+                self.advance()
+            if self.i == before:
+                self.advance()
+            guard += 1
+            if guard > limit:
+                break
+
+    def parse_file(self) -> None:
+        while not self.eof() and self.ident_text() in {"using", "extern"}:
+            while not self.eof() and not self.check(";"):
+                self.advance()
+            self.expect(";")
+        guard = 0
+        limit = len(self.toks) + 2
+        while not self.eof():
+            before = self.i
+            self.skip_attributes()
+            if self.check("namespace"):
+                self.parse_namespace()
+            elif self.starts_type_decl():
+                self.parse_type_decl()
+            elif self.looks_like_local_decl() or (
+                self.is_ident() and self.ident_text() not in _CS_NON_TYPE and self.peek(1) == "("
+            ):
+                # Snippet: a method (or a class body) without a wrapping type.
+                self.parse_member("")
+            else:
+                self.advance()
+            if self.i == before:
+                self.advance()
+            guard += 1
+            if guard > limit:
+                self.warnings.append("stopped parsing file")
+                break
+
+    def violations(self) -> list[str]:
+        hits: list[str] = []
+
+        def walk(scope: _CsScope, enclosing: dict[str, int]) -> None:
+            own: dict[str, int] = {}
+            for name, line in scope.locals:
+                if name in own:
+                    hits.append(
+                        f"{scope.method}: duplicate local '{name}' in the same block "
+                        f"(lines {own[name]} and {line}, CS0128)"
+                    )
+                else:
+                    own[name] = line
+                if name in enclosing:
+                    hits.append(
+                        f"{scope.method}: local '{name}' at line {line} is declared in a nested block "
+                        f"and shadows '{name}' at line {enclosing[name]} in an enclosing block (CS0136)"
+                    )
+            merged = dict(enclosing)
+            merged.update(own)
+            for child in scope.children:
+                walk(child, merged)
+
+        for root in self.roots:
+            walk(root, {})
+        return hits
+
+
+def local_shadow_violations(source: str) -> list[str]:
+    """CS0136/CS0128 locals: nested block vs enclosing block (any position), or duplicates.
+
+    A local declared in a nested block conflicts with the same name declared anywhere
+    in an enclosing block of that method, including a declaration that appears later.
+    Sibling blocks may reuse a name. Method parameters count as the outermost scope.
+    """
+    cleaned = _strip_cs_preserve_lines(source)
+    scanner = _CsShadowScanner(_tokenize_cs(cleaned))
+    scanner.parse_file()
+    return scanner.violations()
+
+
 def main() -> int:
     require(ROOT / "Packages/manifest.json")
     require(ROOT / "ProjectSettings/ProjectVersion.txt")
@@ -461,6 +1602,8 @@ def main() -> int:
     for path in scripts + editor_scripts:
         for hit in shader_conditional_violations(read(path)):
             err(f"{path.relative_to(ROOT)}: {hit} (Unity 6000.6 CS1503)")
+        for hit in local_shadow_violations(read(path)):
+            err(f"{path.relative_to(ROOT)}: {hit}")
 
     if "FindObjectOfType" in blob or "FindObjectsOfType" in blob:
         err("scripts still call obsolete FindObjectOfType / FindObjectsOfType")
