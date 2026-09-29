@@ -1480,6 +1480,72 @@ def test_shader_cs1503_gate() -> None:
         assert "new Material(" in source and "? shader :" not in source
 
 
+def test_cs0136_local_shadow_gate() -> None:
+    """Unity CS0136: a nested local conflicts with the same name anywhere in an enclosing block."""
+    validator = _load_week1_validator()
+    shadow = validator.local_shadow_violations
+
+    # Inner x0 is declared first; the hull x0 comes later in the same method. Still CS0136.
+    bad = """
+        class Sample
+        {
+            void ShopButtonRect()
+            {
+                if (group == ShopGroup.Doctrine)
+                {
+                    float x0 = 0.04f;
+                    min = new Vector2(x0, 0.08f);
+                    max = new Vector2(x0 + 0.44f, 0.92f);
+                    return;
+                }
+
+                float x0 = 0.02f;
+            }
+        }
+        """
+    hits = shadow(bad)
+    assert hits, "nested x0 redeclared later in the method must fail the CS0136 gate"
+    assert any("x0" in hit and "CS0136" in hit for hit in hits)
+
+    good = """
+        class Sample
+        {
+            void ShopButtonRect()
+            {
+                if (group == ShopGroup.Doctrine)
+                {
+                    float dx0 = 0.04f;
+                    min = new Vector2(dx0, 0.08f);
+                    max = new Vector2(dx0 + 0.44f, 0.92f);
+                    return;
+                }
+
+                float x0 = 0.02f;
+            }
+        }
+        """
+    assert not shadow(good)
+
+    siblings = """
+        class Sample
+        {
+            void M()
+            {
+                if (a)
+                {
+                    int x = 1;
+                }
+
+                if (b)
+                {
+                    int x = 2;
+                }
+            }
+        }
+        """
+    assert not shadow(siblings), "sibling blocks may reuse a local name"
+
+
 def test_monsters_arenas_040() -> None:
     from pathlib import Path
 
@@ -3649,6 +3715,7 @@ def main() -> int:
     test_ui_fonts_039()
     test_event_system_persist()
     test_shader_cs1503_gate()
+    test_cs0136_local_shadow_gate()
     test_monsters_arenas_040()
     test_weapons_upgrades_040b()
     test_art_parity_040c()
