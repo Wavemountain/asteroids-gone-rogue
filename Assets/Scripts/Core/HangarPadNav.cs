@@ -28,10 +28,11 @@ namespace AsteroidsGoneRogue
         public static int BarrageSlot { get { return GotItSlot + 1; } }
         public static int LanceSlot { get { return GotItSlot + 2; } }
         public static int HunterSlot { get { return GotItSlot + 3; } }
+        public static int DoctrineHintSlot { get { return HunterSlot + 1; } }
 
         public static int SlotCount
         {
-            get { return HunterSlot + 1; }
+            get { return DoctrineHintSlot + 1; }
         }
 
         public static int ShopSlot(int shopIndex)
@@ -236,6 +237,13 @@ namespace AsteroidsGoneRogue
             {
                 x = 8;
                 y = -2;
+                return;
+            }
+
+            if (slot == DoctrineHintSlot)
+            {
+                x = 8;
+                y = -1;
                 return;
             }
 

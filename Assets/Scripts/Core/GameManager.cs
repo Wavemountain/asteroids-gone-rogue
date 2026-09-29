@@ -505,6 +505,26 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        public void NotifyDoctrinePicked(DoctrineId id)
+        {
+            if (!AchievementCatalog.ShouldUnlockDoctrine(id))
+            {
+                return;
+            }
+
+            TryUnlockAchievement(AchievementId.Doctrine);
+        }
+
+        public void NotifyRailCharged(float heldSeconds)
+        {
+            if (!AchievementCatalog.ShouldUnlockRailCharge(heldSeconds))
+            {
+                return;
+            }
+
+            TryUnlockAchievement(AchievementId.RailCharge);
+        }
+
         private bool TryUnlockAchievement(AchievementId id)
         {
             if (Achievements == null)

@@ -194,10 +194,22 @@ namespace AsteroidsGoneRogue
                 _railFullCd = full;
                 _nextFireTime = Time.time + full;
                 FireRail(loadout);
+                NotifyRailCharged(heldFor);
                 return;
             }
 
             _nextFireTime = Time.time + full * DoctrineRules.RailMissCancelCooldownMul;
+        }
+
+        private static void NotifyRailCharged(float heldSeconds)
+        {
+            GameManager game = UnityEngine.Object.FindAnyObjectByType<GameManager>();
+            if (game == null)
+            {
+                return;
+            }
+
+            game.NotifyRailCharged(heldSeconds);
         }
 
         public void CancelCharge()
