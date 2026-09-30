@@ -163,13 +163,14 @@ namespace AsteroidsGoneRogue
         public const string DoctrineHintBody =
             "Doctrines are open. Pick Barrage, Lance, or Hunter.";
         public const string HangarControlsHint =
-            "LT utility · LB cycle · A confirm · B / Esc Next Wave";
+            "LT utility · LB cycle · A confirm · B / Esc Next Wave · Start launch wave";
         public const string MedalLadderPrefix = "MEDALS";
         public const string HangarHintBody =
-            "LS / WASD fly  ·  RT / LMB shoot  ·  LT / E utility\nStart Wave (A)  ·  Abort (Esc) / Start\n"
+            "LS / WASD fly  ·  RT / LMB shoot  ·  LT / E utility\n"
+            + "Start = launch wave  ·  B / Esc = focus Next Wave\n"
             + "Clear a wave to earn credits and upgrades.\n"
             + "Medal ladder (top-left): ★ Scout Wing at wave 3.";
-        public const string FirstWaveCoach = "Shoot rocks  ·  Abort (Start) if one flies off";
+        public const string FirstWaveCoach = "Shoot rocks  ·  Esc / Start returns to hangar";
         public const string HintDual = "LT utility · LB cycle primary · RT fire";
         public const string HintRail = "Hold RT 0.55s, release — Rail. Miss or cancel pays half CD.";
 
@@ -297,13 +298,14 @@ namespace AsteroidsGoneRogue
                 && _loadout != null
                 && _loadout.State != null
                 && _loadout.State.ResolvedPrimary() == FireMode.Rail;
+            ApplyFooterHintSize();
             _hint.text = railHint
                 ? Loc.T("ui.hint_rail", HintRail)
                 : (playing
-                    ? Loc.T("ui.hint_play", "WASD / LS move  ·  Mouse / RS aim  ·  LMB / Space / RT fire  ·  E / RMB / LT utility  ·  Q / LB cycle primary  ·  Esc / Start abort")
+                    ? Loc.T("ui.hint_play", "WASD / LS move · Mouse / RS aim · LMB / RT fire · E / LT utility · Q / LB cycle · Esc / Start = back to hangar")
                     : Loc.Tf(
                         "ui.hint_hangar",
-                        "LS move · RS aim · RT fire · {0}",
+                        "LS move · {0}",
                         Loc.T("ui.hangar_controls", HangarControlsHint)));
             ClampOneLine(_hint);
             RefreshWorldBadge();
@@ -489,7 +491,7 @@ namespace AsteroidsGoneRogue
             ClampOneLine(_achievementLadder);
             AddReadability(_achievementLadder, false);
 
-            _hint = CreateText("Hint", transform, body, 16, TextAnchor.MiddleCenter, FontStyle.Normal);
+            _hint = CreateText("Hint", transform, body, UiTheme.HintSize(Screen.width), TextAnchor.MiddleCenter, FontStyle.Normal);
             // Screen-bottom, outside hangar panel (min.y 0.080). Never in WAVE CLEAR / shop.
             Stretch(_hint.rectTransform, new Vector2(0.14f, 0.008f), new Vector2(0.86f, 0.072f));
             _hint.color = UiTheme.FooterHint;
@@ -566,6 +568,7 @@ namespace AsteroidsGoneRogue
             ApplyLocalizedStaticLabels();
             RefreshLanguageChrome();
             RefreshDifficultyChrome();
+            ApplyFooterHintSize();
             EnsurePrimaryClickable();
         }
 
@@ -1175,7 +1178,7 @@ namespace AsteroidsGoneRogue
             _firstFlightTitle.color = UiTheme.Primary;
             _firstFlightTitle.text = "First flight";
 
-            _firstFlightBody = CreateText("HintBody", _tutorialRoot.transform, body, 14, TextAnchor.UpperLeft, FontStyle.Normal);
+            _firstFlightBody = CreateText("HintBody", _tutorialRoot.transform, body, UiTheme.HintSize(Screen.width), TextAnchor.UpperLeft, FontStyle.Normal);
             Stretch(_firstFlightBody.rectTransform, new Vector2(0.07f, 0.2f), new Vector2(0.93f, 0.85f));
             _firstFlightBody.color = UiTheme.Accent;
             _firstFlightBody.text = HangarHintBody;
@@ -1979,7 +1982,9 @@ namespace AsteroidsGoneRogue
                 RefreshUtilityHud(true);
                 if (_hint != null && Time.unscaledTime < _firstRunCoachUntil)
                 {
+                    ApplyFooterHintSize();
                     _hint.text = Loc.T("ui.first_wave_coach", FirstWaveCoach);
+                    ClampOneLine(_hint);
                 }
             }
 
@@ -3574,6 +3579,20 @@ namespace AsteroidsGoneRogue
             slider.navigation = nav;
             slider.onValueChanged.AddListener(onChanged);
             return slider;
+        }
+
+        private void ApplyFooterHintSize()
+        {
+            int footerSize = UiTheme.HintSize(Screen.width);
+            if (_hint != null)
+            {
+                _hint.fontSize = footerSize;
+            }
+
+            if (_firstFlightBody != null)
+            {
+                _firstFlightBody.fontSize = footerSize;
+            }
         }
 
         private static void ClampOneLine(Text text)
