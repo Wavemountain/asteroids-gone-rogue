@@ -132,6 +132,23 @@ namespace AsteroidsGoneRogue
         private Text _doctrineIntroGotIt;
         private Button _doctrineIntroButton;
         private Text _doctrineBadge;
+        private SettingsState _settings;
+        private bool _settingsOpen;
+        private int _settingsIndex;
+        private bool _settingsNavHeld;
+        private float _settingsNavRepeatAt;
+        private GameObject _settingsRoot;
+        private GameObject _settingsPanel;
+        private Button _settingsGear;
+        private Text _settingsGearLabel;
+        private Text _settingsTitle;
+        private Text _settingsLanguageLabel;
+        private Text _settingsLanguageValue;
+        private Image _settingsEnBezel;
+        private Image _settingsSvBezel;
+        private Text _settingsControlsTitle;
+        private Text _settingsControlsBody;
+        private Button[] _settingsRowButtons;
 
         private static readonly Color UiAmber = UiTheme.Primary;
         private static readonly Color UiBody = UiTheme.Accent;
@@ -145,6 +162,13 @@ namespace AsteroidsGoneRogue
         public static readonly Vector2 HangarPanelMax = new Vector2(0.55f, 0.888f);
         public static readonly Vector2 TopBarMin = new Vector2(0.012f, 0.905f);
         public static readonly Vector2 TopBarMax = new Vector2(0.988f, 0.995f);
+        // Audio cluster stays on the top bar; the gear sits in the gap to its right.
+        public static readonly Vector2 AudioPanelMin = new Vector2(0.735f, 0.905f);
+        public static readonly Vector2 AudioPanelMax = new Vector2(0.892f, 0.995f);
+        public static readonly Vector2 SettingsGearMin = new Vector2(0.900f, 0.905f);
+        public static readonly Vector2 SettingsGearMax = new Vector2(0.988f, 0.995f);
+        public static readonly Vector2 SettingsPanelMin = new Vector2(0.30f, 0.12f);
+        public static readonly Vector2 SettingsPanelMax = new Vector2(0.70f, 0.88f);
         public static readonly Vector2 ShipPreviewMin = new Vector2(0.562f, 0.080f);
         public static readonly Vector2 ShipPreviewMax = new Vector2(0.986f, 0.596f);
         // Doctrine card sits above the loadout frame and under the top bar (0.905).
@@ -275,6 +299,27 @@ namespace AsteroidsGoneRogue
             if (_audioPanel != null)
             {
                 _audioPanel.SetActive(!playing);
+            }
+
+            if (playing && _settingsOpen)
+            {
+                DismissSettingsForPlay();
+            }
+
+            if (_settingsGear != null)
+            {
+                _settingsGear.gameObject.SetActive(!playing);
+            }
+
+            if (_settingsRoot != null)
+            {
+                bool showSettings = _settingsOpen && !playing;
+                _settingsRoot.SetActive(showSettings);
+                if (showSettings)
+                {
+                    _settingsRoot.transform.SetAsLastSibling();
+                    RefreshSettingsFocus();
+                }
             }
 
             if (_langPanel != null)
@@ -437,6 +482,7 @@ namespace AsteroidsGoneRogue
         private void Construct(string productTitle)
         {
             Loc.EnsureLoaded();
+            _settings = SettingsState.Load();
             Font display = UiFonts.Display();
             Font body = UiFonts.Body();
             _scrim = CreateFill("Scrim", transform, UiTheme.WithAlpha(UiTheme.Void, 0.22f), new Vector2(0f, 0f), new Vector2(1f, 1f));
@@ -560,11 +606,13 @@ namespace AsteroidsGoneRogue
             BuildDoctrine(display, body);
             BuildShop(display, body);
             BuildAudioControls(body);
+            BuildSettingsGear(body);
             BuildLanguagePicker(display, body);
             BuildDifficultyPicker(display, body);
             BuildFirstHangarHint(display, body);
             BuildEndCredits(display, body);
             BuildShipPreviewFrame(display);
+            BuildSettingsPanel(display, body);
             ApplyLocalizedStaticLabels();
             RefreshLanguageChrome();
             RefreshDifficultyChrome();
@@ -574,6 +622,7 @@ namespace AsteroidsGoneRogue
 
         private void OnDestroy()
         {
+            SetSettingsNavigationLock(false);
             if (_previewCanvas != null)
             {
                 Destroy(_previewCanvas);
@@ -670,7 +719,7 @@ namespace AsteroidsGoneRogue
 
         private void ForcePreviewChrome()
         {
-            bool show = _session == null || (_session.Phase != GamePhase.Playing && !_creditsVisible);
+            bool show = _session == null || (_session.Phase != GamePhase.Playing && !_creditsVisible && !_settingsOpen);
             if (_previewCanvas != null)
             {
                 _previewCanvas.SetActive(show);
@@ -1419,12 +1468,12 @@ namespace AsteroidsGoneRogue
 
         private void BuildAudioControls(Font font)
         {
-            // Top-bar right: MUTE / SFX / MUSIC. Stretch anchors, zero offset; y 0.905–0.995 stays off hangar 0.888.
+            // Top-bar right: MUTE / SFX / MUSIC. Shrunk so the settings gear fits on its right.
             _audioPanel = UiTheme.BuildPanel(
                 "AudioPanel",
                 transform,
-                new Vector2(0.735f, 0.905f),
-                new Vector2(0.988f, 0.995f),
+                AudioPanelMin,
+                AudioPanelMax,
                 0.02f,
                 UiTheme.HeaderWash,
                 UiTheme.HeaderRule,
@@ -1772,6 +1821,14 @@ namespace AsteroidsGoneRogue
             GameObject selected = es != null ? es.currentSelectedGameObject : null;
             PaintChip(_enBezel, Loc.Language == GameLanguage.English, selected);
             PaintChip(_svBezel, Loc.Language == GameLanguage.Swedish, selected);
+            PaintChip(_settingsEnBezel, Loc.Language == GameLanguage.English, selected);
+            PaintChip(_settingsSvBezel, Loc.Language == GameLanguage.Swedish, selected);
+            if (_settingsLanguageValue != null)
+            {
+                _settingsLanguageValue.text = Loc.Language == GameLanguage.Swedish
+                    ? Loc.T("ui.settings.sv", "SV")
+                    : Loc.T("ui.settings.en", "EN");
+            }
         }
 
         private static void PaintChip(Image bezel, bool chosen, GameObject padFocus)
@@ -1883,6 +1940,48 @@ namespace AsteroidsGoneRogue
             {
                 _defenseHeader.text = ShopCatalog.HeaderFor(ShopGroup.Defense);
             }
+
+            if (_settingsGearLabel != null)
+            {
+                _settingsGearLabel.text = Loc.T("ui.settings", "Settings");
+            }
+
+            if (_settingsTitle != null)
+            {
+                _settingsTitle.text = Loc.T("ui.settings", "Settings");
+            }
+
+            if (_settingsLanguageLabel != null)
+            {
+                _settingsLanguageLabel.text = Loc.T("ui.settings.language", "Language");
+            }
+
+            if (_settingsControlsTitle != null)
+            {
+                _settingsControlsTitle.text = Loc.T("ui.settings.controls", "Controls");
+            }
+
+            if (_settingsControlsBody != null)
+            {
+                _settingsControlsBody.text = FullControlHint();
+            }
+
+            if (_settingsRowButtons != null)
+            {
+                int closeIndex = IndexOfSettingsRow(SettingsRowId.Close);
+                if (closeIndex >= 0 && closeIndex < _settingsRowButtons.Length)
+                {
+                    Button closeRow = _settingsRowButtons[closeIndex];
+                    if (closeRow != null)
+                    {
+                        Text closeLabel = closeRow.GetComponentInChildren<Text>();
+                        if (closeLabel != null)
+                        {
+                            closeLabel.text = Loc.T("ui.settings.close", "Close");
+                        }
+                    }
+                }
+            }
         }
 
         public void AnnounceWorldChange(int world)
@@ -1931,35 +2030,68 @@ namespace AsteroidsGoneRogue
 
         private void Update()
         {
-            if (_creditsVisible && GamepadInput.CancelPressed())
+            if (_settingsOpen && _session != null && _session.Phase == GamePhase.Playing)
             {
-                HideEndCredits(true);
-                return;
+                DismissSettingsForPlay();
             }
 
-            if (_session != null && _session.Phase == GamePhase.Playing
-                && (GamepadInput.PausePressed() || Input.GetKeyDown(KeyCode.Escape)))
+            // Settings panel, then credits, then play abort / hangar. An open panel
+            // consumes Esc, Start, B, and Submit so they cannot reach Next Wave.
+            SettingsInputFlags settingsFlags = ReadSettingsFlags();
+            SettingsRoute settingsRoute = SettingsInputRouter.Route(settingsFlags);
+            if (settingsRoute == SettingsRoute.CloseSave)
+            {
+                CloseSettings();
+            }
+            else if (settingsRoute == SettingsRoute.Activate)
+            {
+                ActivateSettingsRow();
+            }
+            else if (settingsRoute == SettingsRoute.Move || settingsRoute == SettingsRoute.Nudge)
+            {
+                StepSettingsNav(settingsRoute, settingsFlags);
+            }
+            else if (settingsRoute == SettingsRoute.Open)
+            {
+                OpenSettings();
+            }
+            else if (settingsRoute == SettingsRoute.CreditsClose)
+            {
+                HideEndCredits(true);
+            }
+            else if (settingsRoute == SettingsRoute.PlayAbort)
             {
                 OnAbort();
             }
-            else if (_session != null && _session.Phase != GamePhase.Playing && !_creditsVisible)
+            else if (settingsRoute == SettingsRoute.HangarEscape)
             {
-                if (Input.GetKeyDown(KeyCode.Escape))
-                {
-                    OnHangarEscape();
-                }
-                else if (GamepadInput.PausePressed())
-                {
-                    OnHangarStart();
-                }
-                else if (GamepadInput.CancelPressed())
-                {
-                    OnHangarBack();
-                }
+                OnHangarEscape();
+            }
+            else if (settingsRoute == SettingsRoute.HangarStart)
+            {
+                OnHangarStart();
+            }
+            else if (settingsRoute == SettingsRoute.HangarBack)
+            {
+                OnHangarBack();
             }
 
-            NavigateHangarPad();
-            SyncHangarPadSelection();
+            if (SettingsInputRouter.BlocksHangarPad(settingsFlags))
+            {
+                if (_settingsOpen)
+                {
+                    SetSettingsNavigationLock(true);
+                    if (settingsRoute != SettingsRoute.Move && settingsRoute != SettingsRoute.Nudge)
+                    {
+                        _settingsNavHeld = false;
+                    }
+                }
+            }
+            else
+            {
+                NavigateHangarPad();
+                SyncHangarPadSelection();
+            }
             if (_session == null || _session.Phase != GamePhase.Playing)
             {
                 EnsureHangarPreview(_ship);
@@ -2126,6 +2258,10 @@ namespace AsteroidsGoneRogue
             }
 
             _primary.transform.SetAsLastSibling();
+            if (_settingsOpen && _settingsRoot != null)
+            {
+                _settingsRoot.transform.SetAsLastSibling();
+            }
         }
 
         private void FocusHangarSlot(int slot)
@@ -2380,6 +2516,11 @@ namespace AsteroidsGoneRogue
                 return ButtonIfActive(_doctrineIntroButton);
             }
 
+            if (slot == HangarPadNav.SettingsSlot)
+            {
+                return ButtonIfActive(_settingsGear);
+            }
+
             if (slot <= HangarPadNav.PrimarySlot)
             {
                 return _primary;
@@ -2487,6 +2628,11 @@ namespace AsteroidsGoneRogue
             if (_doctrineIntroButton != null && go == _doctrineIntroButton.gameObject)
             {
                 return HangarPadNav.DoctrineHintSlot;
+            }
+
+            if (_settingsGear != null && go == _settingsGear.gameObject)
+            {
+                return HangarPadNav.SettingsSlot;
             }
 
             if (_buyButtons != null)
@@ -3593,6 +3739,11 @@ namespace AsteroidsGoneRogue
             {
                 _firstFlightBody.fontSize = footerSize;
             }
+
+            if (_settingsControlsBody != null)
+            {
+                _settingsControlsBody.fontSize = footerSize;
+            }
         }
 
         private static void ClampOneLine(Text text)
@@ -3612,6 +3763,437 @@ namespace AsteroidsGoneRogue
             rect.anchorMax = max;
             rect.offsetMin = Vector2.zero;
             rect.offsetMax = Vector2.zero;
+        }
+
+        private void BuildSettingsGear(Font font)
+        {
+            _settingsGear = CreateButton("SettingsGear", transform, font, SettingsGearMin, SettingsGearMax);
+            _settingsGearLabel = _settingsGear.GetComponentInChildren<Text>();
+            _settingsGearLabel.fontSize = UiTheme.BodyMin;
+            _settingsGearLabel.resizeTextForBestFit = true;
+            _settingsGearLabel.resizeTextMinSize = 10;
+            _settingsGearLabel.resizeTextMaxSize = UiTheme.BodyMin;
+            _settingsGearLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _settingsGearLabel.verticalOverflow = VerticalWrapMode.Truncate;
+            _settingsGear.onClick.AddListener(OpenSettings);
+            UiTheme.ApplyButton(_settingsGear, false, false, false);
+        }
+
+        private void BuildSettingsPanel(Font display, Font body)
+        {
+            _settingsRoot = new GameObject("SettingsRoot");
+            _settingsRoot.transform.SetParent(transform, false);
+            Stretch(_settingsRoot.AddComponent<RectTransform>(), Vector2.zero, Vector2.one);
+
+            GameObject scrim = CreateFill(
+                "SettingsScrim",
+                _settingsRoot.transform,
+                UiTheme.WithAlpha(UiTheme.Void, 0.78f),
+                Vector2.zero,
+                Vector2.one);
+            Image scrimImage = scrim.GetComponent<Image>();
+            if (scrimImage != null)
+            {
+                scrimImage.raycastTarget = true;
+            }
+
+            Button scrimButton = scrim.AddComponent<Button>();
+            scrimButton.transition = Selectable.Transition.None;
+            scrimButton.onClick.AddListener(CloseSettingsFromScrim);
+            Navigation scrimNav = scrimButton.navigation;
+            scrimNav.mode = Navigation.Mode.None;
+            scrimButton.navigation = scrimNav;
+
+            _settingsPanel = UiTheme.BuildPanel(
+                "SettingsPanel",
+                _settingsRoot.transform,
+                SettingsPanelMin,
+                SettingsPanelMax,
+                0.90f);
+            Image panelImage = _settingsPanel.GetComponent<Image>();
+            if (panelImage != null)
+            {
+                panelImage.raycastTarget = true;
+            }
+
+            _settingsTitle = CreateText(
+                "SettingsTitle",
+                _settingsPanel.transform,
+                display,
+                UiTheme.HeaderMin,
+                TextAnchor.MiddleCenter,
+                FontStyle.Bold);
+            Stretch(_settingsTitle.rectTransform, new Vector2(0.06f, 0.905f), new Vector2(0.94f, 0.985f));
+            _settingsTitle.color = UiTheme.Primary;
+            AddReadability(_settingsTitle, true);
+
+            int rowCount = SettingsRows.Count;
+            _settingsRowButtons = new Button[rowCount];
+            float bandY0;
+            float bandY1;
+            for (int rowIndex = 0; rowIndex < rowCount; rowIndex++)
+            {
+                SettingsRows.RowBand(rowIndex, out bandY0, out bandY1);
+                BuildSettingsRow(SettingsRows.Order[rowIndex], rowIndex, display, body, bandY0, bandY1);
+            }
+
+            _settingsRoot.SetActive(false);
+        }
+
+        private void BuildSettingsRow(SettingsRowId rowId, int rowIndex, Font display, Font body, float y0, float y1)
+        {
+            if (rowId == SettingsRowId.Language)
+            {
+                BuildSettingsLanguageRow(rowIndex, body, y0, y1);
+                return;
+            }
+
+            if (rowId == SettingsRowId.Controls)
+            {
+                BuildSettingsControlsRow(display, body, y0, y1);
+                return;
+            }
+
+            if (rowId == SettingsRowId.Close)
+            {
+                BuildSettingsCloseRow(rowIndex, display, y0, y1);
+            }
+        }
+
+        private void BuildSettingsLanguageRow(int rowIndex, Font body, float y0, float y1)
+        {
+            Button row = CreateButton(
+                "SettingsLanguage",
+                _settingsPanel.transform,
+                body,
+                new Vector2(0.06f, y0),
+                new Vector2(0.94f, y1));
+            _settingsRowButtons[rowIndex] = row;
+            row.onClick.AddListener(CycleSettingsLanguage);
+            UiTheme.ApplyButton(row, false, false, false);
+
+            _settingsLanguageLabel = CreateText(
+                "SettingsLanguageLabel",
+                row.transform,
+                body,
+                UiTheme.BodyMin,
+                TextAnchor.MiddleLeft,
+                FontStyle.Bold);
+            Stretch(_settingsLanguageLabel.rectTransform, new Vector2(0.04f, 0.12f), new Vector2(0.46f, 0.88f));
+            _settingsLanguageLabel.color = UiTheme.Accent;
+
+            _settingsLanguageValue = CreateText(
+                "SettingsLanguageValue",
+                row.transform,
+                body,
+                UiTheme.BodyMin,
+                TextAnchor.MiddleCenter,
+                FontStyle.Bold);
+            Stretch(_settingsLanguageValue.rectTransform, new Vector2(0.48f, 0.56f), new Vector2(0.62f, 0.88f));
+            _settingsLanguageValue.color = UiTheme.Primary;
+
+            _settingsEnBezel = CreateFlagButton(
+                "SettingsEn",
+                row.transform,
+                new Vector2(0.66f, 0.18f),
+                new Vector2(0.80f, 0.82f),
+                () => OnPickLanguage(GameLanguage.English));
+            Text enLabel = CreateText("SettingsEnLabel", _settingsEnBezel.transform, body, UiTheme.BodyMin, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Stretch(enLabel.rectTransform, new Vector2(0.08f, 0.08f), new Vector2(0.92f, 0.92f));
+            enLabel.color = UiTheme.Accent;
+            enLabel.text = Loc.T("ui.settings.en", "EN");
+
+            _settingsSvBezel = CreateFlagButton(
+                "SettingsSv",
+                row.transform,
+                new Vector2(0.82f, 0.18f),
+                new Vector2(0.96f, 0.82f),
+                () => OnPickLanguage(GameLanguage.Swedish));
+            Text svLabel = CreateText("SettingsSvLabel", _settingsSvBezel.transform, body, UiTheme.BodyMin, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Stretch(svLabel.rectTransform, new Vector2(0.08f, 0.08f), new Vector2(0.92f, 0.92f));
+            svLabel.color = UiTheme.Accent;
+            svLabel.text = Loc.T("ui.settings.sv", "SV");
+        }
+
+        private void BuildSettingsControlsRow(Font display, Font body, float y0, float y1)
+        {
+            _settingsControlsTitle = CreateText(
+                "SettingsControlsTitle",
+                _settingsPanel.transform,
+                display,
+                UiTheme.BodyMin,
+                TextAnchor.UpperLeft,
+                FontStyle.Bold);
+            Stretch(_settingsControlsTitle.rectTransform, new Vector2(0.08f, y1 - 0.06f), new Vector2(0.92f, y1));
+            _settingsControlsTitle.color = UiTheme.Primary;
+
+            _settingsControlsBody = CreateText(
+                "SettingsControlsBody",
+                _settingsPanel.transform,
+                body,
+                UiTheme.HintSize(Screen.width),
+                TextAnchor.UpperLeft,
+                FontStyle.Normal);
+            Stretch(_settingsControlsBody.rectTransform, new Vector2(0.08f, y0), new Vector2(0.92f, y1 - 0.07f));
+            _settingsControlsBody.color = UiTheme.FooterHint;
+            _settingsControlsBody.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _settingsControlsBody.verticalOverflow = VerticalWrapMode.Truncate;
+            _settingsControlsBody.text = FullControlHint();
+        }
+
+        private void BuildSettingsCloseRow(int rowIndex, Font display, float y0, float y1)
+        {
+            Button row = CreateButton(
+                "SettingsClose",
+                _settingsPanel.transform,
+                display,
+                new Vector2(0.22f, y0),
+                new Vector2(0.78f, y1));
+            _settingsRowButtons[rowIndex] = row;
+            Text closeLabel = row.GetComponentInChildren<Text>();
+            closeLabel.fontSize = UiTheme.BodyMin;
+            closeLabel.text = Loc.T("ui.settings.close", "Close");
+            row.onClick.AddListener(CloseSettings);
+            UiTheme.ApplyButton(row, true, false, false);
+        }
+
+        private static string FullControlHint()
+        {
+            string playHint = Loc.T(
+                "ui.hint_play",
+                "WASD / LS move · Mouse / RS aim · LMB / RT fire · E / LT utility · Q / LB cycle · Esc / Start = back to hangar");
+            string hangarHint = Loc.Tf(
+                "ui.hint_hangar",
+                "LS move · {0}",
+                Loc.T("ui.hangar_controls", HangarControlsHint));
+            return playHint + "\n" + hangarHint;
+        }
+
+        private static int IndexOfSettingsRow(SettingsRowId rowId)
+        {
+            for (int index = 0; index < SettingsRows.Count; index++)
+            {
+                if (SettingsRows.Order[index] == rowId)
+                {
+                    return index;
+                }
+            }
+
+            return -1;
+        }
+
+        private SettingsInputFlags ReadSettingsFlags()
+        {
+            SettingsInputFlags flags = new SettingsInputFlags();
+            flags.Open = _settingsOpen;
+            flags.Playing = _session != null && _session.Phase == GamePhase.Playing;
+            flags.CreditsVisible = _creditsVisible;
+            flags.Escape = Input.GetKeyDown(KeyCode.Escape);
+            flags.Start = GamepadInput.PausePressed() && !flags.Escape;
+            flags.Cancel = GamepadInput.CancelPressed() && !flags.Escape;
+            flags.Submit = GamepadInput.ConfirmPressed();
+            flags.F1 = Input.GetKeyDown(KeyCode.F1);
+            flags.Select = Input.GetKeyDown(KeyCode.JoystickButton6);
+            Vector2 settingsStick = GamepadInput.UiNavCombined();
+            flags.NavX = HangarPadNav.DominantStep(settingsStick.x, settingsStick.y, HangarPadNav.Flick);
+            flags.NavY = SettingsInputRouter.ScreenStepY(settingsStick.x, settingsStick.y, HangarPadNav.Flick);
+            return flags;
+        }
+
+        private void OpenSettings()
+        {
+            if (_settingsOpen)
+            {
+                return;
+            }
+
+            if (_session != null && _session.Phase == GamePhase.Playing)
+            {
+                return;
+            }
+
+            if (_creditsVisible)
+            {
+                return;
+            }
+
+            if (_settings == null)
+            {
+                _settings = SettingsState.Load();
+            }
+
+            _settingsOpen = true;
+            _settingsIndex = SettingsRows.FirstNavigable();
+            _settingsNavHeld = false;
+            if (_settingsRoot != null)
+            {
+                _settingsRoot.SetActive(true);
+                _settingsRoot.transform.SetAsLastSibling();
+            }
+
+            ApplyLocalizedStaticLabels();
+            RefreshLanguageChrome();
+            RefreshSettingsFocus();
+            SetSettingsNavigationLock(true);
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+        }
+
+        private void CloseSettingsFromScrim()
+        {
+            CloseSettings();
+        }
+
+        private void CloseSettings()
+        {
+            PersistSettings();
+            HideSettingsRoot();
+            SetSettingsNavigationLock(false);
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+
+            FocusHangarSlot(HangarPadNav.SettingsSlot);
+        }
+
+        private void DismissSettingsForPlay()
+        {
+            if (!_settingsOpen)
+            {
+                return;
+            }
+
+            PersistSettings();
+            HideSettingsRoot();
+            SetSettingsNavigationLock(false);
+        }
+
+        private void PersistSettings()
+        {
+            if (_settings == null)
+            {
+                _settings = SettingsState.CreateDefault();
+            }
+
+            _settings.Normalize();
+            _settings.Save();
+        }
+
+        private void HideSettingsRoot()
+        {
+            _settingsOpen = false;
+            _settingsNavHeld = false;
+            if (_settingsRoot != null)
+            {
+                _settingsRoot.SetActive(false);
+            }
+        }
+
+        private void SetSettingsNavigationLock(bool locked)
+        {
+            EventSystem es = EventSystem.current;
+            if (es == null)
+            {
+                return;
+            }
+
+            es.sendNavigationEvents = !locked;
+            if (locked)
+            {
+                es.SetSelectedGameObject(null);
+            }
+        }
+
+        private void StepSettingsNav(SettingsRoute route, SettingsInputFlags flags)
+        {
+            float now = Time.unscaledTime;
+            if (_settingsNavHeld && now < _settingsNavRepeatAt)
+            {
+                return;
+            }
+
+            if (route == SettingsRoute.Move)
+            {
+                int delta = flags.NavY > 0 ? -1 : 1;
+                _settingsIndex = SettingsRows.Move(_settingsIndex, delta);
+                RefreshSettingsFocus();
+            }
+            else
+            {
+                NudgeSettingsValue(flags.NavX);
+            }
+
+            _settingsNavRepeatAt = now + (_settingsNavHeld ? HangarPadNav.RepeatNextSeconds : HangarPadNav.RepeatFirstSeconds);
+            _settingsNavHeld = true;
+        }
+
+        private void NudgeSettingsValue(int direction)
+        {
+            if (direction == 0)
+            {
+                return;
+            }
+
+            SettingsRowId rowId = SettingsRows.At(_settingsIndex);
+            if (!SettingsRows.IsValue(rowId) || rowId != SettingsRowId.Language)
+            {
+                return;
+            }
+
+            if (direction < 0)
+            {
+                OnPickLanguage(GameLanguage.English);
+            }
+            else
+            {
+                OnPickLanguage(GameLanguage.Swedish);
+            }
+        }
+
+        private void ActivateSettingsRow()
+        {
+            SettingsRowId rowId = SettingsRows.At(_settingsIndex);
+            if (rowId == SettingsRowId.Language)
+            {
+                CycleSettingsLanguage();
+                return;
+            }
+
+            if (rowId == SettingsRowId.Close)
+            {
+                CloseSettings();
+            }
+        }
+
+        private void CycleSettingsLanguage()
+        {
+            GameLanguage next = Loc.Language == GameLanguage.English
+                ? GameLanguage.Swedish
+                : GameLanguage.English;
+            OnPickLanguage(next);
+        }
+
+        private void RefreshSettingsFocus()
+        {
+            if (_settingsRowButtons == null)
+            {
+                return;
+            }
+
+            int focusIndex = SettingsRows.ClampIndex(_settingsIndex);
+            for (int index = 0; index < _settingsRowButtons.Length; index++)
+            {
+                Button rowButton = _settingsRowButtons[index];
+                if (rowButton == null)
+                {
+                    continue;
+                }
+
+                UiTheme.SetPadFocus(rowButton.gameObject, index == focusIndex, false);
+            }
         }
     }
 }

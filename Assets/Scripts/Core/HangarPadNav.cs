@@ -29,10 +29,11 @@ namespace AsteroidsGoneRogue
         public static int LanceSlot { get { return GotItSlot + 2; } }
         public static int HunterSlot { get { return GotItSlot + 3; } }
         public static int DoctrineHintSlot { get { return HunterSlot + 1; } }
+        public static int SettingsSlot { get { return DoctrineHintSlot + 1; } }
 
         public static int SlotCount
         {
-            get { return DoctrineHintSlot + 1; }
+            get { return SettingsSlot + 1; }
         }
 
         public static int ShopSlot(int shopIndex)
@@ -324,6 +325,8 @@ namespace AsteroidsGoneRogue
                 && Step(EasySlot, 1, 0) == NormalSlot
                 && Step(LangEnSlot, 1, 0) == LangSvSlot
                 && Step(LangSvSlot, 1, 0) == MuteSlot
+                && Step(MuteSlot, 1, 0) == SettingsSlot
+                && Step(SettingsSlot, -1, 0) == MuteSlot
                 && Step(CreditsSlot, 0, -1) != CreditsSlot
                 && DominantStepY(0f, -1f, Flick) == 1
                 && DominantStepY(0f, 1f, Flick) == -1
@@ -449,6 +452,14 @@ namespace AsteroidsGoneRogue
             {
                 x = 8;
                 y = -1;
+                return;
+            }
+
+            if (slot == SettingsSlot)
+            {
+                // Upper-right of the top bar, one cell right of Mute.
+                x = 6;
+                y = -3;
                 return;
             }
 

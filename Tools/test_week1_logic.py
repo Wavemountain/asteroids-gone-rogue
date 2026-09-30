@@ -3380,7 +3380,8 @@ def test_hangar_wave_clear_layout() -> None:
     doctrine = (0.562, 0.608, 0.986, 0.898)
     hint = (0.14, 0.008, 0.86, 0.072)
     credits_btn = (0.014, 0.010, 0.128, 0.070)
-    audio = (0.735, 0.905, 0.988, 0.995)
+    audio = (0.735, 0.905, 0.892, 0.995)
+    gear = (0.900, 0.905, 0.988, 0.995)
     lang = (0.635, 0.905, 0.728, 0.995)
     diff = (0.478, 0.905, 0.628, 0.995)
     assert not _overlap(top_bar, hangar_panel)
@@ -3392,6 +3393,8 @@ def test_hangar_wave_clear_layout() -> None:
     assert not _overlap(hint, hangar_panel)
     assert not _overlap(credits_btn, hangar_panel)
     assert not _overlap(audio, hangar_panel)
+    assert not _overlap(gear, audio)
+    assert not _overlap(gear, hangar_panel)
     assert not _overlap(lang, hangar_panel)
     assert not _overlap(diff, hangar_panel)
     assert abs(hangar_panel[1] - preview[1]) < 0.0001
@@ -3997,7 +4000,8 @@ _PAD_BARRAGE = _PAD_GOTIT + 1
 _PAD_LANCE = _PAD_GOTIT + 2
 _PAD_HUNTER = _PAD_GOTIT + 3
 _PAD_HINT = _PAD_HUNTER + 1
-_PAD_SLOTS = _PAD_HINT + 1
+_PAD_SETTINGS = _PAD_HINT + 1
+_PAD_SLOTS = _PAD_SETTINGS + 1
 _PAD_WEAPONS = {"SpreadBolt", "Pierce", "TwinGuns", "Seeker", "Ricochet", "Rail"}
 _PAD_PATH = {
     "Rail": "Lance",
@@ -4012,6 +4016,9 @@ _PAD_PATH = {
     "Seeker": "Hunter",
 }
 _PAD_DIRS = ((1, 0), (-1, 0), (0, 1), (0, -1))
+# Hangar grid +Y walks down the shop, so up the screen is dy=-1.
+_PAD_DIRS_UP_RIGHT = ((1, 0), (0, -1))
+_PAD_DIRS_DOWN_LEFT = ((-1, 0), (0, 1))
 _PAD_INDEX = {name: index for index, (name, _group, _cost) in enumerate(_PAD_ITEMS)}
 
 
@@ -4050,6 +4057,8 @@ def _pad_coord(slot: int, legacy: bool) -> tuple[int, int]:
         return 8, -2
     if slot == _PAD_HINT:
         return 8, -1
+    if slot == _PAD_SETTINGS:
+        return 6, -3
     hull = weapon = defense = doctrine = 0
     shop_index = slot - _PAD_SHOP0
     for index, (_name, group, _cost) in enumerate(_PAD_ITEMS):
@@ -4215,7 +4224,7 @@ def _pad_shop_mask(owned: frozenset[str], shield: int, doctrine: str, credits: i
     """Selectable hangar controls. Got it / doctrine intro stay out of the pad order."""
     mask = [False] * _PAD_SLOTS
     mask[0] = True
-    for slot in (_PAD_CREDITS, _PAD_EASY, _PAD_NORMAL, _PAD_HARD, _PAD_EN, _PAD_SV, _PAD_MUTE):
+    for slot in (_PAD_CREDITS, _PAD_EASY, _PAD_NORMAL, _PAD_HARD, _PAD_EN, _PAD_SV, _PAD_MUTE, _PAD_SETTINGS):
         mask[slot] = True
     if doctrine == "None":
         gates = (
@@ -4246,6 +4255,21 @@ def _pad_shop_mask(owned: frozenset[str], shield: int, doctrine: str, credits: i
             (not owned_flag) and (not locked) and (not too_poor)
         )
     return mask
+
+
+def _pad_reach(dirs, start: int, goal: int, mask: list[bool], step_fn) -> bool:
+    seen = {start}
+    queue = [start]
+    while queue:
+        current = queue.pop()
+        if current == goal:
+            return True
+        for dx, dy in dirs:
+            nxt = step_fn(current, dx, dy, mask)
+            if nxt not in seen and 0 <= nxt < len(mask) and mask[nxt]:
+                seen.add(nxt)
+                queue.append(nxt)
+    return goal in seen
 
 
 def _pad_closures(mask: list[bool], step_fn) -> tuple[list[int], list[int], int]:
@@ -4434,6 +4458,21 @@ def test_doctrine_rows_pad_reachable() -> None:
     pick_missing, pick_trapped, _pick_far = _pad_closures(picking, fixed_step)
     assert _PAD_BARRAGE not in pick_missing and not pick_trapped
 
+    # Gear is the cell right of Mute. Up then right from Next Wave reaches it, and it can return.
+    assert _pad_coord(_PAD_SETTINGS, False) == (6, -3)
+    assert _pad_coord(_PAD_MUTE, False) == (5, -3)
+    gear_mask = _pad_shop_mask(frozenset({"SpreadBolt"}), 0, "Barrage", 160)
+    assert gear_mask[_PAD_SETTINGS] and gear_mask[0] and gear_mask[_PAD_MUTE]
+    assert fixed_step(_PAD_MUTE, 1, 0, gear_mask) == _PAD_SETTINGS
+    assert fixed_step(_PAD_SETTINGS, -1, 0, gear_mask) == _PAD_MUTE
+    gear_missing, gear_trapped, _gear_far = _pad_closures(gear_mask, fixed_step)
+    assert _PAD_SETTINGS not in gear_missing and _PAD_SETTINGS not in gear_trapped
+    assert 0 not in gear_missing
+    up_right = _pad_reach(_PAD_DIRS_UP_RIGHT, 0, _PAD_SETTINGS, gear_mask, fixed_step)
+    down_left = _pad_reach(_PAD_DIRS_DOWN_LEFT, _PAD_SETTINGS, 0, gear_mask, fixed_step)
+    assert up_right, "gear must be reachable from Next Wave with up/right"
+    assert down_left, "Next Wave must be reachable from the gear"
+
     en_hint = "LS move · LT utility · LB cycle · A confirm · B / Esc Next Wave · Start launch wave"
     sv_hint = "LS styr · LT utility · LB cykla · A bekräfta · B / Esc nästa våg · Start starta våg"
     assert "LS move · {0}" in ui
@@ -4514,6 +4553,346 @@ def test_hangar_footer_launch_and_hint_size() -> None:
     assert hint_size(1920) == 16
 
 
+def _settings_default() -> dict:
+    return {
+        "screen_shake": True,
+        "hint_mode": 2,
+        "hint_size": 1,
+        "confirm_in_play": True,
+        "confirm_new_run": False,
+        "pad_nav": 2,
+    }
+
+
+def _clamp_hint_size(step: int) -> int:
+    if step < 0:
+        return 0
+    if step > 2:
+        return 2
+    return step
+
+
+def _normalize_hint_mode(value: int) -> int:
+    if value in (0, 1, 2):
+        return value
+    return 2
+
+
+def _normalize_pad_nav(value: int) -> int:
+    if value in (0, 1, 2):
+        return value
+    return 2
+
+
+def _settings_from_ints(version, shake, hint, size, in_play, new_run, pad) -> dict:
+    state = _settings_default()
+    if version != 1:
+        return state
+    state["screen_shake"] = shake != 0
+    state["hint_mode"] = _normalize_hint_mode(hint)
+    state["hint_size"] = _clamp_hint_size(size)
+    state["confirm_in_play"] = in_play != 0
+    state["confirm_new_run"] = new_run != 0
+    state["pad_nav"] = _normalize_pad_nav(pad)
+    return state
+
+
+def _settings_capture(state: dict) -> tuple:
+    return (
+        1,
+        1 if state["screen_shake"] else 0,
+        _normalize_hint_mode(state["hint_mode"]),
+        _clamp_hint_size(state["hint_size"]),
+        1 if state["confirm_in_play"] else 0,
+        1 if state["confirm_new_run"] else 0,
+        _normalize_pad_nav(state["pad_nav"]),
+    )
+
+
+def _settings_route(flags: dict) -> str:
+    """Mirrors SettingsInputRouter.Route. Settings wins, then credits, then play/hangar."""
+    if flags.get("open") and not flags.get("playing"):
+        if flags.get("escape") or flags.get("start") or flags.get("cancel") or flags.get("select") or flags.get("f1") or flags.get("scrim"):
+            return "close"
+        if flags.get("submit") or flags.get("gear"):
+            return "activate"
+        if flags.get("nav_y"):
+            return "move"
+        if flags.get("nav_x"):
+            return "nudge"
+        return "none"
+    if flags.get("credits") and (flags.get("escape") or flags.get("cancel")):
+        return "credits"
+    if flags.get("playing") and (flags.get("escape") or flags.get("start")):
+        return "abort"
+    if not flags.get("playing") and not flags.get("credits"):
+        if flags.get("f1") or flags.get("select") or flags.get("gear"):
+            return "open"
+        if flags.get("escape"):
+            return "hangar_escape"
+        if flags.get("start"):
+            return "hangar_start"
+        if flags.get("cancel"):
+            return "hangar_back"
+    return "none"
+
+
+def _settings_blocks_pad(flags: dict) -> bool:
+    return bool(flags.get("open") and not flags.get("playing"))
+
+
+def _row_bands() -> list[tuple[float, float]]:
+    order = ("value", "section", "action")
+    weights = {"value": 1.0, "section": 2.6, "action": 1.0}
+    top, bottom, gap = 0.86, 0.08, 0.018
+    weight_sum = sum(weights[kind] for kind in order)
+    span = top - bottom - gap * (len(order) - 1)
+    cursor = top
+    bands = []
+    for kind in order:
+        height = span * (weights[kind] / weight_sum)
+        bands.append((cursor - height, cursor))
+        cursor = cursor - height - gap
+    return bands
+
+
+def _screen_step_y(x: float, y: float, flick: float) -> int:
+    ax, ay = abs(x), abs(y)
+    if ax < flick and ay < flick:
+        return 0
+    if ay > ax:
+        return 1 if y > 0 else -1
+    return 0
+
+
+def _settings_move(index: int, delta: int) -> int:
+    navigable = (0, 2)
+    if delta == 0:
+        return index
+    direction = 1 if delta > 0 else -1
+    steps = abs(delta)
+    current = index
+    if current not in navigable:
+        current = 2 if direction > 0 else 0
+    for _step in range(steps):
+        nxt = current
+        for candidate in navigable:
+            if direction > 0 and candidate > current:
+                nxt = candidate
+                break
+            if direction < 0 and candidate < current:
+                nxt = candidate
+        if direction < 0:
+            lower = [item for item in navigable if item < current]
+            nxt = lower[-1] if lower else current
+        if nxt == current:
+            break
+        current = nxt
+    return current
+
+
+def test_settings_shell() -> None:
+    """Settings shell: persisted defaults, gear clearance, and shortcut consumption."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    state = (root / "Assets/Scripts/Core/SettingsState.cs").read_text(encoding="utf-8")
+    rows = (root / "Assets/Scripts/Core/SettingsRows.cs").read_text(encoding="utf-8")
+    router = (root / "Assets/Scripts/Core/SettingsInputRouter.cs").read_text(encoding="utf-8")
+    padnav = (root / "Assets/Scripts/Core/HangarPadNav.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    inputs = (root / "ProjectSettings/InputManager.asset").read_text(encoding="utf-8")
+
+    assert "class SettingsState" in state
+    assert "CurrentVersion = 1" in state
+    assert "DefaultHintSizeStep = 1" in state
+    assert "MaxHintSizeStep = 2" in state
+    assert "ScreenShake = true" in state
+    assert "HintMode.HangarFooter" in state
+    assert "ConfirmRestartInPlay = true" in state
+    assert "ConfirmRestartNewRun = false" in state
+    assert "PadNavSource.Both" in state
+    assert "enum HintMode" in state and "Off = 0" in state and "SettingsOnly = 1" in state and "HangarFooter = 2" in state
+    assert "enum PadNavSource" in state and "DPad = 0" in state and "Analog = 1" in state and "Both = 2" in state
+    assert "ClampHintSize" in state and "Normalize()" in state and "FromInts" in state and "Capture()" in state
+    assert "PlayerPrefs.GetInt(VersionKey, 0)" in state and "PlayerPrefs.Save()" in state
+    assert "agr.settings.version" in state
+    assert "agr.ui.language" not in state
+    assert "invert" not in state.lower()
+    fresh = _settings_default()
+    assert fresh["screen_shake"] is True
+    assert fresh["hint_mode"] == 2
+    assert fresh["hint_size"] == 1
+    assert fresh["confirm_in_play"] is True
+    assert fresh["confirm_new_run"] is False
+    assert fresh["pad_nav"] == 2
+    assert _clamp_hint_size(-4) == 0 and _clamp_hint_size(9) == 2 and _clamp_hint_size(1) == 1
+    assert _normalize_hint_mode(99) == 2 and _normalize_hint_mode(0) == 0
+    assert _normalize_pad_nav(-1) == 2 and _normalize_pad_nav(1) == 1
+    clamped = _settings_from_ints(1, 2, 40, 9, 0, 5, -3)
+    assert clamped["screen_shake"] is True
+    assert clamped["hint_mode"] == 2
+    assert clamped["hint_size"] == 2
+    assert clamped["confirm_in_play"] is False
+    assert clamped["confirm_new_run"] is True
+    assert clamped["pad_nav"] == 2
+    assert _settings_from_ints(0, 0, 0, 0, 0, 1, 0) == fresh
+    dirty = {
+        "screen_shake": False,
+        "hint_mode": 0,
+        "hint_size": 2,
+        "confirm_in_play": True,
+        "confirm_new_run": True,
+        "pad_nav": 0,
+    }
+    packed = _settings_capture(dirty)
+    assert _settings_from_ints(*packed) == dirty
+    over = dict(dirty)
+    over["hint_size"] = 8
+    over["hint_mode"] = 7
+    over["pad_nav"] = 4
+    round_trip = _settings_from_ints(*_settings_capture(over))
+    assert round_trip["hint_size"] == 2
+    assert round_trip["hint_mode"] == 2
+    assert round_trip["pad_nav"] == 2
+    assert round_trip["screen_shake"] is False
+
+    order = rows.split("Order =")[1].split(";")[0]
+    assert "SettingsRowId.Language" in order
+    assert "SettingsRowId.Controls" in order
+    assert "SettingsRowId.Close" in order
+    assert order.index("Language") < order.index("Controls") < order.index("Close")
+    assert "ScreenShake" not in order and "HintMode" not in order and "PadNav" not in order
+    assert "IsNavigable" in rows and "IsValue" in rows and "RowBand" in rows and "Move(" in rows
+    assert "ContentTop = 0.86f" in rows and "SectionWeight = 2.6f" in rows
+    bands = _row_bands()
+    assert len(bands) == 3
+    for y0, y1 in bands:
+        assert 0.08 - 1e-6 <= y0 < y1 <= 0.86 + 1e-6
+    assert bands[0][0] > bands[1][1] > bands[2][1]
+    assert not _overlap((0.06, bands[0][0], 0.94, bands[0][1]), (0.06, bands[1][0], 0.94, bands[1][1]))
+    assert not _overlap((0.06, bands[1][0], 0.94, bands[1][1]), (0.06, bands[2][0], 0.94, bands[2][1]))
+    assert _settings_move(0, 1) == 2
+    assert _settings_move(2, -1) == 0
+    assert _settings_move(1, 1) == 2
+    assert _settings_move(1, -1) == 0
+    assert _settings_move(0, 0) == 0
+
+    assert "class SettingsInputRouter" in router
+    assert "BlocksHangarPad" in router
+    assert "ScreenStepY" in router
+    assert "return flags.Open && !flags.Playing;" in router
+    assert _screen_step_y(0.0, 1.0, 0.55) == 1
+    assert _screen_step_y(0.0, -1.0, 0.55) == -1
+    assert _screen_step_y(1.0, 0.0, 0.55) == 0
+    hangar = {"playing": False, "credits": False, "open": False}
+    assert _settings_route({**hangar, "escape": True}) == "hangar_escape"
+    assert _settings_route({**hangar, "start": True}) == "hangar_start"
+    assert _settings_route({**hangar, "cancel": True}) == "hangar_back"
+    assert _settings_route({**hangar, "f1": True}) == "open"
+    assert _settings_route({**hangar, "select": True}) == "open"
+    assert _settings_route({**hangar, "gear": True}) == "open"
+    opened = {**hangar, "open": True}
+    assert _settings_route({**opened, "escape": True}) == "close"
+    assert _settings_route({**opened, "start": True}) == "close"
+    assert _settings_route({**opened, "cancel": True}) == "close"
+    assert _settings_route({**opened, "select": True}) == "close"
+    assert _settings_route({**opened, "f1": True}) == "close"
+    assert _settings_route({**opened, "scrim": True}) == "close"
+    assert _settings_route({**opened, "submit": True}) == "activate"
+    assert _settings_route({**opened, "nav_y": 1}) == "move"
+    assert _settings_route({**opened, "nav_x": -1}) == "nudge"
+    assert _settings_route({**opened, "escape": True, "start": True, "submit": True}) == "close"
+    assert _settings_blocks_pad(opened) is True
+    assert _settings_blocks_pad(hangar) is False
+    assert _settings_route({**opened, "playing": True, "escape": True}) == "abort"
+    assert _settings_route({"playing": True, "escape": True}) == "abort"
+    assert _settings_route({"playing": True, "start": True}) == "abort"
+    assert _settings_route({"playing": True, "f1": True}) == "none"
+    assert _settings_route({"playing": True, "select": True}) == "none"
+    assert _settings_blocks_pad({"open": True, "playing": True}) is False
+    assert _settings_route({"credits": True, "cancel": True, "open": True}) == "close"
+    assert _settings_route({"credits": True, "escape": True}) == "credits"
+
+    assert "SettingsSlot" in padnav
+    assert "Step(MuteSlot, 1, 0) == SettingsSlot" in padnav
+    assert "Step(SettingsSlot, -1, 0) == MuteSlot" in padnav
+    assert "x = 6" in padnav and "y = -3" in padnav
+    assert "SettingsGear" in ui and "SettingsPanel" in ui and "SettingsScrim" in ui
+    assert "AudioPanelMin" in ui and "AudioPanelMax" in ui
+    assert "new Vector2(0.735f, 0.905f)" in ui
+    assert "new Vector2(0.892f, 0.995f)" in ui
+    assert "new Vector2(0.900f, 0.905f)" in ui
+    assert "new Vector2(0.988f, 0.995f)" in ui
+    assert "new Vector2(0.30f, 0.12f)" in ui
+    assert "new Vector2(0.70f, 0.88f)" in ui
+    assert "KeyCode.F1" in ui and "JoystickButton6" in ui
+    assert "SettingsInputRouter.Route" in ui and "BlocksHangarPad" in ui
+    assert "FocusHangarSlot(HangarPadNav.SettingsSlot)" in ui
+    assert "FullControlHint" in ui
+    assert 'Loc.T("ui.settings", "Settings")' in ui
+    assert 'Loc.T("ui.settings.language", "Language")' in ui
+    assert 'Loc.T("ui.settings.close", "Close")' in ui
+    assert 'Loc.T("ui.settings.controls", "Controls")' in ui
+    hint_fn = ui.split("private static string FullControlHint()")[1].split("private static int IndexOfSettingsRow")[0]
+    assert "ui.hint_play" in hint_fn
+    assert "ui.hint_hangar" in hint_fn
+    assert "ui.hangar_controls" in hint_fn
+    assert "UiTheme.HintSize(Screen.width)" in ui
+    assert "raycastTarget = true" in ui.split("SettingsScrim")[1].split("SettingsPanel")[0]
+    update = ui.split("private void Update()")[1].split("private void PulseHangarLaunch")[0]
+    assert update.index("SettingsInputRouter.Route") < update.index("OnHangarEscape()")
+    assert update.index("SettingsInputRouter.Route") < update.index("OnHangarStart()")
+    assert update.index("SettingsInputRouter.Route") < update.index("OnHangarBack()")
+    assert update.index("OnAbort()") < update.index("NavigateHangarPad()")
+    assert "SettingsInputRouter.BlocksHangarPad(settingsFlags)" in update
+    assert update.index("BlocksHangarPad") < update.index("NavigateHangarPad()")
+    assert "NavigateHangarPad()" in update and "SyncHangarPadSelection()" in update
+    assert "BuildSettingsRow" in ui and "SettingsRows.Order" in ui
+    assert "Start launch wave" in ui
+    swedish = loc.split("private static readonly Dictionary")[1].split("};")[0]
+    for key in (
+        "ui.settings",
+        "ui.settings.language",
+        "ui.settings.controls",
+        "ui.settings.close",
+        "ui.settings.en",
+        "ui.settings.sv",
+    ):
+        assert f'"{key}"' in swedish, key
+        assert f'"{key}"' in ui, key
+    assert "Inställningar" in loc and "Språk" in loc and "Kontroller" in loc and "Stäng" in loc
+    assert "invert: 1" in inputs
+    assert "m_Name: Vertical" in inputs
+
+    audio = (0.735, 0.905, 0.892, 0.995)
+    gear = (0.900, 0.905, 0.988, 0.995)
+    panel = (0.30, 0.12, 0.70, 0.88)
+    lang = (0.635, 0.905, 0.728, 0.995)
+    diff = (0.478, 0.905, 0.628, 0.995)
+    doctrine = (0.562, 0.608, 0.986, 0.898)
+    wave = _map_anchors(0.014, 0.080, 0.55, 0.888, 0.03, 0.735, 0.97, 0.800)
+    assert panel == (0.30, 0.12, 0.70, 0.88)
+    # Gear is always visible and must clear the hangar cards and the audio cluster.
+    # The settings card is a centered modal under a full-screen scrim, so it stays
+    # off the top bar (audio + gear) while covering the hangar behind it.
+    assert not _overlap(panel, audio)
+    assert not _overlap(panel, gear)
+    assert panel[3] < gear[1]
+    for width, height in ((1280, 800), (1600, 900), (1920, 1080)):
+        def px(rect, _w=width, _h=height):
+            return (rect[0] * _w, rect[1] * _h, rect[2] * _w, rect[3] * _h)
+
+        gear_px = px(gear)
+        panel_px = px(panel)
+        for other in (audio, wave, doctrine, lang, diff):
+            assert not _overlap(gear_px, px(other)), (width, height, other)
+        assert not _overlap(panel_px, px(audio)), (width, height)
+        assert not _overlap(panel_px, gear_px), (width, height)
+        assert not _overlap(px(audio), px(lang))
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -4563,6 +4942,7 @@ def main() -> int:
     test_hangar_next_wave_always_selectable()
     test_doctrine_rows_pad_reachable()
     test_hangar_footer_launch_and_hint_size()
+    test_settings_shell()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

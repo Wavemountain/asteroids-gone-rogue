@@ -1661,6 +1661,48 @@ def main() -> int:
     if "CardIsAction" not in read(ROOT / "Assets/Scripts/Core/DoctrineRules.cs"):
         err("doctrine 'New Run to swap' must not be an action")
 
+    settings_state = read(ROOT / "Assets/Scripts/Core/SettingsState.cs")
+    settings_rows = read(ROOT / "Assets/Scripts/Core/SettingsRows.cs")
+    settings_router = read(ROOT / "Assets/Scripts/Core/SettingsInputRouter.cs")
+    if "class SettingsState" not in settings_state or "FromInts" not in settings_state:
+        err("SettingsState must clamp and round-trip versioned prefs")
+    if "ScreenShake = true" not in settings_state or "ConfirmRestartInPlay = true" not in settings_state:
+        err("SettingsState defaults must keep shake and in-play restart confirm on")
+    if "ConfirmRestartNewRun = false" not in settings_state or "HintMode.HangarFooter" not in settings_state:
+        err("SettingsState defaults must keep new-run confirm off and the hangar footer hint")
+    if "PadNavSource.Both" not in settings_state or "DefaultHintSizeStep = 1" not in settings_state:
+        err("SettingsState must default pad nav to Both and hint size step to 1")
+    if "invert" in settings_state.lower():
+        err("SettingsState must not add an invert-down option")
+    if "class SettingsInputRouter" not in settings_router or "BlocksHangarPad" not in settings_router:
+        err("SettingsInputRouter must consume shortcuts while the panel is open")
+    if "return flags.Open && !flags.Playing;" not in settings_router:
+        err("settings pad lock must cover the open hangar panel only")
+    order_block = settings_rows.split("Order =")[1].split(";")[0]
+    for row_name in ("Language", "Controls", "Close"):
+        if row_name not in order_block:
+            err(f"settings row list missing {row_name}")
+    if "ScreenShake" in order_block or "HintMode" in order_block or "PadNav" in order_block:
+        err("settings row list must stay placeholder-free until later PRs")
+    if "SettingsSlot" not in padnav or "SettingsGear" not in game_ui:
+        err("hangar pad must include the settings gear slot")
+    if "JoystickButton6" not in game_ui or "KeyCode.F1" not in game_ui:
+        err("hangar settings must toggle from F1 and Select")
+    if "FocusHangarSlot(HangarPadNav.SettingsSlot)" not in game_ui:
+        err("closing settings must restore the gear slot")
+    for settings_key in (
+        "ui.settings",
+        "ui.settings.language",
+        "ui.settings.controls",
+        "ui.settings.close",
+    ):
+        if settings_key not in loc_src or settings_key not in game_ui:
+            err(f"missing EN+SV settings key {settings_key}")
+    if "Inställningar" not in loc_src or "Stäng" not in loc_src:
+        err("Swedish settings copy missing")
+    if "SettingsInputRouter.Route" not in game_ui or "OnHangarEscape()" not in game_ui:
+        err("GameUi must route settings before hangar Esc")
+
     if "body.velocity" in blob or "_body.velocity" in blob:
         err("scripts still assign Rigidbody.velocity; use linearVelocity")
     if "body.drag" in blob or "body.angularDrag" in blob:
