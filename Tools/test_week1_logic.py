@@ -324,7 +324,8 @@ def test_factory_wires_import_fbx() -> None:
     assert "agr.ui.firstHangarHint" in ui
     assert "First flight" in ui
     assert "Clear a wave to earn credits and upgrades." in ui
-    assert "Abort (Esc)" in ui
+    assert "Start = launch wave" in ui
+    assert "Abort (Esc)" not in ui.split("HangarHintBody")[1].split("FirstWaveCoach")[0]
     assert "LT utility" in ui
     assert "LB cycle primary" in ui
     assert "RT fire" in ui
@@ -4433,19 +4434,84 @@ def test_doctrine_rows_pad_reachable() -> None:
     pick_missing, pick_trapped, _pick_far = _pad_closures(picking, fixed_step)
     assert _PAD_BARRAGE not in pick_missing and not pick_trapped
 
-    en_hint = "LS move · RS aim · RT fire · LT utility · LB cycle · A confirm · B / Esc Next Wave"
-    sv_hint = "LS styr · RS sikte · RT skjut · LT utility · LB cykla · A bekräfta · B / Esc nästa våg"
-    assert "LS move · RS aim · RT fire · {0}" in ui
-    assert "LT utility · LB cycle · A confirm · B / Esc Next Wave" in ui
-    assert "LS styr · RS sikte · RT skjut · {0}" in loc
-    assert "LT utility · LB cykla · A bekräfta · B / Esc nästa våg" in loc
-    # Footer is one line in (0.14, 0.008)–(0.86, 0.072). Kenney Future Narrow at
-    # 16px is under 10px/char for this copy, so 1280x800 must not clip it.
+    en_hint = "LS move · LT utility · LB cycle · A confirm · B / Esc Next Wave · Start launch wave"
+    sv_hint = "LS styr · LT utility · LB cykla · A bekräfta · B / Esc nästa våg · Start starta våg"
+    assert "LS move · {0}" in ui
+    assert "LT utility · LB cycle · A confirm · B / Esc Next Wave · Start launch wave" in ui
+    assert "LS styr · {0}" in loc
+    assert "LT utility · LB cykla · A bekräfta · B / Esc nästa våg · Start starta våg" in loc
+    # Footer is one line in (0.14, 0.008)–(0.86, 0.072). At 18px, Kenney Future
+    # Narrow is about 10px/char and the 1280px hint box is 922px, so stay <= 90.
     hint_box = (0.86 - 0.14) * 1280
-    assert len(en_hint) == 82 and len(sv_hint) == 86
+    assert len(en_hint) <= 90 and len(sv_hint) <= 90
     assert len(en_hint) * 10 < hint_box
     assert len(sv_hint) * 10 < hint_box
     assert len(sv_hint) < 165
+
+
+def test_hangar_footer_launch_and_hint_size() -> None:
+    """Launch key on the hangar footer, corrected first-flight copy, 18px hint floor."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    theme = (root / "Assets/Scripts/UI/UiTheme.cs").read_text(encoding="utf-8")
+
+    keys = (
+        "ui.hint_hangar",
+        "ui.hangar_controls",
+        "ui.hint_play",
+        "ui.hangar_hint_body",
+        "ui.first_wave_coach",
+    )
+    swedish = loc.split("private static readonly Dictionary")[1].split("};")[0]
+    for key in keys:
+        assert f'"{key}"' in swedish, key
+        assert f'"{key}"' in ui, key
+
+    en_hangar = "LS move · LT utility · LB cycle · A confirm · B / Esc Next Wave · Start launch wave"
+    sv_hangar = "LS styr · LT utility · LB cykla · A bekräfta · B / Esc nästa våg · Start starta våg"
+    assert "Start launch wave" in en_hangar and "Start launch wave" in ui
+    assert "Start starta våg" in sv_hangar and "Start starta våg" in loc
+    assert "LS move · {0}" in ui and "LS styr · {0}" in loc
+    assert len(en_hangar) <= 90 and len(sv_hangar) <= 90
+    hint_box = (0.86 - 0.14) * 1280
+    assert len(en_hangar) * 10 < hint_box
+    assert len(sv_hangar) * 10 < hint_box
+
+    en_play = "WASD / LS move · Mouse / RS aim · LMB / RT fire · E / LT utility · Q / LB cycle · Esc / Start = back to hangar"
+    sv_play = "WASD / LS styr · Mus / RS sikte · VMB / RT skjut · E / LT utility · Q / LB cykla · Esc / Start = tillbaka till hangaren"
+    assert en_play in ui and sv_play in loc
+    assert "Esc / Start abort" not in ui
+    assert "Esc / Start avbryt" not in loc
+    assert len(en_play) <= 125 and len(sv_play) <= 125
+
+    card = ui.split("HangarHintBody")[1].split("FirstWaveCoach")[0]
+    assert "Abort (Esc)" not in card
+    assert "Start = launch wave" in card
+    assert "B / Esc = focus Next Wave" in card
+    assert "Avbryt (Esc)" not in loc
+    assert "B / Esc = fokusera Nästa våg" in loc
+    assert "Esc / Start returns to hangar" in ui
+    assert "Esc / Start återvänder till hangaren" in loc
+    assert "Abort (Start)" not in ui
+
+    assert "HintMin = 18" in theme
+    assert "BodyMin = 14" in theme
+    assert "HintSize(int screenWidth)" in theme
+    assert "screenWidth <= 1280" in theme
+    assert "return HintMin" in theme
+    assert "UiTheme.HintSize(Screen.width)" in ui
+    assert "_hint.fontSize = footerSize" in ui
+    assert "_firstFlightBody.fontSize = footerSize" in ui
+
+    def hint_size(screen_width: int) -> int:
+        return 18 if screen_width <= 1280 else 16
+
+    assert hint_size(1280) >= 18
+    assert hint_size(800) >= 18
+    assert hint_size(1920) == 16
 
 
 def main() -> int:
@@ -4496,6 +4562,7 @@ def main() -> int:
     test_hotfix_045_rail_cancel_and_duck_merge()
     test_hangar_next_wave_always_selectable()
     test_doctrine_rows_pad_reachable()
+    test_hangar_footer_launch_and_hint_size()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

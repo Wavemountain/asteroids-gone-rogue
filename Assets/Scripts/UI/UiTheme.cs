@@ -31,6 +31,12 @@ namespace AsteroidsGoneRogue
         public const int HeaderMax = 46;
         public const int BodyMin = 14;
         public const int BodyMax = 22;
+        /// <summary>
+        /// Floor for the bottom hint, first-hangar card, and first-wave coach.
+        /// Steam Deck and other narrow widths (Screen.width &lt;= 1280) use 18;
+        /// wider screens keep the previous 16px hint size. BodyMin stays 14.
+        /// </summary>
+        public const int HintMin = 18;
         public const int DoctrineBadge = 18;
         public const int PanelPadMin = 16;
         public const int PanelPadMax = 24;
@@ -125,6 +131,20 @@ namespace AsteroidsGoneRogue
         public static Color FooterHint
         {
             get { return WithAlpha(Accent, 0.92f); }
+        }
+
+        /// <summary>
+        /// Hint/footer size. 18 at Steam Deck 1280x800 and any narrower width;
+        /// otherwise the previous 16px footer size.
+        /// </summary>
+        public static int HintSize(int screenWidth)
+        {
+            if (screenWidth <= 1280)
+            {
+                return HintMin;
+            }
+
+            return 16;
         }
 
         public static Color Parse(string hex)

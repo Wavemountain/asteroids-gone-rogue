@@ -1632,6 +1632,27 @@ def main() -> int:
         err("GameUi hangar pad must fall back to Next Wave")
     if "OnHangarStart" not in game_ui or "CardIsAction" not in game_ui:
         err("GameUi must keep Start as the launch shortcut and doctrine swap text passive")
+    loc_src = read(ROOT / "Assets/Scripts/Core/Loc.cs")
+    theme_src = read(ROOT / "Assets/Scripts/UI/UiTheme.cs")
+    if "Start launch wave" not in game_ui or "LS move · {0}" not in game_ui:
+        err("hangar footer must include Start launch wave on the one-line hint")
+    if "Start starta våg" not in loc_src or "LS styr · {0}" not in loc_src:
+        err("Swedish hangar footer must include Start starta våg")
+    hangar_card = game_ui.split("HangarHintBody")[1].split("FirstWaveCoach")[0]
+    if "Abort (Esc)" in hangar_card or "Start = launch wave" not in hangar_card:
+        err("first-hangar card must say Start launches the wave, not Abort (Esc)")
+    if "B / Esc = focus Next Wave" not in hangar_card:
+        err("first-hangar card must say B / Esc focuses Next Wave")
+    if "Esc / Start = back to hangar" not in game_ui:
+        err("play hint must say Esc / Start = back to hangar")
+    if "Esc / Start returns to hangar" not in game_ui:
+        err("first-wave coach must say Esc / Start returns to hangar")
+    if "HintMin = 18" not in theme_src or "HintSize(int screenWidth)" not in theme_src:
+        err("UiTheme.HintMin must be 18 and HintSize(int screenWidth) must exist")
+    if "screenWidth <= 1280" not in theme_src or "return HintMin" not in theme_src:
+        err("UiTheme.HintSize must return HintMin at width <= 1280")
+    if "UiTheme.HintSize(Screen.width)" not in game_ui:
+        err("bottom hint and first-hangar card must use UiTheme.HintSize")
     escape_fn = game_ui.split("private void OnHangarEscape()")[1].split("private void")[0]
     if "OnPrimary" in escape_fn:
         err("Esc in the hangar must not launch Next Wave / New Run")
