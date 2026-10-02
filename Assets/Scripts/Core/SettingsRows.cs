@@ -5,6 +5,9 @@ namespace AsteroidsGoneRogue
         Language = 0,
         Controls = 1,
         Close = 2,
+        Music = 3,
+        Sfx = 4,
+        Mute = 5,
     }
 
     public enum SettingsRowRole
@@ -15,21 +18,24 @@ namespace AsteroidsGoneRogue
     }
 
     /// <summary>
-    /// Ordered settings rows. Later options (music, sfx, shake, hint mode,
-    /// text size, restart confirm, pad source) are added by appending this list
-    /// and a matching builder case. Sections are drawn but skipped by the pad.
+    /// Ordered settings rows. Sections are drawn but skipped by the pad.
+    /// Music, SFX, and Mute are value rows. Later options append this list.
     /// </summary>
     public static class SettingsRows
     {
         public const float ContentTop = 0.86f;
         public const float ContentBottom = 0.08f;
         public const float RowGap = 0.018f;
-        public const float SectionWeight = 2.6f;
+        public const float SectionWeight = 3.4f;
         public const float RowWeight = 1f;
+        public const float VolumeStep = 0.1f;
 
         public static readonly SettingsRowId[] Order = new SettingsRowId[]
         {
             SettingsRowId.Language,
+            SettingsRowId.Music,
+            SettingsRowId.Sfx,
+            SettingsRowId.Mute,
             SettingsRowId.Controls,
             SettingsRowId.Close,
         };
@@ -41,9 +47,9 @@ namespace AsteroidsGoneRogue
 
         public static SettingsRowRole Role(SettingsRowId id)
         {
-            if (id == SettingsRowId.Language)
+            if (id == SettingsRowId.Controls)
             {
-                return SettingsRowRole.Value;
+                return SettingsRowRole.Section;
             }
 
             if (id == SettingsRowId.Close)
@@ -51,7 +57,7 @@ namespace AsteroidsGoneRogue
                 return SettingsRowRole.Action;
             }
 
-            return SettingsRowRole.Section;
+            return SettingsRowRole.Value;
         }
 
         public static bool IsNavigable(SettingsRowId id)
@@ -62,6 +68,11 @@ namespace AsteroidsGoneRogue
         public static bool IsValue(SettingsRowId id)
         {
             return Role(id) == SettingsRowRole.Value;
+        }
+
+        public static bool IsSlider(SettingsRowId id)
+        {
+            return id == SettingsRowId.Music || id == SettingsRowId.Sfx;
         }
 
         public static int ClampIndex(int index)
@@ -85,6 +96,19 @@ namespace AsteroidsGoneRogue
             return Order[ClampIndex(index)];
         }
 
+        public static int IndexOf(SettingsRowId id)
+        {
+            for (int index = 0; index < Order.Length; index++)
+            {
+                if (Order[index] == id)
+                {
+                    return index;
+                }
+            }
+
+            return 0;
+        }
+
         public static int FirstNavigable()
         {
             for (int index = 0; index < Order.Length; index++)
@@ -101,6 +125,40 @@ namespace AsteroidsGoneRogue
         public static float Weight(SettingsRowId id)
         {
             return Role(id) == SettingsRowRole.Section ? SectionWeight : RowWeight;
+        }
+
+        public static float ClampVolume(float volume)
+        {
+            if (volume < 0f)
+            {
+                return 0f;
+            }
+
+            if (volume > 1f)
+            {
+                return 1f;
+            }
+
+            return volume;
+        }
+
+        /// <summary>
+        /// Pad left/right steps a volume slider by 10 percent and clamps to 0–1.
+        /// </summary>
+        public static float StepVolume(float current, int direction)
+        {
+            float delta = 0f;
+            if (direction > 0)
+            {
+                delta = VolumeStep;
+            }
+            else if (direction < 0)
+            {
+                delta = -VolumeStep;
+            }
+
+            float next = ClampVolume(current + delta);
+            return UnityEngine.Mathf.Round(next * 1000f) / 1000f;
         }
 
         /// <summary>
@@ -210,6 +268,159 @@ namespace AsteroidsGoneRogue
             }
 
             return index;
+        }
+    }
+
+    /// <summary>
+    /// Canvas-unit layout for the settings panel and the achievement ladder.
+    /// Matches the 1920x1080 scaler at match 0.5. Char width is the 10px-at-18px
+    /// estimate the layout tests already use.
+    /// </summary>
+    public static class SettingsMeasure
+    {
+        public const float RefWidth = 1920f;
+        public const float RefHeight = 1080f;
+        public const float Match = 0.5f;
+        public const float CharPxAt18 = 10f;
+        public const float LineHeightScale = 1.15f;
+        public const float PanelMinX = 0.30f;
+        public const float PanelMaxX = 0.70f;
+        public const float PanelMinY = 0.12f;
+        public const float PanelMaxY = 0.88f;
+        public const float RowMinX = 0.06f;
+        public const float RowMaxX = 0.94f;
+        public const float SliderMinX = 0.40f;
+        public const float SliderMaxX = 0.96f;
+        public const float BodyMinX = 0.08f;
+        public const float BodyMaxX = 0.92f;
+        public const float ControlsHeaderInset = 0.05f;
+        public const float OldSliderMinUnits = 101f;
+        public const float LadderMinX = 0.355f;
+        public const float LadderMaxX = 0.478f;
+        public const int LadderFont = 12;
+
+        public static float CanvasScale(float screenWidth, float screenHeight)
+        {
+            float safeW = screenWidth < 1f ? 1f : screenWidth;
+            float safeH = screenHeight < 1f ? 1f : screenHeight;
+            float logW = UnityEngine.Mathf.Log(safeW / RefWidth, 2f);
+            float logH = UnityEngine.Mathf.Log(safeH / RefHeight, 2f);
+            float logAvg = logW + ((logH - logW) * Match);
+            return UnityEngine.Mathf.Pow(2f, logAvg);
+        }
+
+        public static float CanvasWidth(float screenWidth, float screenHeight)
+        {
+            return screenWidth / CanvasScale(screenWidth, screenHeight);
+        }
+
+        public static float CanvasHeight(float screenWidth, float screenHeight)
+        {
+            return screenHeight / CanvasScale(screenWidth, screenHeight);
+        }
+
+        public static float EstimateWidth(string text, int fontSize)
+        {
+            if (string.IsNullOrEmpty(text) || fontSize <= 0)
+            {
+                return 0f;
+            }
+
+            return text.Length * CharPxAt18 * fontSize / 18f;
+        }
+
+        public static int WrappedLineCount(string text, float boxWidth, int fontSize)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return 0;
+            }
+
+            float charWidth = CharPxAt18 * fontSize / 18f;
+            if (charWidth < 0.01f)
+            {
+                charWidth = 0.01f;
+            }
+
+            string[] paragraphs = text.Split('\n');
+            int lines = 0;
+            for (int paragraph = 0; paragraph < paragraphs.Length; paragraph++)
+            {
+                string para = paragraphs[paragraph];
+                if (para.Length == 0)
+                {
+                    lines += 1;
+                    continue;
+                }
+
+                string[] words = para.Split(' ');
+                float used = 0f;
+                int count = 1;
+                for (int wordIndex = 0; wordIndex < words.Length; wordIndex++)
+                {
+                    float wordWidth = words[wordIndex].Length * charWidth;
+                    float space = used > 0f ? charWidth : 0f;
+                    if (used + space + wordWidth > boxWidth && used > 0f)
+                    {
+                        count += 1;
+                        used = wordWidth;
+                    }
+                    else
+                    {
+                        used += space + wordWidth;
+                    }
+                }
+
+                lines += count;
+            }
+
+            return lines;
+        }
+
+        public static float SliderWidth(float screenWidth, float screenHeight)
+        {
+            float span = (SliderMaxX - SliderMinX) * (RowMaxX - RowMinX) * (PanelMaxX - PanelMinX);
+            return span * CanvasWidth(screenWidth, screenHeight);
+        }
+
+        public static float ControlsBodyWidth(float screenWidth, float screenHeight)
+        {
+            float span = (BodyMaxX - BodyMinX) * (PanelMaxX - PanelMinX);
+            return span * CanvasWidth(screenWidth, screenHeight);
+        }
+
+        public static float ControlsBodyHeight(float screenWidth, float screenHeight)
+        {
+            float bandTop;
+            float bandBottom;
+            SettingsRows.RowBand(SettingsRows.IndexOf(SettingsRowId.Controls), out bandBottom, out bandTop);
+            float bodySpan = bandTop - ControlsHeaderInset - bandBottom;
+            if (bodySpan < 0f)
+            {
+                bodySpan = 0f;
+            }
+
+            float panelSpan = PanelMaxY - PanelMinY;
+            return bodySpan * panelSpan * CanvasHeight(screenWidth, screenHeight);
+        }
+
+        public static bool ControlsTextFits(string text, float screenWidth, float screenHeight, int fontSize)
+        {
+            float boxWidth = ControlsBodyWidth(screenWidth, screenHeight);
+            float boxHeight = ControlsBodyHeight(screenWidth, screenHeight);
+            int lines = WrappedLineCount(text, boxWidth, fontSize);
+            return lines * fontSize * LineHeightScale <= boxHeight;
+        }
+
+        public static float LadderBoxWidth(float screenWidth, float screenHeight)
+        {
+            return (LadderMaxX - LadderMinX) * CanvasWidth(screenWidth, screenHeight);
+        }
+
+        public static bool LadderLinesFit(string header, string count, float screenWidth, float screenHeight)
+        {
+            float box = LadderBoxWidth(screenWidth, screenHeight);
+            return EstimateWidth(header, LadderFont) <= box && EstimateWidth(count, LadderFont) <= box;
         }
     }
 }

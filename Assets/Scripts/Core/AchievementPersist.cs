@@ -40,6 +40,11 @@ namespace AsteroidsGoneRogue
             return AchievementCatalog.LadderLine(Mask);
         }
 
+        public string CompactCount()
+        {
+            return AchievementCatalog.CompactCount(Mask);
+        }
+
         public static AchievementPersist Load()
         {
             return new AchievementPersist(

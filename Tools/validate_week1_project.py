@@ -1284,6 +1284,63 @@ def local_shadow_violations(source: str) -> list[str]:
     return scanner.violations()
 
 
+def _dict_keys(block: str) -> set[str]:
+    return set(re.findall(r'\{\s*"([^"]+)"\s*,', block))
+
+
+def _enum_names(source: str, enum_name: str) -> list[str]:
+    body = source.split(f"enum {enum_name}")[1].split("}")[0]
+    return re.findall(r"^\s*([A-Z][A-Za-z0-9_]*)\s*,?\s*$", body, re.M)
+
+
+def check_loc_key_parity(loc_src: str) -> None:
+    """Every EN loc key exists in SV and every SV key exists in EN.
+
+    EN is the literal Loc.T/Tf keys, dynamic shop/enemy/mode keys, and the
+    English dictionary for table-only keys. SV is the Swedish dictionary.
+    """
+    parts = loc_src.split("private static readonly Dictionary")
+    if len(parts) < 3:
+        err("Loc must define a Swedish dictionary and an English dictionary")
+        return
+
+    swedish = _dict_keys(parts[1].split("};")[0])
+    english = _dict_keys(parts[2].split("};")[0])
+    literals: set[str] = set()
+    for path in (ROOT / "Assets/Scripts").rglob("*.cs"):
+        text = path.read_text(encoding="utf-8")
+        for key in re.findall(r'Loc\.Tf?\(\s*"([^"]+)"', text):
+            if key.endswith("."):
+                continue
+            literals.add(key)
+
+    dynamic: set[str] = set()
+    shop = read(ROOT / "Assets/Scripts/Core/ShopCatalog.cs")
+    for upgrade in re.findall(r"UpgradeId\.(\w+)", shop):
+        dynamic.add(f"shop.title.{upgrade}")
+        dynamic.add(f"shop.desc.{upgrade}")
+    for name in _enum_names(read(ROOT / "Assets/Scripts/Combat/EnemyKind.cs"), "EnemyKind"):
+        dynamic.add(f"enemy.{name}")
+    for name in _enum_names(read(ROOT / "Assets/Scripts/Player/FireMode.cs"), "FireMode"):
+        dynamic.add(f"mode.{name}")
+
+    en_keys = literals | dynamic | english
+    missing_sv = sorted(en_keys - swedish)
+    missing_en = sorted(swedish - en_keys)
+    if missing_sv:
+        err("SV loc table missing keys: " + ", ".join(missing_sv[:12]))
+    if missing_en:
+        err("EN loc table missing keys: " + ", ".join(missing_en[:12]))
+    if "credits.body" not in swedish or "credits.body" not in en_keys:
+        err("credits.body must exist in both the EN and SV loc tables")
+        return
+
+    sv_credits = parts[1].split('"credits.body"')[1].split("},")[0]
+    for token in ("Ljud", "Typsnitt", "Kenney.nl", "Kenney Future", "Speltest"):
+        if token not in sv_credits:
+            err(f"Swedish credits.body is missing '{token}'")
+
+
 def main() -> int:
     require(ROOT / "Packages/manifest.json")
     require(ROOT / "ProjectSettings/ProjectVersion.txt")
@@ -1679,11 +1736,18 @@ def main() -> int:
     if "return flags.Open && !flags.Playing;" not in settings_router:
         err("settings pad lock must cover the open hangar panel only")
     order_block = settings_rows.split("Order =")[1].split(";")[0]
-    for row_name in ("Language", "Controls", "Close"):
+    for row_name in ("Language", "Music", "Sfx", "Mute", "Controls", "Close"):
         if row_name not in order_block:
             err(f"settings row list missing {row_name}")
     if "ScreenShake" in order_block or "HintMode" in order_block or "PadNav" in order_block:
-        err("settings row list must stay placeholder-free until later PRs")
+        err("settings row list must not add shake, hint mode, or pad source yet")
+    if "AudioPanel" in game_ui or "BuildAudioControls" in game_ui:
+        err("top-bar AudioPanel must be gone; volume lives in the settings panel")
+    if "SetMusicVolume" not in game_ui or "SetSfxVolume" not in game_ui or "ToggleMute" not in game_ui:
+        err("settings volume rows must call AudioCues SetMusicVolume, SetSfxVolume, and ToggleMute")
+    if "MuteSlot" in padnav:
+        err("hangar pad must not keep a top-bar mute slot")
+    check_loc_key_parity(loc_src)
     if "SettingsSlot" not in padnav or "SettingsGear" not in game_ui:
         err("hangar pad must include the settings gear slot")
     if "JoystickButton6" not in game_ui or "KeyCode.F1" not in game_ui:
