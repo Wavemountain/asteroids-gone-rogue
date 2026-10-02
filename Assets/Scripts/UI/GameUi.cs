@@ -147,6 +147,10 @@ namespace AsteroidsGoneRogue
         private Text _settingsMuteValue;
         private Text _settingsShakeLabel;
         private Text _settingsShakeValue;
+        private Text _settingsHintModeLabel;
+        private Text _settingsHintModeValue;
+        private Text _settingsHintSizeLabel;
+        private Text _settingsHintSizeValue;
         private Slider _settingsMusicSlider;
         private Slider _settingsSfxSlider;
         private Button[] _settingsRowButtons;
@@ -333,20 +337,7 @@ namespace AsteroidsGoneRogue
             RefreshLanguageChrome();
             RefreshDifficultyChrome();
 
-            bool railHint = playing
-                && _loadout != null
-                && _loadout.State != null
-                && _loadout.State.ResolvedPrimary() == FireMode.Rail;
-            ApplyFooterHintSize();
-            _hint.text = railHint
-                ? Loc.T("ui.hint_rail", HintRail)
-                : (playing
-                    ? Loc.T("ui.hint_play", "WASD / LS move · Mouse / RS aim · LMB / RT fire · E / LT utility · Q / LB cycle · Esc / Start = back to hangar")
-                    : Loc.Tf(
-                        "ui.hint_hangar",
-                        "LS move · {0}",
-                        Loc.T("ui.hangar_controls", HangarControlsHint)));
-            ClampOneLine(_hint);
+            ApplyBottomHint(playing);
             RefreshWorldBadge();
             RefreshBadgeRow(playing);
             RefreshDoctrineBadge(playing);
@@ -1225,12 +1216,12 @@ namespace AsteroidsGoneRogue
             _firstFlightTitle.text = "First flight";
 
             _firstFlightBody = CreateText("HintBody", _tutorialRoot.transform, body, UiTheme.HintSize(Screen.width), TextAnchor.UpperLeft, FontStyle.Normal);
-            Stretch(_firstFlightBody.rectTransform, new Vector2(0.07f, 0.2f), new Vector2(0.93f, 0.85f));
+            Stretch(_firstFlightBody.rectTransform, new Vector2(0.07f, 0.15f), new Vector2(0.93f, 0.85f));
             _firstFlightBody.color = UiTheme.Accent;
             _firstFlightBody.text = HangarHintBody;
 
             _gotItButton = CreateButton("DismissHint", _tutorialRoot.transform, display,
-                new Vector2(0.12f, 0.04f), new Vector2(0.88f, 0.18f));
+                new Vector2(0.12f, 0.02f), new Vector2(0.88f, 0.13f));
             _gotItLabel = _gotItButton.GetComponentInChildren<Text>();
             _gotItLabel.text = "Got it";
             _gotItLabel.fontSize = 15;
@@ -1862,6 +1853,7 @@ namespace AsteroidsGoneRogue
 
             RefreshSettingsAudio();
             RefreshSettingsShake();
+            RefreshSettingsHint();
 
             if (_settingsRowButtons != null)
             {
@@ -2009,12 +2001,7 @@ namespace AsteroidsGoneRogue
                 _hud.text = BuildHud(true);
                 RefreshHealthBar();
                 RefreshUtilityHud(true);
-                if (_hint != null && Time.unscaledTime < _firstRunCoachUntil)
-                {
-                    ApplyFooterHintSize();
-                    _hint.text = Loc.T("ui.first_wave_coach", FirstWaveCoach);
-                    ClampOneLine(_hint);
-                }
+                ApplyBottomHint(true);
             }
 
             PulseHangarLaunch();
@@ -3616,9 +3603,16 @@ namespace AsteroidsGoneRogue
             return slider;
         }
 
+        private int CurrentHintSize()
+        {
+            int step = _settings != null ? _settings.HintSizeStep : SettingsState.DefaultHintSizeStep;
+            int floor = UiTheme.HintSize(Screen.width);
+            return SettingsState.EffectiveHintSize(step, Screen.width, floor);
+        }
+
         private void ApplyFooterHintSize()
         {
-            int footerSize = UiTheme.HintSize(Screen.width);
+            int footerSize = CurrentHintSize();
             if (_hint != null)
             {
                 _hint.fontSize = footerSize;
@@ -3631,8 +3625,56 @@ namespace AsteroidsGoneRogue
 
             if (_settingsControlsBody != null)
             {
-                _settingsControlsBody.fontSize = footerSize;
+                _settingsControlsBody.fontSize = UiTheme.HintSize(Screen.width);
             }
+        }
+
+        private void ApplyBottomHint(bool playing)
+        {
+            if (_hint == null)
+            {
+                return;
+            }
+
+            ApplyFooterHintSize();
+            HintMode mode = _settings != null ? _settings.HintMode : HintMode.HangarFooter;
+            bool show = playing
+                ? SettingsState.ShowsPlayHint(mode)
+                : SettingsState.ShowsHangarFooter(mode);
+            _hint.gameObject.SetActive(show);
+            if (!show)
+            {
+                _hint.text = string.Empty;
+                return;
+            }
+
+            if (playing)
+            {
+                bool coach = Time.unscaledTime < _firstRunCoachUntil;
+                bool rail = _loadout != null
+                    && _loadout.State != null
+                    && _loadout.State.ResolvedPrimary() == FireMode.Rail;
+                if (coach)
+                {
+                    _hint.text = Loc.T("ui.first_wave_coach", FirstWaveCoach);
+                }
+                else if (rail)
+                {
+                    _hint.text = Loc.T("ui.hint_rail", HintRail);
+                }
+                else
+                {
+                    _hint.text = Loc.T(
+                        "ui.hint_play",
+                        "WASD / LS move · Mouse / RS aim · LMB / RT fire · E / LT utility · Q / LB cycle · Esc / Start = back to hangar");
+                }
+            }
+            else
+            {
+                _hint.text = Loc.T("ui.hint_footer", "A Select · Start Launch wave · ⚙ Settings");
+            }
+
+            ClampOneLine(_hint);
         }
 
         private static void ClampOneLine(Text text)
@@ -3758,6 +3800,18 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.ScreenShake)
             {
                 BuildSettingsShakeRow(rowIndex, body, y0, y1);
+                return;
+            }
+
+            if (rowId == SettingsRowId.HintMode)
+            {
+                BuildSettingsHintModeRow(rowIndex, body, y0, y1);
+                return;
+            }
+
+            if (rowId == SettingsRowId.HintSize)
+            {
+                BuildSettingsHintSizeRow(rowIndex, body, y0, y1);
                 return;
             }
 
@@ -3898,6 +3952,70 @@ namespace AsteroidsGoneRogue
             Stretch(_settingsShakeValue.rectTransform, new Vector2(0.64f, 0.12f), new Vector2(0.96f, 0.88f));
             _settingsShakeValue.color = UiTheme.Primary;
             _settingsShakeValue.raycastTarget = false;
+        }
+
+        private void BuildSettingsHintModeRow(int rowIndex, Font body, float y0, float y1)
+        {
+            Button row = CreateButton(
+                "SettingsHintMode",
+                _settingsPanel.transform,
+                body,
+                new Vector2(SettingsMeasure.RowMinX, y0),
+                new Vector2(SettingsMeasure.RowMaxX, y1));
+            _settingsRowButtons[rowIndex] = row;
+            row.onClick.AddListener(CycleHintMode);
+            UiTheme.ApplyButton(row, false, false, false);
+
+            _settingsHintModeLabel = row.GetComponentInChildren<Text>();
+            _settingsHintModeLabel.fontSize = UiTheme.BodyMin;
+            _settingsHintModeLabel.alignment = TextAnchor.MiddleLeft;
+            _settingsHintModeLabel.fontStyle = FontStyle.Bold;
+            _settingsHintModeLabel.color = UiTheme.Accent;
+            _settingsHintModeLabel.raycastTarget = false;
+            Stretch(_settingsHintModeLabel.rectTransform, new Vector2(0.04f, 0.08f), new Vector2(0.52f, 0.92f));
+
+            _settingsHintModeValue = CreateText(
+                "SettingsHintModeValue",
+                row.transform,
+                body,
+                UiTheme.BodyMin,
+                TextAnchor.MiddleRight,
+                FontStyle.Bold);
+            Stretch(_settingsHintModeValue.rectTransform, new Vector2(0.54f, 0.12f), new Vector2(0.96f, 0.88f));
+            _settingsHintModeValue.color = UiTheme.Primary;
+            _settingsHintModeValue.raycastTarget = false;
+        }
+
+        private void BuildSettingsHintSizeRow(int rowIndex, Font body, float y0, float y1)
+        {
+            Button row = CreateButton(
+                "SettingsHintSize",
+                _settingsPanel.transform,
+                body,
+                new Vector2(SettingsMeasure.RowMinX, y0),
+                new Vector2(SettingsMeasure.RowMaxX, y1));
+            _settingsRowButtons[rowIndex] = row;
+            row.onClick.AddListener(CycleHintSize);
+            UiTheme.ApplyButton(row, false, false, false);
+
+            _settingsHintSizeLabel = row.GetComponentInChildren<Text>();
+            _settingsHintSizeLabel.fontSize = UiTheme.BodyMin;
+            _settingsHintSizeLabel.alignment = TextAnchor.MiddleLeft;
+            _settingsHintSizeLabel.fontStyle = FontStyle.Bold;
+            _settingsHintSizeLabel.color = UiTheme.Accent;
+            _settingsHintSizeLabel.raycastTarget = false;
+            Stretch(_settingsHintSizeLabel.rectTransform, new Vector2(0.04f, 0.08f), new Vector2(0.68f, 0.92f));
+
+            _settingsHintSizeValue = CreateText(
+                "SettingsHintSizeValue",
+                row.transform,
+                body,
+                UiTheme.BodyMin,
+                TextAnchor.MiddleRight,
+                FontStyle.Bold);
+            Stretch(_settingsHintSizeValue.rectTransform, new Vector2(0.70f, 0.12f), new Vector2(0.96f, 0.88f));
+            _settingsHintSizeValue.color = UiTheme.Primary;
+            _settingsHintSizeValue.raycastTarget = false;
         }
 
         private void BuildSettingsLanguageRow(int rowIndex, Font body, float y0, float y1)
@@ -4098,6 +4216,87 @@ namespace AsteroidsGoneRogue
             if (AudioCues.Instance != null)
             {
                 AudioCues.Instance.PlayUiClick();
+            }
+        }
+
+        private void EnsureSettings()
+        {
+            if (_settings == null)
+            {
+                _settings = SettingsState.Load();
+            }
+        }
+
+        private void CycleHintMode()
+        {
+            StepHintMode(1);
+        }
+
+        private void CycleHintSize()
+        {
+            StepHintSize(1);
+        }
+
+        private void StepHintMode(int direction)
+        {
+            EnsureSettings();
+            _settings.HintMode = SettingsState.StepHintMode(_settings.HintMode, direction);
+            _settings.Save();
+            RefreshSettingsHint();
+            ApplyBottomHint(_session != null && _session.Phase == GamePhase.Playing);
+        }
+
+        private void StepHintSize(int direction)
+        {
+            EnsureSettings();
+            _settings.HintSizeStep = SettingsState.StepHintSize(_settings.HintSizeStep, direction);
+            _settings.Save();
+            RefreshSettingsHint();
+            ApplyBottomHint(_session != null && _session.Phase == GamePhase.Playing);
+        }
+
+        private static string HintModeLabel(HintMode mode)
+        {
+            if (mode == HintMode.HangarFooter)
+            {
+                return Loc.T("ui.settings.hint.hangar", "Hangar only");
+            }
+
+            if (mode == HintMode.On)
+            {
+                return Loc.T("ui.settings.on", "On");
+            }
+
+            if (mode == HintMode.SettingsOnly)
+            {
+                return Loc.T("ui.settings.hint.panel", "Settings only");
+            }
+
+            return Loc.T("ui.settings.off", "Off");
+        }
+
+        private void RefreshSettingsHint()
+        {
+            if (_settingsHintModeLabel != null)
+            {
+                _settingsHintModeLabel.text = Loc.T("ui.settings.hint", "Hint line");
+            }
+
+            if (_settingsHintSizeLabel != null)
+            {
+                _settingsHintSizeLabel.text = Loc.T("ui.settings.hint_size", "Hint text size");
+            }
+
+            HintMode mode = _settings != null ? _settings.HintMode : HintMode.HangarFooter;
+            int step = _settings != null ? _settings.HintSizeStep : SettingsState.DefaultHintSizeStep;
+            if (_settingsHintModeValue != null)
+            {
+                _settingsHintModeValue.text = HintModeLabel(mode);
+            }
+
+            if (_settingsHintSizeValue != null)
+            {
+                _settingsHintSizeValue.text = Loc.Tf("ui.settings.hint.px", "{0}", SettingsState.HintPx(step));
             }
         }
 
@@ -4371,6 +4570,18 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.ScreenShake)
             {
                 ToggleScreenShake();
+                return;
+            }
+
+            if (rowId == SettingsRowId.HintMode)
+            {
+                StepHintMode(direction);
+                return;
+            }
+
+            if (rowId == SettingsRowId.HintSize)
+            {
+                StepHintSize(direction);
             }
         }
 
@@ -4392,6 +4603,18 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.ScreenShake)
             {
                 ToggleScreenShake();
+                return;
+            }
+
+            if (rowId == SettingsRowId.HintMode)
+            {
+                CycleHintMode();
+                return;
+            }
+
+            if (rowId == SettingsRowId.HintSize)
+            {
+                CycleHintSize();
                 return;
             }
 

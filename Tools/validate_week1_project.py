@@ -1736,11 +1736,19 @@ def main() -> int:
     if "return flags.Open && !flags.Playing;" not in settings_router:
         err("settings pad lock must cover the open hangar panel only")
     order_block = settings_rows.split("Order =")[1].split(";")[0]
-    for row_name in ("Language", "Music", "Sfx", "Mute", "ScreenShake", "Controls", "Close"):
+    for row_name in ("Language", "Music", "Sfx", "Mute", "ScreenShake", "HintMode", "HintSize", "Controls", "Close"):
         if row_name not in order_block:
             err(f"settings row list missing {row_name}")
-    if "HintMode" in order_block or "PadNav" in order_block:
-        err("settings row list must not add hint mode or pad source yet")
+    if "PadNav" in order_block:
+        err("settings row list must not add pad source yet")
+    if order_block.find("HintMode") > order_block.find("HintSize") or order_block.find("HintSize") > order_block.find("Controls"):
+        err("hint mode and hint size rows must sit before the Controls section")
+    if "On = 3" not in settings_state or "HintPxLarge = 22" not in settings_state:
+        err("HintMode.On and the 22px hint step must stay stable")
+    if "ShowsPlayHint" not in game_ui or "ShowsHangarFooter" not in game_ui or "EffectiveHintSize" not in game_ui:
+        err("GameUi hint refresh must read hint mode and effective hint size")
+    if "ui.hint_footer" not in game_ui or "A Select · Start Launch wave" not in game_ui:
+        err("hangar footer must use the short hint line")
     follow = read(ROOT / "Assets/Scripts/Player/FollowCamera.cs")
     if "SettingsState.ScreenShakeEnabled" not in follow or "SettingsState.ShakeAmplitude" not in follow:
         err("FollowCamera.AddShake must read the cached screen-shake setting")
