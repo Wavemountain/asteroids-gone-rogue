@@ -11,6 +11,8 @@ namespace AsteroidsGoneRogue
         ScreenShake = 6,
         HintMode = 7,
         HintSize = 8,
+        ConfirmAbort = 9,
+        ConfirmNewRun = 10,
     }
 
     public enum SettingsRowRole
@@ -27,9 +29,9 @@ namespace AsteroidsGoneRogue
     public static class SettingsRows
     {
         public const float ContentTop = 0.86f;
-        public const float ContentBottom = 0.08f;
-        public const float RowGap = 0.018f;
-        public const float SectionWeight = 5.2f;
+        public const float ContentBottom = 0.05f;
+        public const float RowGap = 0.012f;
+        public const float SectionWeight = 7.2f;
         public const float RowWeight = 1f;
         public const float VolumeStep = 0.1f;
 
@@ -42,6 +44,8 @@ namespace AsteroidsGoneRogue
             SettingsRowId.ScreenShake,
             SettingsRowId.HintMode,
             SettingsRowId.HintSize,
+            SettingsRowId.ConfirmAbort,
+            SettingsRowId.ConfirmNewRun,
             SettingsRowId.Controls,
             SettingsRowId.Close,
         };

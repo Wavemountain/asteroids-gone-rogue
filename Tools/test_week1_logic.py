@@ -4686,10 +4686,26 @@ def _settings_blocks_pad(flags: dict) -> bool:
     return bool(flags.get("open") and not flags.get("playing"))
 
 
+def _settings_roles() -> tuple[str, ...]:
+    return (
+        "value",
+        "value",
+        "value",
+        "value",
+        "value",
+        "value",
+        "value",
+        "value",
+        "value",
+        "section",
+        "action",
+    )
+
+
 def _row_bands() -> list[tuple[float, float]]:
-    order = ("value", "value", "value", "value", "value", "value", "value", "section", "action")
-    weights = {"value": 1.0, "section": 5.2, "action": 1.0}
-    top, bottom, gap = 0.86, 0.08, 0.018
+    order = _settings_roles()
+    weights = {"value": 1.0, "section": 7.2, "action": 1.0}
+    top, bottom, gap = 0.86, 0.05, 0.012
     weight_sum = sum(weights[kind] for kind in order)
     span = top - bottom - gap * (len(order) - 1)
     cursor = top
@@ -4711,7 +4727,7 @@ def _screen_step_y(x: float, y: float, flick: float) -> int:
 
 
 def _settings_move(index: int, delta: int) -> int:
-    navigable = (0, 1, 2, 3, 4, 5, 6, 8)
+    navigable = tuple(i for i, role in enumerate(_settings_roles()) if role != "section")
     if delta == 0:
         return index
     direction = 1 if delta > 0 else -1
@@ -4885,28 +4901,32 @@ def test_settings_shell() -> None:
     assert order.index("Language") < order.index("Music") < order.index("Sfx") < order.index("Mute")
     assert "SettingsRowId.HintMode" in order and "SettingsRowId.HintSize" in order
     assert order.index("Mute") < order.index("ScreenShake") < order.index("HintMode") < order.index("HintSize")
-    assert order.index("HintSize") < order.index("Controls") < order.index("Close")
+    assert "SettingsRowId.ConfirmAbort" in order and "SettingsRowId.ConfirmNewRun" in order
+    assert order.index("HintSize") < order.index("ConfirmAbort") < order.index("ConfirmNewRun")
+    assert order.index("ConfirmNewRun") < order.index("Controls") < order.index("Close")
     assert "PadNav" not in order
     assert "IsNavigable" in rows and "IsValue" in rows and "RowBand" in rows and "Move(" in rows
     assert "IsSlider" in rows and "StepVolume" in rows and "VolumeStep = 0.1f" in rows
     assert "SliderMinX = 0.40f" in rows and "SliderMaxX = 0.96f" in rows
     assert "RowMinX = 0.06f" in rows and "RowMaxX = 0.94f" in rows
     assert "OldSliderMinUnits = 101f" in rows and "LadderFont = 12" in rows
-    assert "ContentTop = 0.86f" in rows and "SectionWeight = 5.2f" in rows
+    assert "ContentTop = 0.86f" in rows and "ContentBottom = 0.05f" in rows
+    assert "RowGap = 0.012f" in rows and "SectionWeight = 7.2f" in rows
     bands = _row_bands()
-    assert len(bands) == 9
+    assert len(bands) == 11
     for y0, y1 in bands:
-        assert 0.08 - 1e-6 <= y0 < y1 <= 0.86 + 1e-6
+        assert 0.05 - 1e-6 <= y0 < y1 <= 0.86 + 1e-6
     for left, right in zip(bands, bands[1:]):
         assert left[0] > right[1]
         assert not _overlap((0.06, left[0], 0.94, left[1]), (0.06, right[0], 0.94, right[1]))
     assert _settings_move(0, 1) == 1
     assert _settings_move(4, 1) == 5
-    assert _settings_move(6, 1) == 8
-    assert _settings_move(6, -1) == 5
-    assert _settings_move(8, -1) == 6
-    assert _settings_move(7, 1) == 8
-    assert _settings_move(7, -1) == 5
+    assert _settings_move(6, 1) == 7
+    assert _settings_move(8, 1) == 10
+    assert _settings_move(8, -1) == 7
+    assert _settings_move(10, -1) == 8
+    assert _settings_move(9, 1) == 10
+    assert _settings_move(9, -1) == 7
     assert _settings_move(0, 0) == 0
     assert SettingsState_shake(False, 0.4) == 0.0
     assert SettingsState_shake(False, 0.0) == 0.0
@@ -5023,6 +5043,14 @@ def test_settings_shell() -> None:
         "ui.settings.hint.panel",
         "ui.settings.hint_size",
         "ui.settings.hint.px",
+        "ui.settings.confirm_abort",
+        "ui.settings.confirm_new_run",
+        "ui.confirm.abort_title",
+        "ui.confirm.abort_body",
+        "ui.confirm.new_run_title",
+        "ui.confirm.new_run_body",
+        "ui.confirm.yes",
+        "ui.confirm.no",
         "ui.hint_footer",
     ):
         assert f'"{key}"' in swedish, key
@@ -5064,7 +5092,7 @@ def test_settings_shell() -> None:
         slider_w = (0.96 - 0.40) * (0.94 - 0.06) * (0.70 - 0.30) * canvas_w
         assert slider_w >= 101.0, (width, height, slider_w)
 
-        controls_index = 7
+        controls_index = _settings_roles().index("section")
         band_bottom, band_top = bands[controls_index]
         body_span = (band_top - 0.05) - band_bottom
         body_h = body_span * (0.88 - 0.12) * (height / scale)
@@ -5079,6 +5107,10 @@ def test_settings_shell() -> None:
         ):
             lines = _wrapped_line_count(block, body_w, 18)
             assert lines * 18 * 1.15 <= body_h, (width, height, lines, body_h)
+
+        value_h = bands[0][1] - bands[0][0]
+        value_px = value_h * (0.88 - 0.12) * (height / scale)
+        assert value_px >= 14 * 1.15, (width, height, value_px)
 
         ladder_w = (0.478 - 0.355) * canvas_w
         for header in ("ACHIEVEMENTS", "PRESTATIONER"):
@@ -5111,6 +5143,160 @@ def test_settings_shell() -> None:
         for card in (card_en, card_sv):
             card_lines = _wrapped_line_count(card, card_w, 22)
             assert card_lines * 22 * 1.15 <= card_h, (width, height, card_lines, card_h)
+
+
+def _confirm_route(flags: dict) -> str:
+    """Mirrors ConfirmDialogRouter.Route. Open dialog consumes every button."""
+    if flags.get("open"):
+        if flags.get("escape") or flags.get("start") or flags.get("cancel") or flags.get("scrim"):
+            return "no"
+        if flags.get("submit"):
+            return "yes" if flags.get("focus") == 1 else "no"
+        if flags.get("focus_delta"):
+            return "move"
+        return "blocked"
+    abort = flags.get("playing") and (flags.get("escape") or flags.get("start") or flags.get("abort_click"))
+    if abort:
+        return "open" if flags.get("confirm_in_play", True) else "yes"
+    new_run = flags.get("restart_screen") and (flags.get("new_run_click") or flags.get("start"))
+    if new_run:
+        return "open" if flags.get("confirm_new_run") else "yes"
+    return "none"
+
+
+def _confirm_move_focus(focus: int, delta: int) -> int:
+    if delta < 0:
+        return 1
+    if delta > 0:
+        return 0
+    return 1 if focus == 1 else 0
+
+
+def _confirm_time_scale(abort_open: bool, wave_live: bool) -> float:
+    return 0.0 if abort_open and wave_live else 1.0
+
+
+def _confirm_clock(dialog_open: bool, wave_live: bool, silenced: bool) -> dict:
+    dismiss = dialog_open and not wave_live
+    still_open = dialog_open and not dismiss
+    silence_now = still_open and wave_live
+    restore = silenced and not silence_now and wave_live
+    return {
+        "scale": _confirm_time_scale(still_open, wave_live),
+        "dismiss": dismiss,
+        "silence": silence_now,
+        "restore": restore,
+        "silenced": silence_now if silence_now else False,
+    }
+
+
+def test_confirm_restart() -> None:
+    """Abort and New Run confirms, default No, and a pause that cannot leak."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    router = (root / "Assets/Scripts/Core/ConfirmDialogRouter.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    state = (root / "Assets/Scripts/Core/SettingsState.cs").read_text(encoding="utf-8")
+
+    assert "class ConfirmDialogRouter" in router
+    assert "DefaultFocus()" in router and "return FocusNo;" in router
+    assert "class ConfirmPause" in router
+    assert "DismissAbort" in router and "SilenceShip" in router and "RestoreShipInput" in router
+    assert "ConfirmDialogLayout" in router
+    assert "YesMinX = 0.08f" in router and "NoMinX = 0.54f" in router
+    assert _confirm_move_focus(0, 0) == 0
+    assert _confirm_move_focus(0, -1) == 1
+    assert _confirm_move_focus(1, 1) == 0
+    assert _confirm_move_focus(1, 0) == 1
+
+    closed = {"open": False, "playing": True, "confirm_in_play": True, "focus": 0}
+    assert _confirm_route({**closed, "escape": True}) == "open"
+    assert _confirm_route({**closed, "start": True}) == "open"
+    assert _confirm_route({**closed, "abort_click": True}) == "open"
+    assert _confirm_route({**closed, "confirm_in_play": False, "escape": True}) == "yes"
+    assert _confirm_route({**closed, "confirm_in_play": False, "start": True}) == "yes"
+    assert _confirm_route({**closed, "confirm_in_play": False, "abort_click": True}) == "yes"
+    assert _confirm_route({"playing": True, "f1": True, "confirm_in_play": True}) == "none"
+    hangar = {"playing": False, "restart_screen": False, "confirm_new_run": True}
+    assert _confirm_route({**hangar, "escape": True}) == "none"
+    assert _confirm_route({**hangar, "start": True}) == "none"
+    assert _confirm_route({**hangar, "cancel": True}) == "none"
+    restart = {"playing": False, "restart_screen": True, "confirm_new_run": False}
+    assert _confirm_route({**restart, "new_run_click": True}) == "yes"
+    assert _confirm_route({**restart, "start": True}) == "yes"
+    assert _confirm_route({**restart, "escape": True}) == "none"
+    assert _confirm_route({**restart, "cancel": True}) == "none"
+    assert _confirm_route({**restart, "confirm_new_run": True, "new_run_click": True}) == "open"
+    assert _confirm_route({**restart, "confirm_new_run": True, "start": True}) == "open"
+    wave_clear = {"playing": False, "restart_screen": False, "confirm_new_run": True, "start": True}
+    assert _confirm_route(wave_clear) == "none"
+
+    opened = {"open": True, "focus": 0, "playing": True, "confirm_in_play": True}
+    assert _confirm_route(opened) == "blocked"
+    assert _confirm_route({**opened, "escape": True}) == "no"
+    assert _confirm_route({**opened, "start": True}) == "no"
+    assert _confirm_route({**opened, "cancel": True}) == "no"
+    assert _confirm_route({**opened, "scrim": True}) == "no"
+    assert _confirm_route({**opened, "submit": True, "focus": 0}) == "no"
+    assert _confirm_route({**opened, "submit": True, "focus": 1}) == "yes"
+    assert _confirm_route({**opened, "escape": True, "submit": True, "focus": 1}) == "no"
+    assert _confirm_route({**opened, "start": True, "submit": True, "focus": 1}) == "no"
+    assert _confirm_route({**opened, "abort_click": True}) == "blocked"
+    assert _confirm_route({**opened, "new_run_click": True}) == "blocked"
+    assert _confirm_route({**opened, "focus_delta": -1}) == "move"
+    assert _confirm_route({**opened, "focus_delta": 1, "playing": False, "restart_screen": True}) == "move"
+    assert _confirm_route({**opened, "playing": False, "restart_screen": True, "start": True}) == "no"
+
+    assert _confirm_time_scale(True, True) == 0.0
+    assert _confirm_time_scale(True, False) == 1.0
+    assert _confirm_time_scale(False, True) == 1.0
+    assert _confirm_time_scale(False, False) == 1.0
+    held = _confirm_clock(True, True, False)
+    assert held["scale"] == 0.0 and held["silence"] and not held["dismiss"]
+    ended = _confirm_clock(True, False, True)
+    assert ended["scale"] == 1.0 and ended["dismiss"] and not ended["restore"]
+    released = _confirm_clock(False, True, True)
+    assert released["scale"] == 1.0 and released["restore"] and not released["silence"]
+    new_run_open = _confirm_clock(False, False, False)
+    assert new_run_open["scale"] == 1.0 and not new_run_open["dismiss"]
+
+    assert "ConfirmDialogRouter.Route" in ui
+    assert "ConfirmPause.TimeScale" in ui
+    assert "Time.timeScale = ConfirmPause.TimeScale" in ui
+    assert "_settings.ConfirmRestartInPlay" in ui
+    assert "_settings.ConfirmRestartNewRun" in ui
+    assert "ConfirmDialogRouter.DefaultFocus()" in ui
+    assert "_confirmOpenedFrame != Time.frameCount" in ui
+    assert "ConfirmScrim" in ui and "ConfirmPanel" in ui
+    assert "ConfirmYes" in ui and "ConfirmNo" in ui
+    assert "ui.settings.confirm_abort" in ui and "Confirm abort (Esc/Start) during wave" in ui
+    assert 'Loc.T("ui.settings.confirm_new_run", "Confirm New Run")' in ui
+    assert 'Loc.T("ui.confirm.yes", "Yes")' in ui and 'Loc.T("ui.confirm.no", "No")' in ui
+    assert "UiTheme.BuildPanel" in ui.split("BuildConfirmDialog")[1].split("private static void LockButtonNavigation")[0]
+    update = ui.split("private void Update()")[1].split("private void PulseHangarLaunch")[0]
+    assert update.index("ConfirmDialogRouter.Route") < update.index("SettingsInputRouter.Route")
+    assert update.index("ConfirmDialogRouter.Route") < update.index("NavigateHangarPad()")
+    assert "if (!_confirmOpen && confirmAction == ConfirmAction.None)" in update
+    apply = ui.split("private void ApplyConfirmRoute")[1].split("private static ConfirmKind KindForRequest")[0]
+    assert "OnAbort()" in apply and "OnPrimary()" in apply
+    assert "PrimaryRestartsRun" in ui
+    assert "ConfirmRestartInPlay = true" in state
+    assert "ConfirmRestartNewRun = false" in state
+    label = "Confirm abort (Esc/Start) during wave"
+    label_sv = "Bekräfta avbrott (Esc/Start) under våg"
+    for width, height in ((1280, 800), (1600, 900), (1920, 1080), (2560, 1440), (3440, 1440)):
+        scale = _canvas_scale(width, height)
+        label_w = 0.72 * (0.94 - 0.06) * (0.70 - 0.30) * (width / scale)
+        assert _estimate_width(label, 14) <= label_w, (width, label_w)
+        assert _estimate_width(label_sv, 14) <= label_w, (width, label_w)
+    yes = (0.08, 0.12, 0.46, 0.36)
+    no = (0.54, 0.12, 0.92, 0.36)
+    assert not _overlap(yes, no)
+    assert yes[2] < no[0]
+    panel = (0.32, 0.36, 0.68, 0.64)
+    assert panel[2] - panel[0] < 0.5
+    assert panel[3] < 0.905
 
 
 def main() -> int:
@@ -5163,6 +5349,7 @@ def main() -> int:
     test_doctrine_rows_pad_reachable()
     test_hangar_footer_launch_and_hint_size()
     test_settings_shell()
+    test_confirm_restart()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

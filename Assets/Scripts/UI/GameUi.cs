@@ -151,9 +151,27 @@ namespace AsteroidsGoneRogue
         private Text _settingsHintModeValue;
         private Text _settingsHintSizeLabel;
         private Text _settingsHintSizeValue;
+        private Text _settingsConfirmAbortLabel;
+        private Text _settingsConfirmAbortValue;
+        private Text _settingsConfirmNewRunLabel;
+        private Text _settingsConfirmNewRunValue;
         private Slider _settingsMusicSlider;
         private Slider _settingsSfxSlider;
         private Button[] _settingsRowButtons;
+        private bool _confirmOpen;
+        private ConfirmKind _confirmKind;
+        private int _confirmFocus;
+        private bool _confirmNavHeld;
+        private float _confirmNavRepeatAt;
+        private int _confirmOpenedFrame = -1;
+        private bool _confirmSilencedShip;
+        private GameObject _confirmRoot;
+        private Text _confirmTitle;
+        private Text _confirmBody;
+        private Button _confirmYes;
+        private Button _confirmNo;
+        private Text _confirmYesLabel;
+        private Text _confirmNoLabel;
 
         private static readonly Color UiAmber = UiTheme.Primary;
         private static readonly Color UiBody = UiTheme.Accent;
@@ -570,7 +588,7 @@ namespace AsteroidsGoneRogue
                 new Vector2(0.03f, 0.735f),
                 new Vector2(0.97f, 0.800f));
             _primaryLabel = _primary.GetComponentInChildren<Text>();
-            _primary.onClick.AddListener(OnPrimary);
+            _primary.onClick.AddListener(OnPrimaryClicked);
             _primaryPlate = _primary.targetGraphic as Image;
             UiTheme.ApplyButton(_primary, true, false, false);
 
@@ -578,7 +596,7 @@ namespace AsteroidsGoneRogue
             _abortLabel = _abortButton.GetComponentInChildren<Text>();
             _abortLabel.text = "Abort → Hangar";
             _abortLabel.fontSize = 16;
-            _abortButton.onClick.AddListener(OnAbort);
+            _abortButton.onClick.AddListener(RequestAbort);
             _abortPlate = _abortButton.targetGraphic as Image;
             UiTheme.ApplyButton(_abortButton, false, true, false);
             _abortButton.gameObject.SetActive(false);
@@ -601,6 +619,7 @@ namespace AsteroidsGoneRogue
             BuildEndCredits(display, body);
             BuildShipPreviewFrame(display);
             BuildSettingsPanel(display, body);
+            BuildConfirmDialog(display, body);
             ApplyLocalizedStaticLabels();
             RefreshLanguageChrome();
             RefreshDifficultyChrome();
@@ -608,8 +627,20 @@ namespace AsteroidsGoneRogue
             EnsurePrimaryClickable();
         }
 
+        private void OnDisable()
+        {
+            Time.timeScale = ConfirmPause.TimeScale(false, false);
+            if (_confirmSilencedShip && _ship != null && _session != null && _session.Phase == GamePhase.Playing)
+            {
+                _ship.SetInputEnabled(true);
+            }
+
+            _confirmSilencedShip = false;
+        }
+
         private void OnDestroy()
         {
+            Time.timeScale = ConfirmPause.TimeScale(false, false);
             SetSettingsNavigationLock(false);
             if (_previewCanvas != null)
             {
@@ -906,6 +937,22 @@ namespace AsteroidsGoneRogue
             trigger.triggers.Add(exit);
         }
 
+        private void OnPrimaryClicked()
+        {
+            if (_confirmOpen)
+            {
+                return;
+            }
+
+            if (_session != null && GameSession.PrimaryRestartsRun(_session.Phase))
+            {
+                RequestNewRun();
+                return;
+            }
+
+            OnPrimary();
+        }
+
         private void OnPrimary()
         {
             if (_game == null)
@@ -959,6 +1006,35 @@ namespace AsteroidsGoneRogue
             {
                 _game.AbortWave();
             }
+        }
+
+        private void RequestAbort()
+        {
+            ConfirmRequest request = ReadConfirmRequest();
+            request.AbortClick = true;
+            request.Escape = false;
+            request.Start = false;
+            request.NewRunClick = false;
+            request.Submit = false;
+            request.Cancel = false;
+            request.Scrim = false;
+            request.FocusDelta = 0;
+            ApplyConfirmRoute(ConfirmDialogRouter.Route(request), request);
+            ApplyConfirmClock();
+        }
+
+        private void RequestNewRun()
+        {
+            ConfirmRequest request = ReadConfirmRequest();
+            request.NewRunClick = true;
+            request.Escape = false;
+            request.AbortClick = false;
+            request.Submit = false;
+            request.Cancel = false;
+            request.Scrim = false;
+            request.FocusDelta = 0;
+            ApplyConfirmRoute(ConfirmDialogRouter.Route(request), request);
+            ApplyConfirmClock();
         }
 
         private void BuildRunSummary(Font display, Font body)
@@ -1854,6 +1930,8 @@ namespace AsteroidsGoneRogue
             RefreshSettingsAudio();
             RefreshSettingsShake();
             RefreshSettingsHint();
+            RefreshSettingsConfirm();
+            RefreshConfirmCopy();
 
             if (_settingsRowButtons != null)
             {
@@ -1924,62 +2002,83 @@ namespace AsteroidsGoneRogue
                 DismissSettingsForPlay();
             }
 
-            // Settings panel, then credits, then play abort / hangar. An open panel
-            // consumes Esc, Start, B, and Submit so they cannot reach Next Wave.
-            SettingsInputFlags settingsFlags = ReadSettingsFlags();
-            SettingsRoute settingsRoute = SettingsInputRouter.Route(settingsFlags);
-            if (settingsRoute == SettingsRoute.CloseSave)
+            // Confirm dialog consumes Esc, Start, B, and A before settings,
+            // abort, New Run, and hangar navigation. A click that opened the
+            // dialog this frame must not also cancel it.
+            ApplyConfirmClock();
+            ConfirmAction confirmAction = ConfirmAction.None;
+            if (_confirmOpenedFrame != Time.frameCount)
             {
-                CloseSettings();
-            }
-            else if (settingsRoute == SettingsRoute.Activate)
-            {
-                ActivateSettingsRow();
-            }
-            else if (settingsRoute == SettingsRoute.Move || settingsRoute == SettingsRoute.Nudge)
-            {
-                StepSettingsNav(settingsRoute, settingsFlags);
-            }
-            else if (settingsRoute == SettingsRoute.Open)
-            {
-                OpenSettings();
-            }
-            else if (settingsRoute == SettingsRoute.CreditsClose)
-            {
-                HideEndCredits(true);
-            }
-            else if (settingsRoute == SettingsRoute.PlayAbort)
-            {
-                OnAbort();
-            }
-            else if (settingsRoute == SettingsRoute.HangarEscape)
-            {
-                OnHangarEscape();
-            }
-            else if (settingsRoute == SettingsRoute.HangarStart)
-            {
-                OnHangarStart();
-            }
-            else if (settingsRoute == SettingsRoute.HangarBack)
-            {
-                OnHangarBack();
-            }
-
-            if (SettingsInputRouter.BlocksHangarPad(settingsFlags))
-            {
-                if (_settingsOpen)
+                ConfirmRequest confirmRequest = ReadConfirmRequest();
+                confirmAction = ConfirmDialogRouter.Route(confirmRequest);
+                if (confirmAction != ConfirmAction.None)
                 {
-                    SetSettingsNavigationLock(true);
-                    if (settingsRoute != SettingsRoute.Move && settingsRoute != SettingsRoute.Nudge)
-                    {
-                        _settingsNavHeld = false;
-                    }
+                    ApplyConfirmRoute(confirmAction, confirmRequest);
                 }
             }
-            else
+
+            ApplyConfirmClock();
+
+            // Settings panel, then credits, then hangar. An open panel consumes
+            // Esc, Start, B, and Submit so they cannot reach Next Wave.
+            // In-wave Esc/Start is handled by the confirm router above.
+            if (!_confirmOpen && confirmAction == ConfirmAction.None)
             {
-                NavigateHangarPad();
-                SyncHangarPadSelection();
+                SettingsInputFlags settingsFlags = ReadSettingsFlags();
+                SettingsRoute settingsRoute = SettingsInputRouter.Route(settingsFlags);
+                if (settingsRoute == SettingsRoute.CloseSave)
+                {
+                    CloseSettings();
+                }
+                else if (settingsRoute == SettingsRoute.Activate)
+                {
+                    ActivateSettingsRow();
+                }
+                else if (settingsRoute == SettingsRoute.Move || settingsRoute == SettingsRoute.Nudge)
+                {
+                    StepSettingsNav(settingsRoute, settingsFlags);
+                }
+                else if (settingsRoute == SettingsRoute.Open)
+                {
+                    OpenSettings();
+                }
+                else if (settingsRoute == SettingsRoute.CreditsClose)
+                {
+                    HideEndCredits(true);
+                }
+                else if (settingsRoute == SettingsRoute.PlayAbort)
+                {
+                    OnAbort();
+                }
+                else if (settingsRoute == SettingsRoute.HangarEscape)
+                {
+                    OnHangarEscape();
+                }
+                else if (settingsRoute == SettingsRoute.HangarStart)
+                {
+                    OnHangarStart();
+                }
+                else if (settingsRoute == SettingsRoute.HangarBack)
+                {
+                    OnHangarBack();
+                }
+
+                if (SettingsInputRouter.BlocksHangarPad(settingsFlags))
+                {
+                    if (_settingsOpen)
+                    {
+                        SetSettingsNavigationLock(true);
+                        if (settingsRoute != SettingsRoute.Move && settingsRoute != SettingsRoute.Nudge)
+                        {
+                            _settingsNavHeld = false;
+                        }
+                    }
+                }
+                else
+                {
+                    NavigateHangarPad();
+                    SyncHangarPadSelection();
+                }
             }
             if (_session == null || _session.Phase != GamePhase.Playing)
             {
@@ -3815,6 +3914,18 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (rowId == SettingsRowId.ConfirmAbort)
+            {
+                BuildSettingsConfirmAbortRow(rowIndex, body, y0, y1);
+                return;
+            }
+
+            if (rowId == SettingsRowId.ConfirmNewRun)
+            {
+                BuildSettingsConfirmNewRunRow(rowIndex, body, y0, y1);
+                return;
+            }
+
             if (rowId == SettingsRowId.Controls)
             {
                 BuildSettingsControlsRow(display, body, y0, y1);
@@ -4016,6 +4127,70 @@ namespace AsteroidsGoneRogue
             Stretch(_settingsHintSizeValue.rectTransform, new Vector2(0.70f, 0.12f), new Vector2(0.96f, 0.88f));
             _settingsHintSizeValue.color = UiTheme.Primary;
             _settingsHintSizeValue.raycastTarget = false;
+        }
+
+        private void BuildSettingsConfirmAbortRow(int rowIndex, Font body, float y0, float y1)
+        {
+            Button row = CreateButton(
+                "SettingsConfirmAbort",
+                _settingsPanel.transform,
+                body,
+                new Vector2(SettingsMeasure.RowMinX, y0),
+                new Vector2(SettingsMeasure.RowMaxX, y1));
+            _settingsRowButtons[rowIndex] = row;
+            row.onClick.AddListener(ToggleConfirmAbort);
+            UiTheme.ApplyButton(row, false, false, false);
+
+            _settingsConfirmAbortLabel = row.GetComponentInChildren<Text>();
+            _settingsConfirmAbortLabel.fontSize = UiTheme.BodyMin;
+            _settingsConfirmAbortLabel.alignment = TextAnchor.MiddleLeft;
+            _settingsConfirmAbortLabel.fontStyle = FontStyle.Bold;
+            _settingsConfirmAbortLabel.color = UiTheme.Accent;
+            _settingsConfirmAbortLabel.raycastTarget = false;
+            Stretch(_settingsConfirmAbortLabel.rectTransform, new Vector2(0.04f, 0.08f), new Vector2(0.76f, 0.92f));
+
+            _settingsConfirmAbortValue = CreateText(
+                "SettingsConfirmAbortValue",
+                row.transform,
+                body,
+                UiTheme.BodyMin,
+                TextAnchor.MiddleRight,
+                FontStyle.Bold);
+            Stretch(_settingsConfirmAbortValue.rectTransform, new Vector2(0.78f, 0.12f), new Vector2(0.96f, 0.88f));
+            _settingsConfirmAbortValue.color = UiTheme.Primary;
+            _settingsConfirmAbortValue.raycastTarget = false;
+        }
+
+        private void BuildSettingsConfirmNewRunRow(int rowIndex, Font body, float y0, float y1)
+        {
+            Button row = CreateButton(
+                "SettingsConfirmNewRun",
+                _settingsPanel.transform,
+                body,
+                new Vector2(SettingsMeasure.RowMinX, y0),
+                new Vector2(SettingsMeasure.RowMaxX, y1));
+            _settingsRowButtons[rowIndex] = row;
+            row.onClick.AddListener(ToggleConfirmNewRun);
+            UiTheme.ApplyButton(row, false, false, false);
+
+            _settingsConfirmNewRunLabel = row.GetComponentInChildren<Text>();
+            _settingsConfirmNewRunLabel.fontSize = UiTheme.BodyMin;
+            _settingsConfirmNewRunLabel.alignment = TextAnchor.MiddleLeft;
+            _settingsConfirmNewRunLabel.fontStyle = FontStyle.Bold;
+            _settingsConfirmNewRunLabel.color = UiTheme.Accent;
+            _settingsConfirmNewRunLabel.raycastTarget = false;
+            Stretch(_settingsConfirmNewRunLabel.rectTransform, new Vector2(0.04f, 0.08f), new Vector2(0.76f, 0.92f));
+
+            _settingsConfirmNewRunValue = CreateText(
+                "SettingsConfirmNewRunValue",
+                row.transform,
+                body,
+                UiTheme.BodyMin,
+                TextAnchor.MiddleRight,
+                FontStyle.Bold);
+            Stretch(_settingsConfirmNewRunValue.rectTransform, new Vector2(0.78f, 0.12f), new Vector2(0.96f, 0.88f));
+            _settingsConfirmNewRunValue.color = UiTheme.Primary;
+            _settingsConfirmNewRunValue.raycastTarget = false;
         }
 
         private void BuildSettingsLanguageRow(int rowIndex, Font body, float y0, float y1)
@@ -4323,6 +4498,61 @@ namespace AsteroidsGoneRogue
                 : Loc.T("ui.settings.off", "Off");
         }
 
+        private void ToggleConfirmAbort()
+        {
+            EnsureSettings();
+            _settings.ConfirmRestartInPlay = !_settings.ConfirmRestartInPlay;
+            _settings.Save();
+            RefreshSettingsConfirm();
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+        }
+
+        private void ToggleConfirmNewRun()
+        {
+            EnsureSettings();
+            _settings.ConfirmRestartNewRun = !_settings.ConfirmRestartNewRun;
+            _settings.Save();
+            RefreshSettingsConfirm();
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+        }
+
+        private void RefreshSettingsConfirm()
+        {
+            if (_settingsConfirmAbortLabel != null)
+            {
+                _settingsConfirmAbortLabel.text = Loc.T(
+                    "ui.settings.confirm_abort",
+                    "Confirm abort (Esc/Start) during wave");
+            }
+
+            if (_settingsConfirmNewRunLabel != null)
+            {
+                _settingsConfirmNewRunLabel.text = Loc.T("ui.settings.confirm_new_run", "Confirm New Run");
+            }
+
+            bool confirmAbort = _settings == null || _settings.ConfirmRestartInPlay;
+            bool confirmNewRun = _settings != null && _settings.ConfirmRestartNewRun;
+            if (_settingsConfirmAbortValue != null)
+            {
+                _settingsConfirmAbortValue.text = confirmAbort
+                    ? Loc.T("ui.settings.on", "On")
+                    : Loc.T("ui.settings.off", "Off");
+            }
+
+            if (_settingsConfirmNewRunValue != null)
+            {
+                _settingsConfirmNewRunValue.text = confirmNewRun
+                    ? Loc.T("ui.settings.on", "On")
+                    : Loc.T("ui.settings.off", "Off");
+            }
+        }
+
         private void RefreshSettingsAudio()
         {
             if (_settingsMusicLabel != null)
@@ -4372,6 +4602,376 @@ namespace AsteroidsGoneRogue
             }
 
             return -1;
+        }
+
+        private void BuildConfirmDialog(Font display, Font body)
+        {
+            _confirmRoot = new GameObject("ConfirmRoot");
+            _confirmRoot.transform.SetParent(transform, false);
+            Stretch(_confirmRoot.AddComponent<RectTransform>(), Vector2.zero, Vector2.one);
+
+            GameObject scrim = CreateFill(
+                "ConfirmScrim",
+                _confirmRoot.transform,
+                UiTheme.WithAlpha(UiTheme.Void, 0.78f),
+                Vector2.zero,
+                Vector2.one);
+            Image scrimImage = scrim.GetComponent<Image>();
+            if (scrimImage != null)
+            {
+                scrimImage.raycastTarget = true;
+            }
+
+            Button scrimButton = scrim.AddComponent<Button>();
+            scrimButton.transition = Selectable.Transition.None;
+            scrimButton.onClick.AddListener(OnConfirmScrim);
+            Navigation scrimNav = scrimButton.navigation;
+            scrimNav.mode = Navigation.Mode.None;
+            scrimButton.navigation = scrimNav;
+
+            GameObject panel = UiTheme.BuildPanel(
+                "ConfirmPanel",
+                _confirmRoot.transform,
+                new Vector2(ConfirmDialogLayout.PanelMinX, ConfirmDialogLayout.PanelMinY),
+                new Vector2(ConfirmDialogLayout.PanelMaxX, ConfirmDialogLayout.PanelMaxY),
+                0.72f);
+            Image panelImage = panel.GetComponent<Image>();
+            if (panelImage != null)
+            {
+                panelImage.raycastTarget = true;
+            }
+
+            _confirmTitle = CreateText(
+                "ConfirmTitle",
+                panel.transform,
+                display,
+                22,
+                TextAnchor.MiddleCenter,
+                FontStyle.Bold);
+            Stretch(_confirmTitle.rectTransform, new Vector2(0.08f, 0.74f), new Vector2(0.92f, 0.96f));
+            _confirmTitle.color = UiTheme.Primary;
+            AddReadability(_confirmTitle, true);
+
+            _confirmBody = CreateText(
+                "ConfirmBody",
+                panel.transform,
+                body,
+                UiTheme.BodyMin,
+                TextAnchor.MiddleCenter,
+                FontStyle.Normal);
+            Stretch(_confirmBody.rectTransform, new Vector2(0.08f, 0.40f), new Vector2(0.92f, 0.70f));
+            _confirmBody.color = UiTheme.Accent;
+            _confirmBody.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _confirmBody.verticalOverflow = VerticalWrapMode.Truncate;
+
+            _confirmYes = CreateButton(
+                "ConfirmYes",
+                panel.transform,
+                body,
+                new Vector2(ConfirmDialogLayout.YesMinX, ConfirmDialogLayout.YesMinY),
+                new Vector2(ConfirmDialogLayout.YesMaxX, ConfirmDialogLayout.YesMaxY));
+            _confirmYesLabel = _confirmYes.GetComponentInChildren<Text>();
+            _confirmYesLabel.fontSize = UiTheme.BodyMin;
+            _confirmYes.onClick.AddListener(OnConfirmYesClick);
+            UiTheme.ApplyButton(_confirmYes, false, false, false);
+            LockButtonNavigation(_confirmYes);
+
+            _confirmNo = CreateButton(
+                "ConfirmNo",
+                panel.transform,
+                body,
+                new Vector2(ConfirmDialogLayout.NoMinX, ConfirmDialogLayout.NoMinY),
+                new Vector2(ConfirmDialogLayout.NoMaxX, ConfirmDialogLayout.NoMaxY));
+            _confirmNoLabel = _confirmNo.GetComponentInChildren<Text>();
+            _confirmNoLabel.fontSize = UiTheme.BodyMin;
+            _confirmNo.onClick.AddListener(OnConfirmNoClick);
+            UiTheme.ApplyButton(_confirmNo, true, false, false);
+            LockButtonNavigation(_confirmNo);
+
+            _confirmRoot.SetActive(false);
+        }
+
+        private static void LockButtonNavigation(Button button)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            Navigation locked = button.navigation;
+            locked.mode = Navigation.Mode.None;
+            button.navigation = locked;
+        }
+
+        private ConfirmRequest ReadConfirmRequest()
+        {
+            ConfirmRequest request = new ConfirmRequest();
+            request.DialogOpen = _confirmOpen;
+            request.Focus = _confirmFocus;
+            request.Playing = _session != null && _session.Phase == GamePhase.Playing;
+            request.RestartScreen = _session != null && GameSession.PrimaryRestartsRun(_session.Phase);
+            EnsureSettings();
+            request.ConfirmInPlay = _settings.ConfirmRestartInPlay;
+            request.ConfirmNewRun = _settings.ConfirmRestartNewRun;
+            request.Escape = Input.GetKeyDown(KeyCode.Escape);
+            request.Start = GamepadInput.PausePressed() && !request.Escape;
+            request.Cancel = GamepadInput.CancelPressed() && !request.Escape;
+            request.Submit = GamepadInput.ConfirmPressed();
+            Vector2 confirmStick = GamepadInput.UiNavCombined();
+            request.FocusDelta = HangarPadNav.DominantStep(confirmStick.x, confirmStick.y, HangarPadNav.Flick);
+            return request;
+        }
+
+        private void OnConfirmScrim()
+        {
+            ConfirmRequest request = ReadConfirmRequest();
+            request.Scrim = true;
+            request.Submit = false;
+            request.Escape = false;
+            request.Start = false;
+            request.Cancel = false;
+            request.FocusDelta = 0;
+            ApplyConfirmRoute(ConfirmDialogRouter.Route(request), request);
+            ApplyConfirmClock();
+        }
+
+        private void OnConfirmYesClick()
+        {
+            ConfirmRequest request = ReadConfirmRequest();
+            request.Submit = true;
+            request.Focus = ConfirmDialogRouter.FocusYes;
+            request.Escape = false;
+            request.Start = false;
+            request.Cancel = false;
+            request.Scrim = false;
+            request.FocusDelta = 0;
+            ApplyConfirmRoute(ConfirmDialogRouter.Route(request), request);
+            ApplyConfirmClock();
+        }
+
+        private void OnConfirmNoClick()
+        {
+            ConfirmRequest request = ReadConfirmRequest();
+            request.Submit = true;
+            request.Focus = ConfirmDialogRouter.FocusNo;
+            request.Escape = false;
+            request.Start = false;
+            request.Cancel = false;
+            request.Scrim = false;
+            request.FocusDelta = 0;
+            ApplyConfirmRoute(ConfirmDialogRouter.Route(request), request);
+            ApplyConfirmClock();
+        }
+
+        private void ApplyConfirmRoute(ConfirmAction action, ConfirmRequest request)
+        {
+            if (action == ConfirmAction.Blocked)
+            {
+                if (request.FocusDelta == 0)
+                {
+                    _confirmNavHeld = false;
+                }
+
+                return;
+            }
+
+            if (action == ConfirmAction.None)
+            {
+                return;
+            }
+
+            if (action == ConfirmAction.MoveFocus)
+            {
+                float now = Time.unscaledTime;
+                if (_confirmNavHeld && now < _confirmNavRepeatAt)
+                {
+                    return;
+                }
+
+                _confirmFocus = ConfirmDialogRouter.MoveFocus(_confirmFocus, request.FocusDelta);
+                RefreshConfirmFocus();
+                _confirmNavRepeatAt = now + (_confirmNavHeld ? HangarPadNav.RepeatNextSeconds : HangarPadNav.RepeatFirstSeconds);
+                _confirmNavHeld = true;
+                return;
+            }
+
+            if (action == ConfirmAction.Open)
+            {
+                OpenConfirm(KindForRequest(request));
+                return;
+            }
+
+            if (action == ConfirmAction.No)
+            {
+                CloseConfirm();
+                if (AudioCues.Instance != null)
+                {
+                    AudioCues.Instance.PlayUiClick();
+                }
+
+                return;
+            }
+
+            if (action == ConfirmAction.Yes)
+            {
+                ConfirmKind chosen = _confirmOpen ? _confirmKind : KindForRequest(request);
+                CloseConfirm();
+                if (chosen == ConfirmKind.NewRun)
+                {
+                    OnPrimary();
+                }
+                else
+                {
+                    OnAbort();
+                }
+            }
+        }
+
+        private static ConfirmKind KindForRequest(ConfirmRequest request)
+        {
+            bool abort = request.Playing && (request.Escape || request.Start || request.AbortClick);
+            if (abort)
+            {
+                return ConfirmKind.AbortWave;
+            }
+
+            return ConfirmKind.NewRun;
+        }
+
+        private void OpenConfirm(ConfirmKind kind)
+        {
+            if (_confirmOpen)
+            {
+                return;
+            }
+
+            _confirmOpen = true;
+            _confirmKind = kind;
+            _confirmFocus = ConfirmDialogRouter.DefaultFocus();
+            _confirmNavHeld = false;
+            _confirmOpenedFrame = Time.frameCount;
+            if (_confirmRoot != null)
+            {
+                _confirmRoot.SetActive(true);
+                _confirmRoot.transform.SetAsLastSibling();
+            }
+
+            RefreshConfirmCopy();
+            RefreshConfirmFocus();
+            SetConfirmNavigationLock(true);
+            ApplyConfirmClock();
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+        }
+
+        private void CloseConfirm()
+        {
+            _confirmOpen = false;
+            _confirmKind = ConfirmKind.None;
+            _confirmNavHeld = false;
+            if (_confirmRoot != null)
+            {
+                _confirmRoot.SetActive(false);
+            }
+
+            SetConfirmNavigationLock(false);
+            ApplyConfirmClock();
+        }
+
+        private void ApplyConfirmClock()
+        {
+            bool waveLive = _session != null && _session.Phase == GamePhase.Playing;
+            bool abortDialog = _confirmOpen && _confirmKind == ConfirmKind.AbortWave;
+            if (ConfirmPause.DismissAbort(abortDialog, waveLive))
+            {
+                _confirmOpen = false;
+                _confirmKind = ConfirmKind.None;
+                _confirmNavHeld = false;
+                if (_confirmRoot != null)
+                {
+                    _confirmRoot.SetActive(false);
+                }
+
+                SetConfirmNavigationLock(false);
+                abortDialog = false;
+            }
+
+            Time.timeScale = ConfirmPause.TimeScale(abortDialog, waveLive);
+            bool silenceNow = ConfirmPause.SilenceShip(abortDialog, waveLive);
+            if (silenceNow)
+            {
+                if (!_confirmSilencedShip && _ship != null)
+                {
+                    _ship.SetInputEnabled(false);
+                    _confirmSilencedShip = true;
+                }
+
+                return;
+            }
+
+            if (!_confirmSilencedShip)
+            {
+                return;
+            }
+
+            _confirmSilencedShip = false;
+            if (ConfirmPause.RestoreShipInput(true, false, waveLive) && _ship != null)
+            {
+                _ship.SetInputEnabled(true);
+            }
+        }
+
+        private void SetConfirmNavigationLock(bool locked)
+        {
+            if (_settingsOpen)
+            {
+                return;
+            }
+
+            SetSettingsNavigationLock(locked);
+        }
+
+        private void RefreshConfirmCopy()
+        {
+            bool newRun = _confirmKind == ConfirmKind.NewRun;
+            if (_confirmTitle != null)
+            {
+                _confirmTitle.text = newRun
+                    ? Loc.T("ui.confirm.new_run_title", "New Run?")
+                    : Loc.T("ui.confirm.abort_title", "Abort wave?");
+            }
+
+            if (_confirmBody != null)
+            {
+                _confirmBody.text = newRun
+                    ? Loc.T("ui.confirm.new_run_body", "Restart from wave 1?")
+                    : Loc.T("ui.confirm.abort_body", "Return to the hangar?");
+            }
+
+            if (_confirmYesLabel != null)
+            {
+                _confirmYesLabel.text = Loc.T("ui.confirm.yes", "Yes");
+            }
+
+            if (_confirmNoLabel != null)
+            {
+                _confirmNoLabel.text = Loc.T("ui.confirm.no", "No");
+            }
+        }
+
+        private void RefreshConfirmFocus()
+        {
+            if (_confirmYes != null)
+            {
+                UiTheme.SetPadFocus(_confirmYes.gameObject, _confirmFocus == ConfirmDialogRouter.FocusYes, false);
+            }
+
+            if (_confirmNo != null)
+            {
+                UiTheme.SetPadFocus(_confirmNo.gameObject, _confirmFocus == ConfirmDialogRouter.FocusNo, false);
+            }
         }
 
         private SettingsInputFlags ReadSettingsFlags()
@@ -4582,6 +5182,18 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.HintSize)
             {
                 StepHintSize(direction);
+                return;
+            }
+
+            if (rowId == SettingsRowId.ConfirmAbort)
+            {
+                ToggleConfirmAbort();
+                return;
+            }
+
+            if (rowId == SettingsRowId.ConfirmNewRun)
+            {
+                ToggleConfirmNewRun();
             }
         }
 
@@ -4615,6 +5227,18 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.HintSize)
             {
                 CycleHintSize();
+                return;
+            }
+
+            if (rowId == SettingsRowId.ConfirmAbort)
+            {
+                ToggleConfirmAbort();
+                return;
+            }
+
+            if (rowId == SettingsRowId.ConfirmNewRun)
+            {
+                ToggleConfirmNewRun();
                 return;
             }
 
