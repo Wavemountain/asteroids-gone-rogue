@@ -44,6 +44,7 @@ namespace AsteroidsGoneRogue
             { "ui.settings.hangar", "Hangar" },
             { "ui.settings.on", "På" },
             { "ui.settings.off", "Av" },
+            { "ui.settings.shake", "Skärmskak" },
             { "ach.compact", "★ {0}/{1}" },
             { "ui.difficulty", "SVÅRIGHET" },
             { "ui.diff.easy", "Easy" },

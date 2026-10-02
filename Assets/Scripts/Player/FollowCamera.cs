@@ -61,16 +61,28 @@ namespace AsteroidsGoneRogue
 
         public void AddShake(float amplitude)
         {
-            if (amplitude <= 0f)
+            if (!SettingsState.ScreenShakeEnabled)
+            {
+                _shake = 0f;
+                return;
+            }
+
+            float applied = SettingsState.ShakeAmplitude(true, amplitude);
+            if (applied <= 0f)
             {
                 return;
             }
 
-            _shake = Mathf.Min(MaxShake, _shake + amplitude);
+            _shake = Mathf.Min(MaxShake, _shake + applied);
         }
 
         private void LateUpdate()
         {
+            if (!SettingsState.ScreenShakeEnabled)
+            {
+                _shake = 0f;
+            }
+
             if (_captureHold)
             {
                 transform.position = _capturePos;
@@ -98,11 +110,15 @@ namespace AsteroidsGoneRogue
             }
 
             Vector3 desired = _target.position + Offset;
-            if (_shake > 0.001f)
+            if (SettingsState.ScreenShakeEnabled && _shake > 0.001f)
             {
                 Vector2 n = Random.insideUnitCircle * _shake;
                 desired += new Vector3(n.x, 0f, n.y);
                 _shake = Mathf.MoveTowards(_shake, 0f, ShakeDecay * Time.deltaTime);
+            }
+            else if (!SettingsState.ScreenShakeEnabled)
+            {
+                _shake = 0f;
             }
 
             transform.position = Vector3.Lerp(transform.position, desired, 1f - Mathf.Exp(-Follow * Time.deltaTime));

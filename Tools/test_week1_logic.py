@@ -4639,7 +4639,7 @@ def _settings_blocks_pad(flags: dict) -> bool:
 
 
 def _row_bands() -> list[tuple[float, float]]:
-    order = ("value", "value", "value", "value", "section", "action")
+    order = ("value", "value", "value", "value", "value", "section", "action")
     weights = {"value": 1.0, "section": 3.4, "action": 1.0}
     top, bottom, gap = 0.86, 0.08, 0.018
     weight_sum = sum(weights[kind] for kind in order)
@@ -4663,7 +4663,7 @@ def _screen_step_y(x: float, y: float, flick: float) -> int:
 
 
 def _settings_move(index: int, delta: int) -> int:
-    navigable = (0, 1, 2, 3, 5)
+    navigable = (0, 1, 2, 3, 4, 6)
     if delta == 0:
         return index
     direction = 1 if delta > 0 else -1
@@ -4687,6 +4687,12 @@ def _settings_move(index: int, delta: int) -> int:
             break
         current = nxt
     return current
+
+
+def SettingsState_shake(enabled: bool, amplitude: float) -> float:
+    if not enabled or amplitude <= 0:
+        return 0.0
+    return amplitude
 
 
 def _step_volume(current: float, direction: int) -> float:
@@ -4806,11 +4812,12 @@ def test_settings_shell() -> None:
     assert "SettingsRowId.Music" in order
     assert "SettingsRowId.Sfx" in order
     assert "SettingsRowId.Mute" in order
+    assert "SettingsRowId.ScreenShake" in order
     assert "SettingsRowId.Controls" in order
     assert "SettingsRowId.Close" in order
     assert order.index("Language") < order.index("Music") < order.index("Sfx") < order.index("Mute")
-    assert order.index("Mute") < order.index("Controls") < order.index("Close")
-    assert "ScreenShake" not in order and "HintMode" not in order and "PadNav" not in order
+    assert order.index("Mute") < order.index("ScreenShake") < order.index("Controls") < order.index("Close")
+    assert "HintMode" not in order and "PadNav" not in order
     assert "IsNavigable" in rows and "IsValue" in rows and "RowBand" in rows and "Move(" in rows
     assert "IsSlider" in rows and "StepVolume" in rows and "VolumeStep = 0.1f" in rows
     assert "SliderMinX = 0.40f" in rows and "SliderMaxX = 0.96f" in rows
@@ -4818,18 +4825,30 @@ def test_settings_shell() -> None:
     assert "OldSliderMinUnits = 101f" in rows and "LadderFont = 12" in rows
     assert "ContentTop = 0.86f" in rows and "SectionWeight = 3.4f" in rows
     bands = _row_bands()
-    assert len(bands) == 6
+    assert len(bands) == 7
     for y0, y1 in bands:
         assert 0.08 - 1e-6 <= y0 < y1 <= 0.86 + 1e-6
     for left, right in zip(bands, bands[1:]):
         assert left[0] > right[1]
         assert not _overlap((0.06, left[0], 0.94, left[1]), (0.06, right[0], 0.94, right[1]))
     assert _settings_move(0, 1) == 1
-    assert _settings_move(3, 1) == 5
+    assert _settings_move(4, 1) == 6
+    assert _settings_move(6, -1) == 4
+    assert _settings_move(5, 1) == 6
     assert _settings_move(5, -1) == 3
-    assert _settings_move(4, 1) == 5
-    assert _settings_move(4, -1) == 2
     assert _settings_move(0, 0) == 0
+    assert SettingsState_shake(False, 0.4) == 0.0
+    assert SettingsState_shake(False, 0.0) == 0.0
+    assert SettingsState_shake(True, -0.2) == 0.0
+    assert SettingsState_shake(True, 0.2) == 0.2
+    assert "ShakeAmplitude(bool enabled, float amplitude)" in state
+    assert "ScreenShakeEnabled" in state and "Publish(SettingsState state)" in state
+    follow = (root / "Assets/Scripts/Player/FollowCamera.cs").read_text(encoding="utf-8")
+    assert "SettingsState.ScreenShakeEnabled" in follow
+    assert "SettingsState.ShakeAmplitude" in follow
+    assert "_shake = 0f" in follow
+    assert "PlayerPrefs" not in follow
+    assert 'Loc.T("ui.settings.shake", "Screen shake")' in ui
     assert _step_volume(0.28, 1) == 0.38
     assert _step_volume(0.28, -1) == 0.18
     assert _step_volume(0.0, -1) == 0.0
@@ -4923,6 +4942,7 @@ def test_settings_shell() -> None:
         "ui.settings.hangar",
         "ui.settings.on",
         "ui.settings.off",
+        "ui.settings.shake",
     ):
         assert f'"{key}"' in swedish, key
         assert f'"{key}"' in ui, key
@@ -4963,7 +4983,7 @@ def test_settings_shell() -> None:
         slider_w = (0.96 - 0.40) * (0.94 - 0.06) * (0.70 - 0.30) * canvas_w
         assert slider_w >= 101.0, (width, height, slider_w)
 
-        controls_index = 4
+        controls_index = 5
         band_bottom, band_top = bands[controls_index]
         body_span = (band_top - 0.05) - band_bottom
         body_h = body_span * (0.88 - 0.12) * (height / scale)
