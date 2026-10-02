@@ -1741,8 +1741,23 @@ def main() -> int:
             err(f"settings row list missing {row_name}")
     if "PadNav" in order_block:
         err("settings row list must not add pad source yet")
+    if "ConfirmAbort" not in order_block or "ConfirmNewRun" not in order_block:
+        err("settings row list must include confirm abort and confirm new run")
+    if order_block.find("HintSize") > order_block.find("ConfirmAbort") or order_block.find("ConfirmNewRun") > order_block.find("Controls"):
+        err("confirm rows must sit after hint size and before Controls")
     if order_block.find("HintMode") > order_block.find("HintSize") or order_block.find("HintSize") > order_block.find("Controls"):
         err("hint mode and hint size rows must sit before the Controls section")
+    confirm_router = read(ROOT / "Assets/Scripts/Core/ConfirmDialogRouter.cs")
+    if "class ConfirmDialogRouter" not in confirm_router or "return FocusNo;" not in confirm_router:
+        err("ConfirmDialogRouter must default focus to No")
+    if "class ConfirmPause" not in confirm_router or "HeldScale = 0f" not in confirm_router:
+        err("ConfirmPause must restore a live time scale when the abort dialog is not holding the wave")
+    if "_settings.ConfirmRestartInPlay" not in game_ui or "_settings.ConfirmRestartNewRun" not in game_ui:
+        err("GameUi must read both restart-confirm settings")
+    if "ConfirmDialogRouter.Route" not in game_ui or "ConfirmPause.TimeScale" not in game_ui:
+        err("GameUi must route the confirm dialog and apply ConfirmPause.TimeScale")
+    if "if (!_confirmOpen && confirmAction == ConfirmAction.None)" not in game_ui:
+        err("an open confirm dialog must consume input before hangar navigation")
     if "On = 3" not in settings_state or "HintPxLarge = 22" not in settings_state:
         err("HintMode.On and the 22px hint step must stay stable")
     if "ShowsPlayHint" not in game_ui or "ShowsHangarFooter" not in game_ui or "EffectiveHintSize" not in game_ui:
