@@ -1736,11 +1736,18 @@ def main() -> int:
     if "return flags.Open && !flags.Playing;" not in settings_router:
         err("settings pad lock must cover the open hangar panel only")
     order_block = settings_rows.split("Order =")[1].split(";")[0]
-    for row_name in ("Language", "Music", "Sfx", "Mute", "Controls", "Close"):
+    for row_name in ("Language", "Music", "Sfx", "Mute", "ScreenShake", "Controls", "Close"):
         if row_name not in order_block:
             err(f"settings row list missing {row_name}")
-    if "ScreenShake" in order_block or "HintMode" in order_block or "PadNav" in order_block:
-        err("settings row list must not add shake, hint mode, or pad source yet")
+    if "HintMode" in order_block or "PadNav" in order_block:
+        err("settings row list must not add hint mode or pad source yet")
+    follow = read(ROOT / "Assets/Scripts/Player/FollowCamera.cs")
+    if "SettingsState.ScreenShakeEnabled" not in follow or "SettingsState.ShakeAmplitude" not in follow:
+        err("FollowCamera.AddShake must read the cached screen-shake setting")
+    if "_shake = 0f" not in follow:
+        err("FollowCamera must clear residual shake when screen shake is off")
+    if "PlayerPrefs" in follow:
+        err("FollowCamera must not touch PlayerPrefs on the shake path")
     if "AudioPanel" in game_ui or "BuildAudioControls" in game_ui:
         err("top-bar AudioPanel must be gone; volume lives in the settings panel")
     if "SetMusicVolume" not in game_ui or "SetSfxVolume" not in game_ui or "ToggleMute" not in game_ui:

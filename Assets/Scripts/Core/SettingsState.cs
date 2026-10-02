@@ -58,6 +58,54 @@ namespace AsteroidsGoneRogue
             return state;
         }
 
+        private static bool _screenShakeCached = true;
+        private static bool _screenShakeReady;
+
+        /// <summary>
+        /// Cached copy of <see cref="ScreenShake"/>. The camera reads this and
+        /// does not touch PlayerPrefs. Publish refreshes it when the toggle changes.
+        /// </summary>
+        public static bool ScreenShakeEnabled
+        {
+            get
+            {
+                if (!_screenShakeReady)
+                {
+                    _screenShakeCached = UnityEngine.PlayerPrefs.GetInt(ScreenShakeKey, 1) != 0;
+                    _screenShakeReady = true;
+                }
+
+                return _screenShakeCached;
+            }
+        }
+
+        public static void Publish(SettingsState state)
+        {
+            SettingsState source = state ?? CreateDefault();
+            source.Normalize();
+            _screenShakeCached = source.ScreenShake;
+            _screenShakeReady = true;
+        }
+
+        /// <summary>
+        /// Shake applied this frame. Off, or a non-positive request, yields zero
+        /// so a toggle cannot leave residual amplitude.
+        /// </summary>
+        public static float ShakeAmplitude(bool enabled, float amplitude)
+        {
+            if (!enabled)
+            {
+                return 0f;
+            }
+
+            if (amplitude <= 0f)
+            {
+                return 0f;
+            }
+
+            return amplitude;
+        }
+
         public static int ClampHintSize(int step)
         {
             if (step < 0)
@@ -171,6 +219,7 @@ namespace AsteroidsGoneRogue
                 UnityEngine.PlayerPrefs.GetInt(ConfirmRestartInPlayKey, 1),
                 UnityEngine.PlayerPrefs.GetInt(ConfirmRestartNewRunKey, 0),
                 UnityEngine.PlayerPrefs.GetInt(PadNavSourceKey, (int)AsteroidsGoneRogue.PadNavSource.Both));
+            Publish(state);
             if (version != CurrentVersion)
             {
                 state.Save();
@@ -190,6 +239,7 @@ namespace AsteroidsGoneRogue
             UnityEngine.PlayerPrefs.SetInt(ConfirmRestartNewRunKey, prefs.ConfirmRestartNewRun);
             UnityEngine.PlayerPrefs.SetInt(PadNavSourceKey, prefs.PadNavSource);
             UnityEngine.PlayerPrefs.Save();
+            Publish(this);
         }
     }
 

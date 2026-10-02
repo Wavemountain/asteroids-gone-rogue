@@ -8,6 +8,7 @@ namespace AsteroidsGoneRogue
         Music = 3,
         Sfx = 4,
         Mute = 5,
+        ScreenShake = 6,
     }
 
     public enum SettingsRowRole
@@ -36,6 +37,7 @@ namespace AsteroidsGoneRogue
             SettingsRowId.Music,
             SettingsRowId.Sfx,
             SettingsRowId.Mute,
+            SettingsRowId.ScreenShake,
             SettingsRowId.Controls,
             SettingsRowId.Close,
         };

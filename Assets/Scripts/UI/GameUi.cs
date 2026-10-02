@@ -145,6 +145,8 @@ namespace AsteroidsGoneRogue
         private Text _settingsSfxLabel;
         private Text _settingsMuteLabel;
         private Text _settingsMuteValue;
+        private Text _settingsShakeLabel;
+        private Text _settingsShakeValue;
         private Slider _settingsMusicSlider;
         private Slider _settingsSfxSlider;
         private Button[] _settingsRowButtons;
@@ -1859,6 +1861,7 @@ namespace AsteroidsGoneRogue
             }
 
             RefreshSettingsAudio();
+            RefreshSettingsShake();
 
             if (_settingsRowButtons != null)
             {
@@ -3752,6 +3755,12 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (rowId == SettingsRowId.ScreenShake)
+            {
+                BuildSettingsShakeRow(rowIndex, body, y0, y1);
+                return;
+            }
+
             if (rowId == SettingsRowId.Controls)
             {
                 BuildSettingsControlsRow(display, body, y0, y1);
@@ -3857,6 +3866,38 @@ namespace AsteroidsGoneRogue
             Stretch(_settingsMuteValue.rectTransform, new Vector2(0.50f, 0.12f), new Vector2(0.96f, 0.88f));
             _settingsMuteValue.color = UiTheme.Primary;
             _settingsMuteValue.raycastTarget = false;
+        }
+
+        private void BuildSettingsShakeRow(int rowIndex, Font body, float y0, float y1)
+        {
+            Button row = CreateButton(
+                "SettingsShake",
+                _settingsPanel.transform,
+                body,
+                new Vector2(SettingsMeasure.RowMinX, y0),
+                new Vector2(SettingsMeasure.RowMaxX, y1));
+            _settingsRowButtons[rowIndex] = row;
+            row.onClick.AddListener(ToggleScreenShake);
+            UiTheme.ApplyButton(row, false, false, false);
+
+            _settingsShakeLabel = row.GetComponentInChildren<Text>();
+            _settingsShakeLabel.fontSize = UiTheme.BodyMin;
+            _settingsShakeLabel.alignment = TextAnchor.MiddleLeft;
+            _settingsShakeLabel.fontStyle = FontStyle.Bold;
+            _settingsShakeLabel.color = UiTheme.Accent;
+            _settingsShakeLabel.raycastTarget = false;
+            Stretch(_settingsShakeLabel.rectTransform, new Vector2(0.04f, 0.08f), new Vector2(0.62f, 0.92f));
+
+            _settingsShakeValue = CreateText(
+                "SettingsShakeValue",
+                row.transform,
+                body,
+                UiTheme.BodyMin,
+                TextAnchor.MiddleRight,
+                FontStyle.Bold);
+            Stretch(_settingsShakeValue.rectTransform, new Vector2(0.64f, 0.12f), new Vector2(0.96f, 0.88f));
+            _settingsShakeValue.color = UiTheme.Primary;
+            _settingsShakeValue.raycastTarget = false;
         }
 
         private void BuildSettingsLanguageRow(int rowIndex, Font body, float y0, float y1)
@@ -4042,6 +4083,45 @@ namespace AsteroidsGoneRogue
             }
 
             RefreshSettingsAudio();
+        }
+
+        private void ToggleScreenShake()
+        {
+            if (_settings == null)
+            {
+                _settings = SettingsState.Load();
+            }
+
+            _settings.ScreenShake = !_settings.ScreenShake;
+            _settings.Save();
+            RefreshSettingsShake();
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+        }
+
+        private void RefreshSettingsShake()
+        {
+            if (_settingsShakeLabel != null)
+            {
+                _settingsShakeLabel.text = Loc.T("ui.settings.shake", "Screen shake");
+            }
+
+            if (_settingsShakeValue == null)
+            {
+                return;
+            }
+
+            bool enabled = true;
+            if (_settings != null)
+            {
+                enabled = _settings.ScreenShake;
+            }
+
+            _settingsShakeValue.text = enabled
+                ? Loc.T("ui.settings.on", "On")
+                : Loc.T("ui.settings.off", "Off");
         }
 
         private void RefreshSettingsAudio()
@@ -4285,6 +4365,12 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.Mute)
             {
                 ToggleSettingsMute();
+                return;
+            }
+
+            if (rowId == SettingsRowId.ScreenShake)
+            {
+                ToggleScreenShake();
             }
         }
 
@@ -4300,6 +4386,12 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.Mute)
             {
                 ToggleSettingsMute();
+                return;
+            }
+
+            if (rowId == SettingsRowId.ScreenShake)
+            {
+                ToggleScreenShake();
                 return;
             }
 
