@@ -40,6 +40,11 @@ namespace AsteroidsGoneRogue
             { "ui.settings.close", "Stäng" },
             { "ui.settings.en", "EN" },
             { "ui.settings.sv", "SV" },
+            { "ui.settings.play", "Spel" },
+            { "ui.settings.hangar", "Hangar" },
+            { "ui.settings.on", "På" },
+            { "ui.settings.off", "Av" },
+            { "ach.compact", "★ {0}/{1}" },
             { "ui.difficulty", "SVÅRIGHET" },
             { "ui.diff.easy", "Easy" },
             { "ui.diff.normal", "Normal" },
@@ -275,6 +280,19 @@ namespace AsteroidsGoneRogue
             { "enemy.Swarmling", "Svärmunge" }
         };
 
+        /// <summary>
+        /// English strings for table keys that have no Loc.T call site.
+        /// Dynamic shop, enemy, and mode keys take their English from the call-site fallback.
+        /// </summary>
+        private static readonly Dictionary<string, string> English = new Dictionary<string, string>
+        {
+            { "ui.retry_wave", "Retry Wave" },
+            { "ui.credits_line", "Credits: {0}" },
+            { "ui.hud_fire", "\nFire {0}" },
+            { "ui.slot_primary", "PRIMARY" },
+            { "ui.unmute", "Unmute" },
+        };
+
         private static bool _loaded;
         private static GameLanguage _language = GameLanguage.English;
 
@@ -336,6 +354,11 @@ namespace AsteroidsGoneRogue
         public static bool HasSwedish(string key)
         {
             return Swedish.ContainsKey(key);
+        }
+
+        public static bool HasEnglish(string key)
+        {
+            return English.ContainsKey(key);
         }
 
         public static string FireModeName(FireMode mode)

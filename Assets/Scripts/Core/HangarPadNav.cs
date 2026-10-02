@@ -23,8 +23,7 @@ namespace AsteroidsGoneRogue
         public static int HardSlot { get { return CreditsSlot + 3; } }
         public static int LangEnSlot { get { return CreditsSlot + 4; } }
         public static int LangSvSlot { get { return CreditsSlot + 5; } }
-        public static int MuteSlot { get { return CreditsSlot + 6; } }
-        public static int GotItSlot { get { return CreditsSlot + 7; } }
+        public static int GotItSlot { get { return CreditsSlot + 6; } }
         public static int BarrageSlot { get { return GotItSlot + 1; } }
         public static int LanceSlot { get { return GotItSlot + 2; } }
         public static int HunterSlot { get { return GotItSlot + 3; } }
@@ -324,9 +323,8 @@ namespace AsteroidsGoneRogue
                 && Step(NormalSlot, 0, 1) == PrimarySlot
                 && Step(EasySlot, 1, 0) == NormalSlot
                 && Step(LangEnSlot, 1, 0) == LangSvSlot
-                && Step(LangSvSlot, 1, 0) == MuteSlot
-                && Step(MuteSlot, 1, 0) == SettingsSlot
-                && Step(SettingsSlot, -1, 0) == MuteSlot
+                && Step(LangSvSlot, 1, 0) == SettingsSlot
+                && Step(SettingsSlot, -1, 0) == LangSvSlot
                 && Step(CreditsSlot, 0, -1) != CreditsSlot
                 && DominantStepY(0f, -1f, Flick) == 1
                 && DominantStepY(0f, 1f, Flick) == -1
@@ -413,13 +411,6 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (slot == MuteSlot)
-            {
-                x = 5;
-                y = -3;
-                return;
-            }
-
             if (slot == GotItSlot)
             {
                 x = 0;
@@ -457,7 +448,7 @@ namespace AsteroidsGoneRogue
 
             if (slot == SettingsSlot)
             {
-                // Upper-right of the top bar, one cell right of Mute.
+                // Upper-right of the top bar, to the right of the language flags.
                 x = 6;
                 y = -3;
                 return;

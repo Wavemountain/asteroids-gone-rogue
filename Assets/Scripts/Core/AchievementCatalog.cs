@@ -137,6 +137,29 @@ namespace AsteroidsGoneRogue
             return line;
         }
 
+        public static int OwnedCount(int mask)
+        {
+            int owned = 0;
+            for (int i = 0; i < All.Length; i++)
+            {
+                if (Owns(mask, All[i]))
+                {
+                    owned++;
+                }
+            }
+
+            return owned;
+        }
+
+        /// <summary>
+        /// Short icon-and-count form. The full title ladder is wider than the
+        /// top-bar box (about 224–274 canvas units).
+        /// </summary>
+        public static string CompactCount(int mask)
+        {
+            return Loc.Tf("ach.compact", "★ {0}/{1}", OwnedCount(mask), All.Length);
+        }
+
         public static bool ShouldUnlockFirstClear(int clearedWave)
         {
             return clearedWave >= 1;

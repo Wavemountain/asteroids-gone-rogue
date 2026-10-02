@@ -26,11 +26,6 @@ namespace AsteroidsGoneRogue
         private Text[] _buyLabels;
         private Button _abortButton;
         private Text _abortLabel;
-        private Button _muteButton;
-        private Text _muteLabel;
-        private Slider _sfxSlider;
-        private Slider _musicSlider;
-        private GameObject _audioPanel;
         private GameObject _tutorialRoot;
         private GameObject _summaryRoot;
         private Image _summaryHeader;
@@ -85,8 +80,6 @@ namespace AsteroidsGoneRogue
         private float _firstRunCoachUntil;
         private Image _primaryPlate;
         private Image _abortPlate;
-        private Text _sfxLabel;
-        private Text _musicLabel;
         private Text _hullHeader;
         private Text _weaponsHeader;
         private Text _defenseHeader;
@@ -148,6 +141,12 @@ namespace AsteroidsGoneRogue
         private Image _settingsSvBezel;
         private Text _settingsControlsTitle;
         private Text _settingsControlsBody;
+        private Text _settingsMusicLabel;
+        private Text _settingsSfxLabel;
+        private Text _settingsMuteLabel;
+        private Text _settingsMuteValue;
+        private Slider _settingsMusicSlider;
+        private Slider _settingsSfxSlider;
         private Button[] _settingsRowButtons;
 
         private static readonly Color UiAmber = UiTheme.Primary;
@@ -162,9 +161,7 @@ namespace AsteroidsGoneRogue
         public static readonly Vector2 HangarPanelMax = new Vector2(0.55f, 0.888f);
         public static readonly Vector2 TopBarMin = new Vector2(0.012f, 0.905f);
         public static readonly Vector2 TopBarMax = new Vector2(0.988f, 0.995f);
-        // Audio cluster stays on the top bar; the gear sits in the gap to its right.
-        public static readonly Vector2 AudioPanelMin = new Vector2(0.735f, 0.905f);
-        public static readonly Vector2 AudioPanelMax = new Vector2(0.892f, 0.995f);
+        // Gear stays on the top-right. Mute / SFX / Music live in the settings panel.
         public static readonly Vector2 SettingsGearMin = new Vector2(0.900f, 0.905f);
         public static readonly Vector2 SettingsGearMax = new Vector2(0.988f, 0.995f);
         public static readonly Vector2 SettingsPanelMin = new Vector2(0.30f, 0.12f);
@@ -296,11 +293,6 @@ namespace AsteroidsGoneRogue
             {
                 _vignette.SetActive(playing);
             }
-            if (_audioPanel != null)
-            {
-                _audioPanel.SetActive(!playing);
-            }
-
             if (playing && _settingsOpen)
             {
                 DismissSettingsForPlay();
@@ -407,7 +399,7 @@ namespace AsteroidsGoneRogue
                 RefreshBuyButton(i, ShopCatalog.Items[i]);
             }
 
-            RefreshAudioControls();
+            RefreshSettingsAudio();
             EnsurePrimaryClickable();
         }
 
@@ -531,10 +523,14 @@ namespace AsteroidsGoneRogue
             ClampOneLine(_badgeRow);
             AddReadability(_badgeRow, false);
 
-            _achievementLadder = CreateText("AchievementLadder", transform, body, 12, TextAnchor.MiddleLeft, FontStyle.Normal);
-            Stretch(_achievementLadder.rectTransform, new Vector2(0.355f, 0.905f), new Vector2(0.478f, 0.950f));
+            _achievementLadder = CreateText("AchievementLadder", transform, body, SettingsMeasure.LadderFont, TextAnchor.UpperLeft, FontStyle.Normal);
+            Stretch(
+                _achievementLadder.rectTransform,
+                new Vector2(SettingsMeasure.LadderMinX, 0.905f),
+                new Vector2(SettingsMeasure.LadderMaxX, 0.950f));
             _achievementLadder.color = UiTheme.WithAlpha(UiTheme.Primary, 0.95f);
-            ClampOneLine(_achievementLadder);
+            _achievementLadder.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _achievementLadder.verticalOverflow = VerticalWrapMode.Overflow;
             AddReadability(_achievementLadder, false);
 
             _hint = CreateText("Hint", transform, body, UiTheme.HintSize(Screen.width), TextAnchor.MiddleCenter, FontStyle.Normal);
@@ -605,7 +601,6 @@ namespace AsteroidsGoneRogue
 
             BuildDoctrine(display, body);
             BuildShop(display, body);
-            BuildAudioControls(body);
             BuildSettingsGear(body);
             BuildLanguagePicker(display, body);
             BuildDifficultyPicker(display, body);
@@ -1466,112 +1461,9 @@ namespace AsteroidsGoneRogue
             }
         }
 
-        private void BuildAudioControls(Font font)
-        {
-            // Top-bar right: MUTE / SFX / MUSIC. Shrunk so the settings gear fits on its right.
-            _audioPanel = UiTheme.BuildPanel(
-                "AudioPanel",
-                transform,
-                AudioPanelMin,
-                AudioPanelMax,
-                0.02f,
-                UiTheme.HeaderWash,
-                UiTheme.HeaderRule,
-                UiTheme.WithAlpha(UiTheme.Surface, 0.88f));
-            GameObject panel = _audioPanel;
-
-            _muteButton = CreateButton("Mute", panel.transform, font, new Vector2(0.02f, 0.12f), new Vector2(0.22f, 0.88f));
-            _muteLabel = _muteButton.GetComponentInChildren<Text>();
-            _muteLabel.fontSize = UiTheme.BodyMin;
-            _muteButton.onClick.AddListener(OnMute);
-            UiTheme.ApplyButton(_muteButton, false, false, false);
-
-            _sfxLabel = CreateText("SfxLabel", panel.transform, font, UiTheme.BodyMin, TextAnchor.MiddleLeft, FontStyle.Normal);
-            _sfxLabel.text = "SFX";
-            Stretch(panel.transform.Find("SfxLabel").GetComponent<RectTransform>(), new Vector2(0.24f, 0.12f), new Vector2(0.36f, 0.88f));
-            _sfxSlider = CreateSlider("SfxSlider", panel.transform, new Vector2(0.36f, 0.22f), new Vector2(0.58f, 0.78f),
-                AudioCues.Instance != null ? AudioCues.Instance.SfxVolume : AudioCues.DefaultSfxVolume, OnSfxVolume);
-
-            _musicLabel = CreateText("MusicLabel", panel.transform, font, UiTheme.BodyMin, TextAnchor.MiddleLeft, FontStyle.Normal);
-            _musicLabel.text = "Music";
-            Stretch(panel.transform.Find("MusicLabel").GetComponent<RectTransform>(), new Vector2(0.60f, 0.12f), new Vector2(0.76f, 0.88f));
-            _musicSlider = CreateSlider("MusicSlider", panel.transform, new Vector2(0.76f, 0.22f), new Vector2(0.98f, 0.78f),
-                AudioCues.Instance != null ? AudioCues.Instance.MusicVolume : AudioCues.DefaultMusicVolume, OnMusicVolume);
-
-            RefreshAudioControls();
-        }
-
-        private void OnMute()
-        {
-            if (AudioCues.Instance == null)
-            {
-                return;
-            }
-
-            if (!AudioCues.Instance.Muted)
-            {
-                AudioCues.Instance.PlayUiClick();
-            }
-
-            AudioCues.Instance.ToggleMute();
-            if (!AudioCues.Instance.Muted)
-            {
-                AudioCues.Instance.PlayUiClick();
-            }
-
-            RefreshAudioControls();
-        }
-
-        private void OnSfxVolume(float value)
-        {
-            if (AudioCues.Instance != null)
-            {
-                AudioCues.Instance.SetSfxVolume(value);
-            }
-        }
-
-        private void OnMusicVolume(float value)
-        {
-            if (AudioCues.Instance != null)
-            {
-                AudioCues.Instance.SetMusicVolume(value);
-            }
-        }
-
-        private void RefreshAudioControls()
-        {
-            if (_muteLabel == null || AudioCues.Instance == null)
-            {
-                return;
-            }
-
-            _muteLabel.text = AudioCues.Instance.Muted
-                ? Loc.T("ui.unmute", "Unmute")
-                : Loc.T("ui.mute", "Mute");
-            if (_sfxLabel != null)
-            {
-                _sfxLabel.text = Loc.T("ui.sfx", "SFX");
-            }
-
-            if (_musicLabel != null)
-            {
-                _musicLabel.text = Loc.T("ui.music", "Music");
-            }
-
-            if (_sfxSlider != null)
-            {
-                _sfxSlider.SetValueWithoutNotify(AudioCues.Instance.SfxVolume);
-            }
-
-            if (_musicSlider != null)
-            {
-                _musicSlider.SetValueWithoutNotify(AudioCues.Instance.MusicVolume);
-            }
-        }
-
         private void BuildLanguagePicker(Font display, Font body)
         {
-            // Top-bar center-right: LANG flags. Same top-bar row as difficulty / mute.
+            // Top-bar center-right: LANG flags. Same top-bar row as difficulty. The gear sits further right.
             _langPanel = UiTheme.BuildPanel(
                 "LanguagePanel",
                 transform,
@@ -1965,6 +1857,8 @@ namespace AsteroidsGoneRogue
             {
                 _settingsControlsBody.text = FullControlHint();
             }
+
+            RefreshSettingsAudio();
 
             if (_settingsRowButtons != null)
             {
@@ -2481,11 +2375,6 @@ namespace AsteroidsGoneRogue
                 return BezelButton(_svBezel);
             }
 
-            if (slot == HangarPadNav.MuteSlot)
-            {
-                return ButtonIfActive(_muteButton);
-            }
-
             if (slot == HangarPadNav.GotItSlot)
             {
                 if (_tutorialRoot != null && _tutorialRoot.activeSelf)
@@ -2598,11 +2487,6 @@ namespace AsteroidsGoneRogue
             if (_svBezel != null && go == _svBezel.gameObject)
             {
                 return HangarPadNav.LangSvSlot;
-            }
-
-            if (_muteButton != null && go == _muteButton.gameObject)
-            {
-                return HangarPadNav.MuteSlot;
             }
 
             if (_gotItButton != null && go == _gotItButton.gameObject)
@@ -2787,14 +2671,16 @@ namespace AsteroidsGoneRogue
             }
 
             AchievementPersist persist = _game != null ? _game.Achievements : null;
-            string row = persist != null
-                ? persist.LadderLine()
-                : AchievementCatalog.LadderLine(0);
+            string count = persist != null
+                ? persist.CompactCount()
+                : AchievementCatalog.CompactCount(0);
             _achievementLadder.gameObject.SetActive(!playing);
             if (!playing)
             {
-                _achievementLadder.text = Loc.T("ach.header", "ACHIEVEMENTS") + "  ·  " + row;
-                ClampOneLine(_achievementLadder);
+                string header = Loc.T("ach.header", "ACHIEVEMENTS");
+                _achievementLadder.text = header + "\n" + count;
+                _achievementLadder.horizontalOverflow = HorizontalWrapMode.Wrap;
+                _achievementLadder.verticalOverflow = VerticalWrapMode.Overflow;
             }
         }
 
@@ -3848,6 +3734,24 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (rowId == SettingsRowId.Music)
+            {
+                BuildSettingsVolumeRow(rowIndex, "SettingsMusic", body, y0, y1, true);
+                return;
+            }
+
+            if (rowId == SettingsRowId.Sfx)
+            {
+                BuildSettingsVolumeRow(rowIndex, "SettingsSfx", body, y0, y1, false);
+                return;
+            }
+
+            if (rowId == SettingsRowId.Mute)
+            {
+                BuildSettingsMuteRow(rowIndex, body, y0, y1);
+                return;
+            }
+
             if (rowId == SettingsRowId.Controls)
             {
                 BuildSettingsControlsRow(display, body, y0, y1);
@@ -3858,6 +3762,101 @@ namespace AsteroidsGoneRogue
             {
                 BuildSettingsCloseRow(rowIndex, display, y0, y1);
             }
+        }
+
+        private void BuildSettingsVolumeRow(int rowIndex, string rowName, Font body, float y0, float y1, bool music)
+        {
+            Button row = CreateButton(
+                rowName,
+                _settingsPanel.transform,
+                body,
+                new Vector2(SettingsMeasure.RowMinX, y0),
+                new Vector2(SettingsMeasure.RowMaxX, y1));
+            _settingsRowButtons[rowIndex] = row;
+            UiTheme.ApplyButton(row, false, false, false);
+
+            Text caption = row.GetComponentInChildren<Text>();
+            caption.fontSize = UiTheme.BodyMin;
+            caption.alignment = TextAnchor.MiddleLeft;
+            caption.fontStyle = FontStyle.Bold;
+            caption.color = UiTheme.Accent;
+            caption.raycastTarget = false;
+            Stretch(caption.rectTransform, new Vector2(0.04f, 0.08f), new Vector2(0.36f, 0.92f));
+
+            float initial = AudioCues.DefaultSfxVolume;
+            if (music)
+            {
+                initial = AudioCues.Instance != null ? AudioCues.Instance.MusicVolume : AudioCues.DefaultMusicVolume;
+            }
+            else if (AudioCues.Instance != null)
+            {
+                initial = AudioCues.Instance.SfxVolume;
+            }
+
+            Slider slider;
+            if (music)
+            {
+                slider = CreateSlider(
+                    "SettingsMusicSlider",
+                    row.transform,
+                    new Vector2(SettingsMeasure.SliderMinX, 0.18f),
+                    new Vector2(SettingsMeasure.SliderMaxX, 0.82f),
+                    initial,
+                    OnSettingsMusicVolume);
+            }
+            else
+            {
+                slider = CreateSlider(
+                    "SettingsSfxSlider",
+                    row.transform,
+                    new Vector2(SettingsMeasure.SliderMinX, 0.18f),
+                    new Vector2(SettingsMeasure.SliderMaxX, 0.82f),
+                    initial,
+                    OnSettingsSfxVolume);
+            }
+
+            if (music)
+            {
+                _settingsMusicLabel = caption;
+                _settingsMusicSlider = slider;
+            }
+            else
+            {
+                _settingsSfxLabel = caption;
+                _settingsSfxSlider = slider;
+            }
+        }
+
+        private void BuildSettingsMuteRow(int rowIndex, Font body, float y0, float y1)
+        {
+            Button row = CreateButton(
+                "SettingsMute",
+                _settingsPanel.transform,
+                body,
+                new Vector2(SettingsMeasure.RowMinX, y0),
+                new Vector2(SettingsMeasure.RowMaxX, y1));
+            _settingsRowButtons[rowIndex] = row;
+            row.onClick.AddListener(ToggleSettingsMute);
+            UiTheme.ApplyButton(row, false, false, false);
+
+            _settingsMuteLabel = row.GetComponentInChildren<Text>();
+            _settingsMuteLabel.fontSize = UiTheme.BodyMin;
+            _settingsMuteLabel.alignment = TextAnchor.MiddleLeft;
+            _settingsMuteLabel.fontStyle = FontStyle.Bold;
+            _settingsMuteLabel.color = UiTheme.Accent;
+            _settingsMuteLabel.raycastTarget = false;
+            Stretch(_settingsMuteLabel.rectTransform, new Vector2(0.04f, 0.08f), new Vector2(0.46f, 0.92f));
+
+            _settingsMuteValue = CreateText(
+                "SettingsMuteValue",
+                row.transform,
+                body,
+                UiTheme.BodyMin,
+                TextAnchor.MiddleRight,
+                FontStyle.Bold);
+            Stretch(_settingsMuteValue.rectTransform, new Vector2(0.50f, 0.12f), new Vector2(0.96f, 0.88f));
+            _settingsMuteValue.color = UiTheme.Primary;
+            _settingsMuteValue.raycastTarget = false;
         }
 
         private void BuildSettingsLanguageRow(int rowIndex, Font body, float y0, float y1)
@@ -3924,7 +3923,10 @@ namespace AsteroidsGoneRogue
                 UiTheme.BodyMin,
                 TextAnchor.UpperLeft,
                 FontStyle.Bold);
-            Stretch(_settingsControlsTitle.rectTransform, new Vector2(0.08f, y1 - 0.06f), new Vector2(0.92f, y1));
+            Stretch(
+                _settingsControlsTitle.rectTransform,
+                new Vector2(SettingsMeasure.BodyMinX, y1 - SettingsMeasure.ControlsHeaderInset),
+                new Vector2(SettingsMeasure.BodyMaxX, y1));
             _settingsControlsTitle.color = UiTheme.Primary;
 
             _settingsControlsBody = CreateText(
@@ -3934,10 +3936,14 @@ namespace AsteroidsGoneRogue
                 UiTheme.HintSize(Screen.width),
                 TextAnchor.UpperLeft,
                 FontStyle.Normal);
-            Stretch(_settingsControlsBody.rectTransform, new Vector2(0.08f, y0), new Vector2(0.92f, y1 - 0.07f));
+            Stretch(
+                _settingsControlsBody.rectTransform,
+                new Vector2(SettingsMeasure.BodyMinX, y0),
+                new Vector2(SettingsMeasure.BodyMaxX, y1 - SettingsMeasure.ControlsHeaderInset));
             _settingsControlsBody.color = UiTheme.FooterHint;
             _settingsControlsBody.horizontalOverflow = HorizontalWrapMode.Wrap;
-            _settingsControlsBody.verticalOverflow = VerticalWrapMode.Truncate;
+            _settingsControlsBody.verticalOverflow = VerticalWrapMode.Overflow;
+            _settingsControlsBody.alignByGeometry = false;
             _settingsControlsBody.text = FullControlHint();
         }
 
@@ -3966,7 +3972,114 @@ namespace AsteroidsGoneRogue
                 "ui.hint_hangar",
                 "LS move · {0}",
                 Loc.T("ui.hangar_controls", HangarControlsHint));
-            return playHint + "\n" + hangarHint;
+            string playCaption = Loc.T("ui.settings.play", "Play");
+            string hangarCaption = Loc.T("ui.settings.hangar", "Hangar");
+            return playCaption + "\n" + playHint + "\n" + hangarCaption + "\n" + hangarHint;
+        }
+
+        private void OnSettingsMusicVolume(float value)
+        {
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.SetMusicVolume(value);
+            }
+        }
+
+        private void OnSettingsSfxVolume(float value)
+        {
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.SetSfxVolume(value);
+            }
+        }
+
+        private void ToggleSettingsMute()
+        {
+            if (AudioCues.Instance == null)
+            {
+                return;
+            }
+
+            if (!AudioCues.Instance.Muted)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+
+            AudioCues.Instance.ToggleMute();
+            if (!AudioCues.Instance.Muted)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+
+            RefreshSettingsAudio();
+        }
+
+        private void StepSettingsVolume(bool music, int direction)
+        {
+            float current;
+            if (music)
+            {
+                current = AudioCues.Instance != null ? AudioCues.Instance.MusicVolume : AudioCues.DefaultMusicVolume;
+            }
+            else
+            {
+                current = AudioCues.Instance != null ? AudioCues.Instance.SfxVolume : AudioCues.DefaultSfxVolume;
+            }
+
+            float next = SettingsRows.StepVolume(current, direction);
+            if (AudioCues.Instance == null)
+            {
+                return;
+            }
+
+            if (music)
+            {
+                AudioCues.Instance.SetMusicVolume(next);
+            }
+            else
+            {
+                AudioCues.Instance.SetSfxVolume(next);
+            }
+
+            RefreshSettingsAudio();
+        }
+
+        private void RefreshSettingsAudio()
+        {
+            if (_settingsMusicLabel != null)
+            {
+                _settingsMusicLabel.text = Loc.T("ui.music", "Music");
+            }
+
+            if (_settingsSfxLabel != null)
+            {
+                _settingsSfxLabel.text = Loc.T("ui.sfx", "SFX");
+            }
+
+            if (_settingsMuteLabel != null)
+            {
+                _settingsMuteLabel.text = Loc.T("ui.mute", "Mute");
+            }
+
+            if (_settingsMuteValue != null)
+            {
+                bool muted = AudioCues.Instance != null && AudioCues.Instance.Muted;
+                _settingsMuteValue.text = muted
+                    ? Loc.T("ui.settings.on", "On")
+                    : Loc.T("ui.settings.off", "Off");
+            }
+
+            float musicVolume = AudioCues.Instance != null ? AudioCues.Instance.MusicVolume : AudioCues.DefaultMusicVolume;
+            float sfxVolume = AudioCues.Instance != null ? AudioCues.Instance.SfxVolume : AudioCues.DefaultSfxVolume;
+            if (_settingsMusicSlider != null)
+            {
+                _settingsMusicSlider.SetValueWithoutNotify(musicVolume);
+            }
+
+            if (_settingsSfxSlider != null)
+            {
+                _settingsSfxSlider.SetValueWithoutNotify(sfxVolume);
+            }
         }
 
         private static int IndexOfSettingsRow(SettingsRowId rowId)
@@ -4138,18 +4251,40 @@ namespace AsteroidsGoneRogue
             }
 
             SettingsRowId rowId = SettingsRows.At(_settingsIndex);
-            if (!SettingsRows.IsValue(rowId) || rowId != SettingsRowId.Language)
+            if (!SettingsRows.IsValue(rowId))
             {
                 return;
             }
 
-            if (direction < 0)
+            if (rowId == SettingsRowId.Language)
             {
-                OnPickLanguage(GameLanguage.English);
+                if (direction < 0)
+                {
+                    OnPickLanguage(GameLanguage.English);
+                }
+                else
+                {
+                    OnPickLanguage(GameLanguage.Swedish);
+                }
+
+                return;
             }
-            else
+
+            if (rowId == SettingsRowId.Music)
             {
-                OnPickLanguage(GameLanguage.Swedish);
+                StepSettingsVolume(true, direction);
+                return;
+            }
+
+            if (rowId == SettingsRowId.Sfx)
+            {
+                StepSettingsVolume(false, direction);
+                return;
+            }
+
+            if (rowId == SettingsRowId.Mute)
+            {
+                ToggleSettingsMute();
             }
         }
 
@@ -4159,6 +4294,12 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.Language)
             {
                 CycleSettingsLanguage();
+                return;
+            }
+
+            if (rowId == SettingsRowId.Mute)
+            {
+                ToggleSettingsMute();
                 return;
             }
 

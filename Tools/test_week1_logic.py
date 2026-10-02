@@ -681,7 +681,7 @@ def test_enemies_launch_034() -> None:
     assert "PlayBestCompare" in ui
     hud = ui.split("private string BuildHud")[1].split("private static void AddReadability")[0]
     assert "PlayBestCompare()" in hud
-    assert '_audioPanel.SetActive(!playing)' in ui
+    assert '_settingsGear.gameObject.SetActive(!playing)' in ui
 
     assert "ShowContinueHint" in summary
     assert RunSummary_show_continue(1, Phase.WAVE_CLEAR)
@@ -1188,7 +1188,7 @@ def test_ui_fonts_039() -> None:
     assert "UiFonts.Display()" in factory
     assert "HudPlate" in ui
     assert "AddReadability" in ui
-    assert "PlayUiClick" in ui.split("private void OnMute()")[1].split("private void")[0]
+    assert "PlayUiClick" in ui.split("private void ToggleSettingsMute()")[1].split("private void")[0]
 
     display = root / "Assets/Resources/Fonts/KenneyFuture.ttf"
     body = root / "Assets/Resources/Fonts/KenneyFutureNarrow.ttf"
@@ -3068,7 +3068,7 @@ def test_steam_slice_044() -> None:
     assert "LayoutSelfCheck" in padnav
     assert "Step(PrimarySlot, 0, 1) == ShopSlot(1)" in padnav
     assert "Step(PrimarySlot, 0, -1) == NormalSlot" in padnav
-    assert "LangEnSlot" in padnav and "MuteSlot" in padnav and "GotItSlot" in padnav
+    assert "LangEnSlot" in padnav and "SettingsSlot" in padnav and "GotItSlot" in padnav
     assert "PadDpadX" in pad and "PadDpadY" in pad
     assert "UiNavDpad" in pad
     assert "UiNavCombined" in pad
@@ -3318,7 +3318,7 @@ def test_ui_theme_pad_menus_044() -> None:
     assert "HangarPadNav.StepSelectable(fromSlot, dx, dy, padMask)" in ui
     assert "HangarPadNav.EasySlot" in ui
     assert "HangarPadNav.LangEnSlot" in ui
-    assert "HangarPadNav.MuteSlot" in ui
+    assert "HangarPadNav.SettingsSlot" in ui
     assert "HangarPadNav.CreditsSlot" in ui
     assert "HangarPadNav.GotItSlot" in ui
     assert "SetPadFocus" in ui
@@ -3380,7 +3380,6 @@ def test_hangar_wave_clear_layout() -> None:
     doctrine = (0.562, 0.608, 0.986, 0.898)
     hint = (0.14, 0.008, 0.86, 0.072)
     credits_btn = (0.014, 0.010, 0.128, 0.070)
-    audio = (0.735, 0.905, 0.892, 0.995)
     gear = (0.900, 0.905, 0.988, 0.995)
     lang = (0.635, 0.905, 0.728, 0.995)
     diff = (0.478, 0.905, 0.628, 0.995)
@@ -3392,11 +3391,12 @@ def test_hangar_wave_clear_layout() -> None:
     assert doctrine[3] < top_bar[1]
     assert not _overlap(hint, hangar_panel)
     assert not _overlap(credits_btn, hangar_panel)
-    assert not _overlap(audio, hangar_panel)
-    assert not _overlap(gear, audio)
+    assert not _overlap(gear, lang)
     assert not _overlap(gear, hangar_panel)
     assert not _overlap(lang, hangar_panel)
     assert not _overlap(diff, hangar_panel)
+    assert gear[2] > lang[2]
+    assert "AudioPanel" not in ui and "BuildAudioControls" not in ui
     assert abs(hangar_panel[1] - preview[1]) < 0.0001
     assert hangar_panel[3] < top_bar[1]
     assert hint[3] < hangar_panel[1]
@@ -3994,8 +3994,7 @@ _PAD_NORMAL = _PAD_CREDITS + 2
 _PAD_HARD = _PAD_CREDITS + 3
 _PAD_EN = _PAD_CREDITS + 4
 _PAD_SV = _PAD_CREDITS + 5
-_PAD_MUTE = _PAD_CREDITS + 6
-_PAD_GOTIT = _PAD_CREDITS + 7
+_PAD_GOTIT = _PAD_CREDITS + 6
 _PAD_BARRAGE = _PAD_GOTIT + 1
 _PAD_LANCE = _PAD_GOTIT + 2
 _PAD_HUNTER = _PAD_GOTIT + 3
@@ -4045,8 +4044,6 @@ def _pad_coord(slot: int, legacy: bool) -> tuple[int, int]:
         return 3, -3
     if slot == _PAD_SV:
         return 4, -3
-    if slot == _PAD_MUTE:
-        return 5, -3
     if slot == _PAD_GOTIT:
         return 0, -4
     if slot == _PAD_BARRAGE:
@@ -4224,7 +4221,7 @@ def _pad_shop_mask(owned: frozenset[str], shield: int, doctrine: str, credits: i
     """Selectable hangar controls. Got it / doctrine intro stay out of the pad order."""
     mask = [False] * _PAD_SLOTS
     mask[0] = True
-    for slot in (_PAD_CREDITS, _PAD_EASY, _PAD_NORMAL, _PAD_HARD, _PAD_EN, _PAD_SV, _PAD_MUTE, _PAD_SETTINGS):
+    for slot in (_PAD_CREDITS, _PAD_EASY, _PAD_NORMAL, _PAD_HARD, _PAD_EN, _PAD_SV, _PAD_SETTINGS):
         mask[slot] = True
     if doctrine == "None":
         gates = (
@@ -4458,13 +4455,13 @@ def test_doctrine_rows_pad_reachable() -> None:
     pick_missing, pick_trapped, _pick_far = _pad_closures(picking, fixed_step)
     assert _PAD_BARRAGE not in pick_missing and not pick_trapped
 
-    # Gear is the cell right of Mute. Up then right from Next Wave reaches it, and it can return.
+    # Gear sits to the right of the language flags. Up then right from Next Wave reaches it.
     assert _pad_coord(_PAD_SETTINGS, False) == (6, -3)
-    assert _pad_coord(_PAD_MUTE, False) == (5, -3)
+    assert _pad_coord(_PAD_SV, False) == (4, -3)
     gear_mask = _pad_shop_mask(frozenset({"SpreadBolt"}), 0, "Barrage", 160)
-    assert gear_mask[_PAD_SETTINGS] and gear_mask[0] and gear_mask[_PAD_MUTE]
-    assert fixed_step(_PAD_MUTE, 1, 0, gear_mask) == _PAD_SETTINGS
-    assert fixed_step(_PAD_SETTINGS, -1, 0, gear_mask) == _PAD_MUTE
+    assert gear_mask[_PAD_SETTINGS] and gear_mask[0] and gear_mask[_PAD_SV]
+    assert fixed_step(_PAD_SV, 1, 0, gear_mask) == _PAD_SETTINGS
+    assert fixed_step(_PAD_SETTINGS, -1, 0, gear_mask) == _PAD_SV
     gear_missing, gear_trapped, _gear_far = _pad_closures(gear_mask, fixed_step)
     assert _PAD_SETTINGS not in gear_missing and _PAD_SETTINGS not in gear_trapped
     assert 0 not in gear_missing
@@ -4642,8 +4639,8 @@ def _settings_blocks_pad(flags: dict) -> bool:
 
 
 def _row_bands() -> list[tuple[float, float]]:
-    order = ("value", "section", "action")
-    weights = {"value": 1.0, "section": 2.6, "action": 1.0}
+    order = ("value", "value", "value", "value", "section", "action")
+    weights = {"value": 1.0, "section": 3.4, "action": 1.0}
     top, bottom, gap = 0.86, 0.08, 0.018
     weight_sum = sum(weights[kind] for kind in order)
     span = top - bottom - gap * (len(order) - 1)
@@ -4666,29 +4663,75 @@ def _screen_step_y(x: float, y: float, flick: float) -> int:
 
 
 def _settings_move(index: int, delta: int) -> int:
-    navigable = (0, 2)
+    navigable = (0, 1, 2, 3, 5)
     if delta == 0:
         return index
     direction = 1 if delta > 0 else -1
     steps = abs(delta)
     current = index
     if current not in navigable:
-        current = 2 if direction > 0 else 0
+        if direction > 0:
+            higher = [item for item in navigable if item > current]
+            current = higher[0] if higher else navigable[-1]
+        else:
+            lower = [item for item in navigable if item < current]
+            current = lower[-1] if lower else navigable[0]
     for _step in range(steps):
-        nxt = current
-        for candidate in navigable:
-            if direction > 0 and candidate > current:
-                nxt = candidate
-                break
-            if direction < 0 and candidate < current:
-                nxt = candidate
-        if direction < 0:
+        if direction > 0:
+            higher = [item for item in navigable if item > current]
+            nxt = higher[0] if higher else current
+        else:
             lower = [item for item in navigable if item < current]
             nxt = lower[-1] if lower else current
         if nxt == current:
             break
         current = nxt
     return current
+
+
+def _step_volume(current: float, direction: int) -> float:
+    delta = 0.1 if direction > 0 else (-0.1 if direction < 0 else 0.0)
+    nxt = min(1.0, max(0.0, current + delta))
+    return round(nxt * 1000.0) / 1000.0
+
+
+def _canvas_scale(width: float, height: float) -> float:
+    import math
+
+    log_w = math.log2(max(width, 1.0) / 1920.0)
+    log_h = math.log2(max(height, 1.0) / 1080.0)
+    return 2 ** (log_w + (log_h - log_w) * 0.5)
+
+
+def _estimate_width(text: str, font_size: int) -> float:
+    if not text or font_size <= 0:
+        return 0.0
+    return len(text) * 10.0 * font_size / 18.0
+
+
+def _wrapped_line_count(text: str, box_width: float, font_size: int) -> int:
+    if not text:
+        return 0
+    char_width = 10.0 * font_size / 18.0
+    if char_width < 0.01:
+        char_width = 0.01
+    lines = 0
+    for para in text.split("\n"):
+        if para == "":
+            lines += 1
+            continue
+        used = 0.0
+        count = 1
+        for word in para.split(" "):
+            word_width = len(word) * char_width
+            space = char_width if used > 0 else 0.0
+            if used + space + word_width > box_width and used > 0:
+                count += 1
+                used = word_width
+            else:
+                used += space + word_width
+        lines += count
+    return lines
 
 
 def test_settings_shell() -> None:
@@ -4760,24 +4803,38 @@ def test_settings_shell() -> None:
 
     order = rows.split("Order =")[1].split(";")[0]
     assert "SettingsRowId.Language" in order
+    assert "SettingsRowId.Music" in order
+    assert "SettingsRowId.Sfx" in order
+    assert "SettingsRowId.Mute" in order
     assert "SettingsRowId.Controls" in order
     assert "SettingsRowId.Close" in order
-    assert order.index("Language") < order.index("Controls") < order.index("Close")
+    assert order.index("Language") < order.index("Music") < order.index("Sfx") < order.index("Mute")
+    assert order.index("Mute") < order.index("Controls") < order.index("Close")
     assert "ScreenShake" not in order and "HintMode" not in order and "PadNav" not in order
     assert "IsNavigable" in rows and "IsValue" in rows and "RowBand" in rows and "Move(" in rows
-    assert "ContentTop = 0.86f" in rows and "SectionWeight = 2.6f" in rows
+    assert "IsSlider" in rows and "StepVolume" in rows and "VolumeStep = 0.1f" in rows
+    assert "SliderMinX = 0.40f" in rows and "SliderMaxX = 0.96f" in rows
+    assert "RowMinX = 0.06f" in rows and "RowMaxX = 0.94f" in rows
+    assert "OldSliderMinUnits = 101f" in rows and "LadderFont = 12" in rows
+    assert "ContentTop = 0.86f" in rows and "SectionWeight = 3.4f" in rows
     bands = _row_bands()
-    assert len(bands) == 3
+    assert len(bands) == 6
     for y0, y1 in bands:
         assert 0.08 - 1e-6 <= y0 < y1 <= 0.86 + 1e-6
-    assert bands[0][0] > bands[1][1] > bands[2][1]
-    assert not _overlap((0.06, bands[0][0], 0.94, bands[0][1]), (0.06, bands[1][0], 0.94, bands[1][1]))
-    assert not _overlap((0.06, bands[1][0], 0.94, bands[1][1]), (0.06, bands[2][0], 0.94, bands[2][1]))
-    assert _settings_move(0, 1) == 2
-    assert _settings_move(2, -1) == 0
-    assert _settings_move(1, 1) == 2
-    assert _settings_move(1, -1) == 0
+    for left, right in zip(bands, bands[1:]):
+        assert left[0] > right[1]
+        assert not _overlap((0.06, left[0], 0.94, left[1]), (0.06, right[0], 0.94, right[1]))
+    assert _settings_move(0, 1) == 1
+    assert _settings_move(3, 1) == 5
+    assert _settings_move(5, -1) == 3
+    assert _settings_move(4, 1) == 5
+    assert _settings_move(4, -1) == 2
     assert _settings_move(0, 0) == 0
+    assert _step_volume(0.28, 1) == 0.38
+    assert _step_volume(0.28, -1) == 0.18
+    assert _step_volume(0.0, -1) == 0.0
+    assert _step_volume(1.0, 1) == 1.0
+    assert _step_volume(0.5, 0) == 0.5
 
     assert "class SettingsInputRouter" in router
     assert "BlocksHangarPad" in router
@@ -4816,17 +4873,20 @@ def test_settings_shell() -> None:
     assert _settings_route({"credits": True, "escape": True}) == "credits"
 
     assert "SettingsSlot" in padnav
-    assert "Step(MuteSlot, 1, 0) == SettingsSlot" in padnav
-    assert "Step(SettingsSlot, -1, 0) == MuteSlot" in padnav
+    assert "Step(LangSvSlot, 1, 0) == SettingsSlot" in padnav
+    assert "Step(SettingsSlot, -1, 0) == LangSvSlot" in padnav
+    assert "MuteSlot" not in padnav
     assert "x = 6" in padnav and "y = -3" in padnav
     assert "SettingsGear" in ui and "SettingsPanel" in ui and "SettingsScrim" in ui
-    assert "AudioPanelMin" in ui and "AudioPanelMax" in ui
-    assert "new Vector2(0.735f, 0.905f)" in ui
-    assert "new Vector2(0.892f, 0.995f)" in ui
+    assert "AudioPanel" not in ui and "BuildAudioControls" not in ui
     assert "new Vector2(0.900f, 0.905f)" in ui
     assert "new Vector2(0.988f, 0.995f)" in ui
     assert "new Vector2(0.30f, 0.12f)" in ui
     assert "new Vector2(0.70f, 0.88f)" in ui
+    assert "SetMusicVolume" in ui and "SetSfxVolume" in ui and "ToggleMute" in ui
+    assert "SettingsMeasure.SliderMinX" in ui and "SettingsMeasure.SliderMaxX" in ui
+    assert "VerticalWrapMode.Overflow" in ui
+    assert "CompactCount" in ui
     assert "KeyCode.F1" in ui and "JoystickButton6" in ui
     assert "SettingsInputRouter.Route" in ui and "BlocksHangarPad" in ui
     assert "FocusHangarSlot(HangarPadNav.SettingsSlot)" in ui
@@ -4859,14 +4919,23 @@ def test_settings_shell() -> None:
         "ui.settings.close",
         "ui.settings.en",
         "ui.settings.sv",
+        "ui.settings.play",
+        "ui.settings.hangar",
+        "ui.settings.on",
+        "ui.settings.off",
     ):
         assert f'"{key}"' in swedish, key
         assert f'"{key}"' in ui, key
+    assert '"ach.compact"' in swedish
+    catalog = (root / "Assets/Scripts/Core/AchievementCatalog.cs").read_text(encoding="utf-8")
+    assert '"ach.compact"' in catalog and "CompactCount" in catalog
     assert "Inställningar" in loc and "Språk" in loc and "Kontroller" in loc and "Stäng" in loc
+    assert "Spel" in loc and '"ui.settings.on", "På"' in loc and '"ui.settings.off", "Av"' in loc
+    credits_sv = swedish.split('"credits.body"')[1].split("},")[0]
+    assert "Ljud" in credits_sv and "Typsnitt" in credits_sv and "Kenney Future" in credits_sv and "Speltest" in credits_sv
     assert "invert: 1" in inputs
     assert "m_Name: Vertical" in inputs
 
-    audio = (0.735, 0.905, 0.892, 0.995)
     gear = (0.900, 0.905, 0.988, 0.995)
     panel = (0.30, 0.12, 0.70, 0.88)
     lang = (0.635, 0.905, 0.728, 0.995)
@@ -4874,23 +4943,46 @@ def test_settings_shell() -> None:
     doctrine = (0.562, 0.608, 0.986, 0.898)
     wave = _map_anchors(0.014, 0.080, 0.55, 0.888, 0.03, 0.735, 0.97, 0.800)
     assert panel == (0.30, 0.12, 0.70, 0.88)
-    # Gear is always visible and must clear the hangar cards and the audio cluster.
-    # The settings card is a centered modal under a full-screen scrim, so it stays
-    # off the top bar (audio + gear) while covering the hangar behind it.
-    assert not _overlap(panel, audio)
+    # Gear stays top-right. The settings card is a centered modal under a scrim,
+    # so it stays off the top bar while covering the hangar behind it.
     assert not _overlap(panel, gear)
     assert panel[3] < gear[1]
-    for width, height in ((1280, 800), (1600, 900), (1920, 1080)):
+    resolutions = ((1280, 800), (1600, 900), (1920, 1080), (2560, 1440), (3440, 1440))
+    for width, height in resolutions:
         def px(rect, _w=width, _h=height):
             return (rect[0] * _w, rect[1] * _h, rect[2] * _w, rect[3] * _h)
 
         gear_px = px(gear)
         panel_px = px(panel)
-        for other in (audio, wave, doctrine, lang, diff):
+        for other in (wave, doctrine, lang, diff):
             assert not _overlap(gear_px, px(other)), (width, height, other)
-        assert not _overlap(panel_px, px(audio)), (width, height)
         assert not _overlap(panel_px, gear_px), (width, height)
-        assert not _overlap(px(audio), px(lang))
+
+        scale = _canvas_scale(width, height)
+        canvas_w = width / scale
+        slider_w = (0.96 - 0.40) * (0.94 - 0.06) * (0.70 - 0.30) * canvas_w
+        assert slider_w >= 101.0, (width, height, slider_w)
+
+        controls_index = 4
+        band_bottom, band_top = bands[controls_index]
+        body_span = (band_top - 0.05) - band_bottom
+        body_h = body_span * (0.88 - 0.12) * (height / scale)
+        body_w = (0.92 - 0.08) * (0.70 - 0.30) * canvas_w
+        play_en = "WASD / LS move · Mouse / RS aim · LMB / RT fire · E / LT utility · Q / LB cycle · Esc / Start = back to hangar"
+        play_sv = "WASD / LS styr · Mus / RS sikte · VMB / RT skjut · E / LT utility · Q / LB cykla · Esc / Start = tillbaka till hangaren"
+        hang_en = "LS move · LT utility · LB cycle · A confirm · B / Esc Next Wave · Start launch wave"
+        hang_sv = "LS styr · LT utility · LB cykla · A bekräfta · B / Esc nästa våg · Start starta våg"
+        for block in (
+            "Play\n" + play_en + "\nHangar\n" + hang_en,
+            "Spel\n" + play_sv + "\nHangar\n" + hang_sv,
+        ):
+            lines = _wrapped_line_count(block, body_w, 18)
+            assert lines * 18 * 1.15 <= body_h, (width, height, lines, body_h)
+
+        ladder_w = (0.478 - 0.355) * canvas_w
+        for header in ("ACHIEVEMENTS", "PRESTATIONER"):
+            assert _estimate_width(header, 12) <= ladder_w, (width, height, header, ladder_w)
+        assert _estimate_width("★ 9/9", 12) <= ladder_w
 
 
 def main() -> int:
