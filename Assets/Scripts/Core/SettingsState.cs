@@ -2,13 +2,16 @@ namespace AsteroidsGoneRogue
 {
     /// <summary>
     /// How much of the control hint is shown outside the settings panel.
-    /// HangarFooter is the short bottom line. Later PRs wire the other modes.
+    /// Off and SettingsOnly keep the full line in the panel only.
+    /// HangarFooter is the short hangar footer (Hangar only).
+    /// On also shows the in-wave play hint. Persisted ints stay stable.
     /// </summary>
     public enum HintMode
     {
         Off = 0,
         SettingsOnly = 1,
         HangarFooter = 2,
+        On = 3,
     }
 
     /// <summary>
@@ -133,7 +136,121 @@ namespace AsteroidsGoneRogue
                 return AsteroidsGoneRogue.HintMode.SettingsOnly;
             }
 
+            if (value == (int)AsteroidsGoneRogue.HintMode.On)
+            {
+                return AsteroidsGoneRogue.HintMode.On;
+            }
+
             return AsteroidsGoneRogue.HintMode.HangarFooter;
+        }
+
+        public const int HintPxSmall = 14;
+        public const int HintPxMedium = 18;
+        public const int HintPxLarge = 22;
+
+        public static int HintPx(int step)
+        {
+            int clamped = ClampHintSize(step);
+            if (clamped <= 0)
+            {
+                return HintPxSmall;
+            }
+
+            if (clamped == 1)
+            {
+                return HintPxMedium;
+            }
+
+            return HintPxLarge;
+        }
+
+        /// <summary>
+        /// Chosen 14/18/22, raised to the narrow-screen floor when the width is at most 1280.
+        /// Wide screens keep the chosen size.
+        /// </summary>
+        public static int EffectiveHintSize(int step, int screenWidth, int narrowFloor)
+        {
+            int chosen = HintPx(step);
+            if (screenWidth <= 1280 && narrowFloor > chosen)
+            {
+                return narrowFloor;
+            }
+
+            return chosen;
+        }
+
+        public static bool ShowsHangarFooter(HintMode mode)
+        {
+            return mode == AsteroidsGoneRogue.HintMode.HangarFooter
+                || mode == AsteroidsGoneRogue.HintMode.On;
+        }
+
+        public static bool ShowsPlayHint(HintMode mode)
+        {
+            return mode == AsteroidsGoneRogue.HintMode.On;
+        }
+
+        /// <summary>
+        /// Row cycle is Off, Hangar only (HangarFooter), On.
+        /// SettingsOnly shares Off's slot because both hide the bottom line.
+        /// </summary>
+        public static HintMode StepHintMode(HintMode current, int direction)
+        {
+            int index = 0;
+            if (current == AsteroidsGoneRogue.HintMode.HangarFooter)
+            {
+                index = 1;
+            }
+            else if (current == AsteroidsGoneRogue.HintMode.On)
+            {
+                index = 2;
+            }
+
+            if (direction > 0)
+            {
+                index += 1;
+            }
+            else if (direction < 0)
+            {
+                index -= 1;
+            }
+
+            if (index < 0)
+            {
+                index = 0;
+            }
+
+            if (index > 2)
+            {
+                index = 2;
+            }
+
+            if (index == 1)
+            {
+                return AsteroidsGoneRogue.HintMode.HangarFooter;
+            }
+
+            if (index == 2)
+            {
+                return AsteroidsGoneRogue.HintMode.On;
+            }
+
+            return AsteroidsGoneRogue.HintMode.Off;
+        }
+
+        public static int StepHintSize(int step, int direction)
+        {
+            int next = ClampHintSize(step);
+            if (direction > 0)
+            {
+                next += 1;
+            }
+            else if (direction < 0)
+            {
+                next -= 1;
+            }
+
+            return ClampHintSize(next);
         }
 
         public static PadNavSource NormalizePadNavSource(int value)

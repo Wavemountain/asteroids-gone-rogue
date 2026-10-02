@@ -4541,6 +4541,8 @@ def test_hangar_footer_launch_and_hint_size() -> None:
     assert "UiTheme.HintSize(Screen.width)" in ui
     assert "_hint.fontSize = footerSize" in ui
     assert "_firstFlightBody.fontSize = footerSize" in ui
+    assert "ui.hint_footer" in ui
+    assert "A Select · Start Launch wave · ⚙ Settings" in ui
 
     def hint_size(screen_width: int) -> int:
         return 18 if screen_width <= 1280 else 16
@@ -4570,9 +4572,55 @@ def _clamp_hint_size(step: int) -> int:
 
 
 def _normalize_hint_mode(value: int) -> int:
-    if value in (0, 1, 2):
+    if value in (0, 1, 2, 3):
         return value
     return 2
+
+
+def _hint_px(step: int) -> int:
+    clamped = _clamp_hint_size(step)
+    return (14, 18, 22)[clamped]
+
+
+def _effective_hint_size(step: int, screen_width: int, narrow_floor: int) -> int:
+    chosen = _hint_px(step)
+    if screen_width <= 1280 and narrow_floor > chosen:
+        return narrow_floor
+    return chosen
+
+
+def _shows_hangar_footer(mode: int) -> bool:
+    return mode in (2, 3)
+
+
+def _shows_play_hint(mode: int) -> bool:
+    return mode == 3
+
+
+def _step_hint_mode(current: int, direction: int) -> int:
+    index = 0
+    if current == 2:
+        index = 1
+    elif current == 3:
+        index = 2
+    if direction > 0:
+        index += 1
+    elif direction < 0:
+        index -= 1
+    if index < 0:
+        index = 0
+    if index > 2:
+        index = 2
+    return (0, 2, 3)[index]
+
+
+def _step_hint_size(step: int, direction: int) -> int:
+    nxt = _clamp_hint_size(step)
+    if direction > 0:
+        nxt += 1
+    elif direction < 0:
+        nxt -= 1
+    return _clamp_hint_size(nxt)
 
 
 def _normalize_pad_nav(value: int) -> int:
@@ -4639,8 +4687,8 @@ def _settings_blocks_pad(flags: dict) -> bool:
 
 
 def _row_bands() -> list[tuple[float, float]]:
-    order = ("value", "value", "value", "value", "value", "section", "action")
-    weights = {"value": 1.0, "section": 3.4, "action": 1.0}
+    order = ("value", "value", "value", "value", "value", "value", "value", "section", "action")
+    weights = {"value": 1.0, "section": 5.2, "action": 1.0}
     top, bottom, gap = 0.86, 0.08, 0.018
     weight_sum = sum(weights[kind] for kind in order)
     span = top - bottom - gap * (len(order) - 1)
@@ -4663,7 +4711,7 @@ def _screen_step_y(x: float, y: float, flick: float) -> int:
 
 
 def _settings_move(index: int, delta: int) -> int:
-    navigable = (0, 1, 2, 3, 4, 6)
+    navigable = (0, 1, 2, 3, 4, 5, 6, 8)
     if delta == 0:
         return index
     direction = 1 if delta > 0 else -1
@@ -4762,7 +4810,9 @@ def test_settings_shell() -> None:
     assert "ConfirmRestartInPlay = true" in state
     assert "ConfirmRestartNewRun = false" in state
     assert "PadNavSource.Both" in state
-    assert "enum HintMode" in state and "Off = 0" in state and "SettingsOnly = 1" in state and "HangarFooter = 2" in state
+    assert "enum HintMode" in state and "Off = 0" in state and "SettingsOnly = 1" in state and "HangarFooter = 2" in state and "On = 3" in state
+    assert "HintPxSmall = 14" in state and "HintPxMedium = 18" in state and "HintPxLarge = 22" in state
+    assert "EffectiveHintSize" in state and "ShowsHangarFooter" in state and "ShowsPlayHint" in state
     assert "enum PadNavSource" in state and "DPad = 0" in state and "Analog = 1" in state and "Both = 2" in state
     assert "ClampHintSize" in state and "Normalize()" in state and "FromInts" in state and "Capture()" in state
     assert "PlayerPrefs.GetInt(VersionKey, 0)" in state and "PlayerPrefs.Save()" in state
@@ -4777,7 +4827,19 @@ def test_settings_shell() -> None:
     assert fresh["confirm_new_run"] is False
     assert fresh["pad_nav"] == 2
     assert _clamp_hint_size(-4) == 0 and _clamp_hint_size(9) == 2 and _clamp_hint_size(1) == 1
-    assert _normalize_hint_mode(99) == 2 and _normalize_hint_mode(0) == 0
+    assert _normalize_hint_mode(99) == 2 and _normalize_hint_mode(0) == 0 and _normalize_hint_mode(3) == 3 and _normalize_hint_mode(1) == 1
+    assert _hint_px(0) == 14 and _hint_px(1) == 18 and _hint_px(2) == 22 and _hint_px(9) == 22
+    assert _effective_hint_size(0, 1280, 18) == 18
+    assert _effective_hint_size(2, 1280, 18) == 22
+    assert _effective_hint_size(0, 1920, 16) == 14
+    assert _effective_hint_size(1, 3440, 16) == 18
+    assert _shows_hangar_footer(2) and _shows_hangar_footer(3)
+    assert not _shows_hangar_footer(0) and not _shows_hangar_footer(1)
+    assert _shows_play_hint(3) and not _shows_play_hint(2) and not _shows_play_hint(0) and not _shows_play_hint(1)
+    assert _step_hint_mode(0, 1) == 2 and _step_hint_mode(1, 1) == 2
+    assert _step_hint_mode(2, 1) == 3 and _step_hint_mode(3, 1) == 3
+    assert _step_hint_mode(3, -1) == 2 and _step_hint_mode(2, -1) == 0
+    assert _step_hint_size(1, 1) == 2 and _step_hint_size(2, 1) == 2 and _step_hint_size(0, -1) == 0
     assert _normalize_pad_nav(-1) == 2 and _normalize_pad_nav(1) == 1
     clamped = _settings_from_ints(1, 2, 40, 9, 0, 5, -3)
     assert clamped["screen_shake"] is True
@@ -4806,6 +4868,11 @@ def test_settings_shell() -> None:
     assert round_trip["hint_mode"] == 2
     assert round_trip["pad_nav"] == 2
     assert round_trip["screen_shake"] is False
+    on_mode = dict(dirty)
+    on_mode["hint_mode"] = 3
+    on_mode["hint_size"] = 0
+    assert _settings_from_ints(*_settings_capture(on_mode))["hint_mode"] == 3
+    assert _settings_from_ints(*_settings_capture(on_mode))["hint_size"] == 0
 
     order = rows.split("Order =")[1].split(";")[0]
     assert "SettingsRowId.Language" in order
@@ -4816,26 +4883,30 @@ def test_settings_shell() -> None:
     assert "SettingsRowId.Controls" in order
     assert "SettingsRowId.Close" in order
     assert order.index("Language") < order.index("Music") < order.index("Sfx") < order.index("Mute")
-    assert order.index("Mute") < order.index("ScreenShake") < order.index("Controls") < order.index("Close")
-    assert "HintMode" not in order and "PadNav" not in order
+    assert "SettingsRowId.HintMode" in order and "SettingsRowId.HintSize" in order
+    assert order.index("Mute") < order.index("ScreenShake") < order.index("HintMode") < order.index("HintSize")
+    assert order.index("HintSize") < order.index("Controls") < order.index("Close")
+    assert "PadNav" not in order
     assert "IsNavigable" in rows and "IsValue" in rows and "RowBand" in rows and "Move(" in rows
     assert "IsSlider" in rows and "StepVolume" in rows and "VolumeStep = 0.1f" in rows
     assert "SliderMinX = 0.40f" in rows and "SliderMaxX = 0.96f" in rows
     assert "RowMinX = 0.06f" in rows and "RowMaxX = 0.94f" in rows
     assert "OldSliderMinUnits = 101f" in rows and "LadderFont = 12" in rows
-    assert "ContentTop = 0.86f" in rows and "SectionWeight = 3.4f" in rows
+    assert "ContentTop = 0.86f" in rows and "SectionWeight = 5.2f" in rows
     bands = _row_bands()
-    assert len(bands) == 7
+    assert len(bands) == 9
     for y0, y1 in bands:
         assert 0.08 - 1e-6 <= y0 < y1 <= 0.86 + 1e-6
     for left, right in zip(bands, bands[1:]):
         assert left[0] > right[1]
         assert not _overlap((0.06, left[0], 0.94, left[1]), (0.06, right[0], 0.94, right[1]))
     assert _settings_move(0, 1) == 1
-    assert _settings_move(4, 1) == 6
-    assert _settings_move(6, -1) == 4
-    assert _settings_move(5, 1) == 6
-    assert _settings_move(5, -1) == 3
+    assert _settings_move(4, 1) == 5
+    assert _settings_move(6, 1) == 8
+    assert _settings_move(6, -1) == 5
+    assert _settings_move(8, -1) == 6
+    assert _settings_move(7, 1) == 8
+    assert _settings_move(7, -1) == 5
     assert _settings_move(0, 0) == 0
     assert SettingsState_shake(False, 0.4) == 0.0
     assert SettingsState_shake(False, 0.0) == 0.0
@@ -4910,6 +4981,10 @@ def test_settings_shell() -> None:
     assert "SettingsInputRouter.Route" in ui and "BlocksHangarPad" in ui
     assert "FocusHangarSlot(HangarPadNav.SettingsSlot)" in ui
     assert "FullControlHint" in ui
+    assert "ShowsHangarFooter" in ui and "ShowsPlayHint" in ui and "EffectiveHintSize" in ui
+    assert "A Select · Start Launch wave · ⚙ Settings" in ui
+    assert "A Välj · Start Starta våg · ⚙ Inställningar" in loc
+    assert "new Vector2(0.07f, 0.15f)" in ui and "new Vector2(0.93f, 0.85f)" in ui
     assert 'Loc.T("ui.settings", "Settings")' in ui
     assert 'Loc.T("ui.settings.language", "Language")' in ui
     assert 'Loc.T("ui.settings.close", "Close")' in ui
@@ -4943,6 +5018,12 @@ def test_settings_shell() -> None:
         "ui.settings.on",
         "ui.settings.off",
         "ui.settings.shake",
+        "ui.settings.hint",
+        "ui.settings.hint.hangar",
+        "ui.settings.hint.panel",
+        "ui.settings.hint_size",
+        "ui.settings.hint.px",
+        "ui.hint_footer",
     ):
         assert f'"{key}"' in swedish, key
         assert f'"{key}"' in ui, key
@@ -4983,7 +5064,7 @@ def test_settings_shell() -> None:
         slider_w = (0.96 - 0.40) * (0.94 - 0.06) * (0.70 - 0.30) * canvas_w
         assert slider_w >= 101.0, (width, height, slider_w)
 
-        controls_index = 5
+        controls_index = 7
         band_bottom, band_top = bands[controls_index]
         body_span = (band_top - 0.05) - band_bottom
         body_h = body_span * (0.88 - 0.12) * (height / scale)
@@ -5003,6 +5084,33 @@ def test_settings_shell() -> None:
         for header in ("ACHIEVEMENTS", "PRESTATIONER"):
             assert _estimate_width(header, 12) <= ladder_w, (width, height, header, ladder_w)
         assert _estimate_width("★ 9/9", 12) <= ladder_w
+
+        hint_w = (0.86 - 0.14) * canvas_w
+        footer_en = "A Select · Start Launch wave · ⚙ Settings"
+        footer_sv = "A Välj · Start Starta våg · ⚙ Inställningar"
+        coach_en = "Shoot rocks  ·  Esc / Start returns to hangar"
+        coach_sv = "Skjut stenar  ·  Esc / Start återvänder till hangaren"
+        for line in (footer_en, footer_sv, coach_en, coach_sv):
+            assert _estimate_width(line, 22) <= hint_w, (width, height, line, hint_w)
+            assert _wrapped_line_count(line, hint_w, 22) == 1
+
+        card_w = (0.93 - 0.07) * (0.545 - 0.018) * canvas_w
+        card_h = (0.85 - 0.15) * (0.888 - 0.730) * (height / scale)
+        card_en = (
+            "LS / WASD fly  ·  RT / LMB shoot  ·  LT / E utility\n"
+            "Start = launch wave  ·  B / Esc = focus Next Wave\n"
+            "Clear a wave to earn credits and upgrades.\n"
+            "Medal ladder (top-left): ★ Scout Wing at wave 3."
+        )
+        card_sv = (
+            "LS / WASD fly  ·  RT / VMB skjut  ·  LT / E utility\n"
+            "Start = starta våg  ·  B / Esc = fokusera Nästa våg\n"
+            "Rensa en våg för kredit och uppgraderingar.\n"
+            "Medaljstege (uppe till vänster): ★ Spejarvinge på våg 3."
+        )
+        for card in (card_en, card_sv):
+            card_lines = _wrapped_line_count(card, card_w, 22)
+            assert card_lines * 22 * 1.15 <= card_h, (width, height, card_lines, card_h)
 
 
 def main() -> int:
