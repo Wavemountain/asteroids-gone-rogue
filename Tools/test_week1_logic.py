@@ -4697,6 +4697,7 @@ def _settings_roles() -> tuple[str, ...]:
         "value",
         "value",
         "value",
+        "value",
         "section",
         "action",
     )
@@ -4903,8 +4904,8 @@ def test_settings_shell() -> None:
     assert order.index("Mute") < order.index("ScreenShake") < order.index("HintMode") < order.index("HintSize")
     assert "SettingsRowId.ConfirmAbort" in order and "SettingsRowId.ConfirmNewRun" in order
     assert order.index("HintSize") < order.index("ConfirmAbort") < order.index("ConfirmNewRun")
-    assert order.index("ConfirmNewRun") < order.index("Controls") < order.index("Close")
-    assert "PadNav" not in order
+    assert "SettingsRowId.PadNav" in order
+    assert order.index("ConfirmNewRun") < order.index("PadNav") < order.index("Controls") < order.index("Close")
     assert "IsNavigable" in rows and "IsValue" in rows and "RowBand" in rows and "Move(" in rows
     assert "IsSlider" in rows and "StepVolume" in rows and "VolumeStep = 0.1f" in rows
     assert "SliderMinX = 0.40f" in rows and "SliderMaxX = 0.96f" in rows
@@ -4913,7 +4914,7 @@ def test_settings_shell() -> None:
     assert "ContentTop = 0.86f" in rows and "ContentBottom = 0.05f" in rows
     assert "RowGap = 0.012f" in rows and "SectionWeight = 7.2f" in rows
     bands = _row_bands()
-    assert len(bands) == 11
+    assert len(bands) == 12
     for y0, y1 in bands:
         assert 0.05 - 1e-6 <= y0 < y1 <= 0.86 + 1e-6
     for left, right in zip(bands, bands[1:]):
@@ -4922,11 +4923,12 @@ def test_settings_shell() -> None:
     assert _settings_move(0, 1) == 1
     assert _settings_move(4, 1) == 5
     assert _settings_move(6, 1) == 7
-    assert _settings_move(8, 1) == 10
-    assert _settings_move(8, -1) == 7
+    assert _settings_move(8, 1) == 9
+    assert _settings_move(9, 1) == 11
+    assert _settings_move(9, -1) == 8
+    assert _settings_move(11, -1) == 9
+    assert _settings_move(10, 1) == 11
     assert _settings_move(10, -1) == 8
-    assert _settings_move(9, 1) == 10
-    assert _settings_move(9, -1) == 7
     assert _settings_move(0, 0) == 0
     assert SettingsState_shake(False, 0.4) == 0.0
     assert SettingsState_shake(False, 0.0) == 0.0
@@ -5051,6 +5053,10 @@ def test_settings_shell() -> None:
         "ui.confirm.new_run_body",
         "ui.confirm.yes",
         "ui.confirm.no",
+        "ui.settings.pad_nav",
+        "ui.settings.pad.dpad",
+        "ui.settings.pad.analog",
+        "ui.settings.pad.both",
         "ui.hint_footer",
     ):
         assert f'"{key}"' in swedish, key
@@ -5299,6 +5305,101 @@ def test_confirm_restart() -> None:
     assert panel[3] < 0.905
 
 
+def _pad_live(x: float, y: float, dead: float = 0.22) -> bool:
+    return (x * x) + (y * y) >= dead * dead
+
+
+def _pad_select(source: int, dpad: tuple[float, float], stick: tuple[float, float], dead: float = 0.22) -> tuple[float, float]:
+    """Mirrors PadNavSourceRules.Select. 0 d-pad, 1 analog, 2 both."""
+    dpad_live = _pad_live(dpad[0], dpad[1], dead)
+    stick_live = _pad_live(stick[0], stick[1], dead)
+    if source == 0:
+        return dpad if dpad_live else (0.0, 0.0)
+    if source == 1:
+        return stick if stick_live else (0.0, 0.0)
+    if dpad_live:
+        return dpad
+    return stick if stick_live else (0.0, 0.0)
+
+
+def _step_pad_nav(current: int, direction: int) -> int:
+    index = 0
+    if current == 1:
+        index = 1
+    elif current == 2:
+        index = 2
+    if direction > 0:
+        index += 1
+    elif direction < 0:
+        index -= 1
+    if index < 0:
+        index = 0
+    if index > 2:
+        index = 2
+    return index
+
+
+def test_pad_nav_source() -> None:
+    """Pad navigation filters hangar menus and never the settings panel or fly stick."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    state = (root / "Assets/Scripts/Core/SettingsState.cs").read_text(encoding="utf-8")
+    pad = (root / "Assets/Scripts/Core/GamepadInput.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    ship = (root / "Assets/Scripts/Player/ShipController.cs").read_text(encoding="utf-8")
+    rows = (root / "Assets/Scripts/Core/SettingsRows.cs").read_text(encoding="utf-8")
+
+    assert "class PadNavSourceRules" in state and "Select(" in state
+    assert "MenuPadNav" in state and "_menuPadNav = source.PadNavSource" in state
+    assert "StepPadNav" in state
+    dpad = (1.0, 0.0)
+    stick = (0.0, -1.0)
+    quiet = (0.0, 0.0)
+    tiny = (0.1, 0.0)
+    for source in (0, 1, 2):
+        assert _pad_select(source, dpad, quiet) == (dpad if source != 1 else quiet)
+        assert _pad_select(source, quiet, stick) == (stick if source != 0 else quiet)
+        assert _pad_select(source, dpad, stick) == (stick if source == 1 else dpad)
+        assert _pad_select(source, quiet, quiet) == quiet
+        assert _pad_select(source, tiny, tiny) == quiet
+    assert _pad_select(2, dpad, stick) == dpad
+    assert _pad_select(0, quiet, stick) == quiet
+    assert _pad_select(1, dpad, quiet) == quiet
+    assert _step_pad_nav(2, -1) == 1 and _step_pad_nav(1, -1) == 0 and _step_pad_nav(0, -1) == 0
+    assert _step_pad_nav(0, 1) == 1 and _step_pad_nav(1, 1) == 2 and _step_pad_nav(2, 1) == 2
+    fresh = _settings_default()
+    assert fresh["pad_nav"] == 2
+    flipped = dict(fresh)
+    flipped["pad_nav"] = 0
+    assert _settings_from_ints(*_settings_capture(flipped))["pad_nav"] == 0
+    flipped["pad_nav"] = 1
+    assert _settings_from_ints(*_settings_capture(flipped))["pad_nav"] == 1
+
+    combined = pad.split("public static Vector2 UiNavCombined(PadNavSource source)")[1].split("public static Vector2 MouseDelta")[0]
+    assert "PadNavSourceRules.Select" in combined
+    assert "PadMoveStick()" in combined
+    assert "UiNavDpad()" in combined
+    assert "Axis(MoveX)" in combined
+    assert "return UiNavCombined(SettingsState.MenuPadNav);" in pad
+    assert "PlayerPrefs" not in pad
+    settings_flags = ui.split("private SettingsInputFlags ReadSettingsFlags()")[1].split("private void OpenSettings()")[0]
+    assert "UiNavCombined(PadNavSource.Both)" in settings_flags
+    hangar = ui.split("private void NavigateHangarPad()")[1].split("private int SlotFromSelected")[0]
+    assert "UiNavCombined()" in hangar
+    assert "PadNavSource.Both" not in hangar
+    assert "MoveStick()" in ship
+    assert "PadNavSource" not in ship and "MenuPadNav" not in ship
+    assert 'Loc.T("ui.settings.pad_nav", "Pad navigation")' in ui
+    assert 'Loc.T("ui.settings.pad.dpad", "D-pad")' in ui
+    assert 'Loc.T("ui.settings.pad.analog", "Analog")' in ui
+    assert 'Loc.T("ui.settings.pad.both", "Both")' in ui
+    assert "_settings.PadNavSource" in ui
+    order = rows.split("Order =")[1].split(";")[0]
+    assert order.index("PadNav") < order.index("Controls")
+    assert "invert" not in state.lower()
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -5350,6 +5451,7 @@ def main() -> int:
     test_hangar_footer_launch_and_hint_size()
     test_settings_shell()
     test_confirm_restart()
+    test_pad_nav_source()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

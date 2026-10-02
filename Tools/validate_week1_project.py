@@ -1739,12 +1739,24 @@ def main() -> int:
     for row_name in ("Language", "Music", "Sfx", "Mute", "ScreenShake", "HintMode", "HintSize", "Controls", "Close"):
         if row_name not in order_block:
             err(f"settings row list missing {row_name}")
-    if "PadNav" in order_block:
-        err("settings row list must not add pad source yet")
+    if "PadNav" not in order_block:
+        err("settings row list must include pad navigation")
     if "ConfirmAbort" not in order_block or "ConfirmNewRun" not in order_block:
         err("settings row list must include confirm abort and confirm new run")
+    if order_block.find("ConfirmNewRun") > order_block.find("PadNav") or order_block.find("PadNav") > order_block.find("Controls"):
+        err("pad navigation must sit after confirm new run and before Controls")
     if order_block.find("HintSize") > order_block.find("ConfirmAbort") or order_block.find("ConfirmNewRun") > order_block.find("Controls"):
         err("confirm rows must sit after hint size and before Controls")
+    gamepad = read(ROOT / "Assets/Scripts/Core/GamepadInput.cs")
+    ship = read(ROOT / "Assets/Scripts/Player/ShipController.cs")
+    if "PadNavSourceRules.Select" not in gamepad or "SettingsState.MenuPadNav" not in gamepad:
+        err("GamepadInput.UiNavCombined must filter menu nav through PadNavSourceRules")
+    if "PlayerPrefs" in gamepad:
+        err("GamepadInput must not read PlayerPrefs; use the cached menu pad source")
+    if "UiNavCombined(PadNavSource.Both)" not in game_ui:
+        err("settings panel navigation must always accept both pad sources")
+    if "MoveStick()" not in ship or "PadNavSource" in ship:
+        err("gameplay stick movement must ignore the pad navigation setting")
     if order_block.find("HintMode") > order_block.find("HintSize") or order_block.find("HintSize") > order_block.find("Controls"):
         err("hint mode and hint size rows must sit before the Controls section")
     confirm_router = read(ROOT / "Assets/Scripts/Core/ConfirmDialogRouter.cs")

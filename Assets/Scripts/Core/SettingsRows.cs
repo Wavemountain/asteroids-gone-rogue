@@ -13,6 +13,7 @@ namespace AsteroidsGoneRogue
         HintSize = 8,
         ConfirmAbort = 9,
         ConfirmNewRun = 10,
+        PadNav = 11,
     }
 
     public enum SettingsRowRole
@@ -46,6 +47,7 @@ namespace AsteroidsGoneRogue
             SettingsRowId.HintSize,
             SettingsRowId.ConfirmAbort,
             SettingsRowId.ConfirmNewRun,
+            SettingsRowId.PadNav,
             SettingsRowId.Controls,
             SettingsRowId.Close,
         };
