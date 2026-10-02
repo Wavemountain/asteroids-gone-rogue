@@ -157,13 +157,29 @@ namespace AsteroidsGoneRogue
 
         public static Vector2 UiNavCombined()
         {
+            return UiNavCombined(SettingsState.MenuPadNav);
+        }
+
+        /// <summary>
+        /// Menu highlight only. Pass <see cref="PadNavSource.Both"/> to ignore the
+        /// saved filter (the settings panel does this so a bad choice cannot trap
+        /// the player). Keyboard axes stay live after the pad filter.
+        /// Gameplay fly input uses <see cref="MoveStick"/> and does not call this.
+        /// </summary>
+        public static Vector2 UiNavCombined(PadNavSource source)
+        {
             Vector2 dpad = UiNavDpad();
-            if (dpad.sqrMagnitude >= StickDead * StickDead)
+            Vector2 padStick = PadMoveStick();
+            float pickedX;
+            float pickedY;
+            PadNavSourceRules.Select(source, dpad.x, dpad.y, padStick.x, padStick.y, StickDead, out pickedX, out pickedY);
+            Vector2 picked = new Vector2(pickedX, pickedY);
+            if (picked.sqrMagnitude >= StickDead * StickDead)
             {
-                return dpad;
+                return picked;
             }
 
-            return UiNavStick();
+            return Deadzone(new Vector2(Axis(MoveX), Axis(MoveY)));
         }
 
         public static Vector2 MouseDelta()

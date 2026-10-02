@@ -15,13 +15,64 @@ namespace AsteroidsGoneRogue
     }
 
     /// <summary>
-    /// Which pad axes move the hangar highlight. Reserved for a later PR.
+    /// Which pad axes move hangar highlights. Menus only; fly input ignores this.
     /// </summary>
     public enum PadNavSource
     {
         DPad = 0,
         Analog = 1,
         Both = 2,
+    }
+
+    /// <summary>
+    /// Pure pad-nav filter. DPad keeps the d-pad, Analog keeps the left stick,
+    /// Both prefers a live d-pad and otherwise the stick. Keyboard stays outside.
+    /// </summary>
+    public static class PadNavSourceRules
+    {
+        public static bool Live(float x, float y, float dead)
+        {
+            float limit = dead < 0f ? 0f : dead;
+            float mag = (x * x) + (y * y);
+            return mag >= limit * limit;
+        }
+
+        public static void Select(
+            PadNavSource source,
+            float dpadX,
+            float dpadY,
+            float stickX,
+            float stickY,
+            float dead,
+            out float outX,
+            out float outY)
+        {
+            bool dpadLive = Live(dpadX, dpadY, dead);
+            bool stickLive = Live(stickX, stickY, dead);
+            if (source == AsteroidsGoneRogue.PadNavSource.DPad)
+            {
+                outX = dpadLive ? dpadX : 0f;
+                outY = dpadLive ? dpadY : 0f;
+                return;
+            }
+
+            if (source == AsteroidsGoneRogue.PadNavSource.Analog)
+            {
+                outX = stickLive ? stickX : 0f;
+                outY = stickLive ? stickY : 0f;
+                return;
+            }
+
+            if (dpadLive)
+            {
+                outX = dpadX;
+                outY = dpadY;
+                return;
+            }
+
+            outX = stickLive ? stickX : 0f;
+            outY = stickLive ? stickY : 0f;
+        }
     }
 
     /// <summary>
@@ -63,6 +114,8 @@ namespace AsteroidsGoneRogue
 
         private static bool _screenShakeCached = true;
         private static bool _screenShakeReady;
+        private static PadNavSource _menuPadNav = AsteroidsGoneRogue.PadNavSource.Both;
+        private static bool _menuPadNavReady;
 
         /// <summary>
         /// Cached copy of <see cref="ScreenShake"/>. The camera reads this and
@@ -82,12 +135,35 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        /// <summary>
+        /// Cached <see cref="PadNavSource"/> for menu navigation. Publish refreshes
+        /// it. Callers must not read PlayerPrefs on the nav path.
+        /// </summary>
+        public static PadNavSource MenuPadNav
+        {
+            get
+            {
+                if (!_menuPadNavReady)
+                {
+                    int stored = UnityEngine.PlayerPrefs.GetInt(
+                        PadNavSourceKey,
+                        (int)AsteroidsGoneRogue.PadNavSource.Both);
+                    _menuPadNav = NormalizePadNavSource(stored);
+                    _menuPadNavReady = true;
+                }
+
+                return _menuPadNav;
+            }
+        }
+
         public static void Publish(SettingsState state)
         {
             SettingsState source = state ?? CreateDefault();
             source.Normalize();
             _screenShakeCached = source.ScreenShake;
             _screenShakeReady = true;
+            _menuPadNav = source.PadNavSource;
+            _menuPadNavReady = true;
         }
 
         /// <summary>
@@ -236,6 +312,50 @@ namespace AsteroidsGoneRogue
             }
 
             return AsteroidsGoneRogue.HintMode.Off;
+        }
+
+        public static PadNavSource StepPadNav(PadNavSource current, int direction)
+        {
+            int index = 0;
+            if (current == AsteroidsGoneRogue.PadNavSource.Analog)
+            {
+                index = 1;
+            }
+            else if (current == AsteroidsGoneRogue.PadNavSource.Both)
+            {
+                index = 2;
+            }
+
+            if (direction > 0)
+            {
+                index += 1;
+            }
+            else if (direction < 0)
+            {
+                index -= 1;
+            }
+
+            if (index < 0)
+            {
+                index = 0;
+            }
+
+            if (index > 2)
+            {
+                index = 2;
+            }
+
+            if (index == 0)
+            {
+                return AsteroidsGoneRogue.PadNavSource.DPad;
+            }
+
+            if (index == 1)
+            {
+                return AsteroidsGoneRogue.PadNavSource.Analog;
+            }
+
+            return AsteroidsGoneRogue.PadNavSource.Both;
         }
 
         public static int StepHintSize(int step, int direction)

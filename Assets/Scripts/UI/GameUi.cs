@@ -155,6 +155,8 @@ namespace AsteroidsGoneRogue
         private Text _settingsConfirmAbortValue;
         private Text _settingsConfirmNewRunLabel;
         private Text _settingsConfirmNewRunValue;
+        private Text _settingsPadNavLabel;
+        private Text _settingsPadNavValue;
         private Slider _settingsMusicSlider;
         private Slider _settingsSfxSlider;
         private Button[] _settingsRowButtons;
@@ -1931,6 +1933,7 @@ namespace AsteroidsGoneRogue
             RefreshSettingsShake();
             RefreshSettingsHint();
             RefreshSettingsConfirm();
+            RefreshSettingsPadNav();
             RefreshConfirmCopy();
 
             if (_settingsRowButtons != null)
@@ -3926,6 +3929,12 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (rowId == SettingsRowId.PadNav)
+            {
+                BuildSettingsPadNavRow(rowIndex, body, y0, y1);
+                return;
+            }
+
             if (rowId == SettingsRowId.Controls)
             {
                 BuildSettingsControlsRow(display, body, y0, y1);
@@ -4191,6 +4200,38 @@ namespace AsteroidsGoneRogue
             Stretch(_settingsConfirmNewRunValue.rectTransform, new Vector2(0.78f, 0.12f), new Vector2(0.96f, 0.88f));
             _settingsConfirmNewRunValue.color = UiTheme.Primary;
             _settingsConfirmNewRunValue.raycastTarget = false;
+        }
+
+        private void BuildSettingsPadNavRow(int rowIndex, Font body, float y0, float y1)
+        {
+            Button row = CreateButton(
+                "SettingsPadNav",
+                _settingsPanel.transform,
+                body,
+                new Vector2(SettingsMeasure.RowMinX, y0),
+                new Vector2(SettingsMeasure.RowMaxX, y1));
+            _settingsRowButtons[rowIndex] = row;
+            row.onClick.AddListener(CyclePadNav);
+            UiTheme.ApplyButton(row, false, false, false);
+
+            _settingsPadNavLabel = row.GetComponentInChildren<Text>();
+            _settingsPadNavLabel.fontSize = UiTheme.BodyMin;
+            _settingsPadNavLabel.alignment = TextAnchor.MiddleLeft;
+            _settingsPadNavLabel.fontStyle = FontStyle.Bold;
+            _settingsPadNavLabel.color = UiTheme.Accent;
+            _settingsPadNavLabel.raycastTarget = false;
+            Stretch(_settingsPadNavLabel.rectTransform, new Vector2(0.04f, 0.08f), new Vector2(0.62f, 0.92f));
+
+            _settingsPadNavValue = CreateText(
+                "SettingsPadNavValue",
+                row.transform,
+                body,
+                UiTheme.BodyMin,
+                TextAnchor.MiddleRight,
+                FontStyle.Bold);
+            Stretch(_settingsPadNavValue.rectTransform, new Vector2(0.64f, 0.12f), new Vector2(0.96f, 0.88f));
+            _settingsPadNavValue.color = UiTheme.Primary;
+            _settingsPadNavValue.raycastTarget = false;
         }
 
         private void BuildSettingsLanguageRow(int rowIndex, Font body, float y0, float y1)
@@ -4551,6 +4592,59 @@ namespace AsteroidsGoneRogue
                     ? Loc.T("ui.settings.on", "On")
                     : Loc.T("ui.settings.off", "Off");
             }
+        }
+
+        private void CyclePadNav()
+        {
+            StepPadNav(1);
+        }
+
+        private void StepPadNav(int direction)
+        {
+            EnsureSettings();
+            _settings.PadNavSource = SettingsState.StepPadNav(_settings.PadNavSource, direction);
+            _settings.Save();
+            RefreshSettingsPadNav();
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+        }
+
+        private static string PadNavLabel(PadNavSource source)
+        {
+            if (source == PadNavSource.DPad)
+            {
+                return Loc.T("ui.settings.pad.dpad", "D-pad");
+            }
+
+            if (source == PadNavSource.Analog)
+            {
+                return Loc.T("ui.settings.pad.analog", "Analog");
+            }
+
+            return Loc.T("ui.settings.pad.both", "Both");
+        }
+
+        private void RefreshSettingsPadNav()
+        {
+            if (_settingsPadNavLabel != null)
+            {
+                _settingsPadNavLabel.text = Loc.T("ui.settings.pad_nav", "Pad navigation");
+            }
+
+            if (_settingsPadNavValue == null)
+            {
+                return;
+            }
+
+            PadNavSource source = PadNavSource.Both;
+            if (_settings != null)
+            {
+                source = _settings.PadNavSource;
+            }
+
+            _settingsPadNavValue.text = PadNavLabel(source);
         }
 
         private void RefreshSettingsAudio()
@@ -4986,7 +5080,8 @@ namespace AsteroidsGoneRogue
             flags.Submit = GamepadInput.ConfirmPressed();
             flags.F1 = Input.GetKeyDown(KeyCode.F1);
             flags.Select = Input.GetKeyDown(KeyCode.JoystickButton6);
-            Vector2 settingsStick = GamepadInput.UiNavCombined();
+            // The panel always accepts d-pad and stick so a filtered source cannot trap the player.
+            Vector2 settingsStick = GamepadInput.UiNavCombined(PadNavSource.Both);
             flags.NavX = HangarPadNav.DominantStep(settingsStick.x, settingsStick.y, HangarPadNav.Flick);
             flags.NavY = SettingsInputRouter.ScreenStepY(settingsStick.x, settingsStick.y, HangarPadNav.Flick);
             return flags;
@@ -5194,6 +5289,12 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.ConfirmNewRun)
             {
                 ToggleConfirmNewRun();
+                return;
+            }
+
+            if (rowId == SettingsRowId.PadNav)
+            {
+                StepPadNav(direction);
             }
         }
 
@@ -5239,6 +5340,12 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.ConfirmNewRun)
             {
                 ToggleConfirmNewRun();
+                return;
+            }
+
+            if (rowId == SettingsRowId.PadNav)
+            {
+                CyclePadNav();
                 return;
             }
 
