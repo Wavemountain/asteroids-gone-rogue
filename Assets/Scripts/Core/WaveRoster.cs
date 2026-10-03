@@ -3,9 +3,9 @@ using System.Collections.Generic;
 namespace AsteroidsGoneRogue
 {
     /// <summary>
-    /// Waves 1–10 stay on today's ladder. Later waves add world spice and a
-    /// deterministic rotation so wave 11 is not a copy of wave 10. Counts stay
-    /// at or under <see cref="MaxCount"/> and the list is never empty.
+    /// Each layout world weights its own kinds in front of the ladder.
+    /// Wave 5 stays on the ladder so the guardian is not stacked with extra spice.
+    /// Later waves also rotate the base list. Counts stay at or under <see cref="MaxCount"/>.
     /// </summary>
     public static class WaveRoster
     {
@@ -15,17 +15,33 @@ namespace AsteroidsGoneRogue
         {
             int wave = waveIndex < 1 ? 1 : waveIndex;
             EnemyKind[] source = CopyOrSeed(baseRoster);
-            if (wave <= 10)
+            // Wave 5 keeps the ladder. The guardian replaces the old Brute at spawn.
+            if (wave == BossRules.FirstWave)
             {
                 return source;
             }
 
             int layoutWorld = WorldCatalog.LayoutForWave(wave);
             var built = new List<EnemyKind>();
-            AppendSpice(built, layoutWorld, wave);
-            if (WaveModifier.ForWave(wave) == WaveModifierKind.DenseSwarm)
+            EnemyKind[] emphasis = WorldRules.Emphasis(layoutWorld);
+            for (int spice = 0; spice < emphasis.Length; spice++)
+            {
+                built.Add(emphasis[spice]);
+            }
+
+            if (wave > 10 && WaveModifier.ForWave(wave) == WaveModifierKind.DenseSwarm)
             {
                 built.Insert(0, EnemyKind.Swarm);
+            }
+
+            if (wave <= 10)
+            {
+                for (int step = 0; step < source.Length; step++)
+                {
+                    built.Add(source[step]);
+                }
+
+                return Trim(built);
             }
 
             int shift = (wave - 1) % source.Length;
@@ -37,47 +53,17 @@ namespace AsteroidsGoneRogue
             return Trim(built);
         }
 
-        private static void AppendSpice(List<EnemyKind> built, int layoutWorld, int wave)
-        {
-            EnemyKind[] pool = SpicePool(layoutWorld);
-            if (pool.Length == 0)
-            {
-                return;
-            }
-
-            int spin = (wave - 1) % pool.Length;
-            built.Add(pool[spin]);
-            if (pool.Length > 1)
-            {
-                built.Add(pool[(spin + 1) % pool.Length]);
-            }
-        }
-
         /// <summary>
-        /// World 3 adds Bomber, 4 Sniper, 5 SwarmPod, 6 Brute, 7 the full set.
-        /// Earlier layouts add nothing, so waves 11–15 are the first change.
+        /// Wave 5's ladder Brute does not spawn beside the world guardian.
         /// </summary>
-        private static EnemyKind[] SpicePool(int layoutWorld)
+        public static bool IncludeInSpawn(EnemyKind kind, int waveIndex)
         {
-            switch (layoutWorld)
+            if (kind == EnemyKind.Brute && BossRules.SuppressLadderBrute(waveIndex))
             {
-                case 3:
-                    return new[] { EnemyKind.Bomber };
-                case 4:
-                    return new[] { EnemyKind.Bomber, EnemyKind.Sniper };
-                case 5:
-                    return new[] { EnemyKind.Bomber, EnemyKind.Sniper, EnemyKind.SwarmPod };
-                case 6:
-                    return new[] { EnemyKind.Bomber, EnemyKind.Sniper, EnemyKind.SwarmPod, EnemyKind.Brute };
-                case 7:
-                    return new[]
-                    {
-                        EnemyKind.Bomber, EnemyKind.Sniper, EnemyKind.SwarmPod,
-                        EnemyKind.Brute, EnemyKind.Swarm, EnemyKind.Gunner
-                    };
-                default:
-                    return new EnemyKind[0];
+                return false;
             }
+
+            return true;
         }
 
         private static EnemyKind[] CopyOrSeed(EnemyKind[] baseRoster)

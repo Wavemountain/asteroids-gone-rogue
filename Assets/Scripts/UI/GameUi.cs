@@ -38,6 +38,17 @@ namespace AsteroidsGoneRogue
         private Text _summaryBody;
         private Text _waveMedal;
         private Text _continueHint;
+        private GameObject _boonRoot;
+        private Text _boonTitle;
+        private Text _boonHint;
+        private Button[] _boonCards;
+        private Text[] _boonCardLabels;
+        private Image[] _boonCardPlates;
+        private Text _boonRow;
+        private int _boonFocus;
+        private bool _boonNavHeld;
+        private float _boonRepeatAt;
+        private bool _boonShown;
         private Text _badgeRow;
         private Image _hitFlash;
         private GameObject _scrim;
@@ -383,6 +394,7 @@ namespace AsteroidsGoneRogue
                 _doctrineRoot.SetActive(showDoctrine);
             }
             RefreshFirstHangarHint();
+            RefreshBoonChrome();
 
             if (playing)
             {
@@ -705,6 +717,14 @@ namespace AsteroidsGoneRogue
                 _legacyButtons[capturedPerk] = perkButton;
                 _legacyLabels[capturedPerk] = perkLabel;
             }
+
+            _boonRow = CreateText("BoonRow", _menuRoot.transform, body, 12, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Stretch(_boonRow.rectTransform, new Vector2(0.03f, 0.801f), new Vector2(0.97f, 0.819f));
+            _boonRow.color = UiTheme.Secondary;
+            _boonRow.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _boonRow.verticalOverflow = VerticalWrapMode.Truncate;
+            _boonRow.gameObject.SetActive(false);
+            BuildBoonModal(display, body);
         }
 
         private void OnLegacyPerk(int perk)
@@ -2082,14 +2102,25 @@ namespace AsteroidsGoneRogue
             if (phase == GamePhase.WaveClear && worldCleared > 0)
             {
                 string withLoop = RunSummary.ContinueSubtitle(upcomingWave);
-                if (RunSummary.PrimarySubtitleFits(actionLabel, withLoop))
+                string ruleLine = RunSummary.ContinueRuleLine(upcomingWave);
+                string loopAndRule = string.IsNullOrEmpty(ruleLine) ? withLoop : withLoop + "  ·  " + ruleLine;
+                if (!string.IsNullOrEmpty(ruleLine) && RunSummary.PrimarySubtitleFits(actionLabel, loopAndRule))
+                {
+                    nextSubtitle = loopAndRule;
+                }
+                else if (RunSummary.PrimarySubtitleFits(actionLabel, withLoop))
                 {
                     nextSubtitle = withLoop;
                 }
                 else
                 {
                     string nameOnly = WorldCatalog.ContinueSubtitle(upcomingWave);
-                    if (RunSummary.PrimarySubtitleFits(actionLabel, nameOnly))
+                    string nameAndRule = string.IsNullOrEmpty(ruleLine) ? nameOnly : nameOnly + "  ·  " + ruleLine;
+                    if (!string.IsNullOrEmpty(ruleLine) && RunSummary.PrimarySubtitleFits(actionLabel, nameAndRule))
+                    {
+                        nextSubtitle = nameAndRule;
+                    }
+                    else if (RunSummary.PrimarySubtitleFits(actionLabel, nameOnly))
                     {
                         nextSubtitle = nameOnly;
                     }
@@ -2109,6 +2140,273 @@ namespace AsteroidsGoneRogue
 
             _primaryLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
             _primaryLabel.verticalOverflow = VerticalWrapMode.Truncate;
+        }
+
+        private bool BoonModalOpen()
+        {
+            return _game != null
+                && _game.BoonChoiceOpen
+                && (_session == null || _session.Phase != GamePhase.Playing);
+        }
+
+        private void BuildBoonModal(Font display, Font body)
+        {
+            _boonRoot = new GameObject("BoonRoot");
+            _boonRoot.transform.SetParent(transform, false);
+            Stretch(_boonRoot.AddComponent<RectTransform>(), Vector2.zero, Vector2.one);
+
+            GameObject boonScrim = CreateFill(
+                "BoonScrim",
+                _boonRoot.transform,
+                UiTheme.WithAlpha(UiTheme.Void, 0.78f),
+                Vector2.zero,
+                Vector2.one);
+            Image boonScrimImage = boonScrim.GetComponent<Image>();
+            if (boonScrimImage != null)
+            {
+                boonScrimImage.raycastTarget = true;
+            }
+
+            GameObject boonPanel = UiTheme.BuildPanel(
+                "BoonPanel",
+                _boonRoot.transform,
+                new Vector2(0.12f, 0.20f),
+                new Vector2(0.88f, 0.80f),
+                0.78f);
+            Image boonPanelImage = boonPanel.GetComponent<Image>();
+            if (boonPanelImage != null)
+            {
+                boonPanelImage.raycastTarget = true;
+            }
+
+            _boonTitle = CreateText("BoonTitle", boonPanel.transform, display, 22, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Stretch(_boonTitle.rectTransform, new Vector2(0.06f, 0.80f), new Vector2(0.94f, 0.96f));
+            _boonTitle.color = UiTheme.Primary;
+            ClampOneLine(_boonTitle);
+            _boonTitle.text = Loc.T("boon.pick", "Choose 1 bonus");
+
+            _boonCards = new Button[BoonCatalog.OfferCount];
+            _boonCardLabels = new Text[BoonCatalog.OfferCount];
+            _boonCardPlates = new Image[BoonCatalog.OfferCount];
+            for (int boonSlot = 0; boonSlot < BoonCatalog.OfferCount; boonSlot++)
+            {
+                int boonPick = boonSlot;
+                float boonLeft = 0.03f + (boonPick * 0.32f);
+                Button boonCard = CreateButton(
+                    "BoonCard" + boonPick,
+                    boonPanel.transform,
+                    body,
+                    new Vector2(boonLeft, 0.18f),
+                    new Vector2(boonLeft + 0.30f, 0.74f));
+                Text boonCardLabel = boonCard.GetComponentInChildren<Text>();
+                boonCardLabel.fontSize = 16;
+                boonCardLabel.alignment = TextAnchor.MiddleCenter;
+                boonCardLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
+                boonCardLabel.verticalOverflow = VerticalWrapMode.Truncate;
+                boonCard.onClick.AddListener(() => ChooseBoon(boonPick));
+                LockButtonNavigation(boonCard);
+                Image boonPlate = boonCard.targetGraphic as Image;
+                if (boonPlate != null)
+                {
+                    boonPlate.raycastTarget = true;
+                }
+
+                _boonCards[boonPick] = boonCard;
+                _boonCardLabels[boonPick] = boonCardLabel;
+                _boonCardPlates[boonPick] = boonPlate;
+            }
+
+            _boonHint = CreateText("BoonHint", boonPanel.transform, body, UiTheme.BodyMin, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Stretch(_boonHint.rectTransform, new Vector2(0.06f, 0.03f), new Vector2(0.94f, 0.15f));
+            _boonHint.color = UiTheme.Secondary;
+            ClampOneLine(_boonHint);
+            _boonHint.text = Loc.T("boon.pad", "A select  ·  D-pad or stick moves");
+            _boonRoot.SetActive(false);
+        }
+
+        private void RefreshBoonChrome()
+        {
+            bool boonOpen = BoonModalOpen();
+            if (_boonRoot != null)
+            {
+                if (_boonRoot.activeSelf != boonOpen)
+                {
+                    _boonRoot.SetActive(boonOpen);
+                }
+
+                if (boonOpen)
+                {
+                    _boonRoot.transform.SetAsLastSibling();
+                    if (!_boonShown)
+                    {
+                        _boonFocus = 0;
+                        _boonNavHeld = false;
+                    }
+
+                    _boonShown = true;
+                    PaintBoonCards();
+                    FocusBoonCard(_boonFocus);
+                }
+                else
+                {
+                    _boonShown = false;
+                }
+            }
+
+            PaintBoonRow();
+        }
+
+        private void PaintBoonCards()
+        {
+            if (_boonCards == null || _game == null)
+            {
+                return;
+            }
+
+            BoonRun boonRun = _game.Boons;
+            for (int boonSlot = 0; boonSlot < _boonCards.Length; boonSlot++)
+            {
+                int offerId = boonRun != null ? boonRun.OfferAt(boonSlot) : -1;
+                int ownedLevel = 0;
+                if (boonRun != null && boonRun.Levels != null && offerId >= 0 && offerId < boonRun.Levels.Length)
+                {
+                    ownedLevel = boonRun.Levels[offerId];
+                }
+
+                if (_boonCardLabels != null && boonSlot < _boonCardLabels.Length && _boonCardLabels[boonSlot] != null)
+                {
+                    _boonCardLabels[boonSlot].text = offerId < 0
+                        ? string.Empty
+                        : BoonCatalog.CardLine(offerId, ownedLevel);
+                }
+            }
+
+            PaintBoonFocus();
+        }
+
+        private void PaintBoonFocus()
+        {
+            if (_boonCardPlates == null)
+            {
+                return;
+            }
+
+            for (int boonSlot = 0; boonSlot < _boonCardPlates.Length; boonSlot++)
+            {
+                Image boonPlate = _boonCardPlates[boonSlot];
+                if (boonPlate == null)
+                {
+                    continue;
+                }
+
+                bool boonPicked = boonSlot == _boonFocus;
+                boonPlate.color = boonPicked ? UiTheme.Focus : UiTheme.Surface2;
+                if (_boonCardLabels != null && boonSlot < _boonCardLabels.Length && _boonCardLabels[boonSlot] != null)
+                {
+                    _boonCardLabels[boonSlot].color = boonPicked ? UiTheme.Void : UiTheme.Accent;
+                }
+            }
+        }
+
+        private void FocusBoonCard(int slot)
+        {
+            if (_boonCards == null || slot < 0 || slot >= _boonCards.Length || _boonCards[slot] == null)
+            {
+                return;
+            }
+
+            EventSystem boonFocus = EventSystem.current;
+            if (boonFocus == null)
+            {
+                return;
+            }
+
+            boonFocus.SetSelectedGameObject(_boonCards[slot].gameObject);
+        }
+
+        private void PaintBoonRow()
+        {
+            if (_boonRow == null)
+            {
+                return;
+            }
+
+            int[] boonLevels = _game != null && _game.Boons != null ? _game.Boons.Levels : null;
+            string boonLine = RunSummary.BoonLine(boonLevels);
+            _boonRow.text = boonLine;
+            _boonRow.gameObject.SetActive(!string.IsNullOrEmpty(boonLine));
+        }
+
+        private void TickBoonChoice()
+        {
+            if (_boonCards == null || _boonCards.Length == 0)
+            {
+                return;
+            }
+
+            Vector2 boonNav = GamepadInput.UiNavCombined(PadNavSource.Both);
+            int boonDx = HangarPadNav.DominantStep(boonNav.x, boonNav.y, HangarPadNav.Flick);
+            if (boonDx != 0)
+            {
+                float boonNow = Time.unscaledTime;
+                if (!_boonNavHeld || boonNow >= _boonRepeatAt)
+                {
+                    _boonFocus = BoonPadNav.Step(_boonFocus, boonDx, _boonCards.Length);
+                    _boonRepeatAt = boonNow + (_boonNavHeld ? HangarPadNav.RepeatNextSeconds : HangarPadNav.RepeatFirstSeconds);
+                    _boonNavHeld = true;
+                    FocusBoonCard(_boonFocus);
+                    PaintBoonFocus();
+                }
+            }
+            else
+            {
+                _boonNavHeld = false;
+            }
+
+            if (GamepadInput.ConfirmPressed())
+            {
+                ChooseBoon(_boonFocus);
+            }
+
+            EventSystem boonEs = EventSystem.current;
+            if (boonEs == null)
+            {
+                return;
+            }
+
+            GameObject boonSelected = boonEs.currentSelectedGameObject;
+            bool boonLost = boonSelected == null;
+            if (!boonLost)
+            {
+                boonLost = true;
+                for (int boonCardIndex = 0; boonCardIndex < _boonCards.Length; boonCardIndex++)
+                {
+                    if (_boonCards[boonCardIndex] != null && boonSelected == _boonCards[boonCardIndex].gameObject)
+                    {
+                        boonLost = false;
+                        _boonFocus = boonCardIndex;
+                        break;
+                    }
+                }
+            }
+
+            if (boonLost)
+            {
+                FocusBoonCard(_boonFocus);
+            }
+        }
+
+        private void ChooseBoon(int index)
+        {
+            if (_game == null)
+            {
+                return;
+            }
+
+            if (_game.TryChooseBoon(index) && AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
         }
 
         public void AnnounceEliteWave(int waveIndex)
@@ -2187,6 +2485,12 @@ namespace AsteroidsGoneRogue
             // abort, New Run, and hangar navigation. A click that opened the
             // dialog this frame must not also cancel it.
             ApplyConfirmClock();
+            if (BoonModalOpen())
+            {
+                TickBoonChoice();
+            }
+            else
+            {
             ConfirmAction confirmAction = ConfirmAction.None;
             if (_confirmOpenedFrame != Time.frameCount)
             {
@@ -2260,6 +2564,7 @@ namespace AsteroidsGoneRogue
                     NavigateHangarPad();
                     SyncHangarPadSelection();
                 }
+            }
             }
             if (_session == null || _session.Phase != GamePhase.Playing)
             {

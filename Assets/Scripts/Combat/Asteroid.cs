@@ -168,12 +168,18 @@ namespace AsteroidsGoneRogue
 
             if (_size == AsteroidSize.Large && _factory != null && _waves != null)
             {
-                for (int i = 0; i < ShardsOnSplit; i++)
+                int shardCount = ShardsOnSplit + BoonHooks.ExtraShards;
+                if (shardCount < ShardsOnSplit)
                 {
-                    float angle = (Mathf.PI * 2f * i) / ShardsOnSplit + Random.Range(-0.2f, 0.2f);
-                    Vector3 offset = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * 1.1f;
-                    Vector3 drift = offset.normalized * Random.Range(3.5f, 6.5f);
-                    Asteroid shard = _factory.CreateSmallAsteroid(transform.position + offset, drift, _waves);
+                    shardCount = ShardsOnSplit;
+                }
+
+                for (int shardIndex = 0; shardIndex < shardCount; shardIndex++)
+                {
+                    float shardAngle = (Mathf.PI * 2f * shardIndex) / shardCount + Random.Range(-0.2f, 0.2f);
+                    Vector3 shardOffset = new Vector3(Mathf.Cos(shardAngle), 0f, Mathf.Sin(shardAngle)) * 1.1f;
+                    Vector3 shardDrift = shardOffset.normalized * Random.Range(3.5f, 6.5f);
+                    Asteroid shard = _factory.CreateSmallAsteroid(transform.position + shardOffset, shardDrift, _waves);
                     _waves.Register(shard);
                 }
             }

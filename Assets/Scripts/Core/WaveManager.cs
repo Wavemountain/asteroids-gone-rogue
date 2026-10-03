@@ -70,8 +70,9 @@ namespace AsteroidsGoneRogue
             _allStrandedSeconds = 0f;
             _factory.ApplyArenaForWave(waveIndex);
 
+            int debrisBonus = WorldRules.ExtraAsteroids(waveIndex);
             int largeCount = Mathf.Clamp(
-                LargeAsteroidCount(waveIndex) + DifficultySettings.ExtraAsteroids,
+                LargeAsteroidCount(waveIndex) + DifficultySettings.ExtraAsteroids + debrisBonus,
                 1,
                 PlateauAsteroidCap);
             for (int rock = 0; rock < largeCount; rock++)
@@ -97,6 +98,11 @@ namespace AsteroidsGoneRogue
                 if (spawned >= budget)
                 {
                     break;
+                }
+
+                if (!WaveRoster.IncludeInSpawn(roster[rosterIndex], waveIndex))
+                {
+                    continue;
                 }
 
                 if (!CanSpawn(roster[rosterIndex]))
@@ -139,6 +145,7 @@ namespace AsteroidsGoneRogue
             }
 
             SpawnWavePickup(waveIndex);
+            SpawnExtraPickup(waveIndex);
             if (eliteWave)
             {
                 SpawnElitePickup(waveIndex);
@@ -213,9 +220,27 @@ namespace AsteroidsGoneRogue
             return ArtImport.LoadPrefab(EnemyCatalog.VisualName(kind)) != null;
         }
 
+        private void SpawnExtraPickup(int waveIndex)
+        {
+            if (WorldRules.PickupDelta(waveIndex) <= 0 || waveIndex < 2)
+            {
+                return;
+            }
+
+            string[] extraKinds = { "Pickup_Shield", "Pickup_Health", "Pickup_Score" };
+            string extraVisual = extraKinds[waveIndex % extraKinds.Length];
+            Vector3 extraPos = RingPoint(waveIndex * 0.8f + 2.1f, ScaledRing(6.5f));
+            _factory.CreatePickup(extraVisual, extraPos);
+        }
+
         private void SpawnWavePickup(int waveIndex)
         {
             if (waveIndex < 2)
+            {
+                return;
+            }
+
+            if (WorldRules.PickupDelta(waveIndex) < 0)
             {
                 return;
             }

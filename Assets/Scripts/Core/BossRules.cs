@@ -25,6 +25,16 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
+        /// Wave 5 already brings the guardian. The ladder Brute that used to
+        /// own that wave stays in the roster table and does not also spawn.
+        /// Later boss waves keep their roster Brutes.
+        /// </summary>
+        public static bool SuppressLadderBrute(int waveIndex)
+        {
+            return waveIndex == FirstWave && IsBossWave(waveIndex);
+        }
+
+        /// <summary>
         /// 12 × base Brute HP × world HP percent, then Easy/Normal/Hard.
         /// World 8 holds at the world-7 cap, so the sequence never drops.
         /// </summary>
