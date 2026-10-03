@@ -396,8 +396,51 @@ namespace AsteroidsGoneRogue
             return (_mk2Mask & (1 << bit)) != 0;
         }
 
+        /// <summary>
+        /// True when GrantMk2 changes hull, shield, damage, or a cooldown.
+        /// An id past the save mask, or one with no Mk II rule, cannot be bought.
+        /// </summary>
+        public static bool Mk2HasEffect(UpgradeId id)
+        {
+            switch (id)
+            {
+                case UpgradeId.RapidFire:
+                case UpgradeId.ShieldCell:
+                case UpgradeId.NoseHardpoint:
+                case UpgradeId.BodyUpgrade01:
+                case UpgradeId.NoseUpgrade02:
+                case UpgradeId.EngineUpgrade02:
+                case UpgradeId.SpreadBolt:
+                case UpgradeId.Pierce:
+                case UpgradeId.BodyUpgrade02:
+                case UpgradeId.NoseUpgrade03:
+                case UpgradeId.EngineUpgrade03:
+                case UpgradeId.TwinGuns:
+                case UpgradeId.Seeker:
+                case UpgradeId.Ricochet:
+                case UpgradeId.ShieldMatrix:
+                case UpgradeId.Overcharger:
+                case UpgradeId.Afterburner:
+                case UpgradeId.Rail:
+                case UpgradeId.FlakFeed:
+                case UpgradeId.Storm:
+                case UpgradeId.OverchargeLance:
+                case UpgradeId.SeekerCadence:
+                case UpgradeId.TwinSeek:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         public bool CanBuyMk2(UpgradeId id)
         {
+            int bit = (int)id;
+            if (bit < 0 || bit >= RunSaveCodec.UpgradeBitCount || !Mk2HasEffect(id))
+            {
+                return false;
+            }
+
             if (OwnsMk2(id))
             {
                 return false;

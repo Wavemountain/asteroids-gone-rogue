@@ -37,6 +37,14 @@ namespace AsteroidsGoneRogue
         public int BoonOffer;
         public int WaveInProgress;
         public int LivesAtWaveStart;
+
+        /// <summary>
+        /// Lives left in the wave when the snapshot was written. -1 means the
+        /// file omitted the field (v1–v4 saves from before this field). Those
+        /// files fall back to <see cref="LivesAtWaveStart"/>.
+        /// </summary>
+        public int LivesNow = -1;
+
         public int Mk2Mask;
         public int BankedLegacy;
         public int ExtraLifeWorld;
@@ -60,7 +68,14 @@ namespace AsteroidsGoneRogue
     {
         public const int CurrentVersion = 4;
         public const int MaxHullNow = 16;
-        public const int UpgradeBitCount = 22;
+
+        /// <summary>
+        /// Bits in the upgrade mask and the Mk II mask. Twin Seek is enum
+        /// value 22, so the Mk II mask needs 23 bits. A signed int holds that
+        /// (bit 30 is the last positive bit). v1–v4 files with a narrower
+        /// mask still parse: the accepted range only grew.
+        /// </summary>
+        public const int UpgradeBitCount = 23;
         public const int MaxWave = 9999;
         public const int MaxScore = 100000000;
         public const int FireModeCount = 7;
@@ -128,6 +143,7 @@ namespace AsteroidsGoneRogue
             {
                 data.WaveInProgress = session.WaveInProgress ? 1 : 0;
                 data.LivesAtWaveStart = session.LivesAtWaveStart;
+                data.LivesNow = session.Lives;
                 data.BankedLegacy = session.BankedLegacy;
                 data.ExtraLifeWorld = session.ExtraLifeWorld;
             }
@@ -316,6 +332,11 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            if (data.LivesNow < -1 || data.LivesNow > DifficultySettings.MaxLives + 1)
+            {
+                return false;
+            }
+
             int mk2Limit = 1 << UpgradeBitCount;
             if (data.Mk2Mask < 0 || data.Mk2Mask >= mk2Limit)
             {
@@ -346,20 +367,34 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// An abandoned wave costs one life, counted from the lives stored when
-        /// the wave started. Two or more lives: the run continues with one fewer.
-        /// One life: the result is 0 and the run is over (Failed). Legacy is
-        /// awarded once and the save is deleted. There is no free restart.
+        /// Lives left after quitting a wave that was still in progress.
+        /// Uses the lower of the lives saved during the wave and the lives at
+        /// wave start, then subtracts one. <paramref name="livesNow"/> of -1
+        /// means the file omitted the field: fall back to LivesAtWaveStart so
+        /// v1–v4 saves keep the previous result. Zero or less: the run is over
+        /// (Failed). Legacy is awarded once and the save is deleted.
         /// </summary>
-        public static int LivesAfterAbandonedWave(int lives, int livesAtWaveStart)
+        public static int LivesAfterAbandonedWave(int lives, int livesAtWaveStart, int livesNow)
         {
-            int start = livesAtWaveStart > 0 ? livesAtWaveStart : lives;
-            if (start < 1)
+            if (livesNow < 0)
             {
-                start = 1;
+                int start = livesAtWaveStart > 0 ? livesAtWaveStart : lives;
+                if (start < 1)
+                {
+                    start = 1;
+                }
+
+                return start - 1;
             }
 
-            return start - 1;
+            int current = livesNow;
+            int atStart = livesAtWaveStart > 0 ? livesAtWaveStart : current;
+            if (current > atStart)
+            {
+                current = atStart;
+            }
+
+            return current - 1;
         }
 
         public static bool AbandonedWaveEndsRun(RunSaveData data)
@@ -369,7 +404,8 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            return LivesAfterAbandonedWave(data.Lives, data.LivesAtWaveStart) < 1;
+            int livesNow = data.LivesNow;
+            return LivesAfterAbandonedWave(data.Lives, data.LivesAtWaveStart, livesNow) < 1;
         }
 
         public static void ApplyAbandonedWave(RunSaveData data)
@@ -379,9 +415,11 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            data.Lives = LivesAfterAbandonedWave(data.Lives, data.LivesAtWaveStart);
+            int livesNow = data.LivesNow;
+            data.Lives = LivesAfterAbandonedWave(data.Lives, data.LivesAtWaveStart, livesNow);
             data.WaveInProgress = 0;
             data.LivesAtWaveStart = 0;
+            data.LivesNow = -1;
         }
 
         public static bool Same(RunSaveData left, RunSaveData right)
@@ -417,6 +455,7 @@ namespace AsteroidsGoneRogue
                 && left.BoonOffer == right.BoonOffer
                 && left.WaveInProgress == right.WaveInProgress
                 && left.LivesAtWaveStart == right.LivesAtWaveStart
+                && left.LivesNow == right.LivesNow
                 && left.Mk2Mask == right.Mk2Mask
                 && left.BankedLegacy == right.BankedLegacy
                 && left.ExtraLifeWorld == right.ExtraLifeWorld
@@ -460,6 +499,7 @@ namespace AsteroidsGoneRogue
             AppendInt(builder, "BoonOffer", data.BoonOffer, false);
             AppendInt(builder, "WaveInProgress", data.WaveInProgress, false);
             AppendInt(builder, "LivesAtWaveStart", data.LivesAtWaveStart, false);
+            AppendInt(builder, "LivesNow", data.LivesNow, false);
             AppendInt(builder, "Mk2Mask", data.Mk2Mask, false);
             AppendInt(builder, "BankedLegacy", data.BankedLegacy, false);
             AppendInt(builder, "ExtraLifeWorld", data.ExtraLifeWorld, false);
@@ -684,6 +724,9 @@ namespace AsteroidsGoneRogue
                     return true;
                 case "LivesAtWaveStart":
                     data.LivesAtWaveStart = number;
+                    return true;
+                case "LivesNow":
+                    data.LivesNow = number;
                     return true;
                 case "Mk2Mask":
                     data.Mk2Mask = number;

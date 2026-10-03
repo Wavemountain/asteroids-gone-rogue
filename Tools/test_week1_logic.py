@@ -4832,6 +4832,102 @@ def _estimate_width(text: str, font_size: int) -> float:
     return len(text) * 10.0 * font_size / 18.0
 
 
+def _kenney_future_width(text: str, font_size: int) -> float:
+    """Advance width of Kenney Future at font_size. The 10px/18 estimate is short of this face."""
+    if not text or font_size <= 0:
+        return 0.0
+    advances, upem = _kenney_future_advances()
+    total = 0
+    for char in text:
+        total += advances.get(ord(char), upem)
+    return total * float(font_size) / float(upem)
+
+
+def _kenney_future_advances() -> tuple:
+    cached = getattr(_kenney_future_advances, "cached", None)
+    if cached is not None:
+        return cached
+    import struct
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[1] / "Assets/Resources/Fonts/KenneyFuture.ttf"
+    data = path.read_bytes()
+    num_tables = struct.unpack_from(">H", data, 4)[0]
+    tables = {}
+    for index in range(num_tables):
+        tag, _checksum, offset, length = struct.unpack_from(">4sIII", data, 12 + index * 16)
+        tables[tag] = (offset, length)
+    head = tables[b"head"][0]
+    upem = struct.unpack_from(">H", data, head + 18)[0]
+    hhea = tables[b"hhea"][0]
+    metrics = struct.unpack_from(">H", data, hhea + 34)[0]
+    hmtx = tables[b"hmtx"][0]
+    advances = []
+    for index in range(metrics):
+        advance, _lsb = struct.unpack_from(">Hh", data, hmtx + index * 4)
+        advances.append(advance)
+    cmap = tables[b"cmap"][0]
+    _version, subtables = struct.unpack_from(">HH", data, cmap)
+    sub_offset = None
+    for index in range(subtables):
+        platform, encoding, offset = struct.unpack_from(">HHI", data, cmap + 4 + index * 8)
+        if platform == 3 and encoding == 1:
+            sub_offset = cmap + offset
+            break
+    if sub_offset is None:
+        raise AssertionError("Kenney Future cmap")
+    fmt, _length, _language, seg_x2 = struct.unpack_from(">HHHH", data, sub_offset)
+    if fmt != 4:
+        raise AssertionError("Kenney Future cmap format")
+    seg_count = seg_x2 // 2
+    cursor = sub_offset + 14
+    ends = list(struct.unpack_from(">" + "H" * seg_count, data, cursor))
+    cursor += seg_count * 2 + 2
+    starts = list(struct.unpack_from(">" + "H" * seg_count, data, cursor))
+    cursor += seg_count * 2
+    deltas = list(struct.unpack_from(">" + "h" * seg_count, data, cursor))
+    cursor += seg_count * 2
+    range_offsets = list(struct.unpack_from(">" + "H" * seg_count, data, cursor))
+    range_base = cursor
+
+    def glyph_id(code: int) -> int:
+        for index, end in enumerate(ends):
+            if code > end:
+                continue
+            if code < starts[index]:
+                return 0
+            if range_offsets[index] == 0:
+                return (deltas[index] + code) & 0xFFFF
+            offset = range_base + index * 2 + range_offsets[index] + (code - starts[index]) * 2
+            glyph = struct.unpack_from(">H", data, offset)[0]
+            if glyph == 0:
+                return 0
+            return (glyph + deltas[index]) & 0xFFFF
+        return 0
+
+    by_code = {}
+    for code in range(32, 512):
+        glyph = glyph_id(code)
+        if glyph <= 0:
+            continue
+        if glyph < len(advances):
+            by_code[code] = advances[glyph]
+        elif advances:
+            by_code[code] = advances[-1]
+    cached = (by_code, upem)
+    _kenney_future_advances.cached = cached
+    return cached
+
+
+def _chip_box_width(width: int, height: int) -> float:
+    """Wave-medal chip width in canvas units. Text is centered in this rect."""
+    scale = _canvas_scale(width, height)
+    canvas_w = width / scale
+    hangar_w = (0.55 - 0.014) * canvas_w
+    card_w = 0.96 * hangar_w
+    return (0.97 - 0.72) * card_w
+
+
 def _wrapped_line_count(text: str, box_width: float, font_size: int) -> int:
     if not text:
         return 0
@@ -6183,6 +6279,7 @@ def main() -> int:
     test_upgrades_line_fits_card()
     test_pr2_046()
     test_speltest_063_marker_title_bank()
+    test_mk2_grant_and_abandoned_lives()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -6929,7 +7026,7 @@ def _save_valid(data: dict) -> bool:
     if not 0 <= data.get("Difficulty", -1) <= 2:
         return False
     mask = data.get("UpgradeMask", -1)
-    if mask < 0 or mask >= (1 << 22):
+    if mask < 0 or mask >= (1 << 23):
         return False
     if not 0 <= data.get("Doctrine", -1) <= 3:
         return False
@@ -6956,6 +7053,9 @@ def _save_valid(data: dict) -> bool:
     stamp = data.get("Timestamp") or ""
     if not (0 < len(stamp) <= 40):
         return False
+    lives_now = data.get("LivesNow", -1)
+    if lives_now < -1 or lives_now > 6:
+        return False
     if version == 1:
         return True
     if version >= 3:
@@ -6964,7 +7064,7 @@ def _save_valid(data: dict) -> bool:
         if not 0 <= data.get("LivesAtWaveStart", -1) <= 6:
             return False
         mk2_mask = data.get("Mk2Mask", -1)
-        if mk2_mask < 0 or mk2_mask >= (1 << 22):
+        if mk2_mask < 0 or mk2_mask >= (1 << 23):
             return False
         if not 0 <= data.get("BankedLegacy", -1) <= 3:
             return False
@@ -7017,6 +7117,7 @@ def _save_parse(text: str) -> dict | None:
         "BoonOffer": 0,
         "WaveInProgress": 0,
         "LivesAtWaveStart": 0,
+        "LivesNow": -1,
         "Mk2Mask": 0,
         "BankedLegacy": 0,
         "ExtraLifeWorld": 0,
@@ -7025,6 +7126,7 @@ def _save_parse(text: str) -> dict | None:
         "Timestamp": "",
     }
     saw_version = False
+    saw_lives_now = False
     cursor = 0
     while cursor < len(body):
         while cursor < len(body) and body[cursor] in " \n\r\t":
@@ -7085,6 +7187,8 @@ def _save_parse(text: str) -> dict | None:
                 cursor += 1
             if key == "Version":
                 saw_version = True
+            if key == "LivesNow":
+                saw_lives_now = True
             if key in parsed:
                 parsed[key] = value * sign
     if parsed.get("Version") == 1:
@@ -7108,6 +7212,8 @@ def _save_parse(text: str) -> dict | None:
         parsed["ShieldNow"] = -1
         parsed.pop("HullNow", None)
         parsed.pop("ShieldNow", None)
+    if not saw_lives_now:
+        parsed.pop("LivesNow", None)
     return parsed
 
 
@@ -7907,11 +8013,18 @@ def _ignores_hit(level: int, run_seed: int, hit_index: int) -> bool:
     return roll < chance
 
 
-def _abandoned_lives(lives: int, lives_at_start: int) -> int:
-    start = lives_at_start if lives_at_start > 0 else lives
-    if start < 1:
-        start = 1
-    return start - 1
+def _abandoned_lives(lives: int, lives_at_start: int, lives_now: int = -1) -> int:
+    """Missing lives_now (-1) keeps the pre-field result from LivesAtWaveStart."""
+    if lives_now < 0:
+        start = lives_at_start if lives_at_start > 0 else lives
+        if start < 1:
+            start = 1
+        return start - 1
+    current = lives_now
+    at_start = lives_at_start if lives_at_start > 0 else current
+    if current > at_start:
+        current = at_start
+    return current - 1
 
 
 def _choose_save(main_text, main_exists, backup_text, backup_exists):
@@ -8091,6 +8204,16 @@ def test_pr2_046() -> None:
             chip = _map_anchors(*summary, 0.72, 0.78, 0.97, 0.96)
             box_w = (chip[2] - chip[0]) * (width / scale)
             assert _estimate_width(text, 14) <= box_w, (wave, width, text, box_w)
+    scout_en = "{0}  ·  wave {1}".format("\u2022 Scout Wing", 6)
+    scout_sv = swedish["run.scout_chip"].format("\u2022 Spejarvinge", 6)
+    summary_src = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    assert "run.scout_chip" in summary_src
+    assert "{0}  ·  wave {1}" in summary_src
+    for label, line in (("en", scout_en), ("sv", scout_sv)):
+        measured = _kenney_future_width(line, 14)
+        for width, height in ((1280, 800), (1366, 768), (1440, 900), (1920, 1080), (2560, 1080), (3440, 1440)):
+            box_w = _chip_box_width(width, height)
+            assert measured <= box_w, (label, width, height, line, measured, box_w)
 
 
 def _cs_blocks(source: str, signature: str) -> list[str]:
@@ -8353,6 +8476,373 @@ def test_speltest_063_marker_title_bank() -> None:
         meta_text = meta.read_text(encoding="utf-8")
         assert "TextScriptImporter:" in meta_text
         assert re.search(r"guid: [0-9a-f]{32}", meta_text)
+
+
+def test_mk2_grant_and_abandoned_lives() -> None:
+    """Every purchasable Mk II changes the loadout, and an abandoned wave uses lives lost."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    loadout = (root / "Assets/Scripts/Core/LoadoutState.cs").read_text(encoding="utf-8")
+    save = (root / "Assets/Scripts/Core/RunSave.cs").read_text(encoding="utf-8")
+    session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    shop = (root / "Assets/Scripts/Core/ShopCatalog.cs").read_text(encoding="utf-8")
+    prices = (root / "Assets/Scripts/Core/ShopPrices.cs").read_text(encoding="utf-8")
+
+    assert "UpgradeBitCount = 23" in save
+    assert "data.LivesNow = session.Lives" in save
+    assert "livesNow < 0" in save
+    assert "LivesAfterAbandonedWave(Lives, LivesAtWaveStart, Lives)" in session
+    respawn = manager.split("private bool TryRespawnAfterLifeLoss()")[1].split("private void FailRun")[0]
+    assert respawn.index("TryLoseLife") < respawn.index("ResetForWave")
+    assert respawn.index("ResetForWave") < respawn.index("WriteWaveProgress()")
+    effect = loadout.split("bool Mk2HasEffect")[1].split("bool CanBuyMk2")[0]
+    assert "UpgradeId.TwinSeek" in effect
+    assert "return false" in effect
+    can_buy = loadout.split("bool CanBuyMk2")[1].split("void GrantMk2")[0]
+    assert "bit >= RunSaveCodec.UpgradeBitCount" in can_buy
+    assert "!Mk2HasEffect(id)" in can_buy
+    seeker = loadout.split("float SeekerUtilityMul()")[1].split("float OffPathMul")[0]
+    assert "OwnsMk2(UpgradeId.TwinSeek)" in seeker
+    assert "Mk2CooldownMul" in seeker
+
+    names = (
+        "RapidFire",
+        "ShieldCell",
+        "NoseHardpoint",
+        "BodyUpgrade01",
+        "NoseUpgrade02",
+        "EngineUpgrade02",
+        "SpreadBolt",
+        "Pierce",
+        "BodyUpgrade02",
+        "NoseUpgrade03",
+        "EngineUpgrade03",
+        "TwinGuns",
+        "Seeker",
+        "Ricochet",
+        "ShieldMatrix",
+        "Overcharger",
+        "Afterburner",
+        "Rail",
+        "FlakFeed",
+        "Storm",
+        "OverchargeLance",
+        "SeekerCadence",
+        "TwinSeek",
+    )
+    costs = {}
+    item = re.compile(
+        r'UpgradeId\.(\w+)\s*,\s*"(?:\\.|[^"\\])*"\s*,\s*"(?:\\.|[^"\\])*"\s*,\s*(\d+)',
+        re.S,
+    )
+    for match in item.finditer(shop):
+        costs[match.group(1)] = int(match.group(2))
+    assert set(costs) == set(names)
+    assert "Mk2Percent = 160" in prices
+    bit_count = 23
+    mk2_mul = 0.92
+
+    class Mk2State:
+        def __init__(self) -> None:
+            self.owned = set()
+            self.mk2 = 0
+            self.shields = 0
+            self.credits = 0
+
+        def owns_mk2(self, name: str) -> bool:
+            bit = names.index(name)
+            if bit < 0 or bit >= bit_count:
+                return False
+            return (self.mk2 & (1 << bit)) != 0
+
+        def can_buy_mk2(self, name: str) -> bool:
+            if name not in names:
+                return False
+            bit = names.index(name)
+            if bit < 0 or bit >= bit_count:
+                return False
+            if self.owns_mk2(name):
+                return False
+            if name == "ShieldCell":
+                return self.shields >= 1
+            return name in self.owned
+
+        def max_shield(self) -> int:
+            cap = 3 if "ShieldMatrix" in self.owned else 2
+            if self.owns_mk2("ShieldCell"):
+                cap += 1
+            if "ShieldMatrix" in self.owned and self.owns_mk2("ShieldMatrix"):
+                cap += 1
+            return cap
+
+        def grant_mk2(self, name: str) -> None:
+            if name not in names:
+                return
+            bit = names.index(name)
+            if bit < 0 or bit >= bit_count:
+                return
+            self.mk2 |= 1 << bit
+            if name in ("ShieldCell", "ShieldMatrix") and self.shields < self.max_shield():
+                self.shields += 1
+
+        def try_buy(self, name: str, price: int) -> bool:
+            if not self.can_buy_mk2(name):
+                return False
+            if self.credits < price:
+                return False
+            self.credits -= price
+            self.grant_mk2(name)
+            return True
+
+        def hull(self) -> int:
+            points = 3
+            if "BodyUpgrade01" in self.owned:
+                points += 1
+            if "BodyUpgrade02" in self.owned:
+                points += 1
+            if self.owns_mk2("BodyUpgrade01"):
+                points += 1
+            if self.owns_mk2("BodyUpgrade02"):
+                points += 1
+            return points
+
+        def fire_cd(self) -> float:
+            if "Afterburner" in self.owned:
+                cooldown = 0.075
+            elif "EngineUpgrade03" in self.owned:
+                cooldown = 0.09
+            elif "EngineUpgrade02" in self.owned:
+                cooldown = 0.12
+            elif "RapidFire" in self.owned:
+                cooldown = 0.16
+            else:
+                cooldown = 0.38
+            if "Overcharger" in self.owned:
+                cooldown += 0.03
+            return cooldown * self._engine_mul()
+
+        def _engine_mul(self) -> float:
+            if "Afterburner" in self.owned and self.owns_mk2("Afterburner"):
+                return mk2_mul
+            if "EngineUpgrade03" in self.owned and self.owns_mk2("EngineUpgrade03"):
+                return mk2_mul
+            if "EngineUpgrade02" in self.owned and self.owns_mk2("EngineUpgrade02"):
+                return mk2_mul
+            if "RapidFire" in self.owned and self.owns_mk2("RapidFire"):
+                return mk2_mul
+            return 1.0
+
+        def damage(self) -> int:
+            if "NoseUpgrade03" in self.owned:
+                amount = 4
+            elif "NoseUpgrade02" in self.owned:
+                amount = 3
+            elif "NoseHardpoint" in self.owned:
+                amount = 2
+            else:
+                amount = 1
+            if "Overcharger" in self.owned:
+                amount += 1
+            return amount + self._nose_bonus()
+
+        def _nose_bonus(self) -> int:
+            if "NoseUpgrade03" in self.owned and self.owns_mk2("NoseUpgrade03"):
+                return 1
+            if "NoseUpgrade02" in self.owned and self.owns_mk2("NoseUpgrade02"):
+                return 1
+            if "NoseHardpoint" in self.owned and self.owns_mk2("NoseHardpoint"):
+                return 1
+            if "Overcharger" in self.owned and self.owns_mk2("Overcharger"):
+                return 1
+            return 0
+
+        def spread_mul(self) -> float:
+            mul = 1.0
+            if "FlakFeed" in self.owned:
+                mul *= 0.85
+                if self.owns_mk2("FlakFeed"):
+                    mul *= mk2_mul
+            if "Storm" in self.owned:
+                mul *= 1.8
+                if self.owns_mk2("Storm"):
+                    mul *= mk2_mul
+            if self.owns_mk2("SpreadBolt"):
+                mul *= mk2_mul
+            return mul
+
+        def twin_mul(self) -> float:
+            mul = 1.0
+            if "OverchargeLance" in self.owned:
+                mul *= 0.9
+                if self.owns_mk2("OverchargeLance"):
+                    mul *= mk2_mul
+            if self.owns_mk2("TwinGuns"):
+                mul *= mk2_mul
+            return mul
+
+        def seeker_mul(self) -> float:
+            mul = 1.0
+            if "SeekerCadence" in self.owned:
+                mul *= 0.75
+                if self.owns_mk2("SeekerCadence"):
+                    mul *= mk2_mul
+            if "TwinSeek" in self.owned:
+                mul *= 1.2
+                if self.owns_mk2("TwinSeek"):
+                    mul *= mk2_mul
+            if self.owns_mk2("Seeker"):
+                mul *= mk2_mul
+            return mul
+
+        def signature(self) -> tuple:
+            return (
+                self.hull(),
+                self.max_shield(),
+                round(self.fire_cd(), 5),
+                self.damage(),
+                round(self.spread_mul(), 5),
+                round(mk2_mul if self.owns_mk2("Pierce") else 1.0, 5),
+                round(self.twin_mul(), 5),
+                round(self.seeker_mul(), 5),
+                round(mk2_mul if self.owns_mk2("Ricochet") else 1.0, 5),
+                round(mk2_mul if self.owns_mk2("Rail") else 1.0, 5),
+                self.mk2,
+                self.shields,
+            )
+
+    assert not Mk2State().can_buy_mk2("NotAnUpgrade")
+    for name in names:
+        state = Mk2State()
+        state.owned.add(name)
+        if name == "ShieldCell":
+            state.shields = 1
+        price = costs[name] * 160 // 100
+        if price < 1:
+            price = 1
+        state.credits = price + 40
+        assert state.can_buy_mk2(name), name
+        before = state.signature()
+        assert state.try_buy(name, price), name
+        assert state.signature() != before, name
+        assert state.credits == 40, name
+        assert state.try_buy(name, price) is False, name
+        assert state.credits == 40, name
+        assert state.can_buy_mk2(name) is False, name
+
+    twin = Mk2State()
+    twin.owned.add("TwinSeek")
+    before_mul = twin.seeker_mul()
+    assert abs(before_mul - 1.2) < 1e-6
+    twin.credits = 400
+    assert twin.try_buy("TwinSeek", 360)
+    assert abs(twin.seeker_mul() - 1.2 * mk2_mul) < 1e-6
+    assert twin.credits == 40
+    assert twin.try_buy("TwinSeek", 360) is False
+    assert twin.credits == 40
+    assert (twin.mk2 & (1 << names.index("TwinSeek"))) != 0
+
+    assert _abandoned_lives(3, 3) == 2
+    assert _abandoned_lives(3, 3, -1) == 2
+    assert _abandoned_lives(5, 0) == 4
+    assert _abandoned_lives(3, 3, 1) == 0
+    assert _abandoned_lives(3, 3, 3) == 2
+    assert _abandoned_lives(3, 3, 2) == 1
+    assert _abandoned_lives(1, 1, 1) == 0
+    assert _abandoned_lives(1, 1) < 1
+
+    def _v4(extra: str) -> dict | None:
+        base = {
+            "Version": 4,
+            "WaveIndex": 4,
+            "Score": 10,
+            "Credits": 20,
+            "Lives": 3,
+            "Hull": 3,
+            "Shield": 1,
+            "Difficulty": 1,
+            "UpgradeMask": (1 << 21) - 1,
+            "Doctrine": 0,
+            "PrimaryMode": 0,
+            "UtilityMode": 0,
+            "HasUtility": 0,
+            "RunId": 4,
+            "LastResolvedWave": 3,
+            "LastRunScore": 10,
+            "LastCreditsAwarded": 165,
+            "ExtraLifeStreak": 0,
+            "LegacyHull": 0,
+            "FirstDiscount": 0,
+            "FirstDiscountUsed": 0,
+            "Timestamp": "2026-10-03T12:00:00Z",
+        }
+        text = _save_to_json(base).replace(
+            ',"Timestamp"',
+            ',"BoonLevels":0,"BoonPending":0,"BoonOffer":0'
+            ',"WaveInProgress":1,"LivesAtWaveStart":3,"Mk2Mask":0'
+            ',"BankedLegacy":0,"ExtraLifeWorld":0,"HullNow":3,"ShieldNow":1'
+            + extra
+            + ',"Timestamp"',
+        )
+        return _save_parse(text)
+
+    old = _v4("")
+    assert old is not None and "LivesNow" not in old
+    assert old["UpgradeMask"] == (1 << 21) - 1
+    assert _abandoned_lives(old["Lives"], old["LivesAtWaveStart"], old.get("LivesNow", -1)) == 2
+    lost_two = _v4(',"LivesNow":1')
+    assert lost_two is not None and lost_two["LivesNow"] == 1
+    assert _abandoned_lives(lost_two["Lives"], lost_two["LivesAtWaveStart"], lost_two["LivesNow"]) == 0
+    lost_none = _v4(',"LivesNow":3')
+    assert _abandoned_lives(lost_none["Lives"], lost_none["LivesAtWaveStart"], lost_none["LivesNow"]) == 2
+    lost_one = _v4(',"LivesNow":2')
+    assert _abandoned_lives(lost_one["Lives"], lost_one["LivesAtWaveStart"], lost_one["LivesNow"]) == 1
+    start_one = _v4("")
+    assert start_one is not None
+    start_one["Lives"] = 1
+    start_one["LivesAtWaveStart"] = 1
+    start_one["LivesNow"] = 1
+    assert _abandoned_lives(start_one["Lives"], start_one["LivesAtWaveStart"], start_one["LivesNow"]) == 0
+
+    fitted = _save_to_json(
+        {
+            "Version": 4,
+            "WaveIndex": 4,
+            "Score": 10,
+            "Credits": 20,
+            "Lives": 3,
+            "Hull": 3,
+            "Shield": 1,
+            "Difficulty": 1,
+            "UpgradeMask": (1 << 21) - 1,
+            "Doctrine": 0,
+            "PrimaryMode": 0,
+            "UtilityMode": 0,
+            "HasUtility": 0,
+            "RunId": 4,
+            "LastResolvedWave": 3,
+            "LastRunScore": 10,
+            "LastCreditsAwarded": 165,
+            "ExtraLifeStreak": 0,
+            "LegacyHull": 0,
+            "FirstDiscount": 0,
+            "FirstDiscountUsed": 0,
+            "Timestamp": "2026-10-03T12:00:00Z",
+        }
+    ).replace(
+        ',"Timestamp"',
+        ',"BoonLevels":0,"BoonPending":0,"BoonOffer":0'
+        ',"WaveInProgress":0,"LivesAtWaveStart":0,"LivesNow":-1,"Mk2Mask":'
+        + str(1 << names.index("TwinSeek"))
+        + ',"BankedLegacy":0,"ExtraLifeWorld":0,"HullNow":3,"ShieldNow":1,"Timestamp"',
+    )
+    fitted_save = _save_parse(fitted)
+    assert fitted_save is not None and fitted_save["Mk2Mask"] == (1 << 22)
+    assert fitted_save["LivesNow"] == -1
+    overflow = fitted.replace('"Mk2Mask":' + str(1 << 22), '"Mk2Mask":' + str(1 << 23), 1)
+    assert _save_parse(overflow) is None
 
 
 if __name__ == "__main__":
