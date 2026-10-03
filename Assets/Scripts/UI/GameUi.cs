@@ -47,6 +47,7 @@ namespace AsteroidsGoneRogue
         private Text _waveMedal;
         private Text _continueHint;
         private Text _summaryRecord;
+        private GameObject _boonCanvas;
         private GameObject _boonRoot;
         private Text _boonTitle;
         private Text _boonHint;
@@ -864,6 +865,12 @@ namespace AsteroidsGoneRogue
                 _previewCanvas = null;
             }
 
+            if (_boonCanvas != null)
+            {
+                Destroy(_boonCanvas);
+                _boonCanvas = null;
+            }
+
             if (Instance == this)
             {
                 Instance = null;
@@ -982,6 +989,17 @@ namespace AsteroidsGoneRogue
                 }
             }
 
+            if (_previewCanvas != null)
+            {
+                GraphicRaycaster previewCaster = _previewCanvas.GetComponent<GraphicRaycaster>();
+                if (previewCaster != null)
+                {
+                    // The ship frame sits on a higher overlay than the main canvas.
+                    // While the boon picker is open its raycaster must not eat clicks.
+                    previewCaster.enabled = !BoonModalOpen();
+                }
+            }
+
             if (_previewRoot != null)
             {
                 _previewRoot.SetActive(show);
@@ -1014,6 +1032,53 @@ namespace AsteroidsGoneRogue
                 {
                     _previewViewport.color = Color.white;
                 }
+            }
+
+            RaiseBoonModal();
+        }
+
+        private void EnsureBoonModalCanvas()
+        {
+            if (_boonCanvas != null)
+            {
+                return;
+            }
+
+            GameObject canvasGo = new GameObject(BoonCardLayout.CanvasName);
+            Canvas canvas = canvasGo.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.pixelPerfect = false;
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = BoonCardLayout.ModalSortOrder;
+            CanvasScaler scaler = canvasGo.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(BoonCardLayout.RefWidth, BoonCardLayout.RefHeight);
+            scaler.matchWidthOrHeight = BoonCardLayout.Match;
+            canvasGo.AddComponent<GraphicRaycaster>();
+            _boonCanvas = canvasGo;
+        }
+
+        private void RaiseBoonModal()
+        {
+            if (_boonCanvas == null)
+            {
+                return;
+            }
+
+            Canvas boonOverlay = _boonCanvas.GetComponent<Canvas>();
+            if (boonOverlay == null)
+            {
+                return;
+            }
+
+            boonOverlay.renderMode = RenderMode.ScreenSpaceOverlay;
+            boonOverlay.overrideSorting = true;
+            boonOverlay.sortingOrder = BoonCardLayout.ModalSortOrder;
+            boonOverlay.enabled = _boonCanvas.activeSelf;
+            GraphicRaycaster boonCaster = _boonCanvas.GetComponent<GraphicRaycaster>();
+            if (boonCaster != null)
+            {
+                boonCaster.enabled = true;
             }
         }
 
@@ -2403,8 +2468,9 @@ namespace AsteroidsGoneRogue
 
         private void BuildBoonModal(Font display, Font body)
         {
+            EnsureBoonModalCanvas();
             _boonRoot = new GameObject("BoonRoot");
-            _boonRoot.transform.SetParent(transform, false);
+            _boonRoot.transform.SetParent(_boonCanvas.transform, false);
             Stretch(_boonRoot.AddComponent<RectTransform>(), Vector2.zero, Vector2.one);
 
             GameObject boonScrim = CreateFill(
@@ -2422,19 +2488,24 @@ namespace AsteroidsGoneRogue
             GameObject boonPanel = UiTheme.BuildPanel(
                 "BoonPanel",
                 _boonRoot.transform,
-                new Vector2(0.12f, 0.20f),
-                new Vector2(0.88f, 0.80f),
-                0.78f);
+                new Vector2(BoonCardLayout.PanelMinX, BoonCardLayout.PanelMinY),
+                new Vector2(BoonCardLayout.PanelMaxX, BoonCardLayout.PanelMaxY),
+                BoonCardLayout.HeaderMinY);
             Image boonPanelImage = boonPanel.GetComponent<Image>();
             if (boonPanelImage != null)
             {
                 boonPanelImage.raycastTarget = true;
             }
 
-            _boonTitle = CreateText("BoonTitle", boonPanel.transform, display, 22, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Stretch(_boonTitle.rectTransform, new Vector2(0.06f, 0.80f), new Vector2(0.94f, 0.96f));
+            _boonTitle = CreateText("BoonTitle", boonPanel.transform, display, BoonCardLayout.TitleFont, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Stretch(
+                _boonTitle.rectTransform,
+                new Vector2(BoonCardLayout.TitleMinX, BoonCardLayout.TitleMinY),
+                new Vector2(BoonCardLayout.TitleMaxX, BoonCardLayout.TitleMaxY));
             _boonTitle.color = UiTheme.Primary;
-            ClampOneLine(_boonTitle);
+            _boonTitle.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _boonTitle.verticalOverflow = VerticalWrapMode.Truncate;
+            _boonTitle.raycastTarget = false;
             _boonTitle.text = Loc.T("boon.pick", "Choose 1 bonus");
 
             _boonCards = new Button[BoonCatalog.OfferCount];
@@ -2443,18 +2514,27 @@ namespace AsteroidsGoneRogue
             for (int boonSlot = 0; boonSlot < BoonCatalog.OfferCount; boonSlot++)
             {
                 int boonPick = boonSlot;
-                float boonLeft = 0.03f + (boonPick * 0.32f);
+                float cardMinX;
+                float cardMinY;
+                float cardMaxX;
+                float cardMaxY;
+                BoonCardLayout.CardAnchors(boonPick, out cardMinX, out cardMinY, out cardMaxX, out cardMaxY);
                 Button boonCard = CreateButton(
                     "BoonCard" + boonPick,
                     boonPanel.transform,
                     body,
-                    new Vector2(boonLeft, 0.18f),
-                    new Vector2(boonLeft + 0.30f, 0.74f));
+                    new Vector2(cardMinX, cardMinY),
+                    new Vector2(cardMaxX, cardMaxY));
                 Text boonCardLabel = boonCard.GetComponentInChildren<Text>();
-                boonCardLabel.fontSize = 16;
+                boonCardLabel.fontSize = BoonCardLayout.CardFont;
                 boonCardLabel.alignment = TextAnchor.MiddleCenter;
                 boonCardLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
                 boonCardLabel.verticalOverflow = VerticalWrapMode.Truncate;
+                boonCardLabel.raycastTarget = false;
+                Stretch(
+                    boonCardLabel.rectTransform,
+                    new Vector2(BoonCardLayout.LabelMinX, BoonCardLayout.LabelMinY),
+                    new Vector2(BoonCardLayout.LabelMaxX, BoonCardLayout.LabelMaxY));
                 boonCard.onClick.AddListener(() => ChooseBoon(boonPick));
                 LockButtonNavigation(boonCard);
                 Image boonPlate = boonCard.targetGraphic as Image;
@@ -2468,17 +2548,29 @@ namespace AsteroidsGoneRogue
                 _boonCardPlates[boonPick] = boonPlate;
             }
 
-            _boonHint = CreateText("BoonHint", boonPanel.transform, body, UiTheme.BodyMin, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Stretch(_boonHint.rectTransform, new Vector2(0.06f, 0.03f), new Vector2(0.94f, 0.15f));
+            _boonHint = CreateText("BoonHint", boonPanel.transform, body, BoonCardLayout.HintFont, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Stretch(
+                _boonHint.rectTransform,
+                new Vector2(BoonCardLayout.HintMinX, BoonCardLayout.HintMinY),
+                new Vector2(BoonCardLayout.HintMaxX, BoonCardLayout.HintMaxY));
             _boonHint.color = UiTheme.Secondary;
-            ClampOneLine(_boonHint);
+            _boonHint.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _boonHint.verticalOverflow = VerticalWrapMode.Truncate;
+            _boonHint.raycastTarget = false;
             _boonHint.text = Loc.T("boon.pad", "A select  ·  D-pad or stick moves");
+            _boonCanvas.SetActive(false);
             _boonRoot.SetActive(false);
+            RaiseBoonModal();
         }
 
         private void RefreshBoonChrome()
         {
             bool boonOpen = BoonModalOpen();
+            if (_boonCanvas != null && _boonCanvas.activeSelf != boonOpen)
+            {
+                _boonCanvas.SetActive(boonOpen);
+            }
+
             if (_boonRoot != null)
             {
                 if (_boonRoot.activeSelf != boonOpen)
@@ -2488,6 +2580,7 @@ namespace AsteroidsGoneRogue
 
                 if (boonOpen)
                 {
+                    RaiseBoonModal();
                     _boonRoot.transform.SetAsLastSibling();
                     if (!_boonShown)
                     {
@@ -2527,9 +2620,17 @@ namespace AsteroidsGoneRogue
 
                 if (_boonCardLabels != null && boonSlot < _boonCardLabels.Length && _boonCardLabels[boonSlot] != null)
                 {
-                    _boonCardLabels[boonSlot].text = offerId < 0
+                    string boonCopy = offerId < 0
                         ? string.Empty
                         : BoonCatalog.CardLine(offerId, ownedLevel);
+                    _boonCardLabels[boonSlot].text = boonCopy;
+                    float boonBoxW = BoonCardLayout.CardInnerCanvasWidth(Screen.width, Screen.height);
+                    float boonBoxH = BoonCardLayout.CardInnerCanvasHeight(Screen.width, Screen.height);
+                    int boonFont = BoonCardLayout.FitFont(boonBoxW, boonBoxH, boonCopy, BoonCardLayout.CardFont);
+                    _boonCardLabels[boonSlot].fontSize = boonFont;
+                    _boonCardLabels[boonSlot].horizontalOverflow = HorizontalWrapMode.Wrap;
+                    _boonCardLabels[boonSlot].verticalOverflow = VerticalWrapMode.Truncate;
+                    _boonCardLabels[boonSlot].raycastTarget = false;
                 }
             }
 
@@ -2553,9 +2654,12 @@ namespace AsteroidsGoneRogue
 
                 bool boonPicked = boonSlot == _boonFocus;
                 boonPlate.color = boonPicked ? UiTheme.Focus : UiTheme.Surface2;
+                boonPlate.raycastTarget = true;
+                UiTheme.SetPadFocus(boonPlate.gameObject, boonPicked, false);
                 if (_boonCardLabels != null && boonSlot < _boonCardLabels.Length && _boonCardLabels[boonSlot] != null)
                 {
                     _boonCardLabels[boonSlot].color = boonPicked ? UiTheme.Void : UiTheme.Accent;
+                    _boonCardLabels[boonSlot].raycastTarget = false;
                 }
             }
         }
@@ -2598,6 +2702,18 @@ namespace AsteroidsGoneRogue
 
             Vector2 boonNav = GamepadInput.UiNavCombined(PadNavSource.Both);
             int boonDx = HangarPadNav.DominantStep(boonNav.x, boonNav.y, HangarPadNav.Flick);
+            if (boonDx == 0)
+            {
+                if (Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.A))
+                {
+                    boonDx = -1;
+                }
+                else if (Input.GetKeyDown(KeyCode.RightArrow) || Input.GetKeyDown(KeyCode.D))
+                {
+                    boonDx = 1;
+                }
+            }
+
             if (boonDx != 0)
             {
                 float boonNow = Time.unscaledTime;
@@ -2615,7 +2731,10 @@ namespace AsteroidsGoneRogue
                 _boonNavHeld = false;
             }
 
-            if (GamepadInput.ConfirmPressed())
+            bool boonConfirm = GamepadInput.ConfirmPressed()
+                || Input.GetKeyDown(KeyCode.Space)
+                || Input.GetKeyDown(KeyCode.KeypadEnter);
+            if (boonConfirm)
             {
                 ChooseBoon(_boonFocus);
             }
