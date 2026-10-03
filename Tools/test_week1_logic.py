@@ -2698,7 +2698,7 @@ def test_difficulty_economy_043() -> None:
     assert "0.658f, 0.725f" not in ui
     assert "0.672f, 0.09f" not in ui
     assert "overrideSorting" in ui
-    assert "ShipPreviewSortOrder = 80" in ui
+    assert "ShipPreviewSortOrder = CanvasOrder.ShipPreview" in ui
     assert "typeof(RectTransform)" in ui
     assert "RawImage" in ui and "BindViewport(_previewViewport)" in ui
     assert "ui.EnsureHangarPreview(ship)" in bootstrap
@@ -4841,23 +4841,36 @@ def _estimate_width(text: str, font_size: int) -> float:
 
 def _kenney_future_width(text: str, font_size: int) -> float:
     """Advance width of Kenney Future at font_size. The 10px/18 estimate is short of this face."""
+    return _kenney_face_width(text, font_size, "KenneyFuture.ttf")
+
+
+def _kenney_narrow_width(text: str, font_size: int) -> float:
+    """Shop body face. UiFonts.Body loads Kenney Future Narrow."""
+    return _kenney_face_width(text, font_size, "KenneyFutureNarrow.ttf")
+
+
+def _kenney_face_width(text: str, font_size: int, font_name: str) -> float:
     if not text or font_size <= 0:
         return 0.0
-    advances, upem = _kenney_future_advances()
+    advances, upem = _kenney_future_advances(font_name)
     total = 0
     for char in text:
         total += advances.get(ord(char), upem)
     return total * float(font_size) / float(upem)
 
 
-def _kenney_future_advances() -> tuple:
-    cached = getattr(_kenney_future_advances, "cached", None)
+def _kenney_future_advances(font_name: str = "KenneyFuture.ttf") -> tuple:
+    cache = getattr(_kenney_future_advances, "by_font", None)
+    if cache is None:
+        cache = {}
+        _kenney_future_advances.by_font = cache
+    cached = cache.get(font_name)
     if cached is not None:
         return cached
     import struct
     from pathlib import Path
 
-    path = Path(__file__).resolve().parents[1] / "Assets/Resources/Fonts/KenneyFuture.ttf"
+    path = Path(__file__).resolve().parents[1] / "Assets/Resources/Fonts" / font_name
     data = path.read_bytes()
     num_tables = struct.unpack_from(">H", data, 4)[0]
     tables = {}
@@ -4922,7 +4935,7 @@ def _kenney_future_advances() -> tuple:
         elif advances:
             by_code[code] = advances[-1]
     cached = (by_code, upem)
-    _kenney_future_advances.cached = cached
+    cache[font_name] = cached
     return cached
 
 
@@ -6225,13 +6238,46 @@ def _picker_open(pending: bool, phase: str) -> bool:
     return pending and phase != "Playing"
 
 
+def _planar_distance(ax, az, bx, bz):
+    return ((ax - bx) ** 2 + (az - bz) ** 2) ** 0.5
+
+
+def _clearance_distance(sx, sz, px, pz, arena):
+    direct = _planar_distance(sx, sz, px, pz)
+    if arena <= 0:
+        return direct
+    wx, wz = wrap_xz(sx, sz, arena)
+    wrapped = _planar_distance(wx, wz, px, pz)
+    return wrapped if wrapped < direct else direct
+
+
+def _step_toward_center(px, pz, minimum):
+    mag_sq = px * px + pz * pz
+    if mag_sq < 0.0001:
+        dir_x, dir_z = 1.0, 0.0
+    else:
+        mag = mag_sq ** 0.5
+        dir_x, dir_z = -px / mag, -pz / mag
+    return px + dir_x * minimum, pz + dir_z * minimum
+
+
 def _spawn_push(sx, sz, px, pz, minimum, max_radius):
-    dx = sx - px
-    dz = sz - pz
+    arena = max_radius + 1.5 if max_radius > 0 else 0.0
+    if _clearance_distance(sx, sz, px, pz, arena) + 0.0001 >= minimum:
+        return sx, sz
+    src_x, src_z = sx, sz
+    if arena > 0:
+        wx, wz = wrap_xz(sx, sz, arena)
+        direct = _planar_distance(sx, sz, px, pz)
+        wrapped = _planar_distance(wx, wz, px, pz)
+        if wrapped + 0.00001 < minimum and wrapped <= direct + 0.00001:
+            src_x, src_z = wx, wz
+    dx = src_x - px
+    dz = src_z - pz
     dist_sq = dx * dx + dz * dz
     min_sq = minimum * minimum
     if dist_sq + 0.00001 >= min_sq:
-        ox, oz = sx, sz
+        ox, oz = src_x, src_z
     else:
         if dist_sq < 0.0001:
             dx, dz, dist = 1.0, 0.0, 1.0
@@ -6243,22 +6289,29 @@ def _spawn_push(sx, sz, px, pz, minimum, max_radius):
     if max_radius <= 0:
         return ox, oz
     out_sq = ox * ox + oz * oz
-    if out_sq <= max_radius * max_radius:
-        return ox, oz
-    away_x = ox - px
-    away_z = oz - pz
-    away_sq = away_x * away_x + away_z * away_z
-    if away_sq < 0.0001:
-        away_x, away_z, away = 1.0, 0.0, 1.0
-    else:
-        away = away_sq ** 0.5
-    ox = px - away_x / away * minimum
-    oz = pz - away_z / away * minimum
-    out_sq = ox * ox + oz * oz
-    if out_sq > max_radius * max_radius and out_sq > 0.0001:
-        clamp = max_radius / (out_sq ** 0.5)
-        ox *= clamp
-        oz *= clamp
+    max_sq = max_radius * max_radius
+    if out_sq > max_sq:
+        away_x = ox - px
+        away_z = oz - pz
+        away_sq = away_x * away_x + away_z * away_z
+        if away_sq < 0.0001:
+            away_x, away_z, away = 1.0, 0.0, 1.0
+        else:
+            away = away_sq ** 0.5
+        ox = px - away_x / away * minimum
+        oz = pz - away_z / away * minimum
+        out_sq = ox * ox + oz * oz
+        if out_sq > max_sq and out_sq > 0.0001:
+            clamp = max_radius / (out_sq ** 0.5)
+            ox *= clamp
+            oz *= clamp
+    if _clearance_distance(ox, oz, px, pz, arena) + 0.0001 < minimum:
+        ox, oz = _step_toward_center(px, pz, minimum)
+        out_sq = ox * ox + oz * oz
+        if out_sq > max_sq and out_sq > 0.0001:
+            clamp = max_radius / (out_sq ** 0.5)
+            ox *= clamp
+            oz *= clamp
     return ox, oz
 
 
@@ -6311,7 +6364,7 @@ def test_fairness_047b() -> None:
         dist = math.hypot(ox - px, oz - pz)
         assert dist + 1e-4 >= minimum, (seed, dist)
         pushed_x, pushed_z = _spawn_push(px + 1.0, pz, px, pz, minimum, 28.0)
-        assert math.hypot(pushed_x - px, pushed_z - pz) + 1e-3 >= minimum or math.hypot(pushed_x, pushed_z) <= 28.0
+        assert _clearance_distance(pushed_x, pushed_z, px, pz, 29.5) + 1e-3 >= minimum
 
     def scale(amount, cause_name, assist):
         if not assist or amount <= 0 or cause_name not in ("enemy", "bolt", "boss", "hazard"):
@@ -6401,8 +6454,7 @@ def _boon_layout_consts(text: str) -> dict:
     consts = {}
     for name, value in re.findall(r"public const float (\w+) = ([0-9.]+)f;", text):
         consts[name] = float(value)
-    for name, value in re.findall(r"public const int (\w+) = (\d+);", text):
-        consts[name] = int(value)
+    consts.update(_named_int_consts(text))
     return consts
 
 
@@ -6534,14 +6586,14 @@ def test_boon_card_layout() -> None:
     assert "FitFont" in layout_src and "CardInnerCanvasWidth" in layout_src
     assert layout["ModalSortOrder"] > layout["PreviewSortOrder"]
     assert layout["PreviewSortOrder"] == 80
-    assert "ShipPreviewSortOrder = 80" in ui
+    assert "ShipPreviewSortOrder = CanvasOrder.ShipPreview" in ui
     assert layout["ModalSortOrder"] > 80
-    assert "BoonCardLayout.ModalSortOrder" in ui
+    assert "CanvasOrder.Boon" in ui
     assert "BoonCardLayout.CardAnchors" in ui
     assert "BoonCardLayout.FitFont" in ui
     assert 'new GameObject(BoonCardLayout.CanvasName)' in ui
     assert "canvas.overrideSorting = true" in ui
-    assert "canvas.sortingOrder = BoonCardLayout.ModalSortOrder" in ui
+    assert "canvas.sortingOrder = CanvasOrder.Boon" in ui
     assert "canvas.renderMode = RenderMode.ScreenSpaceOverlay" in ui
     assert "canvasGo.AddComponent<GraphicRaycaster>()" in ui
     assert "previewCaster.enabled = !BoonModalOpen()" in ui
@@ -6781,14 +6833,33 @@ def _shop_hex_consts(text: str) -> dict:
     return found
 
 
+def _canvas_order_values() -> dict:
+    import re
+    from pathlib import Path
+
+    text = (Path(__file__).resolve().parents[1] / "Assets/Scripts/Core/CanvasOrder.cs").read_text(encoding="utf-8")
+    return {name: int(value) for name, value in re.findall(r"public const int (\w+) = (\d+);", text)}
+
+
+def _named_int_consts(text: str) -> dict:
+    import re
+
+    consts = {}
+    for name, value in re.findall(r"public const int (\w+) = (\d+);", text):
+        consts[name] = int(value)
+    order = _canvas_order_values()
+    for name, ref in re.findall(r"public const int (\w+) = CanvasOrder\.(\w+);", text):
+        consts[name] = order[ref]
+    return consts
+
+
 def _shop_layout_consts(text: str) -> dict:
     import re
 
     consts = {}
     for name, value in re.findall(r"public const float (\w+) = ([0-9.]+)f;", text):
         consts[name] = float(value)
-    for name, value in re.findall(r"public const int (\w+) = (\d+);", text):
-        consts[name] = int(value)
+    consts.update(_named_int_consts(text))
     return consts
 
 
@@ -6886,11 +6957,15 @@ def test_shop_tiles_and_preview_b10() -> None:
     assert layout["ShopSortOrder"] > layout["PreviewSortOrder"]
     assert layout["PreviewSortOrder"] == 80
     assert layout["ShopSortOrder"] < 200
-    assert "ShipPreviewSortOrder = 80" in ui
-    assert "ShopGridLayout.ShopSortOrder" in ui
+    assert "ShipPreviewSortOrder = CanvasOrder.ShipPreview" in ui
+    assert "CanvasOrder.HangarShop" in ui
     assert "RectMask2D" in ui
     assert "ClipPreviewToFrame" in ui
     assert "RaiseShopAbovePreview" in ui
+    fit_label = ui.split("void FitShopLabel")[1].split("void ShopButtonRect")[0]
+    assert "resizeTextForBestFit = true" in fit_label
+    assert "resizeTextMinSize = 10" in fit_label
+    assert "UiFonts.Body()" in fit_label
     assert "ShopTileChrome.Column" in ui
     assert "_buyLabels[index].enabled = true" in ui
     assert "ShopTileView.Build" in ui
@@ -6974,16 +7049,55 @@ def _shop_inside(rect) -> bool:
     return rect[0] >= 0.0 and rect[1] >= 0.0 and rect[2] <= 1.0 and rect[3] <= 1.0 and rect[2] > rect[0]
 
 
+def _shop_wrapped_lines(text: str, box_width: float, font_size: int) -> int:
+    if not text:
+        return 0
+    lines = 0
+    for para in text.split("\n"):
+        if para == "":
+            lines += 1
+            continue
+        used = 0.0
+        count = 1
+        for word in para.split(" "):
+            word_width = _kenney_narrow_width(word, font_size)
+            space = _kenney_narrow_width(" ", font_size) if used > 0 else 0.0
+            if used + space + word_width > box_width and used > 0:
+                count += 1
+                used = word_width
+            else:
+                used += space + word_width
+        lines += count
+    return lines
+
+
+def _shop_text_fits(text: str, box_w: float, box_h: float, font: int, line_spacing: float) -> bool:
+    if font <= 0 or box_w <= 0 or box_h <= 0:
+        return False
+    for para in text.split("\n"):
+        for word in para.split(" "):
+            if word and _kenney_narrow_width(word, font) > box_w + 0.01:
+                return False
+    count = _shop_wrapped_lines(text, box_w, font)
+    return count * (font * line_spacing) <= box_h + 0.5
+
+
 def _shop_labels_fit(width, height, lines, frac, font, layout) -> bool:
     scale = _canvas_scale(width, height)
     panel_w = (layout["HangarMaxX"] - layout["HangarMinX"]) * (width / scale)
     panel_h = (layout["HangarMaxY"] - layout["HangarMinY"]) * (height / scale)
     box_w = frac * panel_w
     box_h = layout["CellHeight"] * panel_h
-    line_h = font * layout["LineSpacing"]
+    min_font = 10
     for text in lines:
-        count = _wrapped_line_count(text, box_w, font)
-        if count * line_h > box_h + 0.5:
+        size = int(font)
+        fitted = False
+        while size >= min_font:
+            if _shop_text_fits(text, box_w, box_h, size, layout["LineSpacing"]):
+                fitted = True
+                break
+            size -= 1
+        if not fitted:
             return False
     return True
 
@@ -6994,9 +7108,11 @@ def _shop_cost_text(price: int, swedish: bool) -> str:
     return f"{price} cr"
 
 
-def _shop_status(owned, mk2_offer, can_apply, off_path, run_over, swedish, price, credits) -> str:
+def _shop_status(owned, mk2_owned, mk2_offer, can_apply, off_path, run_over, swedish, price, credits) -> str:
     if run_over:
         status = "Rundan är slut" if swedish else "Run is over"
+    elif owned and mk2_owned:
+        status = "Mk II  MAX"
     elif mk2_offer:
         status = "Mk II  " + _shop_cost_text(price, swedish)
     elif owned:
@@ -7053,7 +7169,7 @@ def _shop_stage_colors(stage: str) -> tuple:
 
 def _shop_tile(title, price, credits, owned, mk2_owned, mk2_offer, can_apply, off_path, weapon, equipped, run_over, shop_open, focused, swedish):
     stage = _shop_stage(owned, mk2_owned, mk2_offer, can_apply, off_path, weapon, equipped, run_over, credits, price)
-    status = _shop_status(owned, mk2_offer, can_apply, off_path, run_over, swedish, price, credits)
+    status = _shop_status(owned, mk2_owned, mk2_offer, can_apply, off_path, run_over, swedish, price, credits)
     fill, text = _shop_stage_colors(stage)
     too_poor = (not run_over) and ((mk2_offer and credits < price) or ((not owned) and can_apply and credits < price))
     locked = run_over or ((not owned) and (not can_apply))
@@ -7162,6 +7278,9 @@ def test_shop_upgrade_states_b10() -> None:
                             assert ("KÖPT" if swedish_ui else "OWNED") in model["status"]
                         if case_name == "maxed" and not off_path:
                             assert model["stage"] == "maxed"
+                            assert model["status"] == "Mk II  MAX"
+                            assert "Mk II" in model["status"]
+                            assert model["status"] != (("KÖPT" if swedish_ui else "OWNED") + " +")
                         if case_name == "unbought" and not off_path:
                             assert model["stage"] == "unbought"
                         seen += 1
@@ -7181,11 +7300,137 @@ def test_shop_upgrade_states_b10() -> None:
     assert _contrast("#6AA8C8", "#6AA8C8") < 4.5
 
 
+def _bolt_direction(ax, az):
+    mag_sq = ax * ax + az * az
+    if mag_sq < 0.0001:
+        return 0.0, 1.0
+    mag = mag_sq ** 0.5
+    return ax / mag, az / mag
+
+
+def _bolt_end(ox, oz, ax, az, length):
+    dx, dz = _bolt_direction(ax, az)
+    return ox + dx * length, oz + dz * length
+
+
+def test_c0_part_b_fixes() -> None:
+    """Part B regressions: board polarity, canvas order, telegraph, clearance, shop, jingle."""
+    import math
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    rules = (root / "Assets/Scripts/Core/FairnessRules.cs").read_text(encoding="utf-8")
+    seeker = (root / "Assets/Scripts/Combat/EnemySeeker.cs").read_text(encoding="utf-8")
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    order = _canvas_order_values()
+
+    def counts_for_board(assist_used: bool) -> bool:
+        return not assist_used
+
+    assert counts_for_board(False) is True
+    assert counts_for_board(True) is False
+    assert "CountsForBoard(!_session.AssistUsed)" not in manager
+    assert manager.count("CountsForBoard(_session.AssistUsed)") >= 2
+    hard = manager.split("ShouldUnlockHardClear")[1].split("ShouldUnlockDeepOrbit")[0]
+    record = manager.split("private void RecordBest")[1].split("private void")[0]
+    assert "CountsForBoard(_session.AssistUsed)" in hard
+    assert "CountsForBoard(_session.AssistUsed)" in record
+    assert "!_session.AssistUsed" not in hard
+    assert "!_session.AssistUsed" not in record
+
+    def hard_clear(session_present, assist_used):
+        return (not session_present) or counts_for_board(assist_used)
+
+    def highscore(session_present, assist_used):
+        if session_present and not counts_for_board(assist_used):
+            return False
+        return True
+
+    assert hard_clear(True, False) is True
+    assert hard_clear(True, True) is False
+    assert hard_clear(False, True) is True
+    assert highscore(True, False) is True
+    assert highscore(True, True) is False
+    assert highscore(False, False) is True
+
+    assert order["Root"] == 0
+    assert order["ShipPreview"] == 80
+    assert order["HangarShop"] == 120
+    assert order["Overlay"] == 150
+    assert order["Boon"] == 200
+    assert order["Toast"] == 250
+    assert order["ShipPreview"] < order["HangarShop"] < order["Overlay"] < order["Boon"] < order["Toast"]
+    for call in (
+        "RaiseCanvas(_settingsRoot, CanvasOrder.Overlay)",
+        "RaiseCanvas(_confirmRoot, CanvasOrder.Overlay)",
+        "RaiseCanvas(_firstStartRoot, CanvasOrder.Overlay)",
+        "RaiseCanvas(_endCreditsRoot, CanvasOrder.Overlay)",
+        "RaiseCanvas(_tutorialRoot, CanvasOrder.Overlay)",
+        "RaiseCanvas(_hitFlash.gameObject, CanvasOrder.Toast)",
+        "RaiseCanvas(_achievementToast.gameObject, CanvasOrder.Toast)",
+    ):
+        assert call in ui, call
+    assert "sortingOrder = CanvasOrder.HangarShop" in ui
+    assert "sortingOrder = CanvasOrder.ShipPreview" in ui
+    assert "sortingOrder = CanvasOrder.Boon" in ui
+
+    assert "transform.forward * 18f" not in seeker
+    assert "BoltTelegraph.End" in seeker
+    telegraph = seeker.split("BoltTelegraph.End")[0].split("aimedGun")[-1]
+    assert "_boltAim" in telegraph
+    for ax, az, forward_x, forward_z in (
+        (1.0, 0.2, 0.0, 1.0),
+        (0.7, -0.4, 1.0, 0.0),
+        (-0.2, 0.9, 0.6, 0.8),
+    ):
+        end_x, end_z = _bolt_end(3.0, -2.0, ax, az, 18.0)
+        bolt_dx, bolt_dz = _bolt_direction(ax, az)
+        line_dx, line_dz = _bolt_direction(end_x - 3.0, end_z + 2.0)
+        assert abs(line_dx - bolt_dx) < 1e-6 and abs(line_dz - bolt_dz) < 1e-6
+        forward_dx, forward_dz = _bolt_direction(forward_x, forward_z)
+        assert abs(line_dx - forward_dx) > 0.05 or abs(line_dz - forward_dz) > 0.05
+
+    minimum = 6.0
+    max_radius = 28.5
+    arena = max_radius + 1.5
+    safe_x, safe_z = _spawn_push(28.8, 0.0, -20.0, 0.0, minimum, max_radius)
+    assert abs(safe_x - 28.8) < 1e-6 and abs(safe_z) < 1e-6
+    outside_x, outside_z = _spawn_push(40.0, 0.0, 0.0, 0.0, minimum, max_radius)
+    assert abs(outside_x - 40.0) < 1e-6 and abs(outside_z) < 1e-6
+    for seed in range(200):
+        px = ((seed * 17) % 41) - 20.0
+        pz = ((seed * 13) % 37) - 18.0
+        sx = ((seed * 29) % 80) - 40.0
+        sz = ((seed * 7) % 80) - 40.0
+        before = _clearance_distance(sx, sz, px, pz, arena)
+        ox, oz = _spawn_push(sx, sz, px, pz, minimum, max_radius)
+        if before + 1e-4 >= minimum:
+            assert abs(ox - sx) < 1e-4 and abs(oz - sz) < 1e-4, (seed, sx, sz, ox, oz)
+        after = _clearance_distance(ox, oz, px, pz, arena)
+        assert after + 1e-3 >= minimum, (seed, before, after, ox, oz, px, pz)
+        assert math.isfinite(ox) and math.isfinite(oz)
+
+    finale = audio.split("IEnumerator BossFinaleRoutine")[1].split("private void PlayTell")[0]
+    assert "PlayWaveClear" not in finale
+    complete = manager.split("private void CompleteWave()")[1].split("private bool TryAwardWorldMedal")[0]
+    assert "PlayWaveClear" in complete
+
+    bought = _shop_tile("Skrovbyte", 90, 5000, True, False, False, False, False, False, False, False, True, False, True)
+    maxed = _shop_tile("Skrovbyte", 90, 5000, True, True, False, False, False, False, False, False, True, False, True)
+    assert bought["label"] == "Skrovbyte\nKÖPT +"
+    assert maxed["status"] == "Mk II  MAX"
+    assert maxed["status"] != bought["status"]
+    assert _contrast(maxed["text"], maxed["fill"]) >= 4.5
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
     test_fail_stores_death_cause()
     test_fairness_047b()
+    test_c0_part_b_fixes()
     test_abort_keeps_wave_score_and_skips_bonus()
     test_arena_wrap_mirrors_opposite_edge()
     test_shop_cannot_overspend()

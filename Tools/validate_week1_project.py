@@ -1408,6 +1408,52 @@ def check_loc_key_parity(loc_src: str) -> None:
             err(f"Swedish credits.body is missing '{token}'")
 
 
+def check_canvas_sort(scripts: list[Path]) -> None:
+    """Overlay canvases stay above the hangar, and sort values come from CanvasOrder."""
+    order_path = ROOT / "Assets/Scripts/Core/CanvasOrder.cs"
+    if not order_path.exists():
+        err("missing CanvasOrder.cs")
+        return
+    order_src = read(order_path)
+    values = {name: int(value) for name, value in re.findall(r"public const int (\w+) = (\d+);", order_src)}
+    for name in ("Root", "ShipPreview", "HangarShop", "Overlay", "Boon", "Toast"):
+        if name not in values:
+            err(f"CanvasOrder missing {name}")
+    if values.get("Root") != 0:
+        err("CanvasOrder.Root must be 0")
+    hangar = values.get("HangarShop", 0)
+    for name in ("Overlay", "Boon", "Toast"):
+        if values.get(name, 0) <= hangar:
+            err(f"CanvasOrder.{name} must sort above HangarShop")
+    if not (values.get("ShipPreview", 0) < hangar):
+        err("CanvasOrder.ShipPreview must sort below HangarShop")
+    ui = read(ROOT / "Assets/Scripts/UI/GameUi.cs")
+    for call in (
+        "RaiseCanvas(_settingsRoot, CanvasOrder.Overlay)",
+        "RaiseCanvas(_confirmRoot, CanvasOrder.Overlay)",
+        "RaiseCanvas(_firstStartRoot, CanvasOrder.Overlay)",
+        "RaiseCanvas(_endCreditsRoot, CanvasOrder.Overlay)",
+        "RaiseCanvas(_tutorialRoot, CanvasOrder.Overlay)",
+        "RaiseCanvas(_hitFlash.gameObject, CanvasOrder.Toast)",
+        "RaiseCanvas(_achievementToast.gameObject, CanvasOrder.Toast)",
+    ):
+        if call not in ui:
+            err(f"GameUi overlay missing {call}")
+    assign = re.compile(r"\.sortingOrder\s*=")
+    for path in scripts:
+        src = read(path)
+        for index, line in enumerate(src.splitlines(), 1):
+            if not assign.search(line):
+                continue
+            if "renderer.sortingOrder" in line:
+                continue
+            if "CanvasOrder." in line:
+                continue
+            if "sortingOrder = sortOrder" in line and "void RaiseCanvas(" in src:
+                continue
+            err(f"{path.relative_to(ROOT)}:{index} canvas sortingOrder must use a CanvasOrder constant")
+
+
 def main() -> int:
     require(ROOT / "Packages/manifest.json")
     require(ROOT / "ProjectSettings/ProjectVersion.txt")
@@ -1898,6 +1944,8 @@ def main() -> int:
         err("Swedish settings copy missing")
     if "SettingsInputRouter.Route" not in game_ui or "OnHangarEscape()" not in game_ui:
         err("GameUi must route settings before hangar Esc")
+
+    check_canvas_sort(scripts)
 
     if "body.velocity" in blob or "_body.velocity" in blob:
         err("scripts still assign Rigidbody.velocity; use linearVelocity")

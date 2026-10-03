@@ -74,7 +74,7 @@ namespace AsteroidsGoneRogue
                 credits,
                 price);
 
-            string status = StatusLine(owned, mk2Offer, canApply, offPath, runOver, swedish, price, credits);
+            string status = StatusLine(owned, mk2Owned, mk2Offer, canApply, offPath, runOver, swedish, price, credits);
             ShopTileModel model = new ShopTileModel();
             model.Name = title;
             model.Status = status;
@@ -153,6 +153,7 @@ namespace AsteroidsGoneRogue
 
         public static string StatusLine(
             bool owned,
+            bool mk2Owned,
             bool mk2Offer,
             bool canApply,
             bool offPath,
@@ -165,6 +166,10 @@ namespace AsteroidsGoneRogue
             if (runOver)
             {
                 status = swedish ? "Rundan är slut" : "Run is over";
+            }
+            else if (owned && mk2Owned)
+            {
+                status = "Mk II  MAX";
             }
             else if (mk2Offer)
             {

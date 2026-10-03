@@ -4,24 +4,91 @@ namespace AsteroidsGoneRogue
 {
     /// <summary>
     /// Spawn clearance for 0.47 Part B. Enemies, hazards, and bolts must not
-    /// appear inside <see cref="MinSafeMetres"/> of the player. A candidate that
-    /// is already clear is kept; otherwise it is pushed out along the line from
-    /// the player (or +X when the points coincide). If a max arena radius is
-    /// given and the pushed point falls outside it, the point is flipped to the
-    /// opposite side of the player and then clamped.
+    /// appear inside <see cref="MinSafeMetres"/> of the player, including after
+    /// circular wrap. A candidate that is already clear stays put, even when it
+    /// sits past the clamp radius. Only a point that is too close is pushed
+    /// out. If that push falls outside the clamp radius, it is flipped to the
+    /// other side of the player and clamped, then checked again.
     /// </summary>
     public static class SpawnClearance
     {
         public const float MinSafeMetres = 6f;
         public const float SpawnGraceSeconds = 0.45f;
         public const float WaveImmunitySeconds = 1f;
+        /// <summary>Callers pass ArenaRadius - this. Wrap uses the full arena.</summary>
+        public const float ArenaClampSlack = 1.5f;
 
         public static bool IsSafe(float sx, float sz, float px, float pz, float minDistance)
         {
-            float dx = sx - px;
-            float dz = sz - pz;
-            float minSq = minDistance * minDistance;
-            return dx * dx + dz * dz + 0.00001f >= minSq;
+            return IsSafe(sx, sz, px, pz, minDistance, 0f);
+        }
+
+        public static bool IsSafe(float sx, float sz, float px, float pz, float minDistance, float arenaRadius)
+        {
+            return ClearanceDistance(sx, sz, px, pz, arenaRadius) + 0.0001f >= minDistance;
+        }
+
+        public static float PlanarDistance(float ax, float az, float bx, float bz)
+        {
+            float dx = ax - bx;
+            float dz = az - bz;
+            return Mathf.Sqrt(dx * dx + dz * dz);
+        }
+
+        /// <summary>
+        /// Straight-line distance, or the distance after <see cref="ArenaWrap.WrapXz"/>
+        /// when that appearance is closer. A bolt born past the rim shows up on the
+        /// opposite inner edge.
+        /// </summary>
+        public static float ClearanceDistance(float sx, float sz, float px, float pz, float arenaRadius)
+        {
+            float direct = PlanarDistance(sx, sz, px, pz);
+            if (arenaRadius <= 0f)
+            {
+                return direct;
+            }
+
+            float wrappedX;
+            float wrappedZ;
+            ArenaWrap.WrapXz(sx, sz, arenaRadius, out wrappedX, out wrappedZ);
+            float wrapped = PlanarDistance(wrappedX, wrappedZ, px, pz);
+            if (wrapped < direct)
+            {
+                return wrapped;
+            }
+
+            return direct;
+        }
+
+        public static float ArenaRadiusForClamp(float maxRadius)
+        {
+            if (maxRadius <= 0f)
+            {
+                return 0f;
+            }
+
+            return maxRadius + ArenaClampSlack;
+        }
+
+        public static void StepTowardCenter(float px, float pz, float minDistance, out float ox, out float oz)
+        {
+            float magSq = px * px + pz * pz;
+            float dirX;
+            float dirZ;
+            if (magSq < 0.0001f)
+            {
+                dirX = 1f;
+                dirZ = 0f;
+            }
+            else
+            {
+                float mag = Mathf.Sqrt(magSq);
+                dirX = -px / mag;
+                dirZ = -pz / mag;
+            }
+
+            ox = px + dirX * minDistance;
+            oz = pz + dirZ * minDistance;
         }
 
         public static void PushOut(
@@ -34,14 +101,38 @@ namespace AsteroidsGoneRogue
             out float ox,
             out float oz)
         {
-            float dx = sx - px;
-            float dz = sz - pz;
+            float arenaRadius = ArenaRadiusForClamp(maxRadius);
+            if (IsSafe(sx, sz, px, pz, minDistance, arenaRadius))
+            {
+                ox = sx;
+                oz = sz;
+                return;
+            }
+
+            float srcX = sx;
+            float srcZ = sz;
+            if (arenaRadius > 0f)
+            {
+                float wrappedX;
+                float wrappedZ;
+                ArenaWrap.WrapXz(sx, sz, arenaRadius, out wrappedX, out wrappedZ);
+                float direct = PlanarDistance(sx, sz, px, pz);
+                float wrapped = PlanarDistance(wrappedX, wrappedZ, px, pz);
+                if (wrapped + 0.00001f < minDistance && wrapped <= direct + 0.00001f)
+                {
+                    srcX = wrappedX;
+                    srcZ = wrappedZ;
+                }
+            }
+
+            float dx = srcX - px;
+            float dz = srcZ - pz;
             float distSq = dx * dx + dz * dz;
             float minSq = minDistance * minDistance;
             if (distSq + 0.00001f >= minSq)
             {
-                ox = sx;
-                oz = sz;
+                ox = srcX;
+                oz = srcZ;
             }
             else
             {
@@ -69,34 +160,44 @@ namespace AsteroidsGoneRogue
 
             float outSq = ox * ox + oz * oz;
             float maxSq = maxRadius * maxRadius;
-            if (outSq <= maxSq)
+            if (outSq > maxSq)
             {
-                return;
+                float awayX = ox - px;
+                float awayZ = oz - pz;
+                float awaySq = awayX * awayX + awayZ * awayZ;
+                float away;
+                if (awaySq < 0.0001f)
+                {
+                    awayX = 1f;
+                    awayZ = 0f;
+                    away = 1f;
+                }
+                else
+                {
+                    away = Mathf.Sqrt(awaySq);
+                }
+
+                ox = px - awayX / away * minDistance;
+                oz = pz - awayZ / away * minDistance;
+                outSq = ox * ox + oz * oz;
+                if (outSq > maxSq && outSq > 0.0001f)
+                {
+                    float radialClamp = maxRadius / Mathf.Sqrt(outSq);
+                    ox *= radialClamp;
+                    oz *= radialClamp;
+                }
             }
 
-            float awayX = ox - px;
-            float awayZ = oz - pz;
-            float awaySq = awayX * awayX + awayZ * awayZ;
-            float away;
-            if (awaySq < 0.0001f)
+            if (!IsSafe(ox, oz, px, pz, minDistance, arenaRadius))
             {
-                awayX = 1f;
-                awayZ = 0f;
-                away = 1f;
-            }
-            else
-            {
-                away = Mathf.Sqrt(awaySq);
-            }
-
-            ox = px - awayX / away * minDistance;
-            oz = pz - awayZ / away * minDistance;
-            outSq = ox * ox + oz * oz;
-            if (outSq > maxSq && outSq > 0.0001f)
-            {
-                float clamp = maxRadius / Mathf.Sqrt(outSq);
-                ox *= clamp;
-                oz *= clamp;
+                StepTowardCenter(px, pz, minDistance, out ox, out oz);
+                outSq = ox * ox + oz * oz;
+                if (outSq > maxSq && outSq > 0.0001f)
+                {
+                    float inwardClamp = maxRadius / Mathf.Sqrt(outSq);
+                    ox *= inwardClamp;
+                    oz *= inwardClamp;
+                }
             }
         }
 
@@ -144,6 +245,44 @@ namespace AsteroidsGoneRogue
             float oz;
             PushOut(spawn.x, spawn.z, player.x, player.z, MinSafeMetres, maxRadius, out ox, out oz);
             return new Vector3(ox, spawn.y, oz);
+        }
+    }
+
+    /// <summary>
+    /// Aimed-gun telegraph. The line and the bolt share one direction so the
+    /// warning cannot point up to ~52 degrees away from the shot.
+    /// </summary>
+    public static class BoltTelegraph
+    {
+        public static void Direction(float ax, float az, out float dx, out float dz)
+        {
+            float magSq = ax * ax + az * az;
+            if (magSq < 0.0001f)
+            {
+                dx = 0f;
+                dz = 1f;
+                return;
+            }
+
+            float mag = Mathf.Sqrt(magSq);
+            dx = ax / mag;
+            dz = az / mag;
+        }
+
+        public static void End(
+            float ox,
+            float oz,
+            float ax,
+            float az,
+            float length,
+            out float ex,
+            out float ez)
+        {
+            float dx;
+            float dz;
+            Direction(ax, az, out dx, out dz);
+            ex = ox + dx * length;
+            ez = oz + dz * length;
         }
     }
 

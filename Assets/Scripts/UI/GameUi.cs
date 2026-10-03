@@ -258,7 +258,7 @@ namespace AsteroidsGoneRogue
         public const float ShopGridTop = 0.665f;
         public const float ShopCellHeight = 0.094f;
         public const float ShopCellGutter = 0.016f;
-        public const int ShipPreviewSortOrder = 80;
+        public const int ShipPreviewSortOrder = CanvasOrder.ShipPreview;
         public const string ShipPreviewCanvasName = "ShipPreviewCanvas";
         public const string FirstHangarHintKey = "agr.ui.firstHangarHint";
         public const string DoctrineHintKey = "agr.ui.doctrineHint";
@@ -585,6 +585,7 @@ namespace AsteroidsGoneRogue
             _vignette = BuildPlayVignette();
             _hitFlash = CreateFill("ScreenFlash", transform, new Color(1f, 0.96f, 0.92f, 0f),
                 new Vector2(0f, 0f), new Vector2(1f, 1f)).GetComponent<Image>();
+            RaiseCanvas(_hitFlash.gameObject, CanvasOrder.Toast);
 
             _hudPlate = UiTheme.BuildPanel(
                 "HudPlate",
@@ -662,8 +663,10 @@ namespace AsteroidsGoneRogue
             Stretch(_achievementToast.rectTransform, ToastMin, ToastMax);
             ClampOneLine(_achievementToast);
             _achievementToast.color = UiAmber;
+            _achievementToast.raycastTarget = false;
             _achievementToast.gameObject.SetActive(false);
             AddReadability(_achievementToast, true);
+            RaiseCanvas(_achievementToast.gameObject, CanvasOrder.Toast);
 
             _status = CreateText("Status", _menuRoot.transform, body, UiTheme.BodyMin, TextAnchor.MiddleLeft, FontStyle.Bold);
             // Hover/focus description sits under the shop grid, not in WAVE CLEAR or shop cells.
@@ -902,7 +905,7 @@ namespace AsteroidsGoneRogue
                 canvas.renderMode = RenderMode.ScreenSpaceOverlay;
                 canvas.pixelPerfect = false;
                 canvas.overrideSorting = true;
-                canvas.sortingOrder = ShipPreviewSortOrder;
+                canvas.sortingOrder = CanvasOrder.ShipPreview;
                 CanvasScaler scaler = canvasGo.AddComponent<CanvasScaler>();
                 scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
                 scaler.referenceResolution = new Vector2(1920f, 1080f);
@@ -916,7 +919,7 @@ namespace AsteroidsGoneRogue
             {
                 overlay.renderMode = RenderMode.ScreenSpaceOverlay;
                 overlay.overrideSorting = true;
-                overlay.sortingOrder = ShipPreviewSortOrder;
+                overlay.sortingOrder = CanvasOrder.ShipPreview;
                 overlay.enabled = true;
             }
 
@@ -985,7 +988,7 @@ namespace AsteroidsGoneRogue
                 {
                     overlay.enabled = show;
                     overlay.overrideSorting = true;
-                    overlay.sortingOrder = ShipPreviewSortOrder;
+                    overlay.sortingOrder = CanvasOrder.ShipPreview;
                     overlay.renderMode = RenderMode.ScreenSpaceOverlay;
                 }
             }
@@ -1040,6 +1043,27 @@ namespace AsteroidsGoneRogue
             RaiseBoonModal();
         }
 
+        private static void RaiseCanvas(GameObject root, int sortOrder)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            Canvas overlayCanvas = root.GetComponent<Canvas>();
+            if (overlayCanvas == null)
+            {
+                overlayCanvas = root.AddComponent<Canvas>();
+            }
+
+            overlayCanvas.overrideSorting = true;
+            overlayCanvas.sortingOrder = sortOrder;
+            if (root.GetComponent<GraphicRaycaster>() == null)
+            {
+                root.AddComponent<GraphicRaycaster>();
+            }
+        }
+
         private void RaiseShopAbovePreview()
         {
             if (_menuRoot == null)
@@ -1054,7 +1078,7 @@ namespace AsteroidsGoneRogue
             }
 
             shopCanvas.overrideSorting = true;
-            shopCanvas.sortingOrder = ShopGridLayout.ShopSortOrder;
+            shopCanvas.sortingOrder = CanvasOrder.HangarShop;
             GraphicRaycaster shopCaster = _menuRoot.GetComponent<GraphicRaycaster>();
             if (shopCaster == null)
             {
@@ -1101,7 +1125,7 @@ namespace AsteroidsGoneRogue
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.pixelPerfect = false;
             canvas.overrideSorting = true;
-            canvas.sortingOrder = BoonCardLayout.ModalSortOrder;
+            canvas.sortingOrder = CanvasOrder.Boon;
             CanvasScaler scaler = canvasGo.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(BoonCardLayout.RefWidth, BoonCardLayout.RefHeight);
@@ -1125,7 +1149,7 @@ namespace AsteroidsGoneRogue
 
             boonOverlay.renderMode = RenderMode.ScreenSpaceOverlay;
             boonOverlay.overrideSorting = true;
-            boonOverlay.sortingOrder = BoonCardLayout.ModalSortOrder;
+            boonOverlay.sortingOrder = CanvasOrder.Boon;
             boonOverlay.enabled = _boonCanvas.activeSelf;
             GraphicRaycaster boonCaster = _boonCanvas.GetComponent<GraphicRaycaster>();
             if (boonCaster != null)
@@ -1269,6 +1293,9 @@ namespace AsteroidsGoneRogue
             int size = group == ShopGroup.Hull ? UiTheme.ShopHullSize : UiTheme.ShopNameSize;
             label.font = UiFonts.Body();
             label.fontSize = size;
+            label.resizeTextForBestFit = true;
+            label.resizeTextMinSize = 10;
+            label.resizeTextMaxSize = size;
             label.fontStyle = FontStyle.Normal;
             label.lineSpacing = UiTheme.ShopLineSpacing;
             label.alignment = TextAnchor.MiddleCenter;
@@ -1869,6 +1896,7 @@ namespace AsteroidsGoneRogue
             _gotItLabel.fontSize = 15;
             _gotItButton.onClick.AddListener(OnDismissHintClicked);
             UiTheme.ApplyButton(_gotItButton, true, false, false);
+            RaiseCanvas(_tutorialRoot, CanvasOrder.Overlay);
             _tutorialRoot.SetActive(false);
         }
 
@@ -1990,6 +2018,7 @@ namespace AsteroidsGoneRogue
                 UiTheme.HeaderWash,
                 UiTheme.HeaderRule,
                 UiTheme.WithAlpha(UiTheme.Void, 0.96f));
+            RaiseCanvas(_endCreditsRoot, CanvasOrder.Overlay);
             Image scrim = _endCreditsRoot.GetComponent<Image>();
             if (scrim != null)
             {
@@ -5048,6 +5077,7 @@ namespace AsteroidsGoneRogue
             _settingsRoot = new GameObject("SettingsRoot");
             _settingsRoot.transform.SetParent(transform, false);
             Stretch(_settingsRoot.AddComponent<RectTransform>(), Vector2.zero, Vector2.one);
+            RaiseCanvas(_settingsRoot, CanvasOrder.Overlay);
 
             GameObject scrim = CreateFill(
                 "SettingsScrim",
@@ -6011,6 +6041,7 @@ namespace AsteroidsGoneRogue
             _confirmRoot = new GameObject("ConfirmRoot");
             _confirmRoot.transform.SetParent(transform, false);
             Stretch(_confirmRoot.AddComponent<RectTransform>(), Vector2.zero, Vector2.one);
+            RaiseCanvas(_confirmRoot, CanvasOrder.Overlay);
 
             GameObject scrim = CreateFill(
                 "ConfirmScrim",
@@ -6762,6 +6793,7 @@ namespace AsteroidsGoneRogue
             _firstStartRoot = new GameObject("FirstStart");
             _firstStartRoot.transform.SetParent(transform, false);
             Stretch(_firstStartRoot.AddComponent<RectTransform>(), Vector2.zero, Vector2.one);
+            RaiseCanvas(_firstStartRoot, CanvasOrder.Overlay);
 
             GameObject firstScrim = CreateFill(
                 "FirstStartScrim",
