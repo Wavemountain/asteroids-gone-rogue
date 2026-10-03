@@ -304,6 +304,11 @@ namespace AsteroidsGoneRogue
                 float ring = (i % 2 == 0) ? radius : radius * (BeltOuterRadiusScale / BeltRadiusScale);
                 float angle = (Mathf.PI * 2f * i) / count + (i % 2) * 0.18f;
                 float y = Mathf.Lerp(-0.5f, 3.2f, ((i * 3) % 11) / 10f);
+                if (y > DecorDepthRules.MaxDecorTop)
+                {
+                    y = DecorDepthRules.MaxDecorTop;
+                }
+
                 Vector3 pos = new Vector3(Mathf.Cos(angle) * ring, y, Mathf.Sin(angle) * ring);
                 string rock = BeltRocks[i % BeltRocks.Length];
                 Transform slot = new GameObject("Belt_" + i).transform;
@@ -332,6 +337,8 @@ namespace AsteroidsGoneRogue
                         renderer.sharedMaterial = _beltTint;
                     }
                 }
+
+                DecorDepthClamp.ClampTop(slot.gameObject, DecorDepthRules.MaxDecorTop);
             }
         }
 

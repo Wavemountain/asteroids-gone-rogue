@@ -6651,6 +6651,121 @@ def test_boon_card_layout() -> None:
     assert total == 1536 and bad == 0 and dead == 0
 
 
+def _decor_consts(text: str) -> dict:
+    import re
+
+    consts = {}
+    for name, value in re.findall(r"public const float (\w+) = (-?[0-9.]+)f;", text):
+        consts[name] = float(value)
+    return consts
+
+
+def _decor_distance(x: float, y: float, z: float, rules: dict) -> float:
+    import math
+
+    dx = x
+    dy = y - rules["CameraOffsetY"]
+    dz = z - rules["CameraOffsetZ"]
+    return math.sqrt((dx * dx) + (dy * dy) + (dz * dz))
+
+
+def test_decor_depth_047b() -> None:
+    """Every world keeps decor under the fight camera and behind gameplay."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    rules_src = (root / "Assets/Scripts/Core/DecorDepthRules.cs").read_text(encoding="utf-8")
+    clamp_src = (root / "Assets/Scripts/Content/DecorDepthClamp.cs").read_text(encoding="utf-8")
+    camera_src = (root / "Assets/Scripts/Content/DecorCameraStack.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    env = (root / "Assets/Scripts/Content/ArenaEnv.cs").read_text(encoding="utf-8")
+    bootstrap = (root / "Assets/Scripts/Content/GameBootstrap.cs").read_text(encoding="utf-8")
+    tags = (root / "ProjectSettings/TagManager.asset").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+    rules = _decor_consts(rules_src)
+
+    assert "using UnityEngine" not in rules_src
+    assert "class DecorDepthRules" in rules_src
+    assert "ClampedTop" in rules_src and "CameraDistance" in rules_src and "RayHeight" in rules_src
+    assert "ArenaRadius = 30f" in waves and "ArenaDesignRadius = 22f" in waves
+    assert abs(rules["ArenaRadius"] - 30.0) < 1e-4
+    assert abs(rules["ArenaDesignRadius"] - 22.0) < 1e-4
+    scale = rules["ArenaRadius"] / rules["ArenaDesignRadius"]
+    assert "DecorDepthClamp.ClampTop" in factory
+    assert "DecorDepthClamp.KeepGameplay" in factory
+    assert "DecorCameraStack.ApplyLayer" in factory
+    assert "DecorCameraStack.Attach" in bootstrap
+    assert "fieldOfView = 54f" in bootstrap
+    assert "CameraClearFlags.Depth" in camera_src
+    assert "cullingMask" in camera_src
+    assert "DecorCamera" in camera_src
+    assert "ArenaDecor" in tags
+    assert "HangarPreview" in tags
+    assert "-0.5f, 3.2f" in env
+    assert "DecorDepthRules.MaxDecorTop" in env
+    assert "class DecorDepthClamp" in clamp_src
+
+    def clamped(top: float) -> float:
+        return top if top <= rules["MaxDecorTop"] else rules["MaxDecorTop"]
+
+    pieces = {
+        1: (
+            ("Floor", 0.0, 0.0, rules["FloorTop"]),
+            ("Rim", 0.0, rules["RimSouthZ"], rules["RimTop"]),
+        ),
+        2: (
+            ("Blockout", 0.0, -(rules["MeshZWorld2"] * scale), rules["MeshYWorld2"] * scale),
+            ("Pylon", 0.0, -rules["PylonRadius"], rules["SpikeMeshY"] * rules["PylonScale"]),
+        ),
+        3: (
+            ("Blockout", 0.0, -(rules["MeshZWorld3"] * scale), rules["MeshYWorld3"] * scale),
+            ("Trench", -8.2, rules["TrenchSouthZ"], rules["TrenchTop"]),
+        ),
+        4: (
+            ("Blockout", 0.0, -(rules["MeshZWorld4"] * scale), rules["MeshYWorld4"] * scale),
+            ("Mine", 0.0, -rules["MineRadius"], rules["SpikeMeshY"] * rules["MineScale"]),
+        ),
+        5: (
+            ("Blockout", 0.0, -(rules["MeshZWorld5"] * scale), rules["MeshYWorld5"] * scale),
+            ("Gate", 0.0, rules["GateSouthZ"], rules["GateTop"]),
+        ),
+        6: (
+            ("Blockout", 0.0, -(rules["MeshZWorld6"] * scale), rules["MeshYWorld6"] * scale),
+            ("Island", -10.5, rules["IslandSouthZ"], rules["IslandMeshY"] * rules["IslandFit"] * rules["IslandScale"]),
+        ),
+        7: (
+            ("Floor", 0.0, 0.0, rules["FloorTop"]),
+            ("Spoke", 0.0, rules["SpokeSouthZ"], rules["SpokeTop"]),
+            ("Spike", 0.0, -7.2, rules["SpikeMeshY"] * rules["SpokeSpikeScale"]),
+        ),
+    }
+    belt_z = -(rules["ArenaRadius"] * rules["BeltOuterScale"])
+    pieces[1] = pieces[1] + (("Belt", 0.0, belt_z, rules["BeltTop"]),)
+
+    affected = []
+    for world in range(1, 8):
+        for name, x, z, top in pieces[world]:
+            assert clamped(top) <= rules["MaxDecorTop"] + 1e-4, (world, name, top)
+            dist = _decor_distance(x, clamped(top), z, rules)
+            assert dist >= rules["MinCameraDistance"], (world, name, dist, clamped(top))
+            gap = -z if z < 0.0 else 0.0
+            span = -rules["CameraOffsetZ"]
+            ray = rules["PlayY"] + ((rules["CameraOffsetY"] - rules["PlayY"]) * (gap / span))
+            assert clamped(top) <= ray + 1e-3, (world, name, clamped(top), ray)
+            if top > rules["MaxDecorTop"]:
+                affected.append((world, name, round(top, 2)))
+
+    assert (2, "Blockout") in [(w, n) for w, n, _t in affected]
+    assert (3, "Blockout") in [(w, n) for w, n, _t in affected]
+    assert (4, "Blockout") in [(w, n) for w, n, _t in affected]
+    assert (5, "Blockout") in [(w, n) for w, n, _t in affected]
+    assert (6, "Blockout") in [(w, n) for w, n, _t in affected]
+    assert rules["MeshYWorld6"] * scale > rules["MeshYWorld2"] * scale
+    assert rules["FloorTop"] < rules["MaxDecorTop"]
+    raw6 = _decor_distance(0.0, rules["MeshYWorld6"] * scale, -(rules["MeshZWorld6"] * scale), rules)
+    assert raw6 < rules["MinCameraDistance"]
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -6710,6 +6825,7 @@ def main() -> int:
     test_long_haul_difficulty_046()
     test_world_flavour_and_boons()
     test_boon_card_layout()
+    test_decor_depth_047b()
     test_longhaul_balance_046e()
     test_sector_chip_differs_from_title()
     test_upgrades_line_fits_card()
