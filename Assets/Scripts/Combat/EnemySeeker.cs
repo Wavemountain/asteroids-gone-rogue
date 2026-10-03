@@ -97,6 +97,12 @@ namespace AsteroidsGoneRogue
                 _speed = _speed * _fireRatePercent / 100f;
             }
 
+            int worldFire = WorldRules.EnemyFirePercentFor(waveNumber);
+            if (worldFire > 100 && EnemyCatalog.FiresBolts(kind))
+            {
+                _fireRatePercent = _fireRatePercent * worldFire / 100;
+            }
+
             _dead = false;
             _boss = false;
             _elite = false;

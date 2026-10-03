@@ -162,7 +162,7 @@ namespace AsteroidsGoneRogue
                     }
                 }
 
-                float charge = (Time.time - _chargeStart) / DoctrineRules.RailHoldSeconds;
+                float charge = (Time.time - _chargeStart) / RailHoldNeed();
                 SetChargeGlow(charge);
                 if (AudioCues.Instance != null)
                 {
@@ -188,17 +188,34 @@ namespace AsteroidsGoneRogue
             }
 
             float full = loadout.RailCooldown;
-            if (heldFor + 0.0001f >= DoctrineRules.RailHoldSeconds)
+            bool railReady = heldFor + 0.0001f >= DoctrineRules.RailHoldSeconds
+                || heldFor + 0.0001f >= RailHoldNeed();
+            if (railReady)
             {
                 _railFiredAt = Time.time;
                 _railFullCd = full;
                 _nextFireTime = Time.time + full;
                 FireRail(loadout);
+                if (heldFor + 0.0001f < DoctrineRules.RailHoldSeconds)
+                {
+                    heldFor = DoctrineRules.RailHoldSeconds;
+                }
+
                 NotifyRailCharged(heldFor);
                 return;
             }
 
             _nextFireTime = Time.time + full * DoctrineRules.RailMissCancelCooldownMul;
+        }
+
+        private static float RailHoldNeed()
+        {
+            if (BoonHooks.RailChargePercent <= 100)
+            {
+                return DoctrineRules.RailHoldSeconds;
+            }
+
+            return DoctrineRules.RailHoldSeconds * 100f / BoonHooks.RailChargePercent;
         }
 
         private static void NotifyRailCharged(float heldSeconds)
@@ -250,6 +267,10 @@ namespace AsteroidsGoneRogue
 
             float cooldown = loadout.FireCooldown * WeaponSlots.PrimaryCooldownMul(mode);
             cooldown *= loadout.PrimaryExtraMul(mode);
+            if (BoonHooks.FireRatePercent > 0)
+            {
+                cooldown = cooldown * 100f / BoonHooks.FireRatePercent;
+            }
             if (mode == FireMode.Spread && loadout.Storm)
             {
                 cooldown = Mathf.Max(cooldown, DoctrineRules.StormSeconds);
@@ -292,6 +313,11 @@ namespace AsteroidsGoneRogue
             else if (mode == FireMode.Ricochet)
             {
                 cooldown = LoadoutState.RicochetFireCooldown;
+            }
+
+            if (BoonHooks.UtilityCooldownPercent > 0 && BoonHooks.UtilityCooldownPercent != 100)
+            {
+                cooldown = cooldown * BoonHooks.UtilityCooldownPercent / 100f;
             }
 
             _utilityCooldownDuration = cooldown;

@@ -124,10 +124,17 @@ namespace AsteroidsGoneRogue
                 input.Normalize();
             }
 
-            _body.AddForce(input * Thrust, ForceMode.Acceleration);
-            if (_body.linearVelocity.sqrMagnitude > MaxSpeed * MaxSpeed)
+            float moveScale = BoonHooks.MovePercent / 100f;
+            if (moveScale < 0.1f)
             {
-                _body.linearVelocity = _body.linearVelocity.normalized * MaxSpeed;
+                moveScale = 0.1f;
+            }
+
+            _body.AddForce(input * (Thrust * moveScale), ForceMode.Acceleration);
+            float speedCap = MaxSpeed * moveScale;
+            if (_body.linearVelocity.sqrMagnitude > speedCap * speedCap)
+            {
+                _body.linearVelocity = _body.linearVelocity.normalized * speedCap;
             }
 
             ClampToArena();

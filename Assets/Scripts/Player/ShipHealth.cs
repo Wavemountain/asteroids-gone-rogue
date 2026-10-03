@@ -66,6 +66,12 @@ namespace AsteroidsGoneRogue
             _hull = _maxHull;
             _maxShield = loadout != null ? loadout.CurrentMaxShield : LoadoutState.MaxShieldCharges;
             _shield = loadout != null ? loadout.ShieldCharges : 0;
+            int waveShield = BoonHooks.StartingShield;
+            if (waveShield > 0 && _shield < _maxShield)
+            {
+                int raisedShield = _shield + waveShield;
+                _shield = raisedShield > _maxShield ? _maxShield : raisedShield;
+            }
             _lastCause = DamageCause.Unknown;
             _lastEnemyKind = EnemyKind.Mid01;
             ClearInvulnerability();
@@ -130,6 +136,12 @@ namespace AsteroidsGoneRogue
             }
 
             amount = DifficultySettings.ScaleIncomingDamage(amount, cause);
+            if (BoonHooks.IncomingPercent < 100 && amount > 0)
+            {
+                int resisted = amount * BoonHooks.IncomingPercent / 100;
+                amount = resisted < 1 ? 1 : resisted;
+            }
+
             if (amount <= 0)
             {
                 return;

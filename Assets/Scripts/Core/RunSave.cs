@@ -32,12 +32,15 @@ namespace AsteroidsGoneRogue
         public int LegacyHull;
         public int FirstDiscount;
         public int FirstDiscountUsed;
+        public int BoonLevels;
+        public int BoonPending;
+        public int BoonOffer;
         public string Timestamp = string.Empty;
     }
 
     public static class RunSaveCodec
     {
-        public const int CurrentVersion = 1;
+        public const int CurrentVersion = 2;
         public const int UpgradeBitCount = 22;
         public const int MaxWave = 9999;
         public const int MaxScore = 100000000;
@@ -68,7 +71,8 @@ namespace AsteroidsGoneRogue
             LoadoutState loadout,
             int difficulty,
             int runId,
-            string timestamp)
+            string timestamp,
+            BoonRun boons)
         {
             RunSaveData data = new RunSaveData();
             data.Version = CurrentVersion;
@@ -101,6 +105,13 @@ namespace AsteroidsGoneRogue
             data.Difficulty = difficulty;
             data.RunId = runId;
             data.Timestamp = timestamp == null ? string.Empty : timestamp;
+            if (boons != null)
+            {
+                data.BoonLevels = boons.PackedLevels();
+                data.BoonPending = boons.Pending ? 1 : 0;
+                data.BoonOffer = boons.PackedOffer();
+            }
+
             return data;
         }
 
@@ -144,7 +155,7 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (data.Version != CurrentVersion)
+            if (data.Version != 1 && data.Version != CurrentVersion)
             {
                 return false;
             }
@@ -245,6 +256,24 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            if (data.Version == CurrentVersion)
+            {
+                if (!BoonCatalog.LevelsValid(data.BoonLevels))
+                {
+                    return false;
+                }
+
+                if (data.BoonPending != 0 && data.BoonPending != 1)
+                {
+                    return false;
+                }
+
+                if (!BoonCatalog.OfferValid(data.BoonOffer, data.BoonPending, data.BoonLevels))
+                {
+                    return false;
+                }
+            }
+
             return true;
         }
 
@@ -276,6 +305,9 @@ namespace AsteroidsGoneRogue
                 && left.LegacyHull == right.LegacyHull
                 && left.FirstDiscount == right.FirstDiscount
                 && left.FirstDiscountUsed == right.FirstDiscountUsed
+                && left.BoonLevels == right.BoonLevels
+                && left.BoonPending == right.BoonPending
+                && left.BoonOffer == right.BoonOffer
                 && left.Timestamp == right.Timestamp;
         }
 
@@ -309,6 +341,9 @@ namespace AsteroidsGoneRogue
             AppendInt(builder, "LegacyHull", data.LegacyHull, false);
             AppendInt(builder, "FirstDiscount", data.FirstDiscount, false);
             AppendInt(builder, "FirstDiscountUsed", data.FirstDiscountUsed, false);
+            AppendInt(builder, "BoonLevels", data.BoonLevels, false);
+            AppendInt(builder, "BoonPending", data.BoonPending, false);
+            AppendInt(builder, "BoonOffer", data.BoonOffer, false);
             builder.Append(",\"Timestamp\":\"");
             builder.Append(Escape(data.Timestamp));
             builder.Append("\"}");
@@ -401,7 +436,19 @@ namespace AsteroidsGoneRogue
                 }
             }
 
-            if (!sawVersion || !IsValid(parsed))
+            if (!sawVersion)
+            {
+                return false;
+            }
+
+            if (parsed.Version == 1)
+            {
+                parsed.BoonLevels = 0;
+                parsed.BoonPending = 0;
+                parsed.BoonOffer = 0;
+            }
+
+            if (!IsValid(parsed))
             {
                 return false;
             }
@@ -486,6 +533,15 @@ namespace AsteroidsGoneRogue
                     return true;
                 case "FirstDiscountUsed":
                     data.FirstDiscountUsed = number;
+                    return true;
+                case "BoonLevels":
+                    data.BoonLevels = number;
+                    return true;
+                case "BoonPending":
+                    data.BoonPending = number;
+                    return true;
+                case "BoonOffer":
+                    data.BoonOffer = number;
                     return true;
                 default:
                     return true;

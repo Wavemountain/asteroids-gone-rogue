@@ -70,6 +70,46 @@ namespace AsteroidsGoneRogue
             return line;
         }
 
+        public static string ContinueRuleLine(int waveIndex)
+        {
+            return WorldRules.ShortLineForWave(waveIndex);
+        }
+
+        public static string BoonLine(int[] levels)
+        {
+            if (levels == null)
+            {
+                return string.Empty;
+            }
+
+            string joined = string.Empty;
+            int cap = levels.Length < BoonCatalog.Count ? levels.Length : BoonCatalog.Count;
+            for (int index = 0; index < cap; index++)
+            {
+                if (levels[index] <= 0)
+                {
+                    continue;
+                }
+
+                string piece = BoonCatalog.OwnedLabel(index, levels[index]);
+                if (string.IsNullOrEmpty(joined))
+                {
+                    joined = piece;
+                }
+                else
+                {
+                    joined += " · " + piece;
+                }
+            }
+
+            if (string.IsNullOrEmpty(joined))
+            {
+                return string.Empty;
+            }
+
+            return Loc.Tf("boon.row", "Bonuses  {0}", joined);
+        }
+
         public static bool LineFits(string text, float boxWidth, int fontSize)
         {
             if (string.IsNullOrEmpty(text))

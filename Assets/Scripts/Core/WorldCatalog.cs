@@ -153,6 +153,12 @@ namespace AsteroidsGoneRogue
                 banner += "\n" + tipLine;
             }
 
+            string ruleLine = WorldRules.BannerLineForWave(waveIndex);
+            if (!string.IsNullOrEmpty(ruleLine))
+            {
+                banner += "\n" + ruleLine;
+            }
+
             return banner;
         }
 

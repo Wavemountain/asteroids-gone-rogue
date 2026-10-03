@@ -38,6 +38,19 @@ namespace AsteroidsGoneRogue
 
         public int ActiveRunId { get; private set; }
 
+        private readonly BoonRun _boonRun = new BoonRun();
+        private int _boonChosenFrame = -1;
+
+        public BoonRun Boons
+        {
+            get { return _boonRun; }
+        }
+
+        public bool BoonChoiceOpen
+        {
+            get { return _boonRun != null && _boonRun.Pending; }
+        }
+
         private bool _runLaunched;
 
         private bool _legacyApplied;
@@ -181,9 +194,32 @@ namespace AsteroidsGoneRogue
             _session.MarkWaveHit();
         }
 
+        public bool TryChooseBoon(int index)
+        {
+            if (_boonRun == null || Time.frameCount == _boonChosenFrame)
+            {
+                return false;
+            }
+
+            if (!_boonRun.TryChoose(index))
+            {
+                return false;
+            }
+
+            _boonChosenFrame = Time.frameCount;
+            BoonHooks.Sync(_boonRun);
+            RaiseStateChanged();
+            return true;
+        }
+
         public void StartWave()
         {
             if (!_session.CanStartWave)
+            {
+                return;
+            }
+
+            if (BoonChoiceOpen)
             {
                 return;
             }
@@ -422,6 +458,7 @@ namespace AsteroidsGoneRogue
             AwardLegacy(true);
             PendingContinue = null;
             RunSaveStore.DeleteRun();
+            ClearBoons();
             RaiseStateChanged();
         }
 
@@ -467,6 +504,8 @@ namespace AsteroidsGoneRogue
                 data.LastRunScore,
                 data.LastCreditsAwarded,
                 data.ExtraLifeStreak);
+            _boonRun.ReadSave(data.BoonLevels, data.BoonPending, data.BoonOffer);
+            BoonHooks.Sync(_boonRun);
             if (_ship != null)
             {
                 _ship.SetInputEnabled(false);
@@ -556,6 +595,7 @@ namespace AsteroidsGoneRogue
                 _session.ResetRun();
             }
 
+            ClearBoons();
             EnsureRunId();
             ApplyLegacyToNewRun();
         }
@@ -631,7 +671,9 @@ namespace AsteroidsGoneRogue
             _ship.SetInputEnabled(false);
             _waves.DespawnAll();
             int clearCredits = DifficultyCurve.ScaleCredits(DifficultySettings.WaveClearCredits, clearedWave);
+            clearCredits = BoonHooks.ScaleCredits(clearCredits);
             _session.CompleteWave(ScoreValues.WaveClearBonus, clearCredits);
+            OfferBoonChoice(clearedWave);
 
             RecordBest(clearedWave);
             TryUnlockWaveAchievements(clearedWave, noHit);
@@ -927,7 +969,7 @@ namespace AsteroidsGoneRogue
 
             EnsureRunId();
             string stamp = System.DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture);
-            RunSaveData data = RunSaveCodec.Capture(_session, _loadout.State, (int)DifficultySettings.Current, ActiveRunId, stamp);
+            RunSaveData data = RunSaveCodec.Capture(_session, _loadout.State, (int)DifficultySettings.Current, ActiveRunId, stamp, _boonRun);
             if (!RunSaveCodec.IsValid(data))
             {
                 return;
@@ -980,6 +1022,34 @@ namespace AsteroidsGoneRogue
             }
 
             MaybeWriteRun();
+        }
+
+        private void OfferBoonChoice(int clearedWave)
+        {
+            if (!CampaignCap.IsWorldBoundary(clearedWave) || _boonRun == null)
+            {
+                return;
+            }
+
+            EnsureRunId();
+            int clearedWorld = WorldCatalog.NumberForWave(clearedWave);
+            int[] offer = BoonCatalog.Draw(ActiveRunId, clearedWorld, _boonRun.Levels);
+            if (offer.Length < BoonCatalog.OfferCount)
+            {
+                return;
+            }
+
+            _boonRun.SetPending(offer);
+        }
+
+        private void ClearBoons()
+        {
+            if (_boonRun != null)
+            {
+                _boonRun.Clear();
+            }
+
+            BoonHooks.Reset();
         }
     }
 }

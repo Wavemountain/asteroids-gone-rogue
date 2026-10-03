@@ -6028,6 +6028,7 @@ def main() -> int:
     test_worlds_intro_medals()
     test_save_continue_legacy()
     test_long_haul_difficulty_046()
+    test_world_flavour_and_boons()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -6726,8 +6727,28 @@ def _save_to_json(data: dict) -> str:
     return "{" + ",".join(parts) + f',"Timestamp":"{stamp}"' + "}"
 
 
+def _boon_levels_valid(packed: int) -> bool:
+    return 0 <= packed < (1 << (9 * 2))
+
+
+def _boon_offer_valid(packed: int, pending: int, levels_packed: int) -> bool:
+    if pending == 0:
+        return packed == 0
+    if packed < 0 or packed >= (1 << 12):
+        return False
+    levels = [(levels_packed >> (index * 2)) & 3 for index in range(9)]
+    seen = [0] * 9
+    for slot in range(3):
+        boon_id = (packed >> (slot * 4)) & 15
+        if boon_id < 0 or boon_id >= 9 or seen[boon_id] or levels[boon_id] >= 3:
+            return False
+        seen[boon_id] = 1
+    return True
+
+
 def _save_valid(data: dict) -> bool:
-    if data.get("Version") != 1:
+    version = data.get("Version")
+    if version not in (1, 2):
         return False
     if not 1 <= data.get("WaveIndex", 0) <= 9999:
         return False
@@ -6769,7 +6790,16 @@ def _save_valid(data: dict) -> bool:
     if data.get("FirstDiscountUsed") not in (0, 1):
         return False
     stamp = data.get("Timestamp") or ""
-    return 0 < len(stamp) <= 40
+    if not (0 < len(stamp) <= 40):
+        return False
+    if version == 1:
+        return True
+    if not _boon_levels_valid(data.get("BoonLevels", 0)):
+        return False
+    pending = data.get("BoonPending", 0)
+    if pending not in (0, 1):
+        return False
+    return _boon_offer_valid(data.get("BoonOffer", 0), pending, data.get("BoonLevels", 0))
 
 
 def _save_parse(text: str) -> dict | None:
@@ -6799,6 +6829,9 @@ def _save_parse(text: str) -> dict | None:
         "LegacyHull": 0,
         "FirstDiscount": 0,
         "FirstDiscountUsed": 0,
+        "BoonLevels": 0,
+        "BoonPending": 0,
+        "BoonOffer": 0,
         "Timestamp": "",
     }
     saw_version = False
@@ -6864,8 +6897,16 @@ def _save_parse(text: str) -> dict | None:
                 saw_version = True
             if key in parsed:
                 parsed[key] = value * sign
+    if parsed.get("Version") == 1:
+        parsed["BoonLevels"] = 0
+        parsed["BoonPending"] = 0
+        parsed["BoonOffer"] = 0
     if not saw_version or not _save_valid(parsed):
         return None
+    if parsed.get("Version") == 1:
+        parsed.pop("BoonLevels", None)
+        parsed.pop("BoonPending", None)
+        parsed.pop("BoonOffer", None)
     return parsed
 
 
@@ -6890,7 +6931,8 @@ def test_save_continue_legacy() -> None:
     session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
 
     assert "class RunSaveCodec" in save
-    assert "CurrentVersion = 1" in save
+    assert "CurrentVersion = 2" in save
+    assert "data.Version != 1 && data.Version != CurrentVersion" in save
     assert "ShouldWrite" in save and "ShouldDelete" in save
     assert "return phase == GamePhase.Hangar || phase == GamePhase.WaveClear;" in save
     assert "return phase == GamePhase.Failed;" in save
@@ -7044,6 +7086,407 @@ def test_save_continue_legacy() -> None:
     new_run_box = 0.25 * 0.96 * panel
     assert _line_px("New Run", 14) <= new_run_box
     assert _line_px("Ny runda", 14) <= new_run_box
+
+
+def _i32(value: int) -> int:
+    value &= 0xFFFFFFFF
+    if value >= 0x80000000:
+        value -= 0x100000000
+    return value
+
+
+def _mix_seed(run_seed: int, world: int) -> int:
+    seed = 1 if run_seed < 1 else run_seed
+    world_number = 1 if world < 1 else world
+    mixed = _i32(seed * 73856093 + world_number * 19349663 + 83492791)
+    return 1 if mixed == 0 else mixed
+
+
+def _lcg(state: int) -> int:
+    return _i32(state * 1103515245 + 12345)
+
+
+def _positive(state: int) -> int:
+    if state == -2147483648:
+        return 1
+    absolute = -state if state < 0 else state
+    return 1 if absolute == 0 else absolute
+
+
+def _draw_boons(run_seed: int, world: int, levels: list[int] | None) -> list[int]:
+    pool: list[int] = []
+    for index in range(9):
+        level = 0
+        if levels is not None and index < len(levels):
+            level = levels[index]
+        if level < 0:
+            level = 0
+        if level >= 3:
+            continue
+        pool.append(index)
+    if not pool:
+        return []
+    state = _mix_seed(run_seed, world)
+    for cursor in range(len(pool) - 1, 0, -1):
+        state = _lcg(state)
+        pick = _positive(state) % (cursor + 1)
+        pool[cursor], pool[pick] = pool[pick], pool[cursor]
+    take = 3 if len(pool) >= 3 else len(pool)
+    return pool[:take]
+
+
+def _palette_nums(rules: str) -> list[int]:
+    import re
+
+    block = rules.split("PaletteMilli =")[1].split("};")[0]
+    return [int(token) for token in re.findall(r"-?\d+", block)]
+
+
+def _layout_tint(world: int, nums: list[int]) -> tuple[list[float], list[float], float]:
+    layout = ((world - 1) % 7) + 1
+    loop = ((world - 1) // 7) + 1
+    row = layout - 1
+    bright = nums[row * 15 + 12] / 1000.0
+    if loop > 1:
+        bright += (loop - 1) * 0.06
+    if bright < 0.05:
+        bright = 0.05
+    if bright > 1.25:
+        bright = 1.25
+    chroma = nums[row * 15 + 14] / 1000.0
+    star = []
+    for channel in range(3):
+        scaled = nums[row * 15 + channel] / 1000.0 * bright
+        if scaled < 0.0:
+            scaled = 0.0
+        if scaled > 1.0:
+            scaled = 1.0
+        star.append(scaled)
+    floor = [nums[row * 15 + 9 + channel] / 1000.0 for channel in range(3)]
+    return star, floor, chroma
+
+
+def _soften_rgb(rgb: list[float], chroma: float) -> list[float]:
+    mix = chroma
+    if mix < 0.0:
+        mix = 0.0
+    if mix > 1.0:
+        mix = 1.0
+    luma = (0.2126 * rgb[0]) + (0.7152 * rgb[1]) + (0.0722 * rgb[2])
+    return [luma + ((channel - luma) * mix) for channel in rgb]
+
+
+def _rgb_dist(left: list[float], right: list[float]) -> float:
+    import math
+
+    return math.sqrt(sum((left[index] - right[index]) ** 2 for index in range(3)))
+
+
+def _save_json_v2(data: dict) -> str:
+    text = _save_to_json(data)
+    extra = (
+        f',"BoonLevels":{int(data["BoonLevels"])}'
+        f',"BoonPending":{int(data["BoonPending"])}'
+        f',"BoonOffer":{int(data["BoonOffer"])}'
+    )
+    return text.replace(',"Timestamp"', extra + ',"Timestamp"')
+
+
+def test_world_flavour_and_boons() -> None:
+    """Per-world rules, distinct tints, boon draw, and save v2."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    rules = (root / "Assets/Scripts/Core/WorldRules.cs").read_text(encoding="utf-8")
+    boons = (root / "Assets/Scripts/Core/BoonCatalog.cs").read_text(encoding="utf-8")
+    roster = (root / "Assets/Scripts/Core/WaveRoster.cs").read_text(encoding="utf-8")
+    boss = (root / "Assets/Scripts/Core/BossRules.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+    save = (root / "Assets/Scripts/Core/RunSave.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    env = (root / "Assets/Scripts/Content/ArenaEnv.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    pad = (root / "Assets/Scripts/Core/HangarPadNav.cs").read_text(encoding="utf-8")
+    boon_pad = (root / "Assets/Scripts/Core/BoonPadNav.cs").read_text(encoding="utf-8")
+
+    assert "using UnityEngine" not in rules
+    assert "using UnityEngine" not in boons
+    assert "using UnityEngine" not in boon_pad
+    assert "class WorldRules" in rules and "PaletteDistinct" in rules
+    assert "RulesCoverLayouts" in rules
+    assert "BoonCard" not in pad
+    assert "class BoonPadNav" in boon_pad
+    assert "PadNavSource.Both" in ui
+    assert 'Loc.T("boon.pick", "Choose 1 bonus"' in ui
+    assert 'Loc.T("boon.pad", "A select' in ui
+    assert "BoonPadNav.Step" in ui
+    assert "0.03f, 0.801f" in ui and "0.97f, 0.819f" in ui
+
+    nums = _palette_nums(rules)
+    assert len(nums) == 7 * 15
+    min_star = 9.0
+    min_floor = 9.0
+    for left in range(1, 8):
+        left_star, left_floor, left_chroma = _layout_tint(left, nums)
+        soft_left = _soften_rgb(left_star, left_chroma)
+        for right in range(left + 1, 8):
+            right_star, right_floor, right_chroma = _layout_tint(right, nums)
+            star_gap = _rgb_dist(soft_left, _soften_rgb(right_star, right_chroma))
+            floor_gap = _rgb_dist(left_floor, right_floor)
+            assert star_gap >= 0.22, (left, right, star_gap)
+            assert floor_gap >= 0.15, (left, right, floor_gap)
+            if star_gap < min_star:
+                min_star = star_gap
+            if floor_gap < min_floor:
+                min_floor = floor_gap
+    min_neighbour = 9.0
+    for world in range(1, 9):
+        left_star, _left_floor, left_chroma = _layout_tint(world, nums)
+        right_star, _right_floor, right_chroma = _layout_tint(world + 1, nums)
+        gap = _rgb_dist(_soften_rgb(left_star, left_chroma), _soften_rgb(right_star, right_chroma))
+        assert gap >= 0.22, (world, world + 1, gap)
+        if gap < min_neighbour:
+            min_neighbour = gap
+    world7, _floor7, chroma7 = _layout_tint(7, nums)
+    world8, _floor8, chroma8 = _layout_tint(8, nums)
+    assert _rgb_dist(_soften_rgb(world7, chroma7), _soften_rgb(world8, chroma8)) >= 0.22
+    assert "RetintChroma = 0.55f" in env
+    assert "0.85f, 0.28f, 0.55f" not in env
+    assert "0.35f, 0.9f, 0.28f" not in env
+    assert "WorldRules.TintForWorld" in env
+    assert "env.Retint(worldNumber)" in factory
+    arena_block = factory.split("ArenaWorlds =")[1].split("};")[0]
+    arena_names = re.findall(r'"(Arena_[^"]+)"', arena_block)
+    assert arena_names == [
+        "Arena_Blockout",
+        "Arena_World2_Blockout",
+        "Arena_World3_Blockout",
+        "Arena_World4_Blockout",
+        "Arena_World5_Blockout",
+        "Arena_World6_Blockout",
+    ]
+    assert "% ArenaWorlds.Length" in factory
+
+    rule_names = (
+        "MorePickups",
+        "FasterAsteroids",
+        "FasterEnemyFire",
+        "DebrisDensity",
+        "FewerPickups",
+        "DimVisibility",
+        "HeavyEnemyFire",
+    )
+    for name in rule_names:
+        assert name in rules
+    assert rules.count("return WorldRuleKind.") >= 7
+    emphasis = []
+    for layout in range(1, 8):
+        body = rules.split(f"Emphasis{layout} =")[1].split("};")[0]
+        kinds = tuple(re.findall(r"EnemyKind\.(\w+)", body))
+        assert kinds
+        emphasis.append(kinds)
+    assert len(set(emphasis)) == 7
+    assert emphasis[1] == ("Scout", "Drone", "Swarm")
+    assert "Gunner" in emphasis[2]
+    assert "Bomber" in emphasis[3]
+    assert "Sniper" in emphasis[4]
+    assert "SwarmPod" in emphasis[5]
+    assert {"Gunner", "Bomber", "Sniper", "SwarmPod", "Scout", "Brute", "Swarm"} <= set(emphasis[6])
+    assert "wave == BossRules.FirstWave" in roster
+    assert "SuppressLadderBrute" in boss
+    assert "waveIndex == FirstWave && IsBossWave(waveIndex)" in boss
+    assert "WaveRoster.IncludeInSpawn" in waves
+    wave_roster = waves.split("case 5:")[1].split("case 6:")[0]
+    assert "EnemyKind.Brute" in wave_roster
+    assert "EnemyKind.Brute" in roster
+
+    for seed in (1, 4, 19, 88):
+        for world in range(1, 9):
+            first = _draw_boons(seed, world, [0] * 9)
+            second = _draw_boons(seed, world, [0] * 9)
+            assert first == second
+            assert len(first) == 3
+            assert len(set(first)) == 3
+            assert all(0 <= boon_id < 9 for boon_id in first)
+    maxed = [3, 3, 0, 0, 0, 0, 0, 0, 0]
+    offered = _draw_boons(7, 3, maxed)
+    assert len(offered) == 3
+    assert 0 not in offered and 1 not in offered
+    almost = [3, 3, 3, 3, 3, 3, 3, 0, 0]
+    short = _draw_boons(3, 2, almost)
+    assert short == [7, 8] or set(short) == {7, 8}
+    assert len(short) == 2
+    assert _draw_boons(1, 1, [3] * 9) == []
+    assert "offer.Length < BoonCatalog.OfferCount" in manager
+    assert "SetPending" in boons and "ReadSave" in manager
+
+    sample = {
+        "Version": 2,
+        "WaveIndex": 6,
+        "Score": 420,
+        "Credits": 80,
+        "Lives": 2,
+        "Hull": 4,
+        "Shield": 1,
+        "Difficulty": 2,
+        "UpgradeMask": (1 << 18) | (1 << 8),
+        "Doctrine": 2,
+        "PrimaryMode": 6,
+        "UtilityMode": 4,
+        "HasUtility": 1,
+        "RunId": 4,
+        "LastResolvedWave": 5,
+        "LastRunScore": 420,
+        "LastCreditsAwarded": 140,
+        "ExtraLifeStreak": 1,
+        "LegacyHull": 1,
+        "FirstDiscount": 14,
+        "FirstDiscountUsed": 0,
+        "BoonLevels": 1 | (2 << 2),
+        "BoonPending": 1,
+        "BoonOffer": 3 | (4 << 4) | (5 << 8),
+        "Timestamp": "2026-10-03T08:28:00Z",
+    }
+    parsed = _save_parse(_save_json_v2(sample))
+    assert parsed == sample
+    quiet = dict(sample)
+    quiet["BoonPending"] = 0
+    quiet["BoonOffer"] = 0
+    assert _save_parse(_save_json_v2(quiet)) == quiet
+    maxed_offer = dict(sample)
+    maxed_offer["BoonLevels"] = 3
+    maxed_offer["BoonOffer"] = 0 | (1 << 4) | (2 << 8)
+    assert _save_parse(_save_json_v2(maxed_offer)) is None
+    assert "parsed.Version == 1" in save
+    assert "BoonLevels" in save and "BoonPending" in save and "BoonOffer" in save
+
+    swedish = _sv_keys(loc)
+    scanned = "\n".join((rules, boons, summary, ui))
+    used = set(re.findall(r'Loc\.Tf?\(\s*"([^"]+)"', scanned))
+    missing = sorted(key for key in used if key not in swedish and not key.endswith("."))
+    assert missing == [], missing
+    for key in (
+        "world.rule",
+        "world.rule.1",
+        "world.rule.2",
+        "world.rule.3",
+        "world.rule.4",
+        "world.rule.5",
+        "world.rule.6",
+        "world.rule.7",
+        "boon.fire",
+        "boon.fire.fx",
+        "boon.fire.tag",
+        "boon.move",
+        "boon.move.fx",
+        "boon.move.tag",
+        "boon.hull",
+        "boon.hull.fx",
+        "boon.hull.tag",
+        "boon.credits",
+        "boon.credits.fx",
+        "boon.credits.tag",
+        "boon.rail",
+        "boon.rail.fx",
+        "boon.rail.tag",
+        "boon.shard",
+        "boon.shard.fx",
+        "boon.shard.tag",
+        "boon.resist",
+        "boon.resist.fx",
+        "boon.resist.tag",
+        "boon.shield",
+        "boon.shield.fx",
+        "boon.shield.tag",
+        "boon.utility",
+        "boon.utility.fx",
+        "boon.utility.tag",
+        "boon.stack",
+        "boon.level",
+        "boon.row",
+        "boon.pick",
+        "boon.pad",
+    ):
+        assert key in swedish, key
+
+    en_tags = (
+        "Fire x3",
+        "Move x3",
+        "Hull x3",
+        "Cred x3",
+        "Rail x3",
+        "Shard x3",
+        "Dmg x3",
+        "Shld x3",
+        "Util x3",
+    )
+    sv_tags = (
+        "Eld x3",
+        "Fart x3",
+        "Skro x3",
+        "Kred x3",
+        "Rals x3",
+        "Splt x3",
+        "Skad x3",
+        "Skld x3",
+        "Util x3",
+    )
+    rows = (
+        "Bonuses  " + " · ".join(en_tags),
+        "Bonusar  " + " · ".join(sv_tags),
+    )
+    cards = (
+        "Fire rate",
+        "+8% fire rate",
+        "-10% incoming damage",
+        "+1 shield each wave",
+        "Utility cooldown",
+        "Eldhastighet",
+        "+8% eldhastighet",
+        "-10% skada",
+        "+1 sköld per våg",
+        "Utility-tid",
+        "Lv 3",
+        "Nv 3",
+    )
+    subtitles = (
+        "Next: World 8 - Launch Belt  ·  Loop 2  ·  Extra pickup",
+        "Nästa: Värld 8 - Utskjutningsbältet  ·  Varv 2  ·  Extra plock",
+        "Nästa: Värld 9 - Djup omloppsbana  ·  Varv 2  ·  Snabbare asteroider",
+        "Next: World 12 - Cross Gates  ·  Loop 2  ·  Fewer pickups",
+        "Nästa: Värld 12 - Korsportar  ·  Varv 2  ·  Färre plock",
+    )
+    labels = ("Continue to World 14", "Fortsätt till värld 14")
+    hints = (
+        "Choose 1 bonus",
+        "Välj 1 bonus",
+        "A select  ·  D-pad or stick moves",
+        "A välj  ·  D-pad eller spak",
+    )
+    resolutions = ((1280, 800), (1600, 900), (1920, 1080), (2560, 1440), (3440, 1440))
+    for width, height in resolutions:
+        scale = _canvas_scale(width, height)
+        row_w = 0.94 * (0.55 - 0.014) * (width / scale)
+        row_h = (0.819 - 0.801) * (0.888 - 0.080) * (height / scale)
+        assert row_h >= 12, (width, height, row_h)
+        for row in rows:
+            assert _estimate_width(row, 12) <= row_w, (row, row_w)
+        card_w = 0.30 * 0.76 * (width / scale)
+        for card in cards:
+            assert _estimate_width(card, 16) <= card_w, (card, card_w)
+        title_w = 0.88 * 0.76 * (width / scale)
+        for hint in hints[:2]:
+            assert _estimate_width(hint, 22) <= title_w
+        for hint in hints[2:]:
+            assert _estimate_width(hint, 14) <= title_w
+        for subtitle in subtitles:
+            for label in labels:
+                assert _estimate_width(label, 20) <= 900
+                assert _estimate_width(subtitle, 20) <= 900
 
 
 if __name__ == "__main__":

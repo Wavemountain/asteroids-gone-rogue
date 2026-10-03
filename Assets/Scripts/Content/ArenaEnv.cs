@@ -46,6 +46,7 @@ namespace AsteroidsGoneRogue
         private Material _beltTint;
         private Texture2D _nebulaBlue;
         private Texture2D _nebulaPurple;
+        private Color _floorTint = new Color(0.04f, 0.14f, 0.42f, 1f);
 
         public static ArenaEnv Ensure(Transform arenaRoot)
         {
@@ -69,41 +70,18 @@ namespace AsteroidsGoneRogue
 
         public void Retint(int world)
         {
-            int index = world < 1 ? 1 : world;
-            Color star = Soften(new Color(0.82f, 0.9f, 1f, 1f));
-            Color nebula = Soften(new Color(0.42f, 0.58f, 1f, NebulaOpacity));
-            Color grid = Soften(new Color(0.2f, 0.85f, 1f, GridAlpha));
+            WorldTint tint = WorldRules.TintForWorld(world);
+            float bright = tint.Brightness;
+            Color star = SoftenAmount(ScaleColor(new Color(tint.StarR, tint.StarG, tint.StarB, 1f), bright), tint.Chroma);
+            Color nebula = SoftenAmount(ScaleColor(new Color(tint.NebulaR, tint.NebulaG, tint.NebulaB, NebulaOpacity), bright), tint.Chroma);
+            nebula.a = NebulaOpacity;
+            Color grid = SoftenAmount(ScaleColor(new Color(tint.GridR, tint.GridG, tint.GridB, GridAlpha), bright), tint.Chroma);
+            grid.a = GridAlpha;
+            _floorTint = ScaleColor(new Color(tint.FloorR, tint.FloorG, tint.FloorB, 1f), bright);
             Texture2D nebulaTex = _nebulaBlue;
-            switch (index % 7)
+            if (tint.PurpleNebula != 0)
             {
-                case 2:
-                    star = Soften(new Color(0.86f, 0.8f, 0.84f, 1f));
-                    nebula = Soften(new Color(0.46f, 0.4f, 0.5f, NebulaOpacity));
-                    grid = Soften(new Color(0.52f, 0.5f, 0.58f, GridAlpha));
-                    nebulaTex = _nebulaPurple != null ? _nebulaPurple : _nebulaBlue;
-                    break;
-                case 3:
-                    star = Soften(new Color(0.72f, 0.88f, 0.9f, 1f));
-                    nebula = Soften(new Color(0.22f, 0.52f, 0.55f, NebulaOpacity));
-                    grid = Soften(new Color(0.32f, 0.62f, 0.68f, GridAlpha));
-                    break;
-                case 4:
-                    star = Soften(new Color(0.92f, 0.84f, 0.7f, 1f));
-                    nebula = Soften(new Color(0.62f, 0.46f, 0.28f, NebulaOpacity));
-                    grid = Soften(new Color(0.7f, 0.58f, 0.38f, GridAlpha));
-                    nebulaTex = _nebulaPurple != null ? _nebulaPurple : _nebulaBlue;
-                    break;
-                case 5:
-                    star = Soften(new Color(0.78f, 0.84f, 0.9f, 1f));
-                    nebula = Soften(new Color(0.3f, 0.42f, 0.52f, NebulaOpacity));
-                    grid = Soften(new Color(0.4f, 0.55f, 0.64f, GridAlpha));
-                    break;
-                case 6:
-                    star = Soften(new Color(0.9f, 0.78f, 0.72f, 1f));
-                    nebula = Soften(new Color(0.48f, 0.32f, 0.28f, NebulaOpacity));
-                    grid = Soften(new Color(0.58f, 0.42f, 0.36f, GridAlpha));
-                    nebulaTex = _nebulaPurple != null ? _nebulaPurple : _nebulaBlue;
-                    break;
+                nebulaTex = _nebulaPurple != null ? _nebulaPurple : _nebulaBlue;
             }
 
             ApplyTint(_starFar, star * StarFarTint);
@@ -134,6 +112,44 @@ namespace AsteroidsGoneRogue
             if (_grid != null)
             {
                 _grid.color = grid;
+            }
+
+            TintNamedLight("ArenaRimLight", _floorTint);
+            TintNamedLight("ArenaUnderGlow", star);
+        }
+
+        public void TintFloor(GameObject visual)
+        {
+            if (visual == null)
+            {
+                return;
+            }
+
+            Renderer[] floorRenderers = visual.GetComponentsInChildren<Renderer>(true);
+            for (int floorIndex = 0; floorIndex < floorRenderers.Length; floorIndex++)
+            {
+                Renderer floorRenderer = floorRenderers[floorIndex];
+                if (floorRenderer == null)
+                {
+                    continue;
+                }
+
+                floorRenderer.material.color = _floorTint;
+            }
+        }
+
+        private void TintNamedLight(string lightName, Color color)
+        {
+            Transform lightNode = transform.Find(lightName);
+            if (lightNode == null)
+            {
+                return;
+            }
+
+            Light worldLight = lightNode.GetComponent<Light>();
+            if (worldLight != null)
+            {
+                worldLight.color = color;
             }
         }
 
@@ -363,11 +379,42 @@ namespace AsteroidsGoneRogue
 
         private static Color Soften(Color color)
         {
+            return SoftenAmount(color, RetintChroma);
+        }
+
+        private static Color SoftenAmount(Color color, float chroma)
+        {
+            float mix = chroma;
+            if (mix < 0f)
+            {
+                mix = 0f;
+            }
+
+            if (mix > 1f)
+            {
+                mix = 1f;
+            }
+
             float y = 0.2126f * color.r + 0.7152f * color.g + 0.0722f * color.b;
             return new Color(
-                y + (color.r - y) * RetintChroma,
-                y + (color.g - y) * RetintChroma,
-                y + (color.b - y) * RetintChroma,
+                y + (color.r - y) * mix,
+                y + (color.g - y) * mix,
+                y + (color.b - y) * mix,
+                color.a);
+        }
+
+        private static Color ScaleColor(Color color, float scale)
+        {
+            float amount = scale;
+            if (amount < 0f)
+            {
+                amount = 0f;
+            }
+
+            return new Color(
+                Mathf.Clamp01(color.r * amount),
+                Mathf.Clamp01(color.g * amount),
+                Mathf.Clamp01(color.b * amount),
                 color.a);
         }
 

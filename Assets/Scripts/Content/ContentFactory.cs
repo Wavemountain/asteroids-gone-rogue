@@ -25,6 +25,7 @@ namespace AsteroidsGoneRogue
         private string _arenaVisualName;
         private bool _arenaApplied;
         private ArenaLayoutId _arenaLayout;
+        private int _arenaWorldNumber;
         private Material _hull;
         private Material _accent;
         private Material _glass;
@@ -137,6 +138,8 @@ namespace AsteroidsGoneRogue
             BuildHangarDressing();
         }
 
+        // Six meshes. World 7 reuses Arena_Blockout (index % 6) and gets its own
+        // retint from WorldRules, so the spoke ring is not a copy of world 1.
         public static readonly string[] ArenaWorlds =
         {
             "Arena_Blockout",
@@ -172,7 +175,8 @@ namespace AsteroidsGoneRogue
 
             string visualName = ArenaVisualForWave(waveIndex);
             ArenaLayoutId layout = ArenaLayout.ForWave(waveIndex);
-            if (_arenaApplied && visualName == _arenaVisualName && layout == _arenaLayout)
+            int worldNumber = WorldCatalog.NumberForWave(waveIndex);
+            if (_arenaApplied && visualName == _arenaVisualName && layout == _arenaLayout && _arenaWorldNumber == worldNumber)
             {
                 return;
             }
@@ -192,6 +196,7 @@ namespace AsteroidsGoneRogue
 
             _arenaRoot.name = visualName;
             GameObject visual;
+            GameObject floorVisual = null;
             if (TryVisual(visualName, _arenaRoot.transform, _arena, out visual))
             {
                 float scale = WaveManager.ArenaRadius / WaveManager.ArenaDesignRadius;
@@ -211,23 +216,28 @@ namespace AsteroidsGoneRogue
                 {
                     StripImportedFloorColliders(visual);
                 }
+
+                floorVisual = visual;
             }
             else
             {
                 GameObject floor = CreatePrimitive(PrimitiveType.Cylinder, "Arena_Floor", _arenaRoot.transform, _arena);
                 floor.transform.localScale = new Vector3(WaveManager.ArenaRadius * 2f, 0.04f, WaveManager.ArenaRadius * 2f);
                 floor.transform.position = new Vector3(0f, ArenaPlaySurfaceY, 0f);
+                floorVisual = floor;
             }
 
             BuildArenaLayout(layout);
             ArenaEnv env = ArenaEnv.Ensure(_arenaRoot.transform);
             if (env != null)
             {
-                env.Retint(WorldIndexForWave(waveIndex));
+                env.Retint(worldNumber);
+                env.TintFloor(floorVisual);
             }
 
             _arenaVisualName = visualName;
             _arenaLayout = layout;
+            _arenaWorldNumber = worldNumber;
             _arenaApplied = true;
             if (announce)
             {
@@ -1184,6 +1194,12 @@ namespace AsteroidsGoneRogue
             GameObject root = new GameObject(propName);
             root.tag = GameTags.Asteroid;
             root.transform.SetParent(_threatRoot, false);
+            int asteroidSpeed = waves != null ? WorldRules.AsteroidSpeedPercent(waves.ActiveWave) : 100;
+            if (asteroidSpeed != 100)
+            {
+                drift *= asteroidSpeed / 100f;
+            }
+
             drift.y = 0f;
             root.transform.position = new Vector3(position.x, ArenaWrap.PlayY, position.z);
 

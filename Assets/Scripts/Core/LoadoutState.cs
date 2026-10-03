@@ -131,6 +131,7 @@ namespace AsteroidsGoneRogue
                 }
 
                 hull += LegacyHullBonus;
+                hull += BoonHooks.HullBonus;
                 return hull;
             }
         }
