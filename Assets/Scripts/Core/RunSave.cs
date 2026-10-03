@@ -40,12 +40,26 @@ namespace AsteroidsGoneRogue
         public int Mk2Mask;
         public int BankedLegacy;
         public int ExtraLifeWorld;
+
+        /// <summary>
+        /// Remaining hull when the save was written. -1 means full
+        /// (version 1–3 files, or a field the file omitted).
+        /// </summary>
+        public int HullNow = -1;
+
+        /// <summary>
+        /// Remaining shield charges when the save was written. -1 means full
+        /// (version 1–3 files, or a field the file omitted).
+        /// </summary>
+        public int ShieldNow = -1;
+
         public string Timestamp = string.Empty;
     }
 
     public static class RunSaveCodec
     {
-        public const int CurrentVersion = 3;
+        public const int CurrentVersion = 4;
+        public const int MaxHullNow = 16;
         public const int UpgradeBitCount = 22;
         public const int MaxWave = 9999;
         public const int MaxScore = 100000000;
@@ -77,7 +91,9 @@ namespace AsteroidsGoneRogue
             int difficulty,
             int runId,
             string timestamp,
-            BoonRun boons)
+            BoonRun boons,
+            int hullNow,
+            int shieldNow)
         {
             RunSaveData data = new RunSaveData();
             data.Version = CurrentVersion;
@@ -116,6 +132,8 @@ namespace AsteroidsGoneRogue
                 data.ExtraLifeWorld = session.ExtraLifeWorld;
             }
 
+            data.HullNow = hullNow < -1 ? -1 : hullNow;
+            data.ShieldNow = shieldNow < -1 ? -1 : shieldNow;
             data.Difficulty = difficulty;
             data.RunId = runId;
             data.Timestamp = timestamp == null ? string.Empty : timestamp;
@@ -169,7 +187,7 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (data.Version != 1 && data.Version != 2 && data.Version != CurrentVersion)
+            if (data.Version < 1 || data.Version > CurrentVersion)
             {
                 return false;
             }
@@ -314,12 +332,24 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            if (data.HullNow < -1 || data.HullNow == 0 || data.HullNow > MaxHullNow)
+            {
+                return false;
+            }
+
+            if (data.ShieldNow < -1 || data.ShieldNow > LoadoutState.SaveMaxShield)
+            {
+                return false;
+            }
+
             return true;
         }
 
         /// <summary>
-        /// Abandoned wave costs one life from the count stored at wave start.
-        /// Never drops below 1, and never ends the run.
+        /// An abandoned wave costs one life, counted from the lives stored when
+        /// the wave started. Two or more lives: the run continues with one fewer.
+        /// One life: the result is 0 and the run is over (Failed). Legacy is
+        /// awarded once and the save is deleted. There is no free restart.
         /// </summary>
         public static int LivesAfterAbandonedWave(int lives, int livesAtWaveStart)
         {
@@ -329,18 +359,22 @@ namespace AsteroidsGoneRogue
                 start = 1;
             }
 
-            int next = start - 1;
-            if (next < 1)
+            return start - 1;
+        }
+
+        public static bool AbandonedWaveEndsRun(RunSaveData data)
+        {
+            if (data == null || data.WaveInProgress == 0)
             {
-                next = 1;
+                return false;
             }
 
-            return next;
+            return LivesAfterAbandonedWave(data.Lives, data.LivesAtWaveStart) < 1;
         }
 
         public static void ApplyAbandonedWave(RunSaveData data)
         {
-            if (data == null || data.WaveInProgress == 0)
+            if (data == null || data.WaveInProgress == 0 || AbandonedWaveEndsRun(data))
             {
                 return;
             }
@@ -386,6 +420,8 @@ namespace AsteroidsGoneRogue
                 && left.Mk2Mask == right.Mk2Mask
                 && left.BankedLegacy == right.BankedLegacy
                 && left.ExtraLifeWorld == right.ExtraLifeWorld
+                && left.HullNow == right.HullNow
+                && left.ShieldNow == right.ShieldNow
                 && left.Timestamp == right.Timestamp;
         }
 
@@ -427,6 +463,8 @@ namespace AsteroidsGoneRogue
             AppendInt(builder, "Mk2Mask", data.Mk2Mask, false);
             AppendInt(builder, "BankedLegacy", data.BankedLegacy, false);
             AppendInt(builder, "ExtraLifeWorld", data.ExtraLifeWorld, false);
+            AppendInt(builder, "HullNow", data.HullNow, false);
+            AppendInt(builder, "ShieldNow", data.ShieldNow, false);
             builder.Append(",\"Timestamp\":\"");
             builder.Append(Escape(data.Timestamp));
             builder.Append("\"}");
@@ -540,6 +578,12 @@ namespace AsteroidsGoneRogue
                 parsed.ExtraLifeWorld = 0;
             }
 
+            if (parsed.Version < 4)
+            {
+                parsed.HullNow = -1;
+                parsed.ShieldNow = -1;
+            }
+
             if (!IsValid(parsed))
             {
                 return false;
@@ -649,6 +693,12 @@ namespace AsteroidsGoneRogue
                     return true;
                 case "ExtraLifeWorld":
                     data.ExtraLifeWorld = number;
+                    return true;
+                case "HullNow":
+                    data.HullNow = number;
+                    return true;
+                case "ShieldNow":
+                    data.ShieldNow = number;
                     return true;
                 default:
                     return true;

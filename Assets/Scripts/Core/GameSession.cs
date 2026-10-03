@@ -142,8 +142,36 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            Lives = RunSaveCodec.LivesAfterAbandonedWave(Lives, LivesAtWaveStart);
+            int nextLives = RunSaveCodec.LivesAfterAbandonedWave(Lives, LivesAtWaveStart);
             ClearWaveMarker();
+            if (nextLives < 1)
+            {
+                FailAbandonedRun();
+                return;
+            }
+
+            Lives = nextLives;
+        }
+
+        /// <summary>
+        /// Last life was left mid-wave. The run is over: Failed, marker cleared,
+        /// lives spent. The caller awards Legacy once and deletes the save.
+        /// </summary>
+        public void FailAbandonedRun()
+        {
+            LastResolvedWave = WaveIndex;
+            LastRunScore = Score;
+            LastCreditsAwarded = 0;
+            WorldCleared = 0;
+            CampaignWon = false;
+            HasStructuredFail = false;
+            FailCause = DamageCause.Unknown;
+            FailEnemyKind = EnemyKind.Mid01;
+            FailRemainingThreats = 0;
+            FailReason = "Abandoned wave";
+            Lives = 0;
+            ClearWaveMarker();
+            Phase = GamePhase.Failed;
         }
 
         public void ReadContinue(int waveInProgress, int livesAtStart, int banked, int extraLifeWorld)
@@ -328,6 +356,7 @@ namespace AsteroidsGoneRogue
                 : 0;
             WaveIndex += 1;
             Phase = GamePhase.WaveClear;
+            ClearWaveMarker();
         }
 
         /// <summary>
@@ -348,6 +377,7 @@ namespace AsteroidsGoneRogue
             LastRunScore = Score;
             CampaignWon = true;
             Phase = GamePhase.CampaignClear;
+            ClearWaveMarker();
         }
 
         public void FailWave()
@@ -377,6 +407,7 @@ namespace AsteroidsGoneRogue
             LastRunScore = Score;
             WorldCleared = 0;
             Phase = GamePhase.Failed;
+            ClearWaveMarker();
         }
 
         public void FailWave(DamageCause cause, EnemyKind kind)
@@ -403,6 +434,7 @@ namespace AsteroidsGoneRogue
             LastRunScore = Score;
             WorldCleared = 0;
             Phase = GamePhase.Failed;
+            ClearWaveMarker();
         }
 
         public void ReturnToHangar()
@@ -480,6 +512,7 @@ namespace AsteroidsGoneRogue
             CampaignWon = false;
             WaveTookHit = false;
             WorldCleared = 0;
+            ClearWaveMarker();
             Phase = GamePhase.Hangar;
         }
     }

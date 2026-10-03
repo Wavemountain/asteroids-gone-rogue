@@ -190,8 +190,9 @@ def check(root: Path) -> list[str]:
                 for glyph in _glyphs(value, allowed):
                     errors.append(f"{table_name} {key} contains {glyph}")
                 if table_name == "SV":
-                    for word in ("Primary", "Utility", "primary", "utility"):
-                        if word in value:
+                    lowered = value.casefold()
+                    for word in ("primary", "utility"):
+                        if word in lowered:
                             errors.append(f"SV {key} contains English {word}")
 
     fallbacks: dict[str, set[str]] = {}

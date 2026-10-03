@@ -650,11 +650,6 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (phase == GamePhase.WaveClear || phase == GamePhase.CampaignClear)
-            {
-                return;
-            }
-
             _creditsMusic = false;
             if (phase == GamePhase.Playing)
             {
@@ -669,7 +664,7 @@ namespace AsteroidsGoneRogue
             }
             else
             {
-                PlayLoop(_hangarAmbience, HangarMusicScale, HangarMusicPitch);
+                CrossfadeTo(_hangarAmbience, HangarMusicScale, HangarMusicPitch);
             }
         }
 
@@ -897,14 +892,18 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            _musicScale = scale;
-            _musicPitch = pitch;
-            if (!_crossfading && _currentMusic == clip && _music.isPlaying)
+            bool sameAsCurrent = _currentMusic == clip && (_crossfading || _music.isPlaying);
+            bool sameAsIncoming = _crossfading && _incomingClip == clip;
+            if (!MusicPlan.ShouldStartCrossfade(sameAsCurrent, sameAsIncoming))
             {
+                _musicScale = scale;
+                _musicPitch = pitch;
                 ApplyVolumes();
                 return;
             }
 
+            _musicScale = scale;
+            _musicPitch = pitch;
             if (_currentMusic == null || !_music.isPlaying || _musicB == null)
             {
                 PlayLoop(clip, scale, pitch);

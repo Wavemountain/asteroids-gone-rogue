@@ -14,7 +14,7 @@ namespace AsteroidsGoneRogue
 
         /// <summary>
         /// Names shown on the wave-clear upgrades row before "+K more".
-        /// Twelve keeps a fully upgraded EN/SV line inside two wrapped lines
+        /// Seven keeps a fully upgraded EN/SV line inside two wrapped lines
         /// of the hangar card from 1280x800 through 3440x1440.
         /// </summary>
         public const int UpgradesLineMaxShown = 7;
@@ -23,7 +23,7 @@ namespace AsteroidsGoneRogue
         public static string RunOverTitle(int wave)
         {
             int shown = wave < 1 ? 1 : wave;
-            return Loc.Tf("run.over_title", "RUN OVER - out of lives (wave {0})", shown);
+            return Loc.Tf("run.over_title", "RUN OVER - wave {0}", shown);
         }
 
         public static string RunOverExplain()

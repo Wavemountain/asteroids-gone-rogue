@@ -54,7 +54,7 @@ namespace AsteroidsGoneRogue
         public static string SectorClearTitle(int world)
         {
             int shown = world < 1 ? 1 : world;
-            return Loc.Tf("run.sector_world", "SECTOR CLEAR - World {0} complete", shown);
+            return Loc.Tf("run.sector_world", "SECTOR CLEAR - World {0}", shown);
         }
     }
 }

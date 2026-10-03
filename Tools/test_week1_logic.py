@@ -6182,6 +6182,7 @@ def main() -> int:
     test_sector_chip_differs_from_title()
     test_upgrades_line_fits_card()
     test_pr2_046()
+    test_speltest_063_marker_title_bank()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -6587,9 +6588,9 @@ def test_world_continue_and_hangar_readability() -> None:
     assert _scale_enemy_hp(10, "normal", 8) == 19
     assert _scale_enemy_hp(10, "easy", 1) == 8
     assert "WavesPerLayout = 5" in layout and "LayoutCount = 7" in layout
-    assert 'Loc.Tf("run.sector_world", "SECTOR CLEAR - World {0} complete"' in cap
+    assert 'Loc.Tf("run.sector_world", "SECTOR CLEAR - World {0}"' in cap
     assert 'Loc.Tf("ui.continue_world", "Continue to World {0}"' in summary
-    assert 'Loc.Tf("run.over_title", "RUN OVER - out of lives (wave {0})"' in summary
+    assert 'Loc.Tf("run.over_title", "RUN OVER - wave {0}"' in summary
     assert "HangarWinHint" not in cap
 
     assert _should_confirm_new_run(True, True) is True
@@ -6640,11 +6641,11 @@ def test_world_continue_and_hangar_readability() -> None:
     wide_en = ("Spread", "Pierce", "Twin Guns", "Seeker", "Ricochet", "Shield", "Matrix", "Tvillingkanoner")
     wide_sv = ("Spridbult", "Pierce", "Tvillingkanoner", "Sökare", "Rikoschett", "Sköldcell", "Sköldmatris")
     headlines = (
-        "SECTOR CLEAR - World 1 complete",
-        "SECTOR CLEAR - World 7 complete",
-        "SEKTOR KLAR - Värld 1 klar",
-        "RUN OVER - out of lives (wave 12)",
-        "SLUT - inga liv kvar (våg 12)",
+        "SECTOR CLEAR - World 1",
+        "SECTOR CLEAR - World 7",
+        "SEKTOR KLAR - Värld 1",
+        "RUN OVER - wave 12",
+        "SLUT - våg 12",
         "Continue to World 2",
         "Fortsätt till värld 2",
         "Next Wave",
@@ -6666,7 +6667,7 @@ def test_world_continue_and_hangar_readability() -> None:
         for name in wide_en + wide_sv:
             assert _estimate_width(name, 18) <= weapon_w, (width, name, weapon_w)
         summary_box = _map_anchors(*hangar, 0.02, 0.82, 0.98, 0.995)
-        title_box = _map_anchors(*summary_box, 0.03, 0.62, 0.70, 0.96)
+        title_box = _map_anchors(*summary_box, 0.03, 0.78, 0.70, 0.96)
         title_w = (title_box[2] - title_box[0]) * canvas_w
         primary = _map_anchors(*hangar, 0.03, 0.735, 0.97, 0.800)
         primary_w = (primary[2] - primary[0]) * canvas_w
@@ -6911,7 +6912,7 @@ def _boon_offer_valid(packed: int, pending: int, levels_packed: int) -> bool:
 
 def _save_valid(data: dict) -> bool:
     version = data.get("Version")
-    if version not in (1, 2, 3):
+    if version not in (1, 2, 3, 4):
         return False
     if not 1 <= data.get("WaveIndex", 0) <= 9999:
         return False
@@ -6923,7 +6924,7 @@ def _save_valid(data: dict) -> bool:
         return False
     if not 1 <= data.get("Hull", 0) <= 12:
         return False
-    if not 0 <= data.get("Shield", -1) <= 4:
+    if not 0 <= data.get("Shield", -1) <= 5:
         return False
     if not 0 <= data.get("Difficulty", -1) <= 2:
         return False
@@ -6969,6 +6970,13 @@ def _save_valid(data: dict) -> bool:
             return False
         if not 0 <= data.get("ExtraLifeWorld", -1) <= 9999:
             return False
+    if version >= 4:
+        hull_now = data.get("HullNow", -1)
+        shield_now = data.get("ShieldNow", -1)
+        if not (hull_now == -1 or 1 <= hull_now <= 16):
+            return False
+        if not (shield_now == -1 or 0 <= shield_now <= 5):
+            return False
     if not _boon_levels_valid(data.get("BoonLevels", 0)):
         return False
     pending = data.get("BoonPending", 0)
@@ -7012,6 +7020,8 @@ def _save_parse(text: str) -> dict | None:
         "Mk2Mask": 0,
         "BankedLegacy": 0,
         "ExtraLifeWorld": 0,
+        "HullNow": -1,
+        "ShieldNow": -1,
         "Timestamp": "",
     }
     saw_version = False
@@ -7093,6 +7103,11 @@ def _save_parse(text: str) -> dict | None:
         parsed.pop("Mk2Mask", None)
         parsed.pop("BankedLegacy", None)
         parsed.pop("ExtraLifeWorld", None)
+    if parsed.get("Version", 0) < 4:
+        parsed["HullNow"] = -1
+        parsed["ShieldNow"] = -1
+        parsed.pop("HullNow", None)
+        parsed.pop("ShieldNow", None)
     return parsed
 
 
@@ -7117,8 +7132,8 @@ def test_save_continue_legacy() -> None:
     session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
 
     assert "class RunSaveCodec" in save
-    assert "CurrentVersion = 3" in save
-    assert "data.Version != 1 && data.Version != 2 && data.Version != CurrentVersion" in save
+    assert "CurrentVersion = 4" in save
+    assert "data.Version < 1 || data.Version > CurrentVersion" in save
     assert "ShouldWrite" in save and "ShouldDelete" in save
     assert "return phase == GamePhase.Hangar || phase == GamePhase.WaveClear;" in save
     assert "return phase == GamePhase.Failed;" in save
@@ -7740,7 +7755,7 @@ def test_sector_chip_differs_from_title() -> None:
         return world_en[world]
 
     def sector_title(world: int, lang: str) -> str:
-        fmt = swedish["run.sector_world"] if lang == "sv" else "SECTOR CLEAR - World {0} complete"
+        fmt = swedish["run.sector_world"] if lang == "sv" else "SECTOR CLEAR - World {0}"
         return fmt.format(world)
 
     def wave_chip(wave: int, lang: str) -> str:
@@ -7896,8 +7911,7 @@ def _abandoned_lives(lives: int, lives_at_start: int) -> int:
     start = lives_at_start if lives_at_start > 0 else lives
     if start < 1:
         start = 1
-    nxt = start - 1
-    return 1 if nxt < 1 else nxt
+    return start - 1
 
 
 def _choose_save(main_text, main_exists, backup_text, backup_exists):
@@ -7964,14 +7978,15 @@ def test_pr2_046() -> None:
     assert "WindupInBand" in boss
     assert "_aimedDir" in seeker and "FireAimedBurst(_aimedDir)" in seeker
     assert "SpawnTelegraphRing" in seeker
-    assert "CurrentVersion = 3" in save
+    assert "CurrentVersion = 4" in save
     assert "LivesAfterAbandonedWave" in save
     assert "ApplyAbandonedWave" in save
     assert "SaveFileChoice.Choose" in store
     assert "File.WriteAllText(dest + SaveFileChoice.BackupSuffix, json)" in store
     assert "if (!mainExists)" in choice
     assert _abandoned_lives(3, 3) == 2
-    assert _abandoned_lives(1, 1) == 1
+    assert _abandoned_lives(2, 2) == 1
+    assert _abandoned_lives(1, 1) == 0
     assert _abandoned_lives(5, 0) == 4
     good = _save_to_json(
         {
@@ -8073,9 +8088,271 @@ def test_pr2_046() -> None:
             scale = _canvas_scale(width, height)
             hangar = (0.014, 0.080, 0.55, 0.888)
             summary = _map_anchors(*hangar, 0.02, 0.82, 0.98, 0.995)
-            chip = _map_anchors(*summary, 0.54, 0.78, 0.97, 0.96)
+            chip = _map_anchors(*summary, 0.72, 0.78, 0.97, 0.96)
             box_w = (chip[2] - chip[0]) * (width / scale)
             assert _estimate_width(text, 14) <= box_w, (wave, width, text, box_w)
+
+
+def _cs_blocks(source: str, signature: str) -> list[str]:
+    blocks = []
+    cursor = 0
+    while True:
+        at = source.find(signature, cursor)
+        if at < 0:
+            break
+        brace = source.find("{", at)
+        assert brace > at, signature
+        depth = 0
+        end = brace
+        for index in range(brace, len(source)):
+            char = source[index]
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    end = index
+                    break
+        else:
+            raise AssertionError("unbalanced " + signature)
+        blocks.append(source[brace : end + 1])
+        cursor = end + 1
+    return blocks
+
+
+def _should_start_crossfade(same_as_current: bool, same_as_incoming: bool) -> bool:
+    if same_as_current or same_as_incoming:
+        return False
+    return True
+
+
+def _merged_banked(run_count: int, meta_count: int) -> int:
+    from_run = 0 if run_count < 0 else run_count
+    from_meta = 0 if meta_count < 0 else meta_count
+    high = from_run if from_run > from_meta else from_meta
+    if high < 0:
+        return 0
+    if high > 3:
+        return 3
+    return high
+
+
+def test_speltest_063_marker_title_bank() -> None:
+    """Wave marker, vitals, summary width, crossfade no-op, and bank high-water."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
+    save = (root / "Assets/Scripts/Core/RunSave.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    legacy = (root / "Assets/Scripts/Core/LegacyProgress.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    music = (root / "Assets/Scripts/Core/MusicPlan.cs").read_text(encoding="utf-8")
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    cap = (root / "Assets/Scripts/Core/CampaignCap.cs").read_text(encoding="utf-8")
+    loadout = (root / "Assets/Scripts/Core/LoadoutState.cs").read_text(encoding="utf-8")
+    credits_cs = (root / "Assets/Scripts/Core/EndCredits.cs").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    swedish = _loc_values(loc)
+
+    for signature in (
+        "void CompleteWave(",
+        "void CompleteCampaign(",
+        "void RestoreHangar(",
+        "void ReturnToHangar(",
+        "void AbortToHangar(",
+    ):
+        bodies = _cs_blocks(session, signature)
+        assert bodies, signature
+        for body in bodies:
+            assert "ClearWaveMarker();" in body, signature
+    fail_bodies = _cs_blocks(session, "void FailWave(")
+    assert len(fail_bodies) >= 2
+    failed_phase = [body for body in fail_bodies if "Phase = GamePhase.Failed" in body]
+    assert len(failed_phase) == 2
+    for body in failed_phase:
+        assert "ClearWaveMarker();" in body
+    assert "ClearWaveMarker();" in _cs_blocks(session, "void FailAbandonedRun(")[0]
+    assert "AbandonedWaveEndsRun" in save and "ConcludeAbandonedLastLife" in manager
+    assert "the run is over" in save
+    assert "last life" in readme.lower()
+    assert "HullNow" in manager and "ShieldNow" in manager
+    assert "ReadShipVitals" in manager
+    hit = manager.split("void NotifyPlayerHit()", 1)[1][:500]
+    assert "PersistWaveVitals();" in hit
+    quitting = manager.split("void OnApplicationQuit()", 1)[1][:400]
+    assert "PersistWaveVitals();" in quitting
+
+    state = {"phase": "Hangar", "lives": 3, "flag": False, "at": 0, "wave": 1}
+    state["phase"] = "Playing"
+    state["flag"] = True
+    state["at"] = state["lives"]
+    assert state["flag"] is True and state["at"] == 3
+    state["wave"] = 2
+    state["phase"] = "WaveClear"
+    state["flag"] = False
+    state["at"] = 0
+    assert state["flag"] is False
+    hangar = {
+        "Version": 4,
+        "WaveIndex": state["wave"],
+        "Score": 10,
+        "Credits": 20,
+        "Lives": state["lives"],
+        "Hull": 4,
+        "Shield": 1,
+        "Difficulty": 1,
+        "UpgradeMask": 0,
+        "Doctrine": 0,
+        "PrimaryMode": 0,
+        "UtilityMode": 0,
+        "HasUtility": 0,
+        "RunId": 4,
+        "LastResolvedWave": 1,
+        "LastRunScore": 10,
+        "LastCreditsAwarded": 165,
+        "ExtraLifeStreak": 0,
+        "LegacyHull": 0,
+        "FirstDiscount": 0,
+        "FirstDiscountUsed": 0,
+        "Timestamp": "2026-10-03T12:00:00Z",
+    }
+    cleared_json = _save_to_json(hangar).replace(
+        ',"Timestamp"',
+        ',"BoonLevels":0,"BoonPending":0,"BoonOffer":0'
+        ',"WaveInProgress":0,"LivesAtWaveStart":0,"Mk2Mask":0'
+        ',"BankedLegacy":0,"ExtraLifeWorld":0,"HullNow":2,"ShieldNow":0,"Timestamp"',
+    )
+    cleared = _save_parse(cleared_json)
+    assert cleared is not None
+    assert cleared["WaveInProgress"] == 0 and cleared["HullNow"] == 2 and cleared["ShieldNow"] == 0
+    continued_lives = cleared["Lives"]
+    assert continued_lives == 3
+
+    mid = dict(hangar)
+    mid["Lives"] = 3
+    mid_json = _save_to_json(mid).replace(
+        ',"Timestamp"',
+        ',"BoonLevels":0,"BoonPending":0,"BoonOffer":0'
+        ',"WaveInProgress":1,"LivesAtWaveStart":3,"Mk2Mask":0'
+        ',"BankedLegacy":0,"ExtraLifeWorld":0,"HullNow":2,"ShieldNow":1,"Timestamp"',
+    )
+    mid_save = _save_parse(mid_json)
+    assert mid_save is not None and mid_save["WaveInProgress"] == 1
+    assert _abandoned_lives(mid_save["Lives"], mid_save["LivesAtWaveStart"]) == 2
+    assert mid_save["Lives"] - 1 == 2
+
+    last = dict(hangar)
+    last["Lives"] = 1
+    last_json = _save_to_json(last).replace(
+        ',"Timestamp"',
+        ',"BoonLevels":0,"BoonPending":0,"BoonOffer":0'
+        ',"WaveInProgress":1,"LivesAtWaveStart":1,"Mk2Mask":0'
+        ',"BankedLegacy":1,"ExtraLifeWorld":0,"HullNow":1,"ShieldNow":0,"Timestamp"',
+    )
+    last_save = _save_parse(last_json)
+    assert last_save is not None
+    assert _abandoned_lives(last_save["Lives"], last_save["LivesAtWaveStart"]) == 0
+    assert _abandoned_lives(2, 2) == 1
+    assert _abandoned_lives(1, 1) < 1
+
+    old = _save_to_json(hangar).replace(
+        ',"Timestamp"',
+        ',"BoonLevels":0,"BoonPending":0,"BoonOffer":0'
+        ',"WaveInProgress":0,"LivesAtWaveStart":0,"Mk2Mask":0'
+        ',"BankedLegacy":0,"ExtraLifeWorld":0,"Timestamp"',
+    )
+    old = old.replace('"Version":4', '"Version":3', 1)
+    old_parsed = _save_parse(old)
+    assert old_parsed is not None and "HullNow" not in old_parsed and "ShieldNow" not in old_parsed
+    assert "parsed.HullNow = -1" in save and "parsed.ShieldNow = -1" in save
+
+    title = re.search(
+        r"Stretch\(_summaryTitle\.rectTransform, new Vector2\(([0-9.]+)f, [0-9.]+f\), new Vector2\(([0-9.]+)f, [0-9.]+f\)\)",
+        ui,
+    )
+    chip = re.search(
+        r"Stretch\(_waveMedal\.rectTransform, new Vector2\(([0-9.]+)f, [0-9.]+f\), new Vector2\(([0-9.]+)f, [0-9.]+f\)\)",
+        ui,
+    )
+    assert title and chip
+    title_left = float(title.group(1))
+    title_right = float(title.group(2))
+    chip_left = float(chip.group(1))
+    chip_right = float(chip.group(2))
+    assert title_right <= chip_left
+    en_sector = "SECTOR CLEAR - World {0}"
+    en_over = "RUN OVER - wave {0}"
+    assert en_sector in cap and en_over in summary
+    titles = []
+    for world in (1, 7, 10):
+        titles.append(en_sector.format(world))
+        titles.append(swedish["run.sector_world"].format(world))
+    for wave in (1, 12, 35):
+        titles.append(en_over.format(wave))
+        titles.append(swedish["run.over_title"].format(wave))
+    resolutions = ((1280, 800), (1366, 768), (1440, 900), (1920, 1080), (2560, 1080), (3440, 1440))
+    hangar_box = (0.014, 0.080, 0.55, 0.888)
+    for width, height in resolutions:
+        scale = _canvas_scale(width, height)
+        canvas_w = width / scale
+        summary_box = _map_anchors(*hangar_box, 0.02, 0.82, 0.98, 0.995)
+        title_box = _map_anchors(*summary_box, title_left, 0.78, title_right, 0.96)
+        chip_box = _map_anchors(*summary_box, chip_left, 0.78, chip_right, 0.96)
+        assert title_box[2] <= chip_box[0] + 1e-9
+        title_w = (title_box[2] - title_box[0]) * canvas_w
+        for line in titles:
+            assert _estimate_width(line, 28) <= title_w, (width, height, line, title_w)
+
+    assert _should_start_crossfade(True, False) is False
+    assert _should_start_crossfade(False, True) is False
+    assert _should_start_crossfade(True, True) is False
+    assert _should_start_crossfade(False, False) is True
+    assert "ShouldStartCrossfade" in music and "ShouldStartCrossfade" in audio
+    sync = audio.split("public void SyncMusicToPhase(GamePhase phase, int waveIndex)")[1].split("public void PlayWorldMusic")[0]
+    assert "CrossfadeTo(_hangarAmbience" in sync
+    assert "GamePhase.WaveClear" not in sync
+    assert "GamePhase.Playing" in sync
+
+    assert _merged_banked(0, 2) == 2
+    assert _merged_banked(3, 1) == 3
+    assert _merged_banked(1, 1) == 1
+    assert "MergedBanked" in legacy and "RememberBanked" in legacy and "BankedRuns" in legacy
+    assert "RememberBanked" in manager
+
+    for token in (
+        "OwnsMk2(UpgradeId.FlakFeed)",
+        "OwnsMk2(UpgradeId.Storm)",
+        "OwnsMk2(UpgradeId.OverchargeLance)",
+        "OwnsMk2(UpgradeId.SeekerCadence)",
+        "OwnsMk2(UpgradeId.TwinSeek)",
+        "OwnsMk2(UpgradeId.ShieldMatrix)",
+    ):
+        assert token in loadout, token
+    note = summary.split("UpgradesLineMaxShown")[0][-240:]
+    assert "Seven" in note and "Twelve" not in note
+    loc_cs = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    credits_sv = loc_cs.split('"credits.body"', 1)[1].split("},", 1)[0]
+    for name in ("Juhani Junkala", "MintoDog", "HydroGene", "CC0"):
+        assert name in credits_cs
+        assert name in credits_sv
+    built = ui.split("private void BuildEndCredits")[1].split("private void ShowEndCredits")[0]
+    assert "HorizontalWrapMode.Wrap" in built
+    license_dir = root / "Assets/Audio/Licenses_0.46"
+    assert (root / "Assets/Audio/Licenses_0.46.meta").is_file()
+    for name in (
+        "Kenney_MusicLoops_readme.txt",
+        "JuhaniJunkala_INFO.txt",
+        "OpenGameArt_CC0_sources.txt",
+    ):
+        meta = license_dir / (name + ".meta")
+        assert meta.is_file(), name
+        meta_text = meta.read_text(encoding="utf-8")
+        assert "TextScriptImporter:" in meta_text
+        assert re.search(r"guid: [0-9a-f]{32}", meta_text)
 
 
 if __name__ == "__main__":

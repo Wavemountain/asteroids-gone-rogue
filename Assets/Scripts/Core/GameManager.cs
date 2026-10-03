@@ -109,6 +109,12 @@ namespace AsteroidsGoneRogue
         public void EnterHangar()
         {
             DifficultySettings.EnsureLoaded();
+            if (PendingContinue != null && RunSaveCodec.AbandonedWaveEndsRun(PendingContinue))
+            {
+                ConcludeAbandonedLastLife(PendingContinue);
+                return;
+            }
+
             if (_session.Lives <= 0)
             {
                 ResetFullRun();
@@ -197,6 +203,17 @@ namespace AsteroidsGoneRogue
             }
 
             _session.MarkWaveHit();
+            PersistWaveVitals();
+        }
+
+        /// <summary>
+        /// Editor stop and a real quit do not pass through the hangar writer.
+        /// Refresh the in-progress snapshot so Continue keeps the hull and
+        /// shield the ship actually has, not the full bar from wave start.
+        /// </summary>
+        private void OnApplicationQuit()
+        {
+            PersistWaveVitals();
         }
 
         public bool TryChooseBoon(int index)
@@ -484,6 +501,12 @@ namespace AsteroidsGoneRogue
             }
 
             RunSaveData data = PendingContinue;
+            if (RunSaveCodec.AbandonedWaveEndsRun(data))
+            {
+                ConcludeAbandonedLastLife(data);
+                return;
+            }
+
             PendingContinue = null;
             ActiveRunId = data.RunId;
             _runLaunched = true;
@@ -499,6 +522,16 @@ namespace AsteroidsGoneRogue
             }
 
             DifficultySettings.SetGrade(grade);
+            if (Meta == null)
+            {
+                Meta = MetaData.Fresh();
+            }
+
+            int metaBank = LegacyProgress.BankedCount(Meta, data.RunId);
+            int mergedBank = LegacyProgress.MergedBanked(data.BankedLegacy, metaBank);
+            data.BankedLegacy = mergedBank;
+            LegacyProgress.RememberBanked(Meta, data.RunId, mergedBank);
+            RunSaveStore.TrySaveMeta(Meta);
             _session.ReadContinue(0, 0, data.BankedLegacy, data.ExtraLifeWorld);
             RunSaveCodec.ApplyAbandonedWave(data);
             _loadout.State.RestoreSnapshot(
@@ -525,6 +558,88 @@ namespace AsteroidsGoneRogue
             _boonRun.ReadSave(data.BoonLevels, data.BoonPending, data.BoonOffer);
             BoonHooks.Sync(_boonRun);
             BoonHooks.RunSeed = ActiveRunId > 0 ? ActiveRunId : 1;
+            if (_ship != null)
+            {
+                _ship.SetInputEnabled(false);
+                bool refillVitals = data.HullNow < 0;
+                _ship.ResetForWave(_loadout.State, refillVitals, false);
+                if (!refillVitals && _ship.Health != null)
+                {
+                    _ship.Health.SetHull(data.HullNow);
+                    if (data.ShieldNow >= 0)
+                    {
+                        _ship.Health.SetShield(data.ShieldNow);
+                    }
+                }
+
+                if (_factory != null)
+                {
+                    _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
+                }
+            }
+
+            RaiseStateChanged();
+        }
+
+        /// <summary>
+        /// Mid-wave quit on the last life ends the run. Legacy is awarded once
+        /// for this run id and the save is deleted. Continue is not offered.
+        /// </summary>
+        private void ConcludeAbandonedLastLife(RunSaveData doomedSave)
+        {
+            PendingContinue = null;
+            if (doomedSave == null || _session == null)
+            {
+                RunSaveStore.DeleteRun();
+                return;
+            }
+
+            ActiveRunId = doomedSave.RunId;
+            _runLaunched = true;
+            if (_loadout != null && _loadout.State != null)
+            {
+                _loadout.State.RestoreSnapshot(
+                    doomedSave.UpgradeMask,
+                    doomedSave.Shield,
+                    doomedSave.Doctrine,
+                    doomedSave.PrimaryMode,
+                    doomedSave.UtilityMode,
+                    doomedSave.HasUtility,
+                    doomedSave.LegacyHull,
+                    doomedSave.FirstDiscount,
+                    doomedSave.FirstDiscountUsed);
+                _loadout.State.SetMk2Mask(doomedSave.Mk2Mask);
+            }
+
+            _session.RestoreHangar(
+                doomedSave.WaveIndex,
+                doomedSave.Score,
+                doomedSave.Credits,
+                doomedSave.Lives,
+                doomedSave.LastResolvedWave,
+                doomedSave.LastRunScore,
+                doomedSave.LastCreditsAwarded,
+                doomedSave.ExtraLifeStreak);
+            _session.ReadContinue(0, 0, doomedSave.BankedLegacy, doomedSave.ExtraLifeWorld);
+            _session.FailAbandonedRun();
+            if (Meta == null)
+            {
+                Meta = MetaData.Fresh();
+            }
+
+            int closedWorlds;
+            int closedHighest;
+            LegacyProgress.ProgressOf(doomedSave.WaveIndex, true, out closedWorlds, out closedHighest);
+            LegacyProgress.TryAward(Meta, doomedSave.RunId, closedWorlds, closedHighest);
+            if (closedHighest > 0)
+            {
+                int closedWorldNumber = WorldCatalog.NumberForWave(closedHighest);
+                LegacyProgress.TryRecordBest(Meta, doomedSave.Difficulty, doomedSave.Score, closedHighest, closedWorldNumber);
+            }
+
+            RunSaveStore.TrySaveMeta(Meta);
+            RunSaveStore.DeleteRun();
+            ClearBoons();
             if (_ship != null)
             {
                 _ship.SetInputEnabled(false);
@@ -721,6 +836,13 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            if (Meta == null)
+            {
+                Meta = MetaData.Fresh();
+            }
+
+            EnsureRunId();
+            LegacyProgress.RememberBanked(Meta, ActiveRunId, _session.BankedLegacy);
             GrantBankedLegacy();
             PlayServicePurchase();
             NotifyLoadoutChanged();
@@ -788,6 +910,20 @@ namespace AsteroidsGoneRogue
             _ship.Health.SetIFramePercent(LegacyProgress.ShieldDurationPercent(shieldLevel));
         }
 
+        /// <summary>
+        /// A missing or destroyed ship must not replace the live snapshot with
+        /// the "full" sentinel (-1). Death deletes the save on its own path.
+        /// </summary>
+        private void PersistWaveVitals()
+        {
+            if (_ship == null || _ship.Health == null || _ship.Health.Hull < 1)
+            {
+                return;
+            }
+
+            WriteWaveProgress();
+        }
+
         private void WriteWaveProgress()
         {
             if (_session == null || !_session.WaveInProgress || _loadout == null || _loadout.State == null)
@@ -802,7 +938,10 @@ namespace AsteroidsGoneRogue
 
             EnsureRunId();
             string waveStamp = System.DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture);
-            RunSaveData waveData = RunSaveCodec.Capture(_session, _loadout.State, (int)DifficultySettings.Current, ActiveRunId, waveStamp, _boonRun);
+            int waveHull;
+            int waveShield;
+            ReadShipVitals(out waveHull, out waveShield);
+            RunSaveData waveData = RunSaveCodec.Capture(_session, _loadout.State, (int)DifficultySettings.Current, ActiveRunId, waveStamp, _boonRun, waveHull, waveShield);
             if (!RunSaveCodec.IsValid(waveData))
             {
                 return;
@@ -1180,13 +1319,29 @@ namespace AsteroidsGoneRogue
 
             EnsureRunId();
             string stamp = System.DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture);
-            RunSaveData data = RunSaveCodec.Capture(_session, _loadout.State, (int)DifficultySettings.Current, ActiveRunId, stamp, _boonRun);
+            int savedHull;
+            int savedShield;
+            ReadShipVitals(out savedHull, out savedShield);
+            RunSaveData data = RunSaveCodec.Capture(_session, _loadout.State, (int)DifficultySettings.Current, ActiveRunId, stamp, _boonRun, savedHull, savedShield);
             if (!RunSaveCodec.IsValid(data))
             {
                 return;
             }
 
             RunSaveStore.TrySaveRun(data);
+        }
+
+        private void ReadShipVitals(out int hullNow, out int shieldNow)
+        {
+            hullNow = -1;
+            shieldNow = -1;
+            if (_ship == null || _ship.Health == null || _ship.Health.Hull < 1)
+            {
+                return;
+            }
+
+            hullNow = _ship.Health.Hull;
+            shieldNow = _ship.Health.Shield < 0 ? 0 : _ship.Health.Shield;
         }
 
         private void RaiseStateChanged()

@@ -62,6 +62,20 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
+        /// A repeat whose clip is already playing, or is the clip an in-progress
+        /// crossfade is heading toward, must not restart the track.
+        /// </summary>
+        public static bool ShouldStartCrossfade(bool sameAsCurrent, bool sameAsIncoming)
+        {
+            if (sameAsCurrent || sameAsIncoming)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// 0 at the start of a crossfade, 1 at the end. Unscaled elapsed seconds.
         /// </summary>
         public static float CrossfadeRamp(float elapsed, float duration)

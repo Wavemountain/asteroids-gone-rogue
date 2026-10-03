@@ -1357,7 +1357,7 @@ namespace AsteroidsGoneRogue
 
             _summaryTitle = CreateText("SummaryTitle", _summaryRoot.transform, display, UiTheme.HeaderMin, TextAnchor.MiddleCenter, FontStyle.Bold);
             // r1 headline. One line, left of the medal chip, above the stats row.
-            Stretch(_summaryTitle.rectTransform, new Vector2(0.03f, 0.78f), new Vector2(0.52f, 0.96f));
+            Stretch(_summaryTitle.rectTransform, new Vector2(0.03f, 0.78f), new Vector2(0.70f, 0.96f));
             _summaryTitle.color = UiTheme.Primary;
             ClampOneLine(_summaryTitle);
 
@@ -1368,7 +1368,7 @@ namespace AsteroidsGoneRogue
             ClampOneLine(_summaryBody);
 
             _waveMedal = CreateText("WaveMedal", _summaryRoot.transform, display, 14, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Stretch(_waveMedal.rectTransform, new Vector2(0.54f, 0.78f), new Vector2(0.97f, 0.96f));
+            Stretch(_waveMedal.rectTransform, new Vector2(0.72f, 0.78f), new Vector2(0.97f, 0.96f));
             _waveMedal.color = UiTheme.Primary;
             ClampOneLine(_waveMedal);
 
@@ -1804,6 +1804,8 @@ namespace AsteroidsGoneRogue
             Stretch(_endCreditsBody.rectTransform, new Vector2(0.04f, -1.4f), new Vector2(0.96f, 1f));
             _endCreditsBody.color = EndCredits.BodyColor;
             _endCreditsBody.text = EndCredits.Body();
+            _endCreditsBody.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _endCreditsBody.verticalOverflow = VerticalWrapMode.Overflow;
             AddReadability(_endCreditsBody, false);
 
             _creditsContinue = CreateButton("CreditsContinue", _endCreditsRoot.transform, display,

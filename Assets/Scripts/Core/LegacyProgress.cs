@@ -29,12 +29,19 @@ namespace AsteroidsGoneRogue
         public int BestWave2;
         public int BestWorld2;
 
+        /// <summary>
+        /// High-water bank counts per run id, "id:count,id:count".
+        /// Missing on older meta files, which means nothing was recorded.
+        /// </summary>
+        public string BankedRuns = string.Empty;
+
         public static MetaData Fresh()
         {
             MetaData data = new MetaData();
             data.Version = LegacyProgress.CurrentVersion;
             data.NextRunId = 1;
             data.Awarded = string.Empty;
+            data.BankedRuns = string.Empty;
             return data;
         }
     }
@@ -626,6 +633,155 @@ namespace AsteroidsGoneRogue
             meta.BestWave2 = wave;
             meta.BestWorld2 = world;
         }
+
+        /// <summary>
+        /// Credits already banked for this run id in the meta file.
+        /// A missing entry is 0, which is the pre-field behaviour.
+        /// </summary>
+        public static int BankedCount(MetaData meta, int runId)
+        {
+            if (meta == null || runId < 1 || string.IsNullOrEmpty(meta.BankedRuns))
+            {
+                return 0;
+            }
+
+            string[] parts = meta.BankedRuns.Split(',');
+            for (int index = 0; index < parts.Length; index++)
+            {
+                int id;
+                int count;
+                if (!TryReadBankToken(parts[index], out id, out count))
+                {
+                    continue;
+                }
+
+                if (id == runId)
+                {
+                    return ClampBank(count);
+                }
+            }
+
+            return 0;
+        }
+
+        /// <summary>
+        /// The cap is the maximum of the run save and the meta high-water mark.
+        /// Restoring an older run_save.json cannot lower a count already banked,
+        /// and a higher run-save count is kept if the meta write was missed.
+        /// </summary>
+        public static int MergedBanked(int runCount, int metaCount)
+        {
+            int fromRun = runCount < 0 ? 0 : runCount;
+            int fromMeta = metaCount < 0 ? 0 : metaCount;
+            int high = fromRun > fromMeta ? fromRun : fromMeta;
+            return ClampBank(high);
+        }
+
+        public static void RememberBanked(MetaData meta, int runId, int count)
+        {
+            if (meta == null || runId < 1)
+            {
+                return;
+            }
+
+            int stored = MergedBanked(count, BankedCount(meta, runId));
+            string[] parts = string.IsNullOrEmpty(meta.BankedRuns)
+                ? new string[0]
+                : meta.BankedRuns.Split(',');
+            StringBuilder builder = new StringBuilder(64);
+            int kept = 0;
+            bool replaced = false;
+            int start = 0;
+            if (parts.Length > AwardMemory)
+            {
+                start = parts.Length - AwardMemory;
+            }
+
+            for (int index = start; index < parts.Length; index++)
+            {
+                int id;
+                int previous;
+                if (!TryReadBankToken(parts[index], out id, out previous))
+                {
+                    continue;
+                }
+
+                if (id == runId)
+                {
+                    previous = stored;
+                    replaced = true;
+                }
+
+                if (kept > 0)
+                {
+                    builder.Append(',');
+                }
+
+                builder.Append(id.ToString(CultureInfo.InvariantCulture));
+                builder.Append(':');
+                builder.Append(ClampBank(previous).ToString(CultureInfo.InvariantCulture));
+                kept += 1;
+            }
+
+            if (!replaced)
+            {
+                if (kept > 0)
+                {
+                    builder.Append(',');
+                }
+
+                builder.Append(runId.ToString(CultureInfo.InvariantCulture));
+                builder.Append(':');
+                builder.Append(stored.ToString(CultureInfo.InvariantCulture));
+            }
+
+            meta.BankedRuns = builder.ToString();
+        }
+
+        private static int ClampBank(int count)
+        {
+            if (count < 0)
+            {
+                return 0;
+            }
+
+            if (count > ShopPrices.BankMaxPerRun)
+            {
+                return ShopPrices.BankMaxPerRun;
+            }
+
+            return count;
+        }
+
+        private static bool TryReadBankToken(string token, out int runId, out int count)
+        {
+            runId = 0;
+            count = 0;
+            if (string.IsNullOrEmpty(token))
+            {
+                return false;
+            }
+
+            int colon = token.IndexOf(':');
+            if (colon <= 0 || colon >= token.Length - 1)
+            {
+                return false;
+            }
+
+            string idText = token.Substring(0, colon);
+            string countText = token.Substring(colon + 1);
+            if (!int.TryParse(idText, NumberStyles.None, CultureInfo.InvariantCulture, out runId))
+            {
+                return false;
+            }
+
+            if (!int.TryParse(countText, NumberStyles.None, CultureInfo.InvariantCulture, out count))
+            {
+                return false;
+            }
+
+            return runId >= 1;
+        }
     }
 
     public static class MetaCodec
@@ -660,6 +816,11 @@ namespace AsteroidsGoneRogue
             if (data.Awarded == null)
             {
                 return false;
+            }
+
+            if (data.BankedRuns == null)
+            {
+                data.BankedRuns = string.Empty;
             }
 
             if (data.BestScore0 < 0 || data.BestWave0 < 0 || data.BestWorld0 < 0)
@@ -707,6 +868,8 @@ namespace AsteroidsGoneRogue
             AppendInt(builder, "BestWorld2", data.BestWorld2, false);
             builder.Append(",\"Awarded\":\"");
             builder.Append(data.Awarded == null ? string.Empty : data.Awarded);
+            builder.Append("\",\"BankedRuns\":\"");
+            builder.Append(data.BankedRuns == null ? string.Empty : data.BankedRuns);
             builder.Append("\"}");
             return builder.ToString();
         }
@@ -727,6 +890,7 @@ namespace AsteroidsGoneRogue
 
             MetaData parsed = MetaData.Fresh();
             parsed.Awarded = string.Empty;
+            parsed.BankedRuns = string.Empty;
             bool sawVersion = false;
             int cursor = 1;
             int end = trimmed.Length - 1;
@@ -763,15 +927,22 @@ namespace AsteroidsGoneRogue
 
                 cursor += 1;
                 SkipSpace(trimmed, ref cursor);
-                if (key == "Awarded")
+                if (key == "Awarded" || key == "BankedRuns")
                 {
-                    string awarded;
-                    if (!ReadString(trimmed, ref cursor, out awarded))
+                    string text;
+                    if (!ReadString(trimmed, ref cursor, out text))
                     {
                         return false;
                     }
 
-                    parsed.Awarded = awarded;
+                    if (key == "Awarded")
+                    {
+                        parsed.Awarded = text;
+                    }
+                    else
+                    {
+                        parsed.BankedRuns = text;
+                    }
                 }
                 else
                 {

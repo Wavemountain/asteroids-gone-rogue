@@ -143,6 +143,25 @@ namespace AsteroidsGoneRogue
             _dead = _hull <= 0;
         }
 
+        public void SetShield(int shield)
+        {
+            if (shield < 0)
+            {
+                shield = 0;
+            }
+
+            if (shield > _maxShield)
+            {
+                shield = _maxShield;
+            }
+
+            _shield = shield;
+            if (_visuals != null)
+            {
+                _visuals.SetShieldVisible(_shield > 0);
+            }
+        }
+
         public void SetIFramePercent(int percent)
         {
             _iframePercent = percent < 100 ? 100 : percent;

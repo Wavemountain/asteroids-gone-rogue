@@ -24,6 +24,7 @@ namespace AsteroidsGoneRogue
             return Loc.T(
                 "credits.body",
                 "Audio\nKenney.nl + yd\n\n"
+                + "Music\nJuhani Junkala, Kenney, MintoDog, HydroGene (CC0)\n\n"
                 + "Fonts\nKenney Future\n\n"
                 + "Team\nSpelPM / GameBot / BlenderBot / AtmosBot / Speltest");
         }

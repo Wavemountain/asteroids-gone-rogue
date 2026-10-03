@@ -118,7 +118,7 @@ namespace AsteroidsGoneRogue
             _mk2Mask = 0;
         }
 
-        public const int SaveMaxShield = MatrixMaxShieldCharges + 1;
+        public const int SaveMaxShield = MatrixMaxShieldCharges + 2;
 
         public int CurrentMaxShield
         {
@@ -126,6 +126,11 @@ namespace AsteroidsGoneRogue
             {
                 int cap = ShieldMatrix ? MatrixMaxShieldCharges : MaxShieldCharges;
                 if (OwnsMk2(UpgradeId.ShieldCell))
+                {
+                    cap += 1;
+                }
+
+                if (ShieldMatrix && OwnsMk2(UpgradeId.ShieldMatrix))
                 {
                     cap += 1;
                 }
@@ -272,16 +277,28 @@ namespace AsteroidsGoneRogue
                 if (FlakFeed)
                 {
                     mul *= DoctrineRules.FlakFeedCooldownMul;
+                    if (OwnsMk2(UpgradeId.FlakFeed))
+                    {
+                        mul *= ShopPrices.Mk2CooldownMul;
+                    }
                 }
 
                 if (Storm)
                 {
                     mul *= DoctrineRules.StormCooldownMul;
+                    if (OwnsMk2(UpgradeId.Storm))
+                    {
+                        mul *= ShopPrices.Mk2CooldownMul;
+                    }
                 }
             }
             else if (mode == FireMode.Twin && OverchargeLance)
             {
                 mul *= DoctrineRules.OverchargeTwinCooldownMul;
+                if (OwnsMk2(UpgradeId.OverchargeLance))
+                {
+                    mul *= ShopPrices.Mk2CooldownMul;
+                }
             }
 
             mul *= Mk2WeaponMul(mode);
@@ -294,11 +311,19 @@ namespace AsteroidsGoneRogue
             if (SeekerCadence)
             {
                 mul *= DoctrineRules.SeekerCadenceCooldownMul;
+                if (OwnsMk2(UpgradeId.SeekerCadence))
+                {
+                    mul *= ShopPrices.Mk2CooldownMul;
+                }
             }
 
             if (TwinSeek)
             {
                 mul *= DoctrineRules.TwinSeekCooldownMul;
+                if (OwnsMk2(UpgradeId.TwinSeek))
+                {
+                    mul *= ShopPrices.Mk2CooldownMul;
+                }
             }
 
             mul *= Mk2WeaponMul(FireMode.Seeker);
@@ -395,7 +420,7 @@ namespace AsteroidsGoneRogue
             }
 
             _mk2Mask |= 1 << bit;
-            if (id == UpgradeId.ShieldCell && ShieldCharges < CurrentMaxShield)
+            if ((id == UpgradeId.ShieldCell || id == UpgradeId.ShieldMatrix) && ShieldCharges < CurrentMaxShield)
             {
                 ShieldCharges += 1;
             }

@@ -229,9 +229,9 @@ namespace AsteroidsGoneRogue
             { "run.star_at", "\u2022 {0} på våg {1}" },
             { "run.next_world3", "Nästa  ·  Värld 3 på våg {0}" },
             { "run.next_sector", "Nästa  ·  Värld 2 efter våg {0}" },
-            { "run.over_title", "SLUT - inga liv kvar (våg {0})" },
+            { "run.over_title", "SLUT - våg {0}" },
             { "run.over_explain", "Skepp, uppgraderingar och kredit nollställs vid Ny runda." },
-            { "run.sector_world", "SEKTOR KLAR - Värld {0} klar" },
+            { "run.sector_world", "SEKTOR KLAR - Värld {0}" },
             { "run.world_cleared", "Klar: {0}" },
             { "run.reached", "Nådde värld {0}, våg {1}" },
             { "world.launch", "Utskjutningsbältet" },
@@ -285,6 +285,7 @@ namespace AsteroidsGoneRogue
             { "best.card", "Bäst {0}  ·  Våg {1}  ·  Värld {2}" },
             { "best.slash", " / Bäst {0}" },
             { "credits.body", "Ljud\nKenney.nl + yd\n\n"
+                + "Musik\nJuhani Junkala, Kenney, MintoDog, HydroGene (CC0)\n\n"
                 + "Typsnitt\nKenney Future\n\n"
                 + "Team\nSpelPM / GameBot / BlenderBot / AtmosBot / Speltest" },
             { "up.Body", "Skrov" },
