@@ -51,7 +51,7 @@ namespace AsteroidsGoneRogue
         {
             int world = worldNumber < 1 ? 1 : worldNumber;
             int wave = waveIndex < 1 ? 1 : waveIndex;
-            return Loc.Tf("ui.continue_run", "Continue run (World {0}, wave {1})", world, wave);
+            return Loc.Tf("ui.continue_run", "Continue W{0} wave {1}", world, wave);
         }
 
         public const float PrimaryMinWidth = 900f;
@@ -387,7 +387,7 @@ namespace AsteroidsGoneRogue
             {
                 string cap = Loc.Tf(
                     "run.next_sector",
-                    "Next  ·  SECTOR CLEAR at wave {0}",
+                    "Next  ·  World 2 after wave {0}",
                     CampaignCap.FinalWave);
                 return next != null
                     ? cap + "  ·  " + Loc.Tf("run.buy", "Buy {0}", next.Title)

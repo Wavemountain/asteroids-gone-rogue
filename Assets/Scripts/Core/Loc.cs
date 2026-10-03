@@ -319,7 +319,7 @@ namespace AsteroidsGoneRogue
             { "enemy.Brute", "Brute" },
             { "enemy.Swarm", "Svärm" },
             { "enemy.Swarmling", "Svärmunge" },
-            { "ui.continue_run", "Fortsätt runda (Värld {0}, våg {1})" },
+            { "ui.continue_run", "Fortsätt V{0} våg {1}" },
             { "ui.new_run", "Ny runda" },
             { "ui.legacy.line", "Arv {0}  ·  Bäst {1}  ·  Våg {2}  ·  Värld {3}" },
             { "ui.legacy.line_empty", "Arv {0}  ·  Bäst —" },

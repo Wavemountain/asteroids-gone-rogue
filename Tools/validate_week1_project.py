@@ -1834,6 +1834,10 @@ def main() -> int:
     if "MuteSlot" in padnav:
         err("hangar pad must not keep a top-bar mute slot")
     check_loc_key_parity(loc_src)
+    import audit_loc
+
+    for loc_error in audit_loc.check(ROOT):
+        err("loc audit: " + loc_error)
     if "SettingsSlot" not in padnav or "SettingsGear" not in game_ui:
         err("hangar pad must include the settings gear slot")
     if "JoystickButton6" not in game_ui or "KeyCode.F1" not in game_ui:
