@@ -218,6 +218,7 @@ namespace AsteroidsGoneRogue
                 }
 
                 floorVisual = visual;
+                DecorDepthClamp.ClampTop(floorVisual, DecorDepthRules.MaxDecorTop);
             }
             else
             {
@@ -239,6 +240,7 @@ namespace AsteroidsGoneRogue
             _arenaLayout = layout;
             _arenaWorldNumber = worldNumber;
             _arenaApplied = true;
+            DecorCameraStack.ApplyLayer(_arenaRoot);
             if (announce)
             {
                 if (AudioCues.Instance != null)
@@ -308,6 +310,7 @@ namespace AsteroidsGoneRogue
                 new Vector3(0f, 0.02f, 0f), new Vector3(4.6f, 0.04f, 4.6f), Quaternion.identity);
             CreatePrimitive(PrimitiveType.Cube, "Hangar_KioskPlate", _hangarDressing.transform, _hangarCyan,
                 new Vector3(2.2f, 0.015f, -6.4f), new Vector3(2.4f, 0.03f, 1.8f), Quaternion.identity);
+            DecorCameraStack.ApplyLayer(_hangarDressing);
         }
 
         private GameObject PlaceHangarProp(
@@ -729,6 +732,7 @@ namespace AsteroidsGoneRogue
             HangarShipPreview preview = root.AddComponent<HangarShipPreview>();
             preview.Bind(slots);
             ApplyLoadoutVisuals(controller, loadout.State);
+            DecorDepthClamp.KeepGameplay(root);
             return controller;
         }
 
@@ -914,6 +918,7 @@ namespace AsteroidsGoneRogue
             EnemySeeker seeker = root.AddComponent<EnemySeeker>();
             seeker.Initialize(player, waves, kind);
             seeker.BeginSpawnGrace();
+            DecorDepthClamp.KeepGameplay(root);
             if (AudioCues.Instance != null)
             {
                 if (kind == EnemyKind.SwarmPod)
@@ -1186,6 +1191,7 @@ namespace AsteroidsGoneRogue
             Projectile projectile = root.AddComponent<Projectile>();
             int bounces = ricochet ? LoadoutState.RicochetBounces : 0;
             projectile.Launch(direction, speed, damage, pierce, hostile, kind, seeker, bounces);
+            DecorDepthClamp.KeepGameplay(root);
             _projectiles.Add(projectile);
             return projectile;
         }
@@ -1251,6 +1257,7 @@ namespace AsteroidsGoneRogue
 
             Asteroid asteroid = root.AddComponent<Asteroid>();
             asteroid.Initialize(size, waves, this, drift);
+            DecorDepthClamp.KeepGameplay(root);
             return asteroid;
         }
 
@@ -1304,6 +1311,7 @@ namespace AsteroidsGoneRogue
             body.isKinematic = true;
             float timeout = kind == Pickup.Kind.ExtraLife ? DifficultySettings.ExtraLifeTimeoutSeconds : 0f;
             root.AddComponent<Pickup>().Bind(kind, timeout);
+            DecorDepthClamp.KeepGameplay(root);
             return root;
         }
 
@@ -1896,6 +1904,11 @@ namespace AsteroidsGoneRogue
                     }
 
                     break;
+            }
+
+            for (int layoutChild = 0; layoutChild < root.childCount; layoutChild++)
+            {
+                DecorDepthClamp.ClampTop(root.GetChild(layoutChild).gameObject, DecorDepthRules.MaxDecorTop);
             }
 
             if (ArenaLayout.UsesHazardSpikes(layout) && AudioCues.Instance != null)

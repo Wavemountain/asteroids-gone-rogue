@@ -29,6 +29,7 @@ namespace AsteroidsGoneRogue
             camera.fieldOfView = 54f;
             camera.nearClipPlane = 0.1f;
             camera.farClipPlane = 280f;
+            DecorCameraStack.Attach(camera);
 
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.12f, 0.14f, 0.18f);
