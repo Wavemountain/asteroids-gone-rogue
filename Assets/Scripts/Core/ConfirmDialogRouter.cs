@@ -25,6 +25,8 @@ namespace AsteroidsGoneRogue
         public bool RestartScreen;
         public bool ConfirmInPlay;
         public bool ConfirmNewRun;
+        public bool SettingsOpen;
+        public bool CreditsVisible;
         public bool Escape;
         public bool Start;
         public bool Cancel;
@@ -38,6 +40,9 @@ namespace AsteroidsGoneRogue
     /// <summary>
     /// Pure confirm router. An open dialog consumes every input first so Esc,
     /// Start, B, and A cannot reach abort, New Run, or hangar navigation.
+    /// Settings and credits cover the screen next: they return None so the
+    /// panel or credits overlay can consume Esc, Start, B, and A. No New Run,
+    /// confirm dialog, or abort starts underneath them.
     /// Default focus is No. B, Esc, Start, and the scrim are No.
     /// A confirms only when Yes is focused; A on No cancels.
     /// </summary>
@@ -99,6 +104,11 @@ namespace AsteroidsGoneRogue
                 }
 
                 return ConfirmAction.Blocked;
+            }
+
+            if (request.SettingsOpen || request.CreditsVisible)
+            {
+                return ConfirmAction.None;
             }
 
             bool abort = request.Playing && (request.Escape || request.Start || request.AbortClick);

@@ -62,11 +62,16 @@ namespace AsteroidsGoneRogue
 
         public static SettingsRoute Route(SettingsInputFlags flags)
         {
-            if (flags.Open && !flags.Playing)
+            if (flags.Open)
             {
                 if (flags.Escape || flags.Start || flags.Cancel || flags.Select || flags.F1 || flags.Scrim)
                 {
                     return SettingsRoute.CloseSave;
+                }
+
+                if (flags.Playing)
+                {
+                    return SettingsRoute.None;
                 }
 
                 if (flags.Submit || flags.Gear)
@@ -87,9 +92,14 @@ namespace AsteroidsGoneRogue
                 return SettingsRoute.None;
             }
 
-            if (flags.CreditsVisible && (flags.Escape || flags.Cancel))
+            if (flags.CreditsVisible)
             {
-                return SettingsRoute.CreditsClose;
+                if (flags.Escape || flags.Cancel)
+                {
+                    return SettingsRoute.CreditsClose;
+                }
+
+                return SettingsRoute.None;
             }
 
             if (flags.Playing && (flags.Escape || flags.Start))

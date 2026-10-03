@@ -4516,8 +4516,8 @@ def test_hangar_footer_launch_and_hint_size() -> None:
     assert len(en_hangar) * 10 < hint_box
     assert len(sv_hangar) * 10 < hint_box
 
-    en_play = "WASD / LS move · Mouse / RS aim · LMB / RT fire · E / LT utility · Q / LB cycle · Esc / Start = back to hangar"
-    sv_play = "WASD / LS styr · Mus / RS sikte · VMB / RT skjut · E / LT utility · Q / LB cykla · Esc / Start = tillbaka till hangaren"
+    en_play = "WASD/LS move · Mouse/RS aim · LMB/RT fire · E/LT utility · Q/LB cycle · Esc / Start = back to hangar"
+    sv_play = "WASD/LS styr · Mus/RS sikte · VMB/RT skjut · E/LT utility · Q/LB cykla · Esc/Start = tillbaka till hangaren"
     assert en_play in ui and sv_play in loc
     assert "Esc / Start abort" not in ui
     assert "Esc / Start avbryt" not in loc
@@ -4542,7 +4542,7 @@ def test_hangar_footer_launch_and_hint_size() -> None:
     assert "_hint.fontSize = footerSize" in ui
     assert "_firstFlightBody.fontSize = footerSize" in ui
     assert "ui.hint_footer" in ui
-    assert "A Select · Start Launch wave · ⚙ Settings" in ui
+    assert "A Select · Start Launch wave · Select = Settings" in ui
 
     def hint_size(screen_width: int) -> int:
         return 18 if screen_width <= 1280 else 16
@@ -4595,6 +4595,46 @@ def _shows_hangar_footer(mode: int) -> bool:
 
 def _shows_play_hint(mode: int) -> bool:
     return mode == 3
+
+
+def _shows_first_wave_coach(first_wave: bool, mode: int) -> bool:
+    """Mirrors SettingsState.ShowsFirstWaveCoach. Wave 1 is on for every hint mode."""
+    if not first_wave:
+        return False
+    return mode in (0, 1, 2, 3) or True
+
+
+def _hint_size_options(width: int) -> tuple[int, ...]:
+    """Mirrors SettingsState.HintSizeOptions. 14 is hidden at the 18px floor."""
+    if width <= 1280:
+        return (1, 2)
+    return (0, 1, 2)
+
+
+def _visible_hint_step(step: int, width: int) -> int:
+    options = _hint_size_options(width)
+    clamped = _clamp_hint_size(step)
+    best = options[0]
+    for option in options:
+        if option >= clamped:
+            return option
+        best = option
+    return best
+
+
+def _step_hint_size_for_width(step: int, direction: int, width: int) -> int:
+    options = _hint_size_options(width)
+    visible = _visible_hint_step(step, width)
+    index = options.index(visible)
+    if direction > 0:
+        index += 1
+    elif direction < 0:
+        index -= 1
+    if index < 0:
+        index = 0
+    if index >= len(options):
+        index = len(options) - 1
+    return options[index]
 
 
 def _step_hint_mode(current: int, direction: int) -> int:
@@ -4656,9 +4696,11 @@ def _settings_capture(state: dict) -> tuple:
 
 def _settings_route(flags: dict) -> str:
     """Mirrors SettingsInputRouter.Route. Settings wins, then credits, then play/hangar."""
-    if flags.get("open") and not flags.get("playing"):
+    if flags.get("open"):
         if flags.get("escape") or flags.get("start") or flags.get("cancel") or flags.get("select") or flags.get("f1") or flags.get("scrim"):
             return "close"
+        if flags.get("playing"):
+            return "none"
         if flags.get("submit") or flags.get("gear"):
             return "activate"
         if flags.get("nav_y"):
@@ -4666,8 +4708,10 @@ def _settings_route(flags: dict) -> str:
         if flags.get("nav_x"):
             return "nudge"
         return "none"
-    if flags.get("credits") and (flags.get("escape") or flags.get("cancel")):
-        return "credits"
+    if flags.get("credits"):
+        if flags.get("escape") or flags.get("cancel"):
+            return "credits"
+        return "none"
     if flags.get("playing") and (flags.get("escape") or flags.get("start")):
         return "abort"
     if not flags.get("playing") and not flags.get("credits"):
@@ -4853,6 +4897,29 @@ def test_settings_shell() -> None:
     assert _shows_hangar_footer(2) and _shows_hangar_footer(3)
     assert not _shows_hangar_footer(0) and not _shows_hangar_footer(1)
     assert _shows_play_hint(3) and not _shows_play_hint(2) and not _shows_play_hint(0) and not _shows_play_hint(1)
+    assert "ShowsFirstWaveCoach" in state
+    for hint_mode in (0, 1, 2, 3):
+        assert _shows_first_wave_coach(True, hint_mode)
+        assert not _shows_first_wave_coach(False, hint_mode)
+    assert "HintSizeOptions" in state and "VisibleHintStep" in state
+    for narrow in (800, 1024, 1280):
+        assert _hint_size_options(narrow) == (1, 2)
+        assert 0 not in _hint_size_options(narrow)
+    for wide in (1281, 1366, 1920, 2560, 3440):
+        assert _hint_size_options(wide) == (0, 1, 2)
+    assert _visible_hint_step(0, 1280) == 1 and _hint_px(_visible_hint_step(0, 1280)) == 18
+    assert _visible_hint_step(0, 1920) == 0 and _hint_px(_visible_hint_step(0, 1920)) == 14
+    assert _visible_hint_step(2, 1280) == 2
+    for width in (1280, 1920, 3440):
+        options = _hint_size_options(width)
+        for step in (0, 1, 2):
+            assert _step_hint_size_for_width(step, 1, width) in options
+            assert _step_hint_size_for_width(step, -1, width) in options
+            assert _step_hint_size_for_width(step, 0, width) in options
+    assert _step_hint_size_for_width(0, 1, 1280) == 2
+    assert _step_hint_size_for_width(2, -1, 1280) == 1
+    assert _step_hint_size_for_width(0, -1, 1920) == 0
+    assert _step_hint_size_for_width(0, 1, 1920) == 1
     assert _step_hint_mode(0, 1) == 2 and _step_hint_mode(1, 1) == 2
     assert _step_hint_mode(2, 1) == 3 and _step_hint_mode(3, 1) == 3
     assert _step_hint_mode(3, -1) == 2 and _step_hint_mode(2, -1) == 0
@@ -4975,7 +5042,9 @@ def test_settings_shell() -> None:
     assert _settings_route({**opened, "escape": True, "start": True, "submit": True}) == "close"
     assert _settings_blocks_pad(opened) is True
     assert _settings_blocks_pad(hangar) is False
-    assert _settings_route({**opened, "playing": True, "escape": True}) == "abort"
+    assert _settings_route({**opened, "playing": True, "escape": True}) == "close"
+    assert _settings_route({**opened, "playing": True, "start": True}) == "close"
+    assert _settings_route({**opened, "playing": True, "submit": True}) == "none"
     assert _settings_route({"playing": True, "escape": True}) == "abort"
     assert _settings_route({"playing": True, "start": True}) == "abort"
     assert _settings_route({"playing": True, "f1": True}) == "none"
@@ -5004,8 +5073,13 @@ def test_settings_shell() -> None:
     assert "FocusHangarSlot(HangarPadNav.SettingsSlot)" in ui
     assert "FullControlHint" in ui
     assert "ShowsHangarFooter" in ui and "ShowsPlayHint" in ui and "EffectiveHintSize" in ui
-    assert "A Select · Start Launch wave · ⚙ Settings" in ui
-    assert "A Välj · Start Starta våg · ⚙ Inställningar" in loc
+    assert "ShowsFirstWaveCoach" in ui and "VisibleHintStep" in ui
+    assert "StepHintSize(_settings.HintSizeStep, direction, Screen.width)" in ui
+    assert "WaveIndex == 1" in ui.split("private void ApplyBottomHint")[1].split("private static void ClampOneLine")[0]
+    assert "_firstRunCoachUntil" not in ui
+    assert "\u2699" not in ui and "\u2699" not in loc
+    assert "A Select · Start Launch wave · Select = Settings" in ui
+    assert "A Välj · Start Starta våg · Select = Inställningar" in loc
     assert "new Vector2(0.07f, 0.15f)" in ui and "new Vector2(0.93f, 0.85f)" in ui
     assert 'Loc.T("ui.settings", "Settings")' in ui
     assert 'Loc.T("ui.settings.language", "Language")' in ui
@@ -5103,8 +5177,8 @@ def test_settings_shell() -> None:
         body_span = (band_top - 0.05) - band_bottom
         body_h = body_span * (0.88 - 0.12) * (height / scale)
         body_w = (0.92 - 0.08) * (0.70 - 0.30) * canvas_w
-        play_en = "WASD / LS move · Mouse / RS aim · LMB / RT fire · E / LT utility · Q / LB cycle · Esc / Start = back to hangar"
-        play_sv = "WASD / LS styr · Mus / RS sikte · VMB / RT skjut · E / LT utility · Q / LB cykla · Esc / Start = tillbaka till hangaren"
+        play_en = "WASD/LS move · Mouse/RS aim · LMB/RT fire · E/LT utility · Q/LB cycle · Esc / Start = back to hangar"
+        play_sv = "WASD/LS styr · Mus/RS sikte · VMB/RT skjut · E/LT utility · Q/LB cykla · Esc/Start = tillbaka till hangaren"
         hang_en = "LS move · LT utility · LB cycle · A confirm · B / Esc Next Wave · Start launch wave"
         hang_sv = "LS styr · LT utility · LB cykla · A bekräfta · B / Esc nästa våg · Start starta våg"
         for block in (
@@ -5124,13 +5198,19 @@ def test_settings_shell() -> None:
         assert _estimate_width("★ 9/9", 12) <= ladder_w
 
         hint_w = (0.86 - 0.14) * canvas_w
-        footer_en = "A Select · Start Launch wave · ⚙ Settings"
-        footer_sv = "A Välj · Start Starta våg · ⚙ Inställningar"
+        footer_en = "A Select · Start Launch wave · Select = Settings"
+        footer_sv = "A Välj · Start Starta våg · Select = Inställningar"
         coach_en = "Shoot rocks  ·  Esc / Start returns to hangar"
         coach_sv = "Skjut stenar  ·  Esc / Start återvänder till hangaren"
         for line in (footer_en, footer_sv, coach_en, coach_sv):
             assert _estimate_width(line, 22) <= hint_w, (width, height, line, hint_w)
             assert _wrapped_line_count(line, hint_w, 22) == 1
+        hint_h = (0.072 - 0.008) * (height / scale)
+        for size in (14, 18, 22):
+            for line in (play_en, play_sv, footer_en, footer_sv, coach_en, coach_sv):
+                assert _estimate_width(line, size) <= hint_w, (width, height, size, line, hint_w)
+                assert _wrapped_line_count(line, hint_w, size) == 1
+                assert size * 1.15 <= hint_h, (width, height, size, hint_h)
 
         card_w = (0.93 - 0.07) * (0.545 - 0.018) * canvas_w
         card_h = (0.85 - 0.15) * (0.888 - 0.730) * (height / scale)
@@ -5161,6 +5241,8 @@ def _confirm_route(flags: dict) -> str:
         if flags.get("focus_delta"):
             return "move"
         return "blocked"
+    if flags.get("settings_open") or flags.get("credits_visible"):
+        return "none"
     abort = flags.get("playing") and (flags.get("escape") or flags.get("start") or flags.get("abort_click"))
     if abort:
         return "open" if flags.get("confirm_in_play", True) else "yes"
@@ -5283,10 +5365,79 @@ def test_confirm_restart() -> None:
     update = ui.split("private void Update()")[1].split("private void PulseHangarLaunch")[0]
     assert update.index("ConfirmDialogRouter.Route") < update.index("SettingsInputRouter.Route")
     assert update.index("ConfirmDialogRouter.Route") < update.index("NavigateHangarPad()")
+    read_confirm = ui.split("private ConfirmRequest ReadConfirmRequest()")[1].split("private void OnConfirmScrim")[0]
+    assert "request.RestartScreen = false" in read_confirm
+    assert "request.SettingsOpen = _settingsOpen" in read_confirm
+    assert "request.CreditsVisible = _creditsVisible" in read_confirm
+    route_body = router.split("public static ConfirmAction Route")[1].split("class ConfirmPause")[0]
+    assert "request.SettingsOpen || request.CreditsVisible" in route_body
+    assert route_body.index("SettingsOpen") < route_body.index("request.RestartScreen &&")
+    covered = {"settings_open": True, "credits_visible": True, "restart_screen": True, "playing": True, "confirm_new_run": True}
+    for button in ("start", "escape", "cancel", "submit"):
+        flagged = {**covered, button: True}
+        assert _confirm_route(flagged) == "none"
+    phases = {
+        "failed": {"playing": False, "restart_screen": True},
+        "campaign_clear": {"playing": False, "restart_screen": True},
+        "hangar": {"playing": False, "restart_screen": False},
+        "playing": {"playing": True, "restart_screen": False},
+    }
+    buttons = {
+        "start": {"start": True},
+        "esc": {"escape": True},
+        "b": {"cancel": True},
+        "a": {"submit": True},
+    }
+    for settings_open in (False, True):
+        for credits_visible in (False, True):
+            for phase_name, phase in phases.items():
+                for _button_name, button in buttons.items():
+                    for confirm_new_run in (False, True):
+                        overlay = settings_open or credits_visible
+                        request = {
+                            "open": False,
+                            "playing": phase["playing"] and not overlay,
+                            "restart_screen": phase["restart_screen"] and not overlay,
+                            "settings_open": settings_open,
+                            "credits_visible": credits_visible,
+                            "confirm_new_run": confirm_new_run,
+                            "confirm_in_play": True,
+                        }
+                        request.update(button)
+                        action = _confirm_route(request)
+                        if overlay:
+                            assert action == "none", (settings_open, credits_visible, phase_name, button, confirm_new_run, action)
+                        settings_action = "none"
+                        if action == "none":
+                            settings_action = _settings_route({
+                                "open": settings_open,
+                                "playing": phase["playing"],
+                                "credits": credits_visible,
+                                "escape": button.get("escape", False),
+                                "start": button.get("start", False),
+                                "cancel": button.get("cancel", False),
+                                "submit": button.get("submit", False),
+                            })
+                        started = action in ("yes", "open") or settings_action in ("hangar_start", "abort")
+                        if overlay:
+                            assert not started, (settings_open, credits_visible, phase_name, button, confirm_new_run, action, settings_action)
+    bare_fail = {"playing": False, "restart_screen": True, "confirm_new_run": False, "start": True}
+    assert _confirm_route(bare_fail) == "yes"
+    assert _confirm_route({**bare_fail, "confirm_new_run": True}) == "open"
+    assert _confirm_route({"playing": True, "escape": True, "confirm_in_play": True}) == "open"
     assert "if (!_confirmOpen && confirmAction == ConfirmAction.None)" in update
     apply = ui.split("private void ApplyConfirmRoute")[1].split("private static ConfirmKind KindForRequest")[0]
     assert "OnAbort()" in apply and "OnPrimary()" in apply
     assert "PrimaryRestartsRun" in ui
+    primary = ui.split("private void OnPrimary()")[1].split("private void OnBuy")[0]
+    assert "_settingsOpen || _creditsVisible" in primary
+    clock = ui.split("private void ApplyConfirmClock()")[1].split("private void SetConfirmNavigationLock")[0]
+    assert "SetInputPaused(true)" in clock and "SetInputPaused(false)" in clock
+    assert "SetInputEnabled(false)" not in clock
+    ship = (root / "Assets/Scripts/Player/ShipController.cs").read_text(encoding="utf-8")
+    paused = ship.split("public void SetInputPaused")[1].split("private void Update")[0]
+    assert "CancelCharge" not in paused and "linearVelocity" not in paused
+    assert "SetInputEnabled(false)" in (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
     assert "ConfirmRestartInPlay = true" in state
     assert "ConfirmRestartNewRun = false" in state
     label = "Confirm abort (Esc/Start) during wave"
@@ -5320,6 +5471,24 @@ def _pad_select(source: int, dpad: tuple[float, float], stick: tuple[float, floa
     if dpad_live:
         return dpad
     return stick if stick_live else (0.0, 0.0)
+
+
+def _pad_select_menu(
+    source: int,
+    dpad: tuple[float, float],
+    stick: tuple[float, float],
+    fallback: tuple[float, float],
+    dead: float = 0.22,
+) -> tuple[float, float]:
+    """Mirrors the fallback Select. DPad ignores stick and Horizontal/Vertical."""
+    picked = _pad_select(source, dpad, stick, dead)
+    if source == 0:
+        return picked
+    if _pad_live(picked[0], picked[1], dead):
+        return picked
+    if _pad_live(fallback[0], fallback[1], dead):
+        return fallback
+    return (0.0, 0.0)
 
 
 def _step_pad_nav(current: int, direction: int) -> int:
@@ -5366,6 +5535,16 @@ def test_pad_nav_source() -> None:
     assert _pad_select(2, dpad, stick) == dpad
     assert _pad_select(0, quiet, stick) == quiet
     assert _pad_select(1, dpad, quiet) == quiet
+    # DPad source with stick-only input returns zero, even when Horizontal/Vertical
+    # carry the same left-stick axes. Analog with d-pad-only input returns zero.
+    assert _pad_select_menu(0, quiet, stick, stick) == quiet
+    assert _pad_select_menu(0, quiet, stick, (1.0, 0.0)) == quiet
+    assert _pad_select_menu(1, dpad, quiet, quiet) == quiet
+    assert _pad_select_menu(1, dpad, quiet, quiet) == (0.0, 0.0)
+    assert _pad_select_menu(2, dpad, stick, stick) == dpad
+    assert _pad_select_menu(2, quiet, stick, stick) == stick
+    assert _pad_select_menu(2, quiet, quiet, (1.0, 0.0)) == (1.0, 0.0)
+    assert _pad_select_menu(1, quiet, quiet, (0.0, 1.0)) == (0.0, 1.0)
     assert _step_pad_nav(2, -1) == 1 and _step_pad_nav(1, -1) == 0 and _step_pad_nav(0, -1) == 0
     assert _step_pad_nav(0, 1) == 1 and _step_pad_nav(1, 1) == 2 and _step_pad_nav(2, 1) == 2
     fresh = _settings_default()
@@ -5381,6 +5560,12 @@ def test_pad_nav_source() -> None:
     assert "PadMoveStick()" in combined
     assert "UiNavDpad()" in combined
     assert "Axis(MoveX)" in combined
+    dpad_branch = combined.split("PadNavSource.DPad")[1].split("PadMoveStick()")[0]
+    assert "Axis(MoveX)" not in dpad_branch
+    assert "Axis(MoveY)" not in dpad_branch
+    assert "PadMoveX" not in dpad_branch
+    assert "Horizontal" not in dpad_branch
+    assert "Vertical" not in dpad_branch
     assert "return UiNavCombined(SettingsState.MenuPadNav);" in pad
     assert "PlayerPrefs" not in pad
     settings_flags = ui.split("private SettingsInputFlags ReadSettingsFlags()")[1].split("private void OpenSettings()")[0]

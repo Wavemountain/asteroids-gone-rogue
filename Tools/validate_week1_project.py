@@ -1293,6 +1293,31 @@ def _enum_names(source: str, enum_name: str) -> list[str]:
     return re.findall(r"^\s*([A-Z][A-Za-z0-9_]*)\s*,?\s*$", body, re.M)
 
 
+# Kenney Future and Future Narrow both omit U+2699 GEAR. UI loc strings must
+# not use symbols we know those fonts cannot draw.
+_MISSING_UI_FONT = {
+    0x2699,
+}
+
+
+def check_ui_loc_font_coverage(loc_src: str, ui_src: str) -> None:
+    """Loc strings used by the UI must stay inside the known Kenney font coverage."""
+    missing = {chr(codepoint) for codepoint in _MISSING_UI_FONT}
+    blobs = [("Assets/Scripts/Core/Loc.cs", loc_src)]
+    seen = set()
+    ui_dir = ROOT / "Assets/Scripts/UI"
+    for path in sorted(ui_dir.rglob("*.cs")):
+        rel = str(path.relative_to(ROOT))
+        seen.add(rel)
+        blobs.append((rel, path.read_text(encoding="utf-8")))
+    if "Assets/Scripts/UI/GameUi.cs" not in seen:
+        blobs.append(("Assets/Scripts/UI/GameUi.cs", ui_src))
+    for name, text in blobs:
+        for ch in missing:
+            if ch in text:
+                err(f"{name} contains U+{ord(ch):04X}, missing from Kenney Future")
+
+
 def check_loc_key_parity(loc_src: str) -> None:
     """Every EN loc key exists in SV and every SV key exists in EN.
 
@@ -1770,6 +1795,22 @@ def main() -> int:
         err("GameUi must route the confirm dialog and apply ConfirmPause.TimeScale")
     if "if (!_confirmOpen && confirmAction == ConfirmAction.None)" not in game_ui:
         err("an open confirm dialog must consume input before hangar navigation")
+    route_body = confirm_router.split("public static ConfirmAction Route")[1].split("class ConfirmPause")[0]
+    if "request.SettingsOpen || request.CreditsVisible" not in route_body:
+        err("ConfirmDialogRouter must return none while settings or credits are open")
+    if route_body.find("SettingsOpen") > route_body.find("request.RestartScreen &&"):
+        err("settings and credits must block New Run before the restart check")
+    read_confirm = game_ui.split("private ConfirmRequest ReadConfirmRequest()")[1].split("private void OnConfirmScrim")[0]
+    if "request.RestartScreen = false" not in read_confirm or "_settingsOpen" not in read_confirm or "_creditsVisible" not in read_confirm:
+        err("ReadConfirmRequest must clear RestartScreen while settings or credits are open")
+    update_body = game_ui.split("private void Update()")[1].split("private void PulseHangarLaunch")[0]
+    if update_body.find("ConfirmDialogRouter.Route") > update_body.find("SettingsInputRouter.Route"):
+        err("confirm routing must run before settings so an overlay can consume the buttons")
+    nav_body = gamepad.split("public static Vector2 UiNavCombined(PadNavSource source)")[1].split("public static Vector2 MouseDelta")[0]
+    dpad_branch = nav_body.split("PadNavSource.DPad")[1].split("PadMoveStick()")[0]
+    if "Axis(MoveX)" in dpad_branch or "Axis(MoveY)" in dpad_branch or "PadMoveStick()" in dpad_branch:
+        err("DPad menu navigation must not read the left stick or Horizontal/Vertical")
+    check_ui_loc_font_coverage(loc_src, game_ui)
     if "On = 3" not in settings_state or "HintPxLarge = 22" not in settings_state:
         err("HintMode.On and the 22px hint step must stay stable")
     if "ShowsPlayHint" not in game_ui or "ShowsHangarFooter" not in game_ui or "EffectiveHintSize" not in game_ui:

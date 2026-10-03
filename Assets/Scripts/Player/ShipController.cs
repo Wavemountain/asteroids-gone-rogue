@@ -68,6 +68,16 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        /// <summary>
+        /// Pause flight input without dumping speed or a Rail charge.
+        /// Real aborts still use <see cref="SetInputEnabled"/>, which zeros
+        /// velocity and cancels the charge.
+        /// </summary>
+        public void SetInputPaused(bool paused)
+        {
+            _inputEnabled = !paused;
+        }
+
         private void Update()
         {
             if (!_inputEnabled)

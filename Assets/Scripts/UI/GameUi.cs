@@ -77,7 +77,6 @@ namespace AsteroidsGoneRogue
         private Button _creditsContinue;
         private GameObject _lastPadSelected;
         private bool _abortUrgent;
-        private float _firstRunCoachUntil;
         private Image _primaryPlate;
         private Image _abortPlate;
         private Text _hullHeader;
@@ -218,6 +217,9 @@ namespace AsteroidsGoneRogue
             + "Clear a wave to earn credits and upgrades.\n"
             + "Medal ladder (top-left): ★ Scout Wing at wave 3.";
         public const string FirstWaveCoach = "Shoot rocks  ·  Esc / Start returns to hangar";
+        public const string HintPlay =
+            "WASD/LS move · Mouse/RS aim · LMB/RT fire · E/LT utility · Q/LB cycle · Esc / Start = back to hangar";
+        public const string HintFooter = "A Select · Start Launch wave · Select = Settings";
         public const string HintDual = "LT utility · LB cycle primary · RT fire";
         public const string HintRail = "Hold RT 0.55s, release — Rail. Miss or cancel pays half CD.";
 
@@ -957,6 +959,11 @@ namespace AsteroidsGoneRogue
 
         private void OnPrimary()
         {
+            if (_settingsOpen || _creditsVisible)
+            {
+                return;
+            }
+
             if (_game == null)
             {
                 return;
@@ -964,10 +971,6 @@ namespace AsteroidsGoneRogue
 
             DismissFirstHangarHint();
             DismissDoctrineIntro();
-            if (_session != null && _session.WaveIndex == 1)
-            {
-                _firstRunCoachUntil = Time.unscaledTime + 6.5f;
-            }
 
             if (AudioCues.Instance != null)
             {
@@ -3740,9 +3743,11 @@ namespace AsteroidsGoneRogue
 
             ApplyFooterHintSize();
             HintMode mode = _settings != null ? _settings.HintMode : HintMode.HangarFooter;
-            bool show = playing
+            bool firstWave = playing && _session != null && _session.WaveIndex == 1;
+            bool coach = SettingsState.ShowsFirstWaveCoach(firstWave, mode);
+            bool show = coach || (playing
                 ? SettingsState.ShowsPlayHint(mode)
-                : SettingsState.ShowsHangarFooter(mode);
+                : SettingsState.ShowsHangarFooter(mode));
             _hint.gameObject.SetActive(show);
             if (!show)
             {
@@ -3750,30 +3755,27 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (playing)
+            if (coach)
             {
-                bool coach = Time.unscaledTime < _firstRunCoachUntil;
+                _hint.text = Loc.T("ui.first_wave_coach", FirstWaveCoach);
+            }
+            else if (playing)
+            {
                 bool rail = _loadout != null
                     && _loadout.State != null
                     && _loadout.State.ResolvedPrimary() == FireMode.Rail;
-                if (coach)
-                {
-                    _hint.text = Loc.T("ui.first_wave_coach", FirstWaveCoach);
-                }
-                else if (rail)
+                if (rail)
                 {
                     _hint.text = Loc.T("ui.hint_rail", HintRail);
                 }
                 else
                 {
-                    _hint.text = Loc.T(
-                        "ui.hint_play",
-                        "WASD / LS move · Mouse / RS aim · LMB / RT fire · E / LT utility · Q / LB cycle · Esc / Start = back to hangar");
+                    _hint.text = Loc.T("ui.hint_play", HintPlay);
                 }
             }
             else
             {
-                _hint.text = Loc.T("ui.hint_footer", "A Select · Start Launch wave · ⚙ Settings");
+                _hint.text = Loc.T("ui.hint_footer", HintFooter);
             }
 
             ClampOneLine(_hint);
@@ -4340,9 +4342,7 @@ namespace AsteroidsGoneRogue
 
         private static string FullControlHint()
         {
-            string playHint = Loc.T(
-                "ui.hint_play",
-                "WASD / LS move · Mouse / RS aim · LMB / RT fire · E / LT utility · Q / LB cycle · Esc / Start = back to hangar");
+            string playHint = Loc.T("ui.hint_play", HintPlay);
             string hangarHint = Loc.Tf(
                 "ui.hint_hangar",
                 "LS move · {0}",
@@ -4465,7 +4465,7 @@ namespace AsteroidsGoneRogue
         private void StepHintSize(int direction)
         {
             EnsureSettings();
-            _settings.HintSizeStep = SettingsState.StepHintSize(_settings.HintSizeStep, direction);
+            _settings.HintSizeStep = SettingsState.StepHintSize(_settings.HintSizeStep, direction, Screen.width);
             _settings.Save();
             RefreshSettingsHint();
             ApplyBottomHint(_session != null && _session.Phase == GamePhase.Playing);
@@ -4512,7 +4512,8 @@ namespace AsteroidsGoneRogue
 
             if (_settingsHintSizeValue != null)
             {
-                _settingsHintSizeValue.text = Loc.Tf("ui.settings.hint.px", "{0}", SettingsState.HintPx(step));
+                int shown = SettingsState.VisibleHintStep(step, Screen.width);
+                _settingsHintSizeValue.text = Loc.Tf("ui.settings.hint.px", "{0}", SettingsState.HintPx(shown));
             }
         }
 
@@ -4802,8 +4803,18 @@ namespace AsteroidsGoneRogue
             ConfirmRequest request = new ConfirmRequest();
             request.DialogOpen = _confirmOpen;
             request.Focus = _confirmFocus;
-            request.Playing = _session != null && _session.Phase == GamePhase.Playing;
-            request.RestartScreen = _session != null && GameSession.PrimaryRestartsRun(_session.Phase);
+            request.SettingsOpen = _settingsOpen;
+            request.CreditsVisible = _creditsVisible;
+            if (_settingsOpen || _creditsVisible)
+            {
+                request.RestartScreen = false;
+                request.Playing = false;
+            }
+            else
+            {
+                request.Playing = _session != null && _session.Phase == GamePhase.Playing;
+                request.RestartScreen = _session != null && GameSession.PrimaryRestartsRun(_session.Phase);
+            }
             EnsureSettings();
             request.ConfirmInPlay = _settings.ConfirmRestartInPlay;
             request.ConfirmNewRun = _settings.ConfirmRestartNewRun;
@@ -4998,7 +5009,7 @@ namespace AsteroidsGoneRogue
             {
                 if (!_confirmSilencedShip && _ship != null)
                 {
-                    _ship.SetInputEnabled(false);
+                    _ship.SetInputPaused(true);
                     _confirmSilencedShip = true;
                 }
 
@@ -5013,7 +5024,7 @@ namespace AsteroidsGoneRogue
             _confirmSilencedShip = false;
             if (ConfirmPause.RestoreShipInput(true, false, waveLive) && _ship != null)
             {
-                _ship.SetInputEnabled(true);
+                _ship.SetInputPaused(false);
             }
         }
 
