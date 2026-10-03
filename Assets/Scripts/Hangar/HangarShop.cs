@@ -31,6 +31,7 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            _loadout.State.ConsumeFirstDiscount();
             _loadout.State.Apply(id);
             _loadout.State.AutoEquipAfterPurchase(id);
             if (AudioCues.Instance != null)
@@ -80,6 +81,11 @@ namespace AsteroidsGoneRogue
             if (cost > 0 && !_session.TrySpend(cost))
             {
                 return false;
+            }
+
+            if (cost > 0)
+            {
+                state.ConsumeFirstDiscount();
             }
 
             state.SetDoctrine(id);

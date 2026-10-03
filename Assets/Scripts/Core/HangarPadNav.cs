@@ -28,9 +28,16 @@ namespace AsteroidsGoneRogue
         public static int DoctrineHintSlot { get { return HunterSlot + 1; } }
         public static int SettingsSlot { get { return DoctrineHintSlot + 1; } }
 
+        public const int LegacyPerkSlots = 4;
+
+        /// <summary>Secondary New Run, only selectable while a continue offer is up.</summary>
+        public static int NewRunSlot { get { return SettingsSlot + 1; } }
+
+        public static int LegacySlot0 { get { return NewRunSlot + 1; } }
+
         public static int SlotCount
         {
-            get { return SettingsSlot + 1; }
+            get { return LegacySlot0 + LegacyPerkSlots; }
         }
 
         public static int ShopSlot(int shopIndex)
@@ -434,6 +441,22 @@ namespace AsteroidsGoneRogue
                 // Top bar, immediately right of Hard so the gear is one step each way.
                 x = 3;
                 y = -3;
+                return;
+            }
+
+            if (slot == NewRunSlot)
+            {
+                // Beside Next Wave. Hidden (not selectable) during a live hangar,
+                // so doctrine-space steps do not change.
+                x = 2;
+                y = -1;
+                return;
+            }
+
+            if (slot >= LegacySlot0 && slot < LegacySlot0 + LegacyPerkSlots)
+            {
+                x = slot - LegacySlot0;
+                y = -5;
                 return;
             }
 

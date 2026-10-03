@@ -318,7 +318,16 @@ namespace AsteroidsGoneRogue
             { "enemy.SwarmPod", "Svärmbalja" },
             { "enemy.Brute", "Brute" },
             { "enemy.Swarm", "Svärm" },
-            { "enemy.Swarmling", "Svärmunge" }
+            { "enemy.Swarmling", "Svärmunge" },
+            { "ui.continue_run", "Fortsätt runda (Värld {0}, våg {1})" },
+            { "ui.new_run", "Ny runda" },
+            { "ui.legacy.line", "Arv {0}  ·  Bäst {1}  ·  Våg {2}  ·  Värld {3}" },
+            { "ui.legacy.line_empty", "Arv {0}  ·  Bäst —" },
+            { "ui.legacy.credits", "+{0} kr" },
+            { "ui.legacy.discount", "Första -{0}%" },
+            { "ui.legacy.shield", "Sköld +{0}" },
+            { "ui.legacy.hull", "Skrov +{0}" },
+            { "ui.legacy.max", "MAX" }
         };
 
         /// <summary>

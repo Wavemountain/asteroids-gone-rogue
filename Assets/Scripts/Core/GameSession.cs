@@ -331,5 +331,47 @@ namespace AsteroidsGoneRogue
             Credits -= cost;
             return true;
         }
+
+        public void GrantCredits(int amount)
+        {
+            if (amount <= 0)
+            {
+                return;
+            }
+
+            Credits += amount;
+        }
+
+        /// <summary>
+        /// Put a validated run save back into the hangar. Does not touch legacy perks.
+        /// </summary>
+        public void RestoreHangar(
+            int waveIndex,
+            int score,
+            int credits,
+            int lives,
+            int lastResolvedWave,
+            int lastRunScore,
+            int lastCreditsAwarded,
+            int extraLifeStreak)
+        {
+            WaveIndex = waveIndex < 1 ? 1 : waveIndex;
+            Score = score < 0 ? 0 : score;
+            Credits = credits < 0 ? 0 : credits;
+            ResetLives(lives);
+            LastResolvedWave = lastResolvedWave < 0 ? 0 : lastResolvedWave;
+            LastRunScore = lastRunScore < 0 ? 0 : lastRunScore;
+            LastCreditsAwarded = lastCreditsAwarded < 0 ? 0 : lastCreditsAwarded;
+            ExtraLifeStreak = extraLifeStreak < 0 ? 0 : extraLifeStreak;
+            FailReason = string.Empty;
+            FailCause = DamageCause.Unknown;
+            FailEnemyKind = EnemyKind.Mid01;
+            HasStructuredFail = false;
+            FailRemainingThreats = 0;
+            CampaignWon = false;
+            WaveTookHit = false;
+            WorldCleared = 0;
+            Phase = GamePhase.Hangar;
+        }
     }
 }

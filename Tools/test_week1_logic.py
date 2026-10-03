@@ -5654,6 +5654,7 @@ def main() -> int:
     test_pad_nav_source()
     test_world_continue_and_hangar_readability()
     test_worlds_intro_medals()
+    test_save_continue_legacy()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -6230,6 +6231,446 @@ def test_world_continue_and_hangar_readability() -> None:
         visible(failed_screen)
         boundary = dict(with_doctrine)
         visible(boundary)
+
+
+def _legacy_clamp_level(level: int) -> int:
+    if level < 0:
+        return 0
+    if level > 3:
+        return 3
+    return level
+
+
+def _legacy_award(worlds_cleared: int, highest_wave: int) -> int:
+    worlds = 0 if worlds_cleared < 0 else worlds_cleared
+    wave = 0 if highest_wave < 0 else highest_wave
+    return worlds + (wave // 5)
+
+
+def _legacy_credits(level: int) -> int:
+    return 10 * _legacy_clamp_level(level)
+
+
+def _legacy_discount(level: int) -> int:
+    raw = 7 * _legacy_clamp_level(level)
+    return 20 if raw > 20 else raw
+
+
+def _legacy_shield(level: int) -> int:
+    return 1 if _legacy_clamp_level(level) > 0 else 0
+
+
+def _legacy_hull(level: int) -> int:
+    return 1 if _legacy_clamp_level(level) > 0 else 0
+
+
+def _legacy_cost(level: int) -> int:
+    current = _legacy_clamp_level(level)
+    if current >= 3:
+        return 0
+    return 2 + current
+
+
+def _legacy_progress(wave_index: int, died: bool) -> tuple[int, int]:
+    index = 1 if wave_index < 1 else wave_index
+    if died:
+        cleared = index - 1
+        if cleared < 0:
+            cleared = 0
+        return cleared // 5, index
+    highest = index - 1
+    if highest < 0:
+        highest = 0
+    return highest // 5, highest
+
+
+def _awarded_has(awarded: str, run_id: int) -> bool:
+    if run_id < 1 or not awarded:
+        return False
+    return str(run_id) in awarded.split(",")
+
+
+def _remember(awarded: str, run_id: int) -> str:
+    token = str(run_id)
+    nxt = token if not awarded else awarded + "," + token
+    parts = nxt.split(",")
+    if len(parts) > 32:
+        parts = parts[-32:]
+    return ",".join(parts)
+
+
+def _try_award(meta: dict, run_id: int, worlds: int, wave: int) -> int:
+    if run_id < 1 or _awarded_has(meta["awarded"], run_id):
+        return 0
+    gained = _legacy_award(worlds, wave)
+    if gained < 0:
+        gained = 0
+    meta["points"] += gained
+    meta["awarded"] = _remember(meta["awarded"], run_id)
+    return gained
+
+
+def _try_buy(meta: dict, perk: int) -> bool:
+    if perk < 0 or perk > 3:
+        return False
+    level = meta["levels"][perk]
+    if level >= 3:
+        return False
+    cost = _legacy_cost(level)
+    if meta["points"] < cost:
+        return False
+    meta["points"] -= cost
+    meta["levels"][perk] = level + 1
+    return True
+
+
+def _save_to_json(data: dict) -> str:
+    keys = (
+        "Version",
+        "WaveIndex",
+        "Score",
+        "Credits",
+        "Lives",
+        "Hull",
+        "Shield",
+        "Difficulty",
+        "UpgradeMask",
+        "Doctrine",
+        "PrimaryMode",
+        "UtilityMode",
+        "HasUtility",
+        "RunId",
+        "LastResolvedWave",
+        "LastRunScore",
+        "LastCreditsAwarded",
+        "ExtraLifeStreak",
+        "LegacyHull",
+        "FirstDiscount",
+        "FirstDiscountUsed",
+    )
+    parts = [f'"{key}":{int(data[key])}' for key in keys]
+    stamp = str(data["Timestamp"]).replace("\\", "\\\\").replace('"', '\\"')
+    return "{" + ",".join(parts) + f',"Timestamp":"{stamp}"' + "}"
+
+
+def _save_valid(data: dict) -> bool:
+    if data.get("Version") != 1:
+        return False
+    if not 1 <= data.get("WaveIndex", 0) <= 9999:
+        return False
+    if not 0 <= data.get("Score", -1) <= 100000000:
+        return False
+    if not 0 <= data.get("Credits", -1) <= 100000000:
+        return False
+    if not 1 <= data.get("Lives", 0) <= 5:
+        return False
+    if not 1 <= data.get("Hull", 0) <= 12:
+        return False
+    if not 0 <= data.get("Shield", -1) <= 3:
+        return False
+    if not 0 <= data.get("Difficulty", -1) <= 2:
+        return False
+    mask = data.get("UpgradeMask", -1)
+    if mask < 0 or mask >= (1 << 22):
+        return False
+    if not 0 <= data.get("Doctrine", -1) <= 3:
+        return False
+    if not 0 <= data.get("PrimaryMode", -1) <= 6:
+        return False
+    if not 0 <= data.get("UtilityMode", -1) <= 6:
+        return False
+    if data.get("HasUtility") not in (0, 1):
+        return False
+    if data.get("RunId", 0) < 1:
+        return False
+    if not 0 <= data.get("LastResolvedWave", -1) <= 9999:
+        return False
+    if data.get("LastRunScore", -1) < 0 or data.get("LastCreditsAwarded", -1) < 0:
+        return False
+    if data.get("ExtraLifeStreak", -1) < 0:
+        return False
+    if not 0 <= data.get("LegacyHull", -1) <= 1:
+        return False
+    if not 0 <= data.get("FirstDiscount", -1) <= 20:
+        return False
+    if data.get("FirstDiscountUsed") not in (0, 1):
+        return False
+    stamp = data.get("Timestamp") or ""
+    return 0 < len(stamp) <= 40
+
+
+def _save_parse(text: str) -> dict | None:
+    if not text or not text.strip().startswith("{") or not text.strip().endswith("}"):
+        return None
+    trimmed = text.strip()
+    body = trimmed[1:-1]
+    parsed = {
+        "Version": 0,
+        "WaveIndex": 0,
+        "Score": 0,
+        "Credits": 0,
+        "Lives": 0,
+        "Hull": 0,
+        "Shield": 0,
+        "Difficulty": 0,
+        "UpgradeMask": 0,
+        "Doctrine": 0,
+        "PrimaryMode": 0,
+        "UtilityMode": 0,
+        "HasUtility": 0,
+        "RunId": 0,
+        "LastResolvedWave": 0,
+        "LastRunScore": 0,
+        "LastCreditsAwarded": 0,
+        "ExtraLifeStreak": 0,
+        "LegacyHull": 0,
+        "FirstDiscount": 0,
+        "FirstDiscountUsed": 0,
+        "Timestamp": "",
+    }
+    saw_version = False
+    cursor = 0
+    while cursor < len(body):
+        while cursor < len(body) and body[cursor] in " \n\r\t":
+            cursor += 1
+        if cursor >= len(body):
+            break
+        if body[cursor] == ",":
+            cursor += 1
+            continue
+        if body[cursor] != '"':
+            return None
+        end_key = body.find('"', cursor + 1)
+        if end_key < 0:
+            return None
+        key = body[cursor + 1 : end_key]
+        cursor = end_key + 1
+        while cursor < len(body) and body[cursor] in " \n\r\t":
+            cursor += 1
+        if cursor >= len(body) or body[cursor] != ":":
+            return None
+        cursor += 1
+        while cursor < len(body) and body[cursor] in " \n\r\t":
+            cursor += 1
+        if key == "Timestamp":
+            if cursor >= len(body) or body[cursor] != '"':
+                return None
+            cursor += 1
+            chars = []
+            while cursor < len(body):
+                ch = body[cursor]
+                cursor += 1
+                if ch == '"':
+                    break
+                if ch == "\\":
+                    if cursor >= len(body):
+                        return None
+                    chars.append(body[cursor])
+                    cursor += 1
+                else:
+                    chars.append(ch)
+            else:
+                return None
+            parsed["Timestamp"] = "".join(chars)
+        else:
+            sign = 1
+            if cursor < len(body) and body[cursor] == "-":
+                sign = -1
+                cursor += 1
+            if cursor >= len(body) or not body[cursor].isdigit():
+                return None
+            digits = 0
+            value = 0
+            while cursor < len(body) and body[cursor].isdigit():
+                digits += 1
+                if digits > 9:
+                    return None
+                value = value * 10 + int(body[cursor])
+                cursor += 1
+            if key == "Version":
+                saw_version = True
+            if key in parsed:
+                parsed[key] = value * sign
+    if not saw_version or not _save_valid(parsed):
+        return None
+    return parsed
+
+
+def _line_px(text: str, font: int) -> float:
+    return len(text) * 10.0 * font / 18.0
+
+
+def test_save_continue_legacy() -> None:
+    """Run save round-trip, legacy points, and perk caps. EN keys exist in SV."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    save = (root / "Assets/Scripts/Core/RunSave.cs").read_text(encoding="utf-8")
+    legacy = (root / "Assets/Scripts/Core/LegacyProgress.cs").read_text(encoding="utf-8")
+    store = (root / "Assets/Scripts/Core/RunSaveStore.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    padnav = (root / "Assets/Scripts/Core/HangarPadNav.cs").read_text(encoding="utf-8")
+    session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
+
+    assert "class RunSaveCodec" in save
+    assert "CurrentVersion = 1" in save
+    assert "ShouldWrite" in save and "ShouldDelete" in save
+    assert "return phase == GamePhase.Hangar || phase == GamePhase.WaveClear;" in save
+    assert "return phase == GamePhase.Failed;" in save
+    assert "CommitAllowed" in save
+    assert "JsonUtility.ToJson" in store and "JsonUtility.FromJson" in store
+    assert "Application.persistentDataPath" in store
+    assert "run_save.json" in store and "meta_save.json" in store
+    assert "TempSuffix" in store and "File.Replace" in store
+    atomic = store.split("private static bool TryAtomicWrite")[1]
+    assert atomic.index("accept(json)") < atomic.index("File.Replace")
+    assert "File.Delete(temp)" in atomic
+    assert "RunSaveStore.DeleteRun()" in manager
+    fail = manager.split("private void FailRun")[1].split("public void AcceptContinue")[0]
+    assert "RunSaveStore.DeleteRun()" in fail
+    assert "AwardLegacy(true)" in fail
+    abandon = manager.split("public void AbandonSavedRun")[1].split("public bool TryBuyLegacy")[0]
+    assert "RunSaveStore.DeleteRun()" in abandon
+    assert "TryAward" in abandon
+    assert "AcceptContinue" in manager and "HasContinueOffer" in manager
+    assert "MaybeWriteRun" in manager
+    assert "RunSaveCodec.ShouldWrite" in manager
+    assert "RestoreHangar" in session and "GrantCredits" in session
+    assert "ContinueRunLabel" in summary
+    assert 'Loc.Tf("ui.continue_run", "Continue run (World {0}, wave {1})"' in summary
+    assert 'Loc.T("ui.new_run", "New Run")' in ui
+    assert "LegacyProgress.HangarLine" in ui
+    assert "LegacyProgress.PerkLabel" in ui
+    assert "NewRunSlot" in padnav and "LegacySlot0" in padnav
+    assert "Step(HardSlot, 1, 0) == SettingsSlot" in padnav
+    assert "Step(SettingsSlot, -1, 0) == HardSlot" in padnav
+    assert "x = 2" in padnav and "y = -1" in padnav
+    assert "y = -5" in padnav
+
+    sample = {
+        "Version": 1,
+        "WaveIndex": 6,
+        "Score": 420,
+        "Credits": 80,
+        "Lives": 2,
+        "Hull": 4,
+        "Shield": 1,
+        "Difficulty": 2,
+        "UpgradeMask": (1 << 18) | (1 << 8),
+        "Doctrine": 2,
+        "PrimaryMode": 6,
+        "UtilityMode": 4,
+        "HasUtility": 1,
+        "RunId": 4,
+        "LastResolvedWave": 5,
+        "LastRunScore": 420,
+        "LastCreditsAwarded": 140,
+        "ExtraLifeStreak": 1,
+        "LegacyHull": 1,
+        "FirstDiscount": 14,
+        "FirstDiscountUsed": 0,
+        "Timestamp": "2026-10-03T08:28:00Z",
+    }
+    encoded = _save_to_json(sample)
+    assert _save_parse(encoded) == sample
+    assert _save_parse("not json") is None
+    assert _save_parse("{") is None
+    assert _save_parse('{"Version":true}') is None
+    assert _save_parse("") is None
+    unknown = dict(sample)
+    unknown["Version"] = 9
+    assert _save_parse(_save_to_json(unknown)) is None
+    assert _save_parse('{"Version":2,"WaveIndex":6}') is None
+    playing_safe = "Hangar" in ("Hangar", "WaveClear")
+    assert playing_safe
+    for phase in ("Playing", "Failed", "CampaignClear"):
+        assert phase not in ("Hangar", "WaveClear")
+    assert "Hangar" in ("Hangar", "WaveClear")
+    assert "WaveClear" in ("Hangar", "WaveClear")
+
+    for worlds in range(0, 8):
+        for wave in range(0, 41):
+            points = _legacy_award(worlds, wave)
+            if wave > 0:
+                assert points >= _legacy_award(worlds, wave - 1)
+            if worlds > 0:
+                assert points >= _legacy_award(worlds - 1, wave)
+    assert _legacy_award(1, 5) == 2
+    assert _legacy_award(0, 4) == 0
+    assert _legacy_award(2, 12) == 4
+    died_worlds, died_wave = _legacy_progress(7, True)
+    assert died_worlds == 1 and died_wave == 7
+    hangar_worlds, hangar_wave = _legacy_progress(6, False)
+    assert hangar_worlds == 1 and hangar_wave == 5
+    assert _legacy_award(died_worlds, died_wave) >= _legacy_award(0, 1)
+
+    meta = {"points": 0, "awarded": "", "levels": [0, 0, 0, 0]}
+    first = _try_award(meta, 7, died_worlds, died_wave)
+    assert first == _legacy_award(died_worlds, died_wave)
+    assert first > 0
+    assert _try_award(meta, 7, died_worlds, died_wave) == 0
+    assert meta["points"] == first
+    assert _try_award(meta, 8, 2, 12) == _legacy_award(2, 12)
+    assert meta["points"] == first + _legacy_award(2, 12)
+
+    purse = {"points": 3, "awarded": "", "levels": [0, 0, 0, 0]}
+    assert _try_buy(purse, 0)
+    assert purse["levels"][0] == 1 and purse["points"] == 1
+    assert not _try_buy(purse, 0)
+    rich = {"points": 30, "awarded": "", "levels": [0, 0, 0, 0]}
+    assert _try_buy(rich, 2) and _try_buy(rich, 2) and _try_buy(rich, 2)
+    assert rich["levels"][2] == 3
+    assert not _try_buy(rich, 2)
+    assert _legacy_shield(0) == 0
+    assert _legacy_shield(1) == 1 and _legacy_shield(3) == 1 and _legacy_shield(9) == 1
+    assert _legacy_hull(0) == 0 and _legacy_hull(3) == 1 and _legacy_hull(8) == 1
+    assert _legacy_credits(0) == 0 and _legacy_credits(3) == 30 and _legacy_credits(9) == 30
+    assert _legacy_discount(0) == 0
+    assert _legacy_discount(1) == 7 and _legacy_discount(2) == 14
+    assert _legacy_discount(3) == 20 and _legacy_discount(9) == 20
+    assert "DiscountCapPercent = 20" in legacy
+    assert "HullBonusCap = 1" in legacy and "ShieldBonusCap = 1" in legacy
+    assert "MaxLevel = 3" in legacy
+    assert "CreditsPerLevel = 10" in legacy
+    assert "AwardPoints" in legacy and "TryAward" in legacy and "TryBuy" in legacy
+
+    swedish = _sv_keys(loc)
+    required = (
+        "ui.continue_run",
+        "ui.new_run",
+        "ui.legacy.line",
+        "ui.legacy.line_empty",
+        "ui.legacy.credits",
+        "ui.legacy.discount",
+        "ui.legacy.shield",
+        "ui.legacy.hull",
+        "ui.legacy.max",
+    )
+    for key in required:
+        assert key in swedish, key
+    scanned = "\n".join((legacy, summary, ui, save))
+    used = set(re.findall(r'Loc\.Tf?\(\s*"([^"]+)"', scanned))
+    missing = sorted(key for key in used if key not in swedish and not key.endswith("."))
+    assert missing == []
+
+    continue_en = "Continue run (World 12, wave 120)"
+    continue_sv = "Fortsätt runda (Värld 12, våg 120)"
+    panel = (0.55 - 0.014) * 1280
+    button = 0.94 * panel
+    assert _line_px(continue_en, 20) <= button
+    assert _line_px(continue_sv, 20) <= button
+    title_box = 0.67 * 0.96 * panel
+    legacy_en = "Legacy 9999  ·  Best 9999999  ·  Wave 999  ·  World 99"
+    legacy_sv = "Arv 9999  ·  Bäst 9999999  ·  Våg 999  ·  Värld 99"
+    assert _line_px(legacy_en, 14) <= title_box
+    assert _line_px(legacy_sv, 14) <= title_box
+    new_run_box = 0.25 * 0.96 * panel
+    assert _line_px("New Run", 14) <= new_run_box
+    assert _line_px("Ny runda", 14) <= new_run_box
 
 
 if __name__ == "__main__":

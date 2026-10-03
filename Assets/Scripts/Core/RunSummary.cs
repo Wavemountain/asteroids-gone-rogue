@@ -47,6 +47,13 @@ namespace AsteroidsGoneRogue
             return Loc.T("ui.start_wave", "Start Wave");
         }
 
+        public static string ContinueRunLabel(int worldNumber, int waveIndex)
+        {
+            int world = worldNumber < 1 ? 1 : worldNumber;
+            int wave = waveIndex < 1 ? 1 : waveIndex;
+            return Loc.Tf("ui.continue_run", "Continue run (World {0}, wave {1})", world, wave);
+        }
+
         public const float PrimaryMinWidth = 900f;
         public const float PrimaryMinHeight = 48f;
         public const int PrimaryFont = 20;
