@@ -57,6 +57,11 @@ namespace AsteroidsGoneRogue
         private Image _hullFill;
         private Image _shieldFill;
         private GameObject _shieldBarRow;
+        private GameObject _bossRoot;
+        private Text _bossLabel;
+        private Text _bossCount;
+        private Image _bossFill;
+        private string _eliteBanner = string.Empty;
         private static Sprite _barFillSprite;
         private bool _tutorialDismissed;
         private bool _doctrineIntroDismissed;
@@ -320,6 +325,7 @@ namespace AsteroidsGoneRogue
             }
 
             RefreshHealthBar();
+            RefreshBossBar();
             RefreshUtilityHud(playing);
             if (_scrim != null)
             {
@@ -558,6 +564,7 @@ namespace AsteroidsGoneRogue
             _hud.gameObject.SetActive(false);
             BuildHealthRack(display, body);
             BuildUtilityHud(display, body);
+            BuildBossBar(display, body);
 
             _badgeRow = CreateText("BadgeRow", transform, display, 14, TextAnchor.MiddleLeft, FontStyle.Bold);
             // Top-bar left: MEDALS. Same row as title/WORLD; stretch anchors, zero offset.
@@ -2104,8 +2111,27 @@ namespace AsteroidsGoneRogue
             _primaryLabel.verticalOverflow = VerticalWrapMode.Truncate;
         }
 
+        public void AnnounceEliteWave(int waveIndex)
+        {
+            string eliteLine = WaveModifier.Banner(waveIndex);
+            if (string.IsNullOrEmpty(eliteLine) || _world == null)
+            {
+                return;
+            }
+
+            _eliteBanner = eliteLine;
+            _medalBeat = string.Empty;
+            _flashedWave = waveIndex < 1 ? 1 : waveIndex;
+            _worldFlashUntil = Time.unscaledTime + 2.4f;
+            _world.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _world.verticalOverflow = VerticalWrapMode.Overflow;
+            Stretch(_world.rectTransform, new Vector2(0.42f, 0.80f), new Vector2(0.97f, 0.895f));
+            _world.text = _eliteBanner;
+        }
+
         public void AnnounceWorldChange(int waveIndex)
         {
+            _eliteBanner = string.Empty;
             int flashedWave = waveIndex < 1 ? 1 : waveIndex;
             _flashedWave = flashedWave;
             _flashedWorld = ArenaLayout.WorldIndexForWave(flashedWave);
@@ -2254,6 +2280,7 @@ namespace AsteroidsGoneRogue
             {
                 _hud.text = BuildHud(true);
                 RefreshHealthBar();
+                RefreshBossBar();
                 RefreshUtilityHud(true);
                 ApplyBottomHint(true);
             }
@@ -2270,6 +2297,15 @@ namespace AsteroidsGoneRogue
 
             if (Time.unscaledTime < _worldFlashUntil)
             {
+                if (!string.IsNullOrEmpty(_eliteBanner))
+                {
+                    float elitePulse = Mathf.PingPong(Time.unscaledTime * 3.2f, 1f);
+                    _world.fontSize = 22 + (int)(4f * elitePulse);
+                    _world.color = Color.Lerp(UiTheme.Danger, UiTheme.Brighten(UiTheme.Danger, 0.18f), elitePulse);
+                    _world.text = _eliteBanner;
+                    return;
+                }
+
                 float pulse = Mathf.PingPong(Time.unscaledTime * 3.2f, 1f);
                 _world.fontSize = 22 + (int)(4f * pulse);
                 bool world3 = _flashedWorld == MedalCatalog.World3EntryWorld;
@@ -2299,10 +2335,13 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (_world.fontSize != 22 || !string.IsNullOrEmpty(_medalBeat))
+            if (_world.fontSize != 22 || !string.IsNullOrEmpty(_medalBeat) || !string.IsNullOrEmpty(_eliteBanner))
             {
                 _world.fontSize = 22;
                 _medalBeat = string.Empty;
+                _eliteBanner = string.Empty;
+                _world.horizontalOverflow = HorizontalWrapMode.Overflow;
+                _world.verticalOverflow = VerticalWrapMode.Truncate;
                 Stretch(_world.rectTransform, new Vector2(0.205f, 0.905f), new Vector2(0.355f, 0.995f));
                 RefreshWorldBadge();
             }
@@ -3289,6 +3328,76 @@ namespace AsteroidsGoneRogue
                 out _hullBarCount,
                 out _hullFill);
             _healthRoot.SetActive(false);
+        }
+
+        private void BuildBossBar(Font display, Font body)
+        {
+            // Sits in the gap between UtilityHud (max.y 0.445) and HudPlate (min.y 0.555).
+            _bossRoot = UiTheme.BuildPanel(
+                "BossBar",
+                transform,
+                new Vector2(0.012f, 0.458f),
+                new Vector2(0.38f, 0.542f),
+                0.9f,
+                UiTheme.HeaderWash,
+                UiTheme.HeaderRule,
+                UiTheme.HudPlate);
+            CreateBarRow(
+                "BossHp",
+                _bossRoot.transform,
+                display,
+                body,
+                new Vector2(0.04f, 0.06f),
+                new Vector2(0.96f, 0.94f),
+                UiTheme.Danger,
+                out _bossLabel,
+                out _bossCount,
+                out _bossFill);
+            if (_bossLabel != null)
+            {
+                _bossLabel.text = Loc.T("ui.boss", "WORLD GUARDIAN");
+            }
+
+            _bossRoot.SetActive(false);
+        }
+
+        private void RefreshBossBar()
+        {
+            if (_bossRoot == null)
+            {
+                return;
+            }
+
+            bool playing = _session != null && _session.Phase == GamePhase.Playing;
+            bool showBoss = playing && _waves != null && _waves.HasBoss;
+            _bossRoot.SetActive(showBoss);
+            if (!showBoss)
+            {
+                return;
+            }
+
+            if (_bossLabel != null)
+            {
+                _bossLabel.text = Loc.T("ui.boss", "WORLD GUARDIAN");
+            }
+
+            int bossHp = _waves.BossHp;
+            int bossMax = _waves.BossMaxHp;
+            if (bossMax < 1)
+            {
+                bossMax = 1;
+            }
+
+            if (_bossFill != null)
+            {
+                _bossFill.fillAmount = Mathf.Clamp01(bossHp / (float)bossMax);
+                _bossFill.color = UiTheme.Danger;
+            }
+
+            if (_bossCount != null)
+            {
+                _bossCount.text = bossHp + " / " + bossMax;
+            }
         }
 
         private GameObject BuildPlayVignette()

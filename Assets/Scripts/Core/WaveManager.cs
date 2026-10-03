@@ -8,10 +8,33 @@ namespace AsteroidsGoneRogue
         public const float ArenaRadius = 30f;
         public const float ArenaDesignRadius = 22f;
         public const int LadderWaves = 8;
-        private const int BaseLargeAsteroids = 5;
-        private const int MaxLargeAsteroids = 7;
-        private const int PlateauWave = 10;
-        private const int PlateauAsteroidCap = 10;
+        private const int BaseLargeAsteroids = DifficultyCurve.BaseLargeAsteroids;
+        private const int MaxLargeAsteroids = DifficultyCurve.EarlyAsteroidCap;
+        private const int PlateauWave = DifficultyCurve.PlateauWave;
+        private const int PlateauAsteroidCap = DifficultyCurve.PlateauAsteroidCap;
+
+        private EnemySeeker _boss;
+        private WaveModifierKind _modifier = WaveModifierKind.None;
+
+        public WaveModifierKind Modifier
+        {
+            get { return _modifier; }
+        }
+
+        public bool HasBoss
+        {
+            get { return _boss != null && _boss.IsBoss; }
+        }
+
+        public int BossHp
+        {
+            get { return HasBoss ? _boss.CurrentHp : 0; }
+        }
+
+        public int BossMaxHp
+        {
+            get { return HasBoss ? _boss.MaxHp : 1; }
+        }
 
         private readonly HashSet<IThreat> _live = new HashSet<IThreat>();
         private readonly Dictionary<IThreat, float> _outsideSeconds = new Dictionary<IThreat, float>();
@@ -41,6 +64,8 @@ namespace AsteroidsGoneRogue
         public void SpawnWave(int waveIndex)
         {
             _activeWave = waveIndex < 1 ? 1 : waveIndex;
+            _boss = null;
+            _modifier = WaveModifier.ForWave(_activeWave);
             DespawnAll();
             _allStrandedSeconds = 0f;
             _factory.ApplyArenaForWave(waveIndex);
@@ -49,37 +74,133 @@ namespace AsteroidsGoneRogue
                 LargeAsteroidCount(waveIndex) + DifficultySettings.ExtraAsteroids,
                 1,
                 PlateauAsteroidCap);
-            for (int i = 0; i < largeCount; i++)
+            for (int rock = 0; rock < largeCount; rock++)
             {
-                float angle = (Mathf.PI * 2f * i) / largeCount + 0.35f;
-                Vector3 pos = RingPoint(angle, ScaledRing(14f + (i % 2) * 2.5f));
-                Register(_factory.CreateLargeAsteroid(pos, this));
+                float rockAngle = (Mathf.PI * 2f * rock) / largeCount + 0.35f;
+                Vector3 rockPos = RingPoint(rockAngle, ScaledRing(14f + (rock % 2) * 2.5f));
+                Register(_factory.CreateLargeAsteroid(rockPos, this));
             }
 
-            EnemyKind[] roster = RosterForWave(waveIndex);
-            int spawned = 0;
-            for (int i = 0; i < roster.Length; i++)
+            bool bossWave = BossRules.IsBossWave(_activeWave);
+            bool eliteWave = WaveModifier.IsElite(_activeWave);
+            int reserved = (bossWave ? 1 : 0) + (eliteWave ? 1 : 0);
+            int budget = DifficultyCurve.MaxSpawnedEnemies - reserved;
+            if (budget < 1)
             {
-                if (!CanSpawn(roster[i]))
+                budget = 1;
+            }
+
+            int spawned = 0;
+            EnemyKind[] roster = RosterForWave(waveIndex);
+            for (int rosterIndex = 0; rosterIndex < roster.Length; rosterIndex++)
+            {
+                if (spawned >= budget)
+                {
+                    break;
+                }
+
+                if (!CanSpawn(roster[rosterIndex]))
                 {
                     continue;
                 }
 
-                float angle = waveIndex * 0.55f + (Mathf.PI * 2f * spawned) / Mathf.Max(1, roster.Length) + 1.1f;
-                Vector3 pos = RingPoint(angle, ScaledRing(16.5f - (spawned % 2) * 1.4f));
-                Register(_factory.CreateEnemy(pos, _player, this, EnemyCatalog.VisualName(roster[i])));
+                float rosterAngle = waveIndex * 0.55f
+                    + (Mathf.PI * 2f * spawned) / Mathf.Max(1, roster.Length)
+                    + 1.1f;
+                Vector3 rosterPos = RingPoint(rosterAngle, ScaledRing(16.5f - (spawned % 2) * 1.4f));
+                Register(_factory.CreateEnemy(rosterPos, _player, this, EnemyCatalog.VisualName(roster[rosterIndex])));
                 spawned++;
             }
 
-            int extras = DifficultySettings.ExtraEnemyCount;
-            for (int i = 0; i < extras; i++)
+            int curveExtras = DifficultyCurve.ForWave(_activeWave).ExtraEnemies;
+            int gradeExtras = DifficultySettings.ExtraEnemyCount;
+            int extras = curveExtras + gradeExtras;
+            for (int extraIndex = 0; extraIndex < extras; extraIndex++)
             {
-                float angle = waveIndex * 0.31f + 2.4f + i * 0.9f;
-                Vector3 pos = RingPoint(angle, ScaledRing(15.2f));
-                Register(_factory.CreateEnemy(pos, _player, this, EnemyCatalog.VisualName(EnemyKind.Mid01)));
+                if (spawned >= budget)
+                {
+                    break;
+                }
+
+                float extraAngle = waveIndex * 0.31f + 2.4f + extraIndex * 0.9f;
+                Vector3 extraPos = RingPoint(extraAngle, ScaledRing(15.2f));
+                Register(_factory.CreateEnemy(extraPos, _player, this, EnemyCatalog.VisualName(EnemyKind.Mid01)));
+                spawned++;
+            }
+
+            if (eliteWave)
+            {
+                SpawnEliteBrute(waveIndex);
+            }
+
+            if (bossWave)
+            {
+                SpawnBoss(waveIndex);
             }
 
             SpawnWavePickup(waveIndex);
+            if (eliteWave)
+            {
+                SpawnElitePickup(waveIndex);
+            }
+        }
+
+        private void SpawnEliteBrute(int waveIndex)
+        {
+            float eliteAngle = waveIndex * 0.2f + Mathf.PI;
+            Vector3 elitePos = RingPoint(eliteAngle, ScaledRing(18f));
+            EnemySeeker elite = _factory.CreateEnemy(
+                elitePos,
+                _player,
+                this,
+                EnemyCatalog.VisualName(EnemyKind.Brute));
+            if (elite == null)
+            {
+                return;
+            }
+
+            int eliteHp = DifficultyCurve.ScaleHp(
+                EnemyCatalog.HitPoints(EnemyKind.Brute),
+                waveIndex,
+                DifficultySettings.Current);
+            eliteHp = eliteHp * WaveModifier.EliteHpPercent / 100;
+            if (eliteHp < 1)
+            {
+                eliteHp = 1;
+            }
+
+            elite.ConfigureElite(eliteHp);
+            _factory.MarkElite(elite.transform);
+            Register(elite);
+        }
+
+        private void SpawnBoss(int waveIndex)
+        {
+            float bossAngle = waveIndex * 0.2f + 0.4f;
+            Vector3 bossPos = RingPoint(bossAngle, ScaledRing(12f));
+            EnemySeeker boss = _factory.CreateEnemy(
+                bossPos,
+                _player,
+                this,
+                EnemyCatalog.VisualName(EnemyKind.Brute));
+            if (boss == null)
+            {
+                return;
+            }
+
+            boss.gameObject.name = "WorldGuardian";
+            boss.transform.localScale = Vector3.one * BossRules.VisualScale;
+            boss.ConfigureBoss(BossRules.HitPoints(waveIndex, DifficultySettings.Current));
+            _boss = boss;
+            Register(boss);
+        }
+
+        private void SpawnElitePickup(int waveIndex)
+        {
+            string[] eliteKinds = { "Pickup_Shield", "Pickup_Health", "Pickup_RapidFire" };
+            string eliteVisual = eliteKinds[(waveIndex / WaveModifier.EliteStride) % eliteKinds.Length];
+            Vector3 elitePickupPos = RingPoint(waveIndex * 0.7f + 0.2f, ScaledRing(5.5f));
+            _factory.CreatePickup(eliteVisual, elitePickupPos);
         }
 
         private static bool CanSpawn(EnemyKind kind)
@@ -107,10 +228,20 @@ namespace AsteroidsGoneRogue
 
         public static int LargeAsteroidCount(int waveIndex)
         {
-            int count = Mathf.Clamp(BaseLargeAsteroids + (waveIndex - 1), BaseLargeAsteroids, MaxLargeAsteroids);
-            if (waveIndex > PlateauWave)
+            int count = DifficultyCurve.AsteroidCount(waveIndex);
+            if (count < BaseLargeAsteroids)
             {
-                count = Mathf.Min(count + (waveIndex - PlateauWave), PlateauAsteroidCap);
+                count = BaseLargeAsteroids;
+            }
+
+            if (waveIndex > PlateauWave && count > PlateauAsteroidCap)
+            {
+                count = PlateauAsteroidCap;
+            }
+
+            if (count > MaxLargeAsteroids && waveIndex <= PlateauWave)
+            {
+                count = MaxLargeAsteroids;
             }
 
             return count;
@@ -119,6 +250,11 @@ namespace AsteroidsGoneRogue
         public static EnemyKind[] RosterForWave(int waveIndex)
         {
             int rung = Mathf.Clamp(waveIndex, 1, 10);
+            return WaveRoster.Extend(BaseRoster(rung), waveIndex);
+        }
+
+        private static EnemyKind[] BaseRoster(int rung)
+        {
             switch (rung)
             {
                 case 1:
@@ -172,6 +308,7 @@ namespace AsteroidsGoneRogue
 
         public void DespawnAll()
         {
+            _boss = null;
             var snapshot = new List<IThreat>(_live);
             _live.Clear();
             _outsideSeconds.Clear();

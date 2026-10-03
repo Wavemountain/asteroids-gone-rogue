@@ -327,7 +327,12 @@ namespace AsteroidsGoneRogue
             { "ui.legacy.discount", "Första -{0}%" },
             { "ui.legacy.shield", "Sköld +{0}" },
             { "ui.legacy.hull", "Skrov +{0}" },
-            { "ui.legacy.max", "MAX" }
+            { "ui.legacy.max", "MAX" },
+            { "wave.elite.banner", "ELITVÅG - {0}" },
+            { "wave.mod.faster", "Snabbare fiender" },
+            { "wave.mod.shielded", "Sköldade asteroider" },
+            { "wave.mod.dense", "Tät svärm" },
+            { "ui.boss", "VÄRLDSVÄKTARE" }
         };
 
         /// <summary>

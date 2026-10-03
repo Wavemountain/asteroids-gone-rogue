@@ -220,10 +220,17 @@ namespace AsteroidsGoneRogue
             }
 
             _waves.SpawnWave(_session.WaveIndex);
-            string beat = MedalCatalog.WorldEntryBeat(world);
-            if (!string.IsNullOrEmpty(beat) && _ui != null)
+            if (WaveModifier.IsElite(_session.WaveIndex) && _ui != null)
             {
-                _ui.AnnounceMedalBeat(beat, MedalCatalog.WorldEntryFlashSeconds(world));
+                _ui.AnnounceEliteWave(_session.WaveIndex);
+            }
+            else
+            {
+                string beat = MedalCatalog.WorldEntryBeat(world);
+                if (!string.IsNullOrEmpty(beat) && _ui != null)
+                {
+                    _ui.AnnounceMedalBeat(beat, MedalCatalog.WorldEntryFlashSeconds(world));
+                }
             }
 
             RaiseStateChanged();
@@ -623,7 +630,8 @@ namespace AsteroidsGoneRogue
             bool noHit = _session != null && !_session.WaveTookHit;
             _ship.SetInputEnabled(false);
             _waves.DespawnAll();
-            _session.CompleteWave(ScoreValues.WaveClearBonus, DifficultySettings.WaveClearCredits);
+            int clearCredits = DifficultyCurve.ScaleCredits(DifficultySettings.WaveClearCredits, clearedWave);
+            _session.CompleteWave(ScoreValues.WaveClearBonus, clearCredits);
 
             RecordBest(clearedWave);
             TryUnlockWaveAchievements(clearedWave, noHit);
