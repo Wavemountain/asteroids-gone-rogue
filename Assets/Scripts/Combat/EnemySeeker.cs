@@ -125,6 +125,25 @@ namespace AsteroidsGoneRogue
             _restUntil = 0f;
         }
 
+        public void ConfigureTraining(int hp, float speedScale)
+        {
+            if (hp < 1)
+            {
+                hp = 1;
+            }
+
+            _hp = hp;
+            _maxHp = hp;
+            if (speedScale < 0.05f)
+            {
+                speedScale = 0.05f;
+            }
+
+            _speed *= speedScale;
+            _turn *= speedScale;
+            _nextShot = float.PositiveInfinity;
+        }
+
         public void ConfigureElite(int hp)
         {
             _elite = true;

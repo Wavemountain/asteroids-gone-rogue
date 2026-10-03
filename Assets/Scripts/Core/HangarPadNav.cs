@@ -45,9 +45,22 @@ namespace AsteroidsGoneRogue
 
         public static int BankSlot { get { return HullRepairSlot + 3; } }
 
+        /// <summary>Hangar skip. Right of the gear so the difficulty row is unchanged.</summary>
+        public static int TutorialSkipSlot { get { return BankSlot + 1; } }
+
+        public static int FirstEasySlot { get { return BankSlot + 2; } }
+
+        public static int FirstNormalSlot { get { return BankSlot + 3; } }
+
+        public static int FirstHardSlot { get { return BankSlot + 4; } }
+
+        public static int FirstGoSlot { get { return BankSlot + 5; } }
+
+        public static int FirstSkipSlot { get { return BankSlot + 6; } }
+
         public static int SlotCount
         {
-            get { return BankSlot + 1; }
+            get { return FirstSkipSlot + 1; }
         }
 
         public static int ShopSlot(int shopIndex)
@@ -495,6 +508,48 @@ namespace AsteroidsGoneRogue
             {
                 x = 2;
                 y = 2;
+                return;
+            }
+
+            if (slot == TutorialSkipSlot)
+            {
+                x = 4;
+                y = -3;
+                return;
+            }
+
+            if (slot == FirstEasySlot)
+            {
+                x = 0;
+                y = -6;
+                return;
+            }
+
+            if (slot == FirstNormalSlot)
+            {
+                x = 1;
+                y = -6;
+                return;
+            }
+
+            if (slot == FirstHardSlot)
+            {
+                x = 2;
+                y = -6;
+                return;
+            }
+
+            if (slot == FirstGoSlot)
+            {
+                x = 3;
+                y = -6;
+                return;
+            }
+
+            if (slot == FirstSkipSlot)
+            {
+                x = 4;
+                y = -6;
                 return;
             }
 

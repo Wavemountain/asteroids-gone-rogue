@@ -116,7 +116,7 @@ namespace AsteroidsGoneRogue
                 string chosen = SaveFileChoice.Choose(mainText, mainExists, backupText, backupExists, MetaJsonOk);
                 if (chosen == null)
                 {
-                    return MetaData.Fresh();
+                    return FinishMeta(MetaData.Fresh(), null);
                 }
 
                 MetaData parsed;
@@ -125,18 +125,45 @@ namespace AsteroidsGoneRogue
                     MetaData utility = JsonUtility.FromJson<MetaData>(chosen);
                     if (utility != null && MetaCodec.IsValid(utility))
                     {
-                        return utility;
+                        return FinishMeta(utility, chosen);
                     }
 
-                    return MetaData.Fresh();
+                    return FinishMeta(MetaData.Fresh(), null);
                 }
 
-                return parsed;
+                return FinishMeta(parsed, chosen);
             }
             catch (Exception)
             {
-                return MetaData.Fresh();
+                return FinishMeta(MetaData.Fresh(), null);
             }
+        }
+
+        private static MetaData FinishMeta(MetaData data, string json)
+        {
+            if (data == null)
+            {
+                data = MetaData.Fresh();
+            }
+
+            bool sawTutorial = json != null && json.IndexOf("\"TutorialDone\"", System.StringComparison.Ordinal) >= 0;
+            bool sawDifficulty = json != null && json.IndexOf("\"DifficultyChosen\"", System.StringComparison.Ordinal) >= 0;
+            FirstRunRules.Migrate(data, sawTutorial, sawDifficulty);
+            if (!sawTutorial)
+            {
+                LocalBest storedBest = LocalBest.Load();
+                if (storedBest != null && FirstRunRules.HasLocalBest(storedBest.Score, storedBest.Wave))
+                {
+                    data.TutorialDone = 1;
+                }
+            }
+
+            if (!sawDifficulty && DifficultySettings.HasSavedChoice())
+            {
+                data.DifficultyChosen = 1;
+            }
+
+            return data;
         }
 
         public static bool TrySaveMeta(MetaData data)

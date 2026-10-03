@@ -37,7 +37,7 @@ namespace AsteroidsGoneRogue
         {
             if (phase == GamePhase.Failed)
             {
-                return Loc.T("ui.new_run_reset", "New Run (reset)");
+                return FirstRunRules.OneMoreTryLabel();
             }
 
             if (phase == GamePhase.WaveClear && worldCleared > 0)
@@ -52,6 +52,11 @@ namespace AsteroidsGoneRogue
             }
 
             return Loc.T("ui.start_wave", "Start Wave");
+        }
+
+        public static string NewRunResetLabel()
+        {
+            return Loc.T("ui.new_run_reset", "New Run (reset)");
         }
 
         public static string ContinueRunLabel(int worldNumber, int waveIndex)
@@ -453,10 +458,17 @@ namespace AsteroidsGoneRogue
                 : Loc.T("run.push_best", "Push for a new best.");
             if (lastResolvedWave == 1)
             {
-                string seekerTip = loadout != null && loadout.Seeker
-                    ? Loc.T("run.hold_lt", "Hold LT to fire utility")
-                    : Loc.T("run.buy_seeker_lt", "Buy Seeker > hold LT");
-                return NextUnlockLandmark(lastResolvedWave) + "  ·  " + seekerTip;
+                if (next != null && next.Id == UpgradeId.Seeker)
+                {
+                    return Loc.T("run.buy_seeker_lt", "Buy Seeker > hold LT");
+                }
+
+                if (loadout != null && loadout.Seeker)
+                {
+                    return Loc.T("run.hold_lt", "Hold LT to fire utility");
+                }
+
+                return Loc.T("run.first_upgrade", "Spend credits on your first upgrade");
             }
 
             return NextUnlockLandmark(lastResolvedWave) + "  ·  " + buy;
@@ -669,6 +681,30 @@ namespace AsteroidsGoneRogue
             }
 
             return Loc.Tf("run.world2_at", "World 2 at wave {0}", World2StartsAtWave);
+        }
+
+        public static int RecommendedShopIndex(int credits, LoadoutState loadout, int lastResolved, GamePhase phase)
+        {
+            if (lastResolved != 1 || phase != GamePhase.WaveClear)
+            {
+                return -1;
+            }
+
+            ShopItem next = NextUnlock(credits, loadout);
+            if (next == null)
+            {
+                return -1;
+            }
+
+            for (int index = 0; index < ShopCatalog.Items.Length; index++)
+            {
+                if (ShopCatalog.Items[index].Id == next.Id)
+                {
+                    return index;
+                }
+            }
+
+            return -1;
         }
 
         public static ShopItem NextUnlock(int credits, LoadoutState loadout)

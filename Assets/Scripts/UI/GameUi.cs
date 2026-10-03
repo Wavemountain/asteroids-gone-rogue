@@ -104,6 +104,24 @@ namespace AsteroidsGoneRogue
         private Text _firstFlightBody;
         private Text _gotItLabel;
         private Button _gotItButton;
+        private GameObject _firstStartRoot;
+        private Button _firstEasy;
+        private Button _firstNormal;
+        private Button _firstHard;
+        private Button _firstGo;
+        private Button _firstSkip;
+        private Text _firstEasyLabel;
+        private Text _firstNormalLabel;
+        private Text _firstHardLabel;
+        private Text _firstGoLabel;
+        private Text _firstSkipLabel;
+        private Text _firstStartTitle;
+        private DifficultyGrade _firstStartPick = DifficultyGrade.Normal;
+        private bool _firstStartArmed;
+        private Text _tutorialBanner;
+        private Button _tutorialSkipPlay;
+        private int _pulseShopIndex = -1;
+        private GamePhase _failFocusPhase = GamePhase.Hangar;
         private Button _creditsContinue;
         private GameObject _lastPadSelected;
         private bool _abortUrgent;
@@ -246,9 +264,10 @@ namespace AsteroidsGoneRogue
             "LT utility · LB cycle · A confirm · B / Esc Next Wave · Start launch wave";
         public const string MedalLadderPrefix = "MEDALS";
         public const string HangarHintBody =
-            "LS / WASD fly  ·  RT / LMB shoot  ·  LT / E utility\n"
-            + "Start = launch wave  ·  B / Esc = focus Next Wave\n"
-            + "Clear a wave to earn credits and upgrades.\n"
+            "LS / WASD fly  ·  RT / LMB shoot\n"
+            + "Start = launch wave  ·  B / Esc = focus Next Wave";
+        public const string HangarHintDetail =
+            "Clear a wave to earn credits and upgrades.\n"
             + "Medal ladder (top-left): \u2022 Scout Wing at wave 3.";
         public const string FirstWaveCoach = "Shoot rocks  ·  Esc / Start returns to hangar";
         public const string HintPlay =
@@ -325,7 +344,8 @@ namespace AsteroidsGoneRogue
             _menuRoot.SetActive(!playing);
             if (_abortButton != null)
             {
-                _abortButton.gameObject.SetActive(playing);
+                bool tutorialPlay = playing && _game != null && _game.TutorialActive;
+                _abortButton.gameObject.SetActive(playing && !tutorialPlay);
             }
 
             if (_creditsButton != null)
@@ -403,10 +423,15 @@ namespace AsteroidsGoneRogue
                 _doctrineRoot.SetActive(showDoctrine);
             }
             RefreshFirstHangarHint();
+            RefreshFirstStart();
+            RefreshTutorialChrome();
             RefreshBoonChrome();
 
             if (playing)
             {
+                _failFocusPhase = GamePhase.Playing;
+                RefreshFirstStart();
+                RefreshTutorialChrome();
                 return;
             }
 
@@ -453,6 +478,8 @@ namespace AsteroidsGoneRogue
 
             RefreshSettingsAudio();
             EnsurePrimaryClickable();
+            RememberRecommendedUpgrade();
+            NotePhaseFocus();
         }
 
         private string HangarReadyStatus()
@@ -682,6 +709,8 @@ namespace AsteroidsGoneRogue
             BuildShipPreviewFrame(display);
             BuildSettingsPanel(display, body);
             BuildConfirmDialog(display, body);
+            BuildFirstStart(display, body);
+            BuildTutorialPlayChrome(display);
             BuildContinueAndLegacy(body);
             ApplyLocalizedStaticLabels();
             RefreshLanguageChrome();
@@ -1206,13 +1235,37 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (_session != null && GameSession.PrimaryRestartsRun(_session.Phase))
+            if (FailedRetryPrimary())
             {
-                RequestNewRun();
+                OnOneMoreTry();
                 return;
             }
 
             OnPrimary();
+        }
+
+        private bool FailedRetryPrimary()
+        {
+            return _session != null
+                && FirstRunRules.OneMoreTryIsPrimary(_session.Phase)
+                && (_game == null || !_game.HasContinueOffer);
+        }
+
+        private void OnOneMoreTry()
+        {
+            if (_confirmOpen || _settingsOpen || _creditsVisible || _game == null)
+            {
+                return;
+            }
+
+            DismissFirstHangarHint();
+            DismissDoctrineIntro();
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayRetry();
+            }
+
+            _game.OneMoreTry();
         }
 
         private void OnPrimary()
@@ -1673,13 +1726,20 @@ namespace AsteroidsGoneRogue
             bool firstHangar = _session != null
                 && !_tutorialDismissed
                 && _session.Phase == GamePhase.Hangar
-                && _session.WaveIndex == 1;
+                && _session.WaveIndex == 1
+                && !FirstStartOpen();
             _tutorialRoot.SetActive(firstHangar);
+            ApplyHangarSkipLabel();
         }
 
         private void OnDismissHintClicked()
         {
+            bool pending = _game != null && _game.TutorialPending;
             DismissFirstHangarHint();
+            if (pending && _game != null)
+            {
+                _game.SkipTutorial();
+            }
             if (AudioCues.Instance != null)
             {
                 AudioCues.Instance.PlayUiClick();
@@ -2105,6 +2165,8 @@ namespace AsteroidsGoneRogue
                 _gotItLabel.text = Loc.T("ui.got_it", "Got it");
             }
 
+            ApplyHangarSkipLabel();
+
             if (_diffTitle != null)
             {
                 _diffTitle.text = Loc.T("ui.difficulty", "DIFFICULTY");
@@ -2219,6 +2281,8 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            _primaryLabel.fontSize = RunSummary.PrimaryFont;
+            _primaryLabel.fontStyle = FontStyle.Normal;
             if (_game != null && _game.HasContinueOffer && _game.PendingContinue != null)
             {
                 RunSaveData pending = _game.PendingContinue;
@@ -2274,6 +2338,11 @@ namespace AsteroidsGoneRogue
 
             _primaryLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
             _primaryLabel.verticalOverflow = VerticalWrapMode.Truncate;
+            if (phase == GamePhase.Failed && (_game == null || !_game.HasContinueOffer))
+            {
+                _primaryLabel.fontSize = 28;
+                _primaryLabel.fontStyle = FontStyle.Bold;
+            }
         }
 
         private bool BoonModalOpen()
@@ -2610,6 +2679,8 @@ namespace AsteroidsGoneRogue
 
         private void Update()
         {
+            NoteControlDevice();
+            TickTutorialPrompts();
             if (_settingsOpen && _session != null && _session.Phase == GamePhase.Playing)
             {
                 DismissSettingsForPlay();
@@ -2624,6 +2695,10 @@ namespace AsteroidsGoneRogue
                 TickBoonChoice();
             }
             else
+            {
+            bool skipLiveTutorial = ConsumeTutorialSkip();
+            bool holdFirstStart = FirstStartOpen();
+            if (!skipLiveTutorial && !holdFirstStart)
             {
             ConfirmAction confirmAction = ConfirmAction.None;
             if (_confirmOpenedFrame != Time.frameCount)
@@ -2700,6 +2775,13 @@ namespace AsteroidsGoneRogue
                 }
             }
             }
+            if (holdFirstStart)
+            {
+                ConsumeFirstStartInput();
+                NavigateHangarPad();
+                SyncHangarPadSelection();
+            }
+            }
             if (_session == null || _session.Phase != GamePhase.Playing)
             {
                 EnsureHangarPreview(_ship);
@@ -2725,6 +2807,7 @@ namespace AsteroidsGoneRogue
             }
 
             PulseHangarLaunch();
+            PulseRecommendedUpgrade();
             PulseAbortIfUrgent();
             ApplyHitFlash();
             PulseAchievementToast();
@@ -2794,7 +2877,8 @@ namespace AsteroidsGoneRogue
             }
 
             bool first = !_tutorialDismissed && _session.WaveIndex == 1 && _session.Phase == GamePhase.Hangar;
-            if (!first)
+            bool retry = _session.Phase == GamePhase.Failed;
+            if (!first && !retry)
             {
                 _primaryPlate.color = UiTheme.PrimaryCta;
                 return;
@@ -2840,6 +2924,12 @@ namespace AsteroidsGoneRogue
 
         private void OnHangarStart()
         {
+            if (FailedRetryPrimary())
+            {
+                OnOneMoreTry();
+                return;
+            }
+
             OnPrimary();
         }
 
@@ -2851,7 +2941,8 @@ namespace AsteroidsGoneRogue
 
         private void DismissHangarHints()
         {
-            if (_tutorialRoot != null && _tutorialRoot.activeSelf)
+            bool keepSkip = _game != null && _game.TutorialPending;
+            if (!keepSkip && _tutorialRoot != null && _tutorialRoot.activeSelf)
             {
                 OnDismissHintClicked();
             }
@@ -2921,6 +3012,12 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (FirstStartOpen())
+            {
+                FocusHangarSlot(HangarPadNav.FirstNormalSlot);
+                return;
+            }
+
             FocusHangarSlot(HangarPadNav.PrimarySlot);
         }
 
@@ -2980,12 +3077,21 @@ namespace AsteroidsGoneRogue
                 _padSelectable[index] = SlotIsSelectable(index);
             }
 
-            HangarPadNav.ForcePrimarySelectable(_padSelectable);
+            if (!FirstStartOpen())
+            {
+                HangarPadNav.ForcePrimarySelectable(_padSelectable);
+            }
+
             return _padSelectable;
         }
 
         private bool SlotIsSelectable(int slot)
         {
+            if (FirstStartOpen())
+            {
+                return FirstStartSlotLive(slot);
+            }
+
             if (slot == HangarPadNav.GotItSlot || slot == HangarPadNav.DoctrineHintSlot)
             {
                 return false;
@@ -3059,6 +3165,10 @@ namespace AsteroidsGoneRogue
             {
                 es.SetSelectedGameObject(stepped.gameObject);
             }
+            else if (FirstStartOpen())
+            {
+                FocusHangarSlot(HangarPadNav.FirstNormalSlot);
+            }
             else
             {
                 FocusHangarSlot(HangarPadNav.PrimarySlot);
@@ -3066,6 +3176,7 @@ namespace AsteroidsGoneRogue
 
             _padRepeatAt = now + (_padHeld ? HangarPadNav.RepeatNextSeconds : HangarPadNav.RepeatFirstSeconds);
             _padHeld = true;
+            SyncFirstStartPick();
         }
 
         private Button ButtonFromSlot(int slot)
@@ -3150,6 +3261,36 @@ namespace AsteroidsGoneRogue
                 return ButtonIfActive(_bankButton);
             }
 
+            if (slot == HangarPadNav.TutorialSkipSlot)
+            {
+                return ButtonIfActive(_gotItButton);
+            }
+
+            if (slot == HangarPadNav.FirstEasySlot)
+            {
+                return ButtonIfActive(_firstEasy);
+            }
+
+            if (slot == HangarPadNav.FirstNormalSlot)
+            {
+                return ButtonIfActive(_firstNormal);
+            }
+
+            if (slot == HangarPadNav.FirstHardSlot)
+            {
+                return ButtonIfActive(_firstHard);
+            }
+
+            if (slot == HangarPadNav.FirstGoSlot)
+            {
+                return ButtonIfActive(_firstGo);
+            }
+
+            if (slot == HangarPadNav.FirstSkipSlot)
+            {
+                return ButtonIfActive(_firstSkip);
+            }
+
             if (slot >= HangarPadNav.LegacySlot0 && slot < HangarPadNav.LegacySlot0 + HangarPadNav.LegacyPerkSlots)
             {
                 int legacyIndex = slot - HangarPadNav.LegacySlot0;
@@ -3232,6 +3373,11 @@ namespace AsteroidsGoneRogue
 
             if (_gotItButton != null && go == _gotItButton.gameObject)
             {
+                if (_game != null && _game.TutorialPending)
+                {
+                    return HangarPadNav.TutorialSkipSlot;
+                }
+
                 return HangarPadNav.GotItSlot;
             }
 
@@ -3283,6 +3429,31 @@ namespace AsteroidsGoneRogue
             if (_bankButton != null && go == _bankButton.gameObject)
             {
                 return HangarPadNav.BankSlot;
+            }
+
+            if (_firstEasy != null && go == _firstEasy.gameObject)
+            {
+                return HangarPadNav.FirstEasySlot;
+            }
+
+            if (_firstNormal != null && go == _firstNormal.gameObject)
+            {
+                return HangarPadNav.FirstNormalSlot;
+            }
+
+            if (_firstHard != null && go == _firstHard.gameObject)
+            {
+                return HangarPadNav.FirstHardSlot;
+            }
+
+            if (_firstGo != null && go == _firstGo.gameObject)
+            {
+                return HangarPadNav.FirstGoSlot;
+            }
+
+            if (_firstSkip != null && go == _firstSkip.gameObject)
+            {
+                return HangarPadNav.FirstSkipSlot;
             }
 
             if (_legacyButtons != null)
@@ -3368,6 +3539,15 @@ namespace AsteroidsGoneRogue
             if (_creditsVisible && _creditsContinue != null)
             {
                 return _creditsContinue;
+            }
+
+            if (FirstStartOpen())
+            {
+                Button firstNormal = ButtonFromSlot(HangarPadNav.FirstNormalSlot);
+                if (firstNormal != null)
+                {
+                    return firstNormal;
+                }
             }
 
             return _primary;
@@ -4560,6 +4740,13 @@ namespace AsteroidsGoneRogue
             }
 
             ApplyFooterHintSize();
+            if (_game != null && _game.TutorialActive)
+            {
+                _hint.gameObject.SetActive(true);
+                _hint.text = FirstRunRules.SkipHint();
+                return;
+            }
+
             HintMode mode = _settings != null ? _settings.HintMode : HintMode.HangarFooter;
             bool firstWave = playing && _session != null && _session.WaveIndex == 1;
             bool coach = SettingsState.ShowsFirstWaveCoach(firstWave, mode);
@@ -6249,6 +6436,458 @@ namespace AsteroidsGoneRogue
 
                 UiTheme.SetPadFocus(rowButton.gameObject, index == focusIndex, false);
             }
+        }
+
+        public void FlashRetry()
+        {
+            _hitFlashStrength = Mathf.Max(_hitFlashStrength, 0.45f);
+            _hitFlashUntil = Time.unscaledTime + 0.18f;
+            ApplyHitFlash();
+        }
+
+        private void BuildFirstStart(Font display, Font body)
+        {
+            _firstStartRoot = new GameObject("FirstStart");
+            _firstStartRoot.transform.SetParent(transform, false);
+            Stretch(_firstStartRoot.AddComponent<RectTransform>(), Vector2.zero, Vector2.one);
+
+            GameObject firstScrim = CreateFill(
+                "FirstStartScrim",
+                _firstStartRoot.transform,
+                UiTheme.WithAlpha(UiTheme.Void, 0.82f),
+                Vector2.zero,
+                Vector2.one);
+            Image firstScrimImage = firstScrim.GetComponent<Image>();
+            if (firstScrimImage != null)
+            {
+                firstScrimImage.raycastTarget = true;
+            }
+
+            GameObject firstCard = UiTheme.BuildPanel(
+                "FirstStartCard",
+                _firstStartRoot.transform,
+                new Vector2(0.18f, 0.16f),
+                new Vector2(0.82f, 0.84f),
+                0.94f);
+            _firstStartTitle = CreateText("FirstStartTitle", firstCard.transform, display, 26, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Stretch(_firstStartTitle.rectTransform, new Vector2(0.06f, 0.86f), new Vector2(0.94f, 0.97f));
+            _firstStartTitle.color = UiTheme.Primary;
+            _firstStartTitle.text = FirstRunRules.FirstDifficultyTitle();
+
+            _firstEasy = CreateButton("FirstEasy", firstCard.transform, body, new Vector2(0.04f, 0.40f), new Vector2(0.34f, 0.82f));
+            _firstNormal = CreateButton("FirstNormal", firstCard.transform, body, new Vector2(0.35f, 0.40f), new Vector2(0.65f, 0.82f));
+            _firstHard = CreateButton("FirstHard", firstCard.transform, body, new Vector2(0.66f, 0.40f), new Vector2(0.96f, 0.82f));
+            _firstEasyLabel = _firstEasy.GetComponentInChildren<Text>();
+            _firstNormalLabel = _firstNormal.GetComponentInChildren<Text>();
+            _firstHardLabel = _firstHard.GetComponentInChildren<Text>();
+            FitChoiceLabel(_firstEasyLabel);
+            FitChoiceLabel(_firstNormalLabel);
+            FitChoiceLabel(_firstHardLabel);
+            _firstEasy.onClick.AddListener(OnFirstEasy);
+            _firstNormal.onClick.AddListener(OnFirstNormal);
+            _firstHard.onClick.AddListener(OnFirstHard);
+            LockButtonNavigation(_firstEasy);
+            LockButtonNavigation(_firstNormal);
+            LockButtonNavigation(_firstHard);
+
+            _firstGo = CreateButton("FirstGo", firstCard.transform, display, new Vector2(0.04f, 0.08f), new Vector2(0.48f, 0.32f));
+            _firstSkip = CreateButton("FirstSkip", firstCard.transform, display, new Vector2(0.52f, 0.08f), new Vector2(0.96f, 0.32f));
+            _firstGoLabel = _firstGo.GetComponentInChildren<Text>();
+            _firstSkipLabel = _firstSkip.GetComponentInChildren<Text>();
+            _firstGoLabel.fontSize = 22;
+            _firstSkipLabel.fontSize = 18;
+            _firstGo.onClick.AddListener(OnFirstGo);
+            _firstSkip.onClick.AddListener(OnFirstSkip);
+            LockButtonNavigation(_firstGo);
+            LockButtonNavigation(_firstSkip);
+            UiTheme.ApplyButton(_firstGo, true, false, false);
+            _firstStartRoot.SetActive(false);
+        }
+
+        private static void FitChoiceLabel(Text label)
+        {
+            if (label == null)
+            {
+                return;
+            }
+
+            label.fontSize = 16;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+            label.verticalOverflow = VerticalWrapMode.Truncate;
+            label.lineSpacing = 1.05f;
+        }
+
+        private void BuildTutorialPlayChrome(Font display)
+        {
+            _tutorialBanner = CreateText("TutorialBanner", transform, display, 22, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Stretch(_tutorialBanner.rectTransform, new Vector2(0.16f, 0.18f), new Vector2(0.62f, 0.30f));
+            _tutorialBanner.color = UiTheme.Primary;
+            _tutorialBanner.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _tutorialBanner.verticalOverflow = VerticalWrapMode.Truncate;
+            _tutorialBanner.gameObject.SetActive(false);
+
+            _tutorialSkipPlay = CreateButton(
+                "TutorialSkipPlay",
+                transform,
+                display,
+                new Vector2(0.64f, 0.18f),
+                new Vector2(0.90f, 0.30f));
+            Text skipPlayLabel = _tutorialSkipPlay.GetComponentInChildren<Text>();
+            if (skipPlayLabel != null)
+            {
+                skipPlayLabel.fontSize = 16;
+                skipPlayLabel.text = FirstRunRules.SkipTutorialLabel();
+            }
+
+            _tutorialSkipPlay.onClick.AddListener(OnTutorialSkipPlay);
+            LockButtonNavigation(_tutorialSkipPlay);
+            _tutorialSkipPlay.gameObject.SetActive(false);
+        }
+
+        private void OnTutorialSkipPlay()
+        {
+            if (_game != null)
+            {
+                _game.SkipTutorial();
+            }
+        }
+
+        private bool FirstStartOpen()
+        {
+            return _game != null
+                && _game.ShowDifficultyChooser
+                && _session != null
+                && _session.Phase != GamePhase.Playing;
+        }
+
+        private bool FirstStartSlotLive(int slot)
+        {
+            if (slot != HangarPadNav.FirstEasySlot
+                && slot != HangarPadNav.FirstNormalSlot
+                && slot != HangarPadNav.FirstHardSlot
+                && slot != HangarPadNav.FirstGoSlot
+                && slot != HangarPadNav.FirstSkipSlot)
+            {
+                return false;
+            }
+
+            Button choice = ButtonFromSlot(slot);
+            return choice != null && choice.gameObject.activeInHierarchy && choice.IsInteractable();
+        }
+
+        private void RefreshFirstStart()
+        {
+            bool open = FirstStartOpen();
+            if (_firstStartRoot != null)
+            {
+                _firstStartRoot.SetActive(open);
+            }
+
+            if (!open)
+            {
+                _firstStartArmed = false;
+                return;
+            }
+
+            _firstStartRoot.transform.SetAsLastSibling();
+            if (_firstSkip != null)
+            {
+                bool showSkip = _game != null && _game.TutorialPending;
+                _firstSkip.gameObject.SetActive(showSkip);
+            }
+
+            PaintFirstStartChoices();
+            if (_firstStartArmed)
+            {
+                return;
+            }
+
+            _firstStartArmed = true;
+            _firstStartPick = DifficultyGrade.Normal;
+            PaintFirstStartChoices();
+            FocusHangarSlot(HangarPadNav.FirstNormalSlot);
+        }
+
+        private void PaintFirstStartChoices()
+        {
+            if (_firstStartTitle != null)
+            {
+                _firstStartTitle.text = FirstRunRules.FirstDifficultyTitle();
+            }
+
+            if (_firstEasyLabel != null)
+            {
+                _firstEasyLabel.text = FirstRunRules.EasyChoiceLabel();
+            }
+
+            if (_firstNormalLabel != null)
+            {
+                _firstNormalLabel.text = FirstRunRules.NormalChoiceLabel();
+            }
+
+            if (_firstHardLabel != null)
+            {
+                _firstHardLabel.text = FirstRunRules.HardChoiceLabel();
+            }
+
+            if (_firstGoLabel != null)
+            {
+                _firstGoLabel.text = FirstRunRules.FirstStartLabel();
+            }
+
+            if (_firstSkipLabel != null)
+            {
+                _firstSkipLabel.text = FirstRunRules.SkipTutorialLabel();
+            }
+
+            UiTheme.ApplyButton(_firstEasy, _firstStartPick == DifficultyGrade.Easy, false, false);
+            UiTheme.ApplyButton(_firstNormal, _firstStartPick == DifficultyGrade.Normal, false, false);
+            UiTheme.ApplyButton(_firstHard, _firstStartPick == DifficultyGrade.Hard, false, false);
+            UiTheme.ApplyButton(_firstGo, true, false, false);
+        }
+
+        private void OnFirstEasy()
+        {
+            _firstStartPick = DifficultyGrade.Easy;
+            PaintFirstStartChoices();
+        }
+
+        private void OnFirstNormal()
+        {
+            _firstStartPick = DifficultyGrade.Normal;
+            PaintFirstStartChoices();
+        }
+
+        private void OnFirstHard()
+        {
+            _firstStartPick = DifficultyGrade.Hard;
+            PaintFirstStartChoices();
+        }
+
+        private void OnFirstGo()
+        {
+            ConfirmFirstStartFromUi();
+        }
+
+        private void OnFirstSkip()
+        {
+            if (_game != null)
+            {
+                _game.SkipTutorial();
+            }
+
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+        }
+
+        private void ConfirmFirstStartFromUi()
+        {
+            if (_game == null || !FirstStartOpen())
+            {
+                return;
+            }
+
+            _game.ConfirmFirstStart(_firstStartPick);
+        }
+
+        private void SyncFirstStartPick()
+        {
+            if (!FirstStartOpen())
+            {
+                return;
+            }
+
+            if (_padSlot == HangarPadNav.FirstEasySlot)
+            {
+                _firstStartPick = DifficultyGrade.Easy;
+            }
+            else if (_padSlot == HangarPadNav.FirstNormalSlot)
+            {
+                _firstStartPick = DifficultyGrade.Normal;
+            }
+            else if (_padSlot == HangarPadNav.FirstHardSlot)
+            {
+                _firstStartPick = DifficultyGrade.Hard;
+            }
+
+            PaintFirstStartChoices();
+        }
+
+        private bool ConsumeFirstStartInput()
+        {
+            if (!FirstStartOpen())
+            {
+                return false;
+            }
+
+            bool escapeDown = Input.GetKeyDown(KeyCode.Escape);
+            bool startDown = GamepadInput.PausePressed() && !escapeDown;
+            if (startDown)
+            {
+                ConfirmFirstStartFromUi();
+                return true;
+            }
+
+            if (!escapeDown)
+            {
+                return false;
+            }
+
+            if (_game != null && _game.TutorialPending)
+            {
+                _game.SkipTutorial();
+            }
+
+            return true;
+        }
+
+        private bool ConsumeTutorialSkip()
+        {
+            if (_game == null || !_game.TutorialActive || !GamepadInput.PausePressed())
+            {
+                return false;
+            }
+
+            _game.SkipTutorial();
+            return true;
+        }
+
+        private void ApplyHangarSkipLabel()
+        {
+            if (_gotItLabel == null)
+            {
+                return;
+            }
+
+            if (_game != null && _game.TutorialPending)
+            {
+                _gotItLabel.text = FirstRunRules.SkipTutorialLabel();
+                return;
+            }
+
+            _gotItLabel.text = Loc.T("ui.got_it", "Got it");
+        }
+
+        private void RefreshTutorialChrome()
+        {
+            bool live = _game != null && _game.TutorialActive;
+            if (_tutorialBanner != null)
+            {
+                _tutorialBanner.gameObject.SetActive(live);
+                if (live)
+                {
+                    _tutorialBanner.text = FirstRunRules.PromptLine(_game.TutorialPrompt, ControlLabels.PreferPad);
+                }
+            }
+
+            if (_tutorialSkipPlay != null)
+            {
+                _tutorialSkipPlay.gameObject.SetActive(live);
+                Text skipPlayLabel = _tutorialSkipPlay.GetComponentInChildren<Text>();
+                if (skipPlayLabel != null)
+                {
+                    skipPlayLabel.text = FirstRunRules.SkipTutorialLabel();
+                }
+            }
+        }
+
+        private void NoteControlDevice()
+        {
+            Vector2 padFly = GamepadInput.PadMoveStick();
+            Vector2 aimFly = GamepadInput.AimStick();
+            bool padFire = Input.GetButton(GamepadInput.FirePad);
+            if (padFly.sqrMagnitude > 0.02f || aimFly.sqrMagnitude > 0.02f || padFire)
+            {
+                ControlLabels.NotePad();
+                return;
+            }
+
+            bool keyFly = Input.GetKey(KeyCode.W)
+                || Input.GetKey(KeyCode.A)
+                || Input.GetKey(KeyCode.S)
+                || Input.GetKey(KeyCode.D)
+                || Input.GetKey(KeyCode.Space)
+                || Input.GetMouseButton(0);
+            if (keyFly)
+            {
+                ControlLabels.NoteKeyboard();
+            }
+        }
+
+        private void TickTutorialPrompts()
+        {
+            if (_game == null || !_game.TutorialActive)
+            {
+                return;
+            }
+
+            Vector2 keyFly = GamepadInput.MoveStick();
+            Vector2 stickFly = GamepadInput.PadMoveStick();
+            bool moved = keyFly.sqrMagnitude > 0.02f || stickFly.sqrMagnitude > 0.02f;
+            _game.TickTutorial(moved, GamepadInput.FireHeld());
+            if (_tutorialBanner != null)
+            {
+                _tutorialBanner.text = FirstRunRules.PromptLine(_game.TutorialPrompt, ControlLabels.PreferPad);
+            }
+        }
+
+        private void RememberRecommendedUpgrade()
+        {
+            _pulseShopIndex = -1;
+            if (_game == null || _session == null || _loadout == null || _loadout.State == null)
+            {
+                return;
+            }
+
+            _pulseShopIndex = RunSummary.RecommendedShopIndex(
+                _session.Credits,
+                _loadout.State,
+                _session.LastResolvedWave,
+                _session.Phase);
+        }
+
+        private void NotePhaseFocus()
+        {
+            if (_session == null)
+            {
+                return;
+            }
+
+            GamePhase phaseNow = _session.Phase;
+            bool enteredFail = phaseNow == GamePhase.Failed && _failFocusPhase != GamePhase.Failed;
+            _failFocusPhase = phaseNow;
+            if (!enteredFail || (_game != null && _game.HasContinueOffer))
+            {
+                return;
+            }
+
+            FocusHangarSlot(HangarPadNav.PrimarySlot);
+        }
+
+        private void PulseRecommendedUpgrade()
+        {
+            if (_pulseShopIndex < 0 || _buyButtons == null || _pulseShopIndex >= _buyButtons.Length)
+            {
+                return;
+            }
+
+            Button shopButton = _buyButtons[_pulseShopIndex];
+            if (shopButton == null || !shopButton.gameObject.activeInHierarchy)
+            {
+                return;
+            }
+
+            Image shopPlate = shopButton.targetGraphic as Image;
+            if (shopPlate == null)
+            {
+                return;
+            }
+
+            float shopPulse = Mathf.PingPong(Time.unscaledTime * 2.2f, 1f);
+            shopPlate.color = Color.Lerp(UiTheme.PrimaryCta, UiTheme.Brighten(UiTheme.Primary, 0.22f), shopPulse);
         }
     }
 }

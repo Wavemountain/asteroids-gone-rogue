@@ -46,6 +46,11 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        public static bool HasSavedChoice()
+        {
+            return PlayerPrefs.HasKey(PrefsKey);
+        }
+
         public static void EnsureLoaded()
         {
             if (_loaded)

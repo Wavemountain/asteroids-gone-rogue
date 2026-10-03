@@ -5356,7 +5356,7 @@ def _confirm_route(flags: dict) -> str:
     abort = flags.get("playing") and (flags.get("escape") or flags.get("start") or flags.get("abort_click"))
     if abort:
         return "open" if flags.get("confirm_in_play", True) else "yes"
-    new_run = flags.get("restart_screen") and (flags.get("new_run_click") or flags.get("start"))
+    new_run = flags.get("restart_screen") and flags.get("new_run_click")
     if new_run:
         return "open" if flags.get("confirm_new_run") else "yes"
     return "none"
@@ -5422,11 +5422,11 @@ def test_confirm_restart() -> None:
     assert _confirm_route({**hangar, "cancel": True}) == "none"
     restart = {"playing": False, "restart_screen": True, "confirm_new_run": False}
     assert _confirm_route({**restart, "new_run_click": True}) == "yes"
-    assert _confirm_route({**restart, "start": True}) == "yes"
+    assert _confirm_route({**restart, "start": True}) == "none"
     assert _confirm_route({**restart, "escape": True}) == "none"
     assert _confirm_route({**restart, "cancel": True}) == "none"
     assert _confirm_route({**restart, "confirm_new_run": True, "new_run_click": True}) == "open"
-    assert _confirm_route({**restart, "confirm_new_run": True, "start": True}) == "open"
+    assert _confirm_route({**restart, "confirm_new_run": True, "start": True}) == "none"
     wave_clear = {"playing": False, "restart_screen": False, "confirm_new_run": True, "start": True}
     assert _confirm_route(wave_clear) == "none"
 
@@ -5533,8 +5533,8 @@ def test_confirm_restart() -> None:
                         if overlay:
                             assert not started, (settings_open, credits_visible, phase_name, button, confirm_new_run, action, settings_action)
     bare_fail = {"playing": False, "restart_screen": True, "confirm_new_run": False, "start": True}
-    assert _confirm_route(bare_fail) == "yes"
-    assert _confirm_route({**bare_fail, "confirm_new_run": True}) == "open"
+    assert _confirm_route(bare_fail) == "none"
+    assert _confirm_route({**bare_fail, "confirm_new_run": True}) == "none"
     assert _confirm_route({"playing": True, "escape": True, "confirm_in_play": True}) == "open"
     assert "if (!_confirmOpen && confirmAction == ConfirmAction.None)" in update
     apply = ui.split("private void ApplyConfirmRoute")[1].split("private static ConfirmKind KindForRequest")[0]
@@ -6280,6 +6280,7 @@ def main() -> int:
     test_pr2_046()
     test_speltest_063_marker_title_bank()
     test_mk2_grant_and_abandoned_lives()
+    test_first_minutes_047()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -6566,7 +6567,7 @@ def _scale_enemy_hp(hp: int, grade: str, world: int) -> int:
 
 def _primary_label(phase: str, world_cleared: int, next_world: int) -> str:
     if phase == "Failed":
-        return "New Run (reset)"
+        return "One more try"
     if phase == "WaveClear" and world_cleared > 0:
         world = world_cleared + 1 if next_world < 1 else next_world
         return f"Continue to World {world}"
@@ -6651,7 +6652,7 @@ def test_world_continue_and_hangar_readability() -> None:
     assert _primary_restarts("Failed") is True
     assert _primary_label("WaveClear", 1, 2) == "Continue to World 2"
     assert _primary_label("WaveClear", 0, 2) == "Next Wave"
-    assert _primary_label("Failed", 0, 1) == "New Run (reset)"
+    assert _primary_label("Failed", 0, 1) == "One more try"
     assert _primary_label("Hangar", 0, 1) == "Start Wave"
     failed = Session()
     failed.begin()
@@ -6749,6 +6750,8 @@ def test_world_continue_and_hangar_readability() -> None:
         "Nästa våg",
         "New Run (reset)",
         "Ny runda (nollställ)",
+        "One more try",
+        "En gång till",
         "Your ship, upgrades and credits reset on New Run.",
         "Skepp, uppgraderingar och kredit nollställs vid Ny runda.",
     )
@@ -6774,7 +6777,7 @@ def test_world_continue_and_hangar_readability() -> None:
         for line in headlines:
             if line.startswith("SECTOR") or line.startswith("SEKTOR") or line.startswith("RUN") or line.startswith("SLUT"):
                 assert _estimate_width(line, 28) <= title_w, (width, line, title_w)
-            elif line.startswith("Continue") or line.startswith("Fortsätt") or line in ("Next Wave", "Nästa våg", "New Run (reset)", "Ny runda (nollställ)"):
+            elif line.startswith("Continue") or line.startswith("Fortsätt") or line in ("Next Wave", "Nästa våg", "New Run (reset)", "Ny runda (nollställ)", "One more try", "En gång till"):
                 assert _estimate_width(line, 20) <= primary_w, (width, line, primary_w)
             else:
                 lines = _wrapped_line_count(line, explain_w, 16)
@@ -8843,6 +8846,242 @@ def test_mk2_grant_and_abandoned_lives() -> None:
     assert fitted_save["LivesNow"] == -1
     overflow = fitted.replace('"Mk2Mask":' + str(1 << 22), '"Mk2Mask":' + str(1 << 23), 1)
     assert _save_parse(overflow) is None
+
+
+def test_first_minutes_047() -> None:
+    """0.47 first five minutes: tutorial flag, difficulty once, one more try."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+
+    def migrate(meta: dict, saw_tutorial: bool, saw_difficulty: bool, local_score: int = 0, local_wave: int = 0) -> dict:
+        data = dict(meta)
+        played = (
+            data.get("points", 0) > 0
+            or any(data.get(key, 0) > 0 for key in (
+                "credit", "discount", "shield", "hull",
+                "s0", "w0", "o0", "s1", "w1", "o1", "s2", "w2", "o2",
+            ))
+            or bool(data.get("awarded"))
+            or bool(data.get("banked"))
+        )
+        if not saw_tutorial:
+            data["tutorial"] = 1 if played or local_score > 0 or local_wave > 0 else 0
+        else:
+            data["tutorial"] = 1 if data.get("tutorial", 0) else 0
+        if not saw_difficulty:
+            data["chosen"] = 0
+        else:
+            data["chosen"] = 1 if data.get("chosen", 0) else 0
+        if data.get("version", 1) >= 1 and data.get("version", 1) < 2:
+            data["version"] = 2
+        return data
+
+    fresh = {"version": 1, "points": 0, "next": 1, "awarded": "", "banked": ""}
+    opened = migrate(dict(fresh, next=2), False, False)
+    assert opened["tutorial"] == 0 and opened["version"] == 2
+    veteran = migrate(dict(fresh, next=4, s0=1200, w0=6), False, False)
+    assert veteran["tutorial"] == 1
+    local = migrate(fresh, False, False, local_score=40, local_wave=2)
+    assert local["tutorial"] == 1
+    explicit = migrate({"version": 2, "next": 3, "tutorial": 0, "chosen": 0, "points": 0, "awarded": "", "banked": ""}, True, True)
+    assert explicit["tutorial"] == 0 and explicit["chosen"] == 0
+    perks = migrate(dict(fresh, hull=1), False, False)
+    assert perks["tutorial"] == 1
+
+    def show_chooser(chosen: int, prefs: bool, progress: bool) -> bool:
+        return not (chosen or prefs or progress)
+
+    assert show_chooser(0, False, False) is True
+    assert show_chooser(1, False, False) is False
+    assert show_chooser(0, True, False) is False
+    assert show_chooser(0, False, True) is False
+    picked = migrate(fresh, False, False)
+    picked["chosen"] = 1
+    assert show_chooser(picked["chosen"], True, False) is False
+
+    wave = 1
+    score = 0
+    credits = 0
+    last_resolved = 0
+    legacy = 3
+    best = 0
+    # Tutorial clear does not touch campaign wave, score, credits, legacy, or best.
+    wave = 1
+    score = 0
+    credits = 0
+    last_resolved = 0
+    assert wave == 1 and score == 0 and credits == 0 and last_resolved == 0
+    assert legacy == 3 and best == 0
+
+    def legacy_grants(tutorial: bool, failed: bool, already: bool) -> int:
+        if tutorial or not failed or already:
+            return 0
+        return 1
+
+    grade = "Normal"
+    assert legacy_grants(False, True, False) == 1
+    assert legacy_grants(False, True, True) == 0
+    assert legacy_grants(True, True, False) == 0
+    assert legacy_grants(False, False, False) == 0
+    retry_grade = grade
+    assert retry_grade == "Normal"
+    assert legacy_grants(False, True, False) + 0 == 1
+
+    prompt = 0
+    moved = fired = picked_up = False
+
+    def note_move() -> None:
+        nonlocal prompt, moved
+        if prompt == 0:
+            moved = True
+            prompt = 1
+
+    def note_fire() -> None:
+        nonlocal prompt, fired
+        if prompt == 1:
+            fired = True
+            prompt = 2
+
+    def note_pickup() -> None:
+        nonlocal prompt, picked_up
+        picked_up = True
+        if prompt == 2:
+            prompt = 3
+
+    def note_threats(left: int) -> None:
+        nonlocal prompt
+        if prompt == 2 and (picked_up or left <= 1):
+            prompt = 3
+
+    note_fire()
+    assert prompt == 0
+    note_move()
+    assert prompt == 1 and moved
+    note_fire()
+    assert prompt == 2 and fired
+    note_threats(3)
+    assert prompt == 2
+    note_pickup()
+    assert prompt == 3
+    prompt = 2
+    picked_up = False
+    note_threats(1)
+    assert prompt == 3
+
+    rules = (root / "Assets/Scripts/Core/FirstRunRules.cs").read_text(encoding="utf-8")
+    session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+    pad = (root / "Assets/Scripts/Core/HangarPadNav.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    router = (root / "Assets/Scripts/Core/ConfirmDialogRouter.cs").read_text(encoding="utf-8")
+    meta = (root / "Assets/Scripts/Core/LegacyProgress.cs").read_text(encoding="utf-8")
+    seeker = (root / "Assets/Scripts/Combat/EnemySeeker.cs").read_text(encoding="utf-8")
+    assert "TutorialDone" in meta and "DifficultyChosen" in meta
+    assert "CurrentVersion = 2" in meta
+    assert "data.Version < 1 || data.Version > LegacyProgress.CurrentVersion" in meta
+    assert "FinishTutorialToHangar" in session
+    assert "return phase == GamePhase.Failed;" in session
+    assert "OneMoreTryLabel" in summary
+    assert 'Loc.T("ui.new_run_reset", "New Run (reset)")' in summary
+    assert "Buy Seeker > hold LT" in summary
+    assert "run.first_upgrade" in summary
+    assert "RecommendedShopIndex" in summary
+    assert "SpawnTutorial" in waves and "ConfigureTraining" in waves and "ConfigureTraining" in seeker
+    assert "public void OneMoreTry()" in manager
+    assert "StartTutorial" in manager and "FinishTutorial" in manager
+    assert "SoftResetTutorialShip" in manager
+    award = manager.split("private void AwardLegacy")[1].split("private bool FreshEnoughToReinit")[0]
+    record = manager.split("private void RecordBest")[1].split("private void EnsureRunId")[0]
+    assert "TutorialActive" in award and "TutorialActive" in record
+    assert "TutorialSkipSlot" in pad and "FirstNormalSlot" in pad and "FirstSkipSlot" in pad
+    assert "HangarPadNav.StepSelectable" in ui
+    assert "OnOneMoreTry" in ui and "FlashRetry" in ui
+    assert "Got it" in ui
+    assert "request.RestartScreen &&" in router
+    assert "En gång till" in loc and "ui.one_more_try" in loc
+    assert "Hoppa intro" in loc and "ui.skip_tutorial" in loc
+    swedish = loc.split("private static readonly Dictionary")[1].split("};")[0]
+    for key in (
+        "ui.one_more_try",
+        "ui.skip_tutorial",
+        "ui.first_start",
+        "ui.first_diff_title",
+        "ui.diff.easy_line",
+        "ui.diff.normal_line",
+        "ui.diff.hard_line",
+        "tut.move.key",
+        "tut.move.pad",
+        "tut.fire.key",
+        "tut.fire.pad",
+        "tut.pickup",
+        "tut.finish",
+        "tut.skip_hint",
+        "run.first_upgrade",
+    ):
+        assert f'"{key}"' in swedish, key
+        assert f'"{key}"' in rules or f'"{key}"' in summary, key
+
+    lines = {
+        "One more try": 28,
+        "En gång till": 28,
+        "Skip tutorial": 18,
+        "Hoppa intro": 18,
+        "Start": 22,
+        "Starta": 22,
+        "Choose difficulty": 26,
+        "Välj svårighet": 26,
+        "Fewer rocks, gentler hits.": 16,
+        "Färre stenar, mjukare.": 16,
+        "The intended fight.": 16,
+        "Den tänkta striden.": 16,
+        "More rocks, harder hits.": 16,
+        "Fler stenar, hårdare träffar.": 16,
+        "Fly with WASD. Dodge rocks.": 22,
+        "Flyg med WASD. Undvik stenar.": 22,
+        "Fly with the stick. Dodge rocks.": 22,
+        "Flyg med spaken. Undvik stenar.": 22,
+        "Fire with mouse or Space.": 22,
+        "Skjut med mus eller mellanslag.": 22,
+        "Fire with RT.": 22,
+        "Skjut med RT.": 22,
+        "Grab the shield pickup.": 22,
+        "Ta sköldplocket.": 22,
+        "Clear the wave.": 22,
+        "Rensa vågen.": 22,
+        "Skip tutorial  ·  Esc / Start": 22,
+        "Hoppa intro  ·  Esc / Start": 22,
+        "Spend credits on your first upgrade": 16,
+        "Lägg kredit på din första uppgradering": 16,
+    }
+    for text in lines:
+        assert "\u2699" not in text and "\u2605" not in text
+    resolutions = ((1280, 800), (1920, 1080), (2560, 1080), (3440, 1440))
+    for width, height in resolutions:
+        scale = _canvas_scale(width, height)
+        canvas_w = width / scale
+        hint_w = (0.86 - 0.14) * canvas_w
+        primary = (0.97 - 0.03) * canvas_w
+        card_w = (0.82 - 0.18) * canvas_w
+        choice_w = card_w * 0.30
+        banner_w = (0.55 - 0.16) * canvas_w
+        for text, size in lines.items():
+            box = choice_w
+            if size >= 26:
+                box = card_w * 0.88
+            elif text.startswith("One more") or text.startswith("En gång"):
+                box = primary
+            elif "Skip tutorial  ·" in text or "Hoppa intro  ·" in text:
+                box = hint_w
+            elif text.startswith("Spend") or text.startswith("Lägg"):
+                box = primary
+            elif text.startswith("Fly") or text.startswith("Fire") or text.startswith("Grab") or text.startswith("Clear") or text.startswith("Skjut") or text.startswith("Ta ") or text.startswith("Rensa") or text.startswith("Flyg"):
+                box = banner_w
+            assert _estimate_width(text, size) <= box, (width, height, text, box)
+            assert _kenney_future_width(text, size) <= box * 1.05, (width, height, text, box)
 
 
 if __name__ == "__main__":

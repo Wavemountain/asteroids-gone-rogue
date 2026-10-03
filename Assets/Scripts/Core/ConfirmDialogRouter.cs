@@ -123,7 +123,7 @@ namespace AsteroidsGoneRogue
                 return ConfirmAction.Yes;
             }
 
-            bool newRun = request.RestartScreen && (request.NewRunClick || request.Start);
+            bool newRun = request.RestartScreen && request.NewRunClick;
             if (newRun)
             {
                 if (request.ConfirmNewRun)

@@ -444,6 +444,30 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
+        /// Leave the guided wave without score, credits, legacy, or a campaign step.
+        /// Lives stay. LastResolvedWave is cleared so the first real clear can still coach.
+        /// </summary>
+        public void FinishTutorialToHangar()
+        {
+            Score = 0;
+            Credits = 0;
+            LastCreditsAwarded = 0;
+            LastRunScore = 0;
+            LastResolvedWave = 0;
+            WaveIndex = 1;
+            WorldCleared = 0;
+            CampaignWon = false;
+            WaveTookHit = false;
+            FailReason = string.Empty;
+            FailCause = DamageCause.Unknown;
+            FailEnemyKind = EnemyKind.Mid01;
+            HasStructuredFail = false;
+            FailRemainingThreats = 0;
+            ClearWaveMarker();
+            Phase = GamePhase.Hangar;
+        }
+
+        /// <summary>
         /// Leave a live wave without the clear bonus or wave increment. Loadout is untouched.
         /// </summary>
         public void AbortToHangar()

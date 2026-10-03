@@ -35,6 +35,12 @@ namespace AsteroidsGoneRogue
         /// </summary>
         public string BankedRuns = string.Empty;
 
+        /// <summary>1 after the guided wave is finished or skipped. Missing on v1 files.</summary>
+        public int TutorialDone;
+
+        /// <summary>1 after Easy / Normal / Hard was chosen. Missing on v1 files.</summary>
+        public int DifficultyChosen;
+
         public static MetaData Fresh()
         {
             MetaData data = new MetaData();
@@ -48,7 +54,7 @@ namespace AsteroidsGoneRogue
 
     public static class LegacyProgress
     {
-        public const int CurrentVersion = 1;
+        public const int CurrentVersion = 2;
         public const int PerkCount = 4;
         public const int MaxLevel = 3;
         public const int CreditsPerk = 0;
@@ -793,7 +799,12 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (data.Version != LegacyProgress.CurrentVersion)
+            if (data.Version < 1 || data.Version > LegacyProgress.CurrentVersion)
+            {
+                return false;
+            }
+
+            if (data.TutorialDone < 0 || data.DifficultyChosen < 0)
             {
                 return false;
             }
@@ -866,6 +877,8 @@ namespace AsteroidsGoneRogue
             AppendInt(builder, "BestScore2", data.BestScore2, false);
             AppendInt(builder, "BestWave2", data.BestWave2, false);
             AppendInt(builder, "BestWorld2", data.BestWorld2, false);
+            AppendInt(builder, "TutorialDone", data.TutorialDone, false);
+            AppendInt(builder, "DifficultyChosen", data.DifficultyChosen, false);
             builder.Append(",\"Awarded\":\"");
             builder.Append(data.Awarded == null ? string.Empty : data.Awarded);
             builder.Append("\",\"BankedRuns\":\"");
@@ -891,7 +904,11 @@ namespace AsteroidsGoneRogue
             MetaData parsed = MetaData.Fresh();
             parsed.Awarded = string.Empty;
             parsed.BankedRuns = string.Empty;
+            parsed.TutorialDone = 0;
+            parsed.DifficultyChosen = 0;
             bool sawVersion = false;
+            bool sawTutorial = false;
+            bool sawDifficulty = false;
             int cursor = 1;
             int end = trimmed.Length - 1;
             while (cursor < end)
@@ -961,9 +978,19 @@ namespace AsteroidsGoneRogue
                     {
                         return false;
                     }
+
+                    if (key == "TutorialDone")
+                    {
+                        sawTutorial = true;
+                    }
+                    else if (key == "DifficultyChosen")
+                    {
+                        sawDifficulty = true;
+                    }
                 }
             }
 
+            FirstRunRules.Migrate(parsed, sawTutorial, sawDifficulty);
             if (!sawVersion || !IsValid(parsed))
             {
                 return false;
@@ -1026,6 +1053,12 @@ namespace AsteroidsGoneRogue
                     return true;
                 case "BestWorld2":
                     data.BestWorld2 = number;
+                    return true;
+                case "TutorialDone":
+                    data.TutorialDone = number;
+                    return true;
+                case "DifficultyChosen":
+                    data.DifficultyChosen = number;
                     return true;
                 default:
                     return true;

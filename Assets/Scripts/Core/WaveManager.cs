@@ -152,6 +152,43 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        public void SpawnTutorial()
+        {
+            _activeWave = 1;
+            _boss = null;
+            _modifier = WaveModifierKind.None;
+            DespawnAll();
+            _allStrandedSeconds = 0f;
+            _factory.ApplyArenaForWave(1);
+            int tutorCount = FirstRunRules.AsteroidCount;
+            for (int tutorRock = 0; tutorRock < tutorCount; tutorRock++)
+            {
+                float tutorAngle = (Mathf.PI * 2f * tutorRock) / tutorCount + 0.4f;
+                Vector3 tutorPos = RingPoint(tutorAngle, ScaledRing(16f));
+                Vector3 tutorDrift = new Vector3(
+                    Mathf.Cos(tutorAngle + 1.2f),
+                    0f,
+                    Mathf.Sin(tutorAngle + 1.2f));
+                tutorDrift *= FirstRunRules.AsteroidSpeed;
+                Register(_factory.CreateSmallAsteroid(tutorPos, tutorDrift, this));
+            }
+
+            Vector3 tutorEnemyPos = RingPoint(2.2f, ScaledRing(18f));
+            EnemySeeker tutorEnemy = _factory.CreateEnemy(
+                tutorEnemyPos,
+                _player,
+                this,
+                EnemyCatalog.VisualName(FirstRunRules.WeakEnemy));
+            if (tutorEnemy != null)
+            {
+                tutorEnemy.ConfigureTraining(FirstRunRules.WeakEnemyHp, FirstRunRules.WeakEnemySpeedScale);
+                Register(tutorEnemy);
+            }
+
+            Vector3 tutorPickupPos = RingPoint(0.6f, ScaledRing(8f));
+            _factory.CreatePickup("Pickup_Shield", tutorPickupPos);
+        }
+
         private void SpawnEliteBrute(int waveIndex)
         {
             float eliteAngle = waveIndex * 0.2f + Mathf.PI;

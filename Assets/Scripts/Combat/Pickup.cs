@@ -152,6 +152,12 @@ namespace AsteroidsGoneRogue
 
         private void Apply(ShipController ship)
         {
+            GameManager host = UnityEngine.Object.FindAnyObjectByType<GameManager>();
+            if (host != null)
+            {
+                host.NoteTutorialPickup();
+            }
+
             switch (_kind)
             {
                 case Kind.Shield:
