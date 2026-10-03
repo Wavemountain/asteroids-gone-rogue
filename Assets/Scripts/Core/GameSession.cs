@@ -142,7 +142,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            int nextLives = RunSaveCodec.LivesAfterAbandonedWave(Lives, LivesAtWaveStart);
+            int nextLives = RunSaveCodec.LivesAfterAbandonedWave(Lives, LivesAtWaveStart, Lives);
             ClearWaveMarker();
             if (nextLives < 1)
             {

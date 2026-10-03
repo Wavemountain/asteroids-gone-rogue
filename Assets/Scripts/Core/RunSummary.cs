@@ -543,8 +543,11 @@ namespace AsteroidsGoneRogue
         {
             if (lastResolvedWave == MedalCatalog.ScoutWingClearsAtWave)
             {
-                return MedalCatalog.AwardLine(MedalId.ScoutWing)
-                    + "  ·  " + Loc.Tf("run.world2_at", "World 2 at wave {0}", World2StartsAtWave);
+                return Loc.Tf(
+                    "run.scout_chip",
+                    "{0}  ·  wave {1}",
+                    MedalCatalog.AwardLine(MedalId.ScoutWing),
+                    World2StartsAtWave);
             }
 
             if (lastResolvedWave == CampaignCap.FinalWave)

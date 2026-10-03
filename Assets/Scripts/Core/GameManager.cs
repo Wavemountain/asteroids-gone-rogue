@@ -449,6 +449,11 @@ namespace AsteroidsGoneRogue
                 _ship.SetInputEnabled(true);
             }
 
+            // The wave-start file still has the old life count. Refresh the
+            // in-progress snapshot (same writer as hull and shield) after the
+            // respawn so a quit keeps the lives the ship actually has.
+            WriteWaveProgress();
+
             if (_ui != null)
             {
                 _ui.AnnounceLifeLost(_session.Lives);

@@ -225,6 +225,7 @@ namespace AsteroidsGoneRogue
             { "run.far_drift_clear", "Rensa våg 10  ·  \u2022 {0}" },
             { "run.far_drift_at", "\u2022 {0} på våg {1}" },
             { "run.world2_at", "Värld 2 på våg {0}" },
+            { "run.scout_chip", "{0}  ·  våg {1}" },
             { "run.next_medal", "Nästa  ·  \u2022 {0} på våg {1}" },
             { "run.star_at", "\u2022 {0} på våg {1}" },
             { "run.next_world3", "Nästa  ·  Värld 3 på våg {0}" },
