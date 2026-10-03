@@ -336,7 +336,8 @@ def test_factory_wires_import_fbx() -> None:
     assert "Got it" in ui
     assert "DismissFirstHangarHint" in ui
     assert "HULL / NOSE / ENGINE" in ui or "HullHeader" in catalog
-    assert "OWNED" in ui and "LOCKED" in ui
+    shop_copy = ui + (root / "Assets/Scripts/Core/ShopTileView.cs").read_text(encoding="utf-8")
+    assert "OWNED" in shop_copy and "LOCKED" in shop_copy
     assert "PointerEnter" in ui
     audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
     assert "DefaultSfxVolume = 0.8f" in audio
@@ -442,7 +443,7 @@ def test_shop_clarity_and_hangar_wire() -> None:
     assert "HangarControlsHint" in ui
     assert "HangarReadyStatus" in ui
     assert "OnShopHover" in ui
-    assert "+ costLine" in ui
+    assert "tileModel.Label" in ui
     assert "item.Description" not in ui.split("RefreshBuyButton")[1].split("FailReasonText")[0]
     assert catalog.index("ShopGroup.Hull") < catalog.index("ShopGroup.Weapons")
     warm = art.split("PlayModeAssets")[1].split("};")[0]
@@ -3233,7 +3234,8 @@ def test_juice_firstrun_044() -> None:
     assert "FirstWaveCoach" in ui
     assert "NavigateHangarPad" in ui
     assert "UiNavStick" in pad
-    assert "interactable = !runOver" in ui and "_session.ShopOpen" in ui
+    view = (root / "Assets/Scripts/Core/ShopTileView.cs").read_text(encoding="utf-8")
+    assert "interactable = !runOver" in view and "_session.ShopOpen" in ui
     assert "ShowcaseScale = 1.25f" in preview
     assert "CameraFov = 40f" in preview
     assert "new Vector3(0.2f, 4.55f, -10f)" in preview
@@ -3316,11 +3318,12 @@ def test_ui_theme_pad_menus_044() -> None:
     assert "BuildUsFlag" not in ui and "BuildSwedishFlag" not in ui
     assert "PaintLanguageChip" in ui or "PaintChip" in ui
     assert "InactiveDesat" in theme
+    view = (root / "Assets/Scripts/Core/ShopTileView.cs").read_text(encoding="utf-8")
     assert 'Loc.T("ui.owned", "OWNED") + UiTheme.OwnedCheck' in ui
     assert "ShopLockedForPhase" in ui
     assert "!runOver" in ui and "_session.ShopOpen" in ui
-    assert "owned && weapon" in ui
-    assert "!owned && !locked && !tooPoor" in ui
+    assert "owned && weapon" in view
+    assert "!owned && !locked && !tooPoor" in view
     assert "ShipPreviewFrame" in ui
     assert "LOADOUT" in ui
     assert "StepActivePad" not in ui
@@ -3607,7 +3610,8 @@ def test_doctrine_rail_045() -> None:
     assert "DoctrineBadge = 18" in theme
     assert "OffPathTint" in theme and "PaintOffPathCue" in theme
     assert "UiTheme.DoctrineBadge" in ui
-    assert 'Loc.T("ui.off_path", "off-path")' in ui
+    tile_view = (root / "Assets/Scripts/Core/ShopTileView.cs").read_text(encoding="utf-8")
+    assert "off-path" in tile_view and "av vägen" in tile_view
     assert "ui.off_path" in loc and "av vägen" in loc
     assert "DoctrineRunLine" in summary and "run.doctrine_wave" in summary and "run.doctrine_wave" in loc
     assert "Lance run — wave {1}" in summary or "{0} run — wave {1}" in summary
@@ -6887,8 +6891,9 @@ def test_shop_tiles_and_preview_b10() -> None:
     assert "RaiseShopAbovePreview" in ui
     assert "ShopTileChrome.Column" in ui
     assert "_buyLabels[index].enabled = true" in ui
-    assert 'item.Title + "\\n" + costLine' in ui
-    assert "ShopTileState.Equipped" in ui
+    assert "ShopTileView.Build" in ui
+    assert 'title + "\\n" + status' in (root / "Assets/Scripts/Core/ShopTileView.cs").read_text(encoding="utf-8")
+    assert "ShopUpgradeStage.Equipped" in (root / "Assets/Scripts/Core/ShopTileView.cs").read_text(encoding="utf-8")
     assert "shopPlate.color" not in ui
     assert "BoonCard" not in pad
     assert "ShopGridLayout" not in pad
@@ -6981,6 +6986,199 @@ def _shop_labels_fit(width, height, lines, frac, font, layout) -> bool:
     return True
 
 
+def _shop_cost_text(price: int, swedish: bool) -> str:
+    if swedish:
+        return f"{price} kr"
+    return f"{price} cr"
+
+
+def _shop_status(owned, mk2_offer, can_apply, off_path, run_over, swedish, price, credits) -> str:
+    if run_over:
+        status = "Rundan är slut" if swedish else "Run is over"
+    elif mk2_offer:
+        status = "Mk II  " + _shop_cost_text(price, swedish)
+    elif owned:
+        status = ("KÖPT" if swedish else "OWNED") + " +"
+    elif not can_apply:
+        status = "LÅST" if swedish else "LOCKED"
+    elif credits < price:
+        status = f"behöver {price} kr" if swedish else f"need {price} cr"
+    else:
+        status = _shop_cost_text(price, swedish)
+    if not run_over and off_path:
+        prefix = "av vägen" if swedish else "off-path"
+        status = prefix + "  ·  " + status
+    return status
+
+
+def _shop_stage(owned, mk2_owned, mk2_offer, can_apply, off_path, weapon, equipped, run_over, credits, price) -> str:
+    if run_over:
+        return "runover"
+    if off_path:
+        return "offpath"
+    if equipped and weapon and owned:
+        return "equipped"
+    if owned and mk2_owned:
+        return "maxed"
+    if mk2_offer and credits < price:
+        return "mk2poor"
+    if mk2_offer:
+        return "mk2"
+    if owned:
+        return "bought"
+    if not can_apply:
+        return "locked"
+    if credits < price:
+        return "poor"
+    return "unbought"
+
+
+def _shop_stage_colors(stage: str) -> tuple:
+    table = {
+        "unbought": ("#141C28", "#C8CED6"),
+        "poor": ("#3A4450", "#F0C8A8"),
+        "locked": ("#3A4450", "#A8B2BC"),
+        "bought": ("#102028", "#C8CED6"),
+        "mk2": ("#141C28", "#C8CED6"),
+        "mk2poor": ("#3A4450", "#F0C8A8"),
+        "maxed": ("#0E1A22", "#C8CED6"),
+        "equipped": ("#141C28", "#D4A04A"),
+        "offpath": ("#3A241C", "#F0C8A8"),
+        "runover": ("#3A4450", "#A8B2BC"),
+    }
+    return table[stage]
+
+
+def _shop_tile(title, price, credits, owned, mk2_owned, mk2_offer, can_apply, off_path, weapon, equipped, run_over, shop_open, focused, swedish):
+    stage = _shop_stage(owned, mk2_owned, mk2_offer, can_apply, off_path, weapon, equipped, run_over, credits, price)
+    status = _shop_status(owned, mk2_offer, can_apply, off_path, run_over, swedish, price, credits)
+    fill, text = _shop_stage_colors(stage)
+    too_poor = (not run_over) and ((mk2_offer and credits < price) or ((not owned) and can_apply and credits < price))
+    locked = run_over or ((not owned) and (not can_apply))
+    interactable = (not run_over) and shop_open and (
+        (mk2_offer and not too_poor) or (owned and weapon) or ((not owned) and (not locked) and (not too_poor))
+    )
+    overlays = [("FocusFill", 0, False)] if focused else []
+    return {
+        "name": title,
+        "status": status,
+        "label": title + "\n" + status,
+        "fill": fill,
+        "text": text,
+        "stage": stage,
+        "interactable": interactable,
+        "overlays": overlays,
+    }
+
+
+def _shop_merge_overlays(prior, nxt):
+    return list(nxt)
+
+
+def test_shop_upgrade_states_b10() -> None:
+    """Bought, Mk II, maxed, locked, poor, and focused tiles keep readable text."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    view = (root / "Assets/Scripts/Core/ShopTileView.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    theme = (root / "Assets/Scripts/UI/UiTheme.cs").read_text(encoding="utf-8")
+    catalog = (root / "Assets/Scripts/Core/ShopCatalog.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    assert "using UnityEngine" not in view
+    assert "class ShopTileView" in view
+    assert "MergeOverlays" in view
+    assert "AboveLabel" in view
+    assert "ShopUpgradeStage.Maxed" in view
+    assert "ShopUpgradeStage.Mk2Available" in view
+    assert "ShopUpgradeStage.Bought" in view
+    refresh = ui.split("void RefreshBuyButton")[1].split("void RefreshServiceButtons")[0]
+    assert "ShopTileView.Build" in refresh
+    assert "PaintShopPlate" not in refresh
+    assert "PlaceShopFocus" in refresh
+    assert "label.transform.SetAsLastSibling()" in theme
+    assert view.index("owned && mk2Owned") < view.index("if (mk2Offer)")
+    assert view.index("if (mk2Offer)") < view.index("return ShopUpgradeStage.Bought")
+
+    english = dict(re.findall(r'UpgradeId\.(\w+),\s*\n\s*"([^"]+)"', catalog))
+    swedish = dict(re.findall(r'\{ "shop\.title\.(\w+)", "((?:\\.|[^"\\])*)" \}', loc))
+    assert len(english) >= 20
+    assert set(english) <= set(swedish)
+    weapons = {"SpreadBolt", "TwinGuns", "Pierce", "Seeker", "Ricochet", "Rail"}
+    cases = (
+        ("unbought", dict(owned=False, mk2_owned=False, mk2_offer=False, can_apply=True, credits=5000, price=120)),
+        ("poor", dict(owned=False, mk2_owned=False, mk2_offer=False, can_apply=True, credits=0, price=120)),
+        ("locked", dict(owned=False, mk2_owned=False, mk2_offer=False, can_apply=False, credits=5000, price=120)),
+        ("bought", dict(owned=True, mk2_owned=False, mk2_offer=False, can_apply=False, credits=5000, price=120)),
+        ("mk2", dict(owned=True, mk2_owned=False, mk2_offer=True, can_apply=False, credits=5000, price=396)),
+        ("mk2poor", dict(owned=True, mk2_owned=False, mk2_offer=True, can_apply=False, credits=0, price=396)),
+        ("maxed", dict(owned=True, mk2_owned=True, mk2_offer=False, can_apply=False, credits=5000, price=396)),
+    )
+    seen = 0
+    for item_id, en_title in english.items():
+        sv_title = swedish[item_id]
+        weapon = item_id in weapons
+        for case_name, flags in cases:
+            for swedish_ui, title in ((False, en_title), (True, sv_title)):
+                for focused in (False, True):
+                    for off_path in (False, True):
+                        prior = []
+                        model = None
+                        for _refresh in range(3):
+                            model = _shop_tile(
+                                title,
+                                flags["price"],
+                                flags["credits"],
+                                flags["owned"],
+                                flags["mk2_owned"],
+                                flags["mk2_offer"],
+                                flags["can_apply"],
+                                off_path,
+                                weapon,
+                                False,
+                                False,
+                                True,
+                                focused,
+                                swedish_ui,
+                            )
+                            prior = _shop_merge_overlays(prior, model["overlays"])
+                        assert model["name"] == title and model["name"]
+                        assert model["status"]
+                        assert model["label"] == title + "\n" + model["status"]
+                        assert model["fill"] != model["text"]
+                        assert model["fill"] != "#6AA8C8"
+                        assert _contrast(model["text"], model["fill"]) >= 4.5, (item_id, case_name, model["stage"])
+                        assert all(not above for _name, _order, above in model["overlays"])
+                        assert len(prior) == (1 if focused else 0)
+                        assert len({name for name, _order, _above in prior}) == len(prior)
+                        if case_name == "mk2" and not off_path:
+                            assert model["status"].startswith("Mk II  ")
+                            assert model["stage"] == "mk2"
+                        if case_name == "bought" and not off_path:
+                            assert model["stage"] == "bought"
+                            assert ("KÖPT" if swedish_ui else "OWNED") in model["status"]
+                        if case_name == "maxed" and not off_path:
+                            assert model["stage"] == "maxed"
+                        if case_name == "unbought" and not off_path:
+                            assert model["stage"] == "unbought"
+                        seen += 1
+        if weapon:
+            equipped = _shop_tile(en_title, 140, 5000, True, True, False, False, False, True, True, False, True, True, False)
+            assert equipped["stage"] == "equipped"
+            assert equipped["status"]
+            assert _contrast(equipped["text"], equipped["fill"]) >= 4.5
+            assert not any(above for _name, _order, above in equipped["overlays"])
+    assert seen >= 20 * 7 * 2 * 2 * 2
+    nos = _shop_tile("Nos 02", 396, 5000, True, False, True, False, False, False, False, False, True, False, True)
+    assert nos["label"] == "Nos 02\nMk II  396 kr"
+    assert nos["stage"] == "mk2"
+    blank = _shop_tile("Skrovbyte", 90, 5000, True, False, False, False, False, False, False, False, True, True, True)
+    assert blank["label"] == "Skrovbyte\nKÖPT +"
+    assert blank["fill"] != blank["text"]
+    assert _contrast("#6AA8C8", "#6AA8C8") < 4.5
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -7042,6 +7240,7 @@ def main() -> int:
     test_boon_card_layout()
     test_decor_depth_047b()
     test_shop_tiles_and_preview_b10()
+    test_shop_upgrade_states_b10()
     test_longhaul_balance_046e()
     test_sector_chip_differs_from_title()
     test_upgrades_line_fits_card()

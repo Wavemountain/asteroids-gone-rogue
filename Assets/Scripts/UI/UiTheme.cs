@@ -392,9 +392,16 @@ namespace AsteroidsGoneRogue
 
         public static void ApplyShopState(Image plate, Text label, ShopTileState state)
         {
+            ApplyShopHex(plate, label, ShopTileChrome.FillHex(state), ShopTileChrome.TextHex(state));
+        }
+
+        public static void ApplyShopHex(Image plate, Text label, string fillHex, string textHex)
+        {
             if (plate != null)
             {
-                plate.color = ShopTileChrome.Fill(state);
+                Color fill = Parse(fillHex);
+                fill.a = 1f;
+                plate.color = fill;
                 plate.canvasRenderer.SetColor(Color.white);
             }
 
@@ -403,7 +410,24 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            label.color = ShopTileChrome.Text(state);
+            Color text = Parse(textHex);
+            text.a = 1f;
+            label.color = text;
+            label.enabled = true;
+        }
+
+        /// <summary>
+        /// Focus wash stays behind the label. Refresh does not spawn another one.
+        /// </summary>
+        public static void PlaceShopFocus(GameObject go, Text label, bool focused)
+        {
+            SetPadFocus(go, focused, true);
+            if (label == null)
+            {
+                return;
+            }
+
+            label.transform.SetAsLastSibling();
             label.enabled = true;
         }
 
