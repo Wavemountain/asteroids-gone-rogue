@@ -163,23 +163,37 @@ namespace AsteroidsGoneRogue
         /// <summary>
         /// Menu highlight only. Pass <see cref="PadNavSource.Both"/> to ignore the
         /// saved filter (the settings panel does this so a bad choice cannot trap
-        /// the player). Keyboard axes stay live after the pad filter.
+        /// the player). DPad reads only PadDpad and the d-pad buttons. Analog reads
+        /// the left stick (PadMove, then Horizontal/Vertical) and never the d-pad.
+        /// Both keeps the previous mix, including the keyboard fallback.
         /// Gameplay fly input uses <see cref="MoveStick"/> and does not call this.
         /// </summary>
         public static Vector2 UiNavCombined(PadNavSource source)
         {
             Vector2 dpad = UiNavDpad();
+            if (source == PadNavSource.DPad)
+            {
+                float onlyX;
+                float onlyY;
+                PadNavSourceRules.Select(PadNavSource.DPad, dpad.x, dpad.y, 0f, 0f, 0f, 0f, StickDead, out onlyX, out onlyY);
+                return Deadzone(new Vector2(onlyX, onlyY));
+            }
+
             Vector2 padStick = PadMoveStick();
             float pickedX;
             float pickedY;
-            PadNavSourceRules.Select(source, dpad.x, dpad.y, padStick.x, padStick.y, StickDead, out pickedX, out pickedY);
-            Vector2 picked = new Vector2(pickedX, pickedY);
-            if (picked.sqrMagnitude >= StickDead * StickDead)
-            {
-                return picked;
-            }
-
-            return Deadzone(new Vector2(Axis(MoveX), Axis(MoveY)));
+            PadNavSourceRules.Select(
+                source,
+                dpad.x,
+                dpad.y,
+                padStick.x,
+                padStick.y,
+                Axis(MoveX),
+                Axis(MoveY),
+                StickDead,
+                out pickedX,
+                out pickedY);
+            return Deadzone(new Vector2(pickedX, pickedY));
         }
 
         public static Vector2 MouseDelta()

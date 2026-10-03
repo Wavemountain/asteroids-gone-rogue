@@ -24,10 +24,12 @@ namespace AsteroidsGoneRogue
         Both = 2,
     }
 
-    /// <summary>
-    /// Pure pad-nav filter. DPad keeps the d-pad, Analog keeps the left stick,
-    /// Both prefers a live d-pad and otherwise the stick. Keyboard stays outside.
-    /// </summary>
+        /// <summary>
+        /// Pure pad-nav filter. DPad keeps the d-pad and ignores the stick and the
+        /// Horizontal/Vertical fallback. Analog keeps the left stick (and that
+        /// fallback) and ignores the d-pad. Both prefers a live d-pad, then the
+        /// stick, then the fallback so keyboard arrows still move.
+        /// </summary>
     public static class PadNavSourceRules
     {
         public static bool Live(float x, float y, float dead)
@@ -72,6 +74,46 @@ namespace AsteroidsGoneRogue
 
             outX = stickLive ? stickX : 0f;
             outY = stickLive ? stickY : 0f;
+        }
+
+        /// <summary>
+        /// Menu highlight after the source filter. DPad never reads the left
+        /// stick or the Horizontal/Vertical fallback (those axes include
+        /// joystick 0/1). Analog and Both use that fallback only when their
+        /// own source is quiet.
+        /// </summary>
+        public static void Select(
+            PadNavSource source,
+            float dpadX,
+            float dpadY,
+            float stickX,
+            float stickY,
+            float fallbackX,
+            float fallbackY,
+            float dead,
+            out float outX,
+            out float outY)
+        {
+            Select(source, dpadX, dpadY, stickX, stickY, dead, out outX, out outY);
+            if (source == AsteroidsGoneRogue.PadNavSource.DPad)
+            {
+                return;
+            }
+
+            if (Live(outX, outY, dead))
+            {
+                return;
+            }
+
+            if (Live(fallbackX, fallbackY, dead))
+            {
+                outX = fallbackX;
+                outY = fallbackY;
+                return;
+            }
+
+            outX = 0f;
+            outY = 0f;
         }
     }
 
@@ -267,6 +309,71 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
+        /// Wave 1 always shows the Esc / Start coach, including when the play
+        /// hint is hidden. Later waves never show it.
+        /// </summary>
+        public static bool ShowsFirstWaveCoach(bool firstWave, HintMode mode)
+        {
+            if (!firstWave)
+            {
+                return false;
+            }
+
+            if (mode == AsteroidsGoneRogue.HintMode.Off)
+            {
+                return true;
+            }
+
+            if (mode == AsteroidsGoneRogue.HintMode.SettingsOnly)
+            {
+                return true;
+            }
+
+            if (mode == AsteroidsGoneRogue.HintMode.HangarFooter)
+            {
+                return true;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Hint-size steps the settings row can land on. Widths at or below 1280
+        /// hide 14 because the footer floor is 18, so the panel must not offer it.
+        /// </summary>
+        public static int[] HintSizeOptions(int screenWidth)
+        {
+            if (screenWidth <= 1280)
+            {
+                return new int[] { 1, 2 };
+            }
+
+            return new int[] { 0, 1, 2 };
+        }
+
+        /// <summary>
+        /// Step actually shown for this width. A saved 14 becomes 18 on a narrow screen.
+        /// </summary>
+        public static int VisibleHintStep(int step, int screenWidth)
+        {
+            int[] options = HintSizeOptions(screenWidth);
+            int clamped = ClampHintSize(step);
+            int best = options[0];
+            int count = options.Length;
+            for (int i = 0; i < count; i++)
+            {
+                if (options[i] >= clamped)
+                {
+                    return options[i];
+                }
+
+                best = options[i];
+            }
+
+            return best;
+        }
+
+        /// <summary>
         /// Row cycle is Off, Hangar only (HangarFooter), On.
         /// SettingsOnly shares Off's slot because both hide the bottom line.
         /// </summary>
@@ -371,6 +478,43 @@ namespace AsteroidsGoneRogue
             }
 
             return ClampHintSize(next);
+        }
+
+        public static int StepHintSize(int step, int direction, int screenWidth)
+        {
+            int[] options = HintSizeOptions(screenWidth);
+            int visible = VisibleHintStep(step, screenWidth);
+            int index = 0;
+            int count = options.Length;
+            for (int optionIndex = 0; optionIndex < count; optionIndex++)
+            {
+                if (options[optionIndex] == visible)
+                {
+                    index = optionIndex;
+                    break;
+                }
+            }
+
+            if (direction > 0)
+            {
+                index += 1;
+            }
+            else if (direction < 0)
+            {
+                index -= 1;
+            }
+
+            if (index < 0)
+            {
+                index = 0;
+            }
+
+            if (index >= count)
+            {
+                index = count - 1;
+            }
+
+            return options[index];
         }
 
         public static PadNavSource NormalizePadNavSource(int value)
