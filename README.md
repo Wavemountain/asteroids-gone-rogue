@@ -12,6 +12,26 @@ Built-in render pipeline. Old Input Manager (no Input System package, so first o
 
 Hub may offer a newer 6000.6 patch — that is fine.
 
+## 0.46 Long-haul
+
+Worlds 1–7 are reachable in one run. A world boundary (waves 5, 10, 15, …) continues the run: loadout, credits, and score stay, then a 1-of-3 boon. Quit mid-run and **Continue** restores the hangar, including a pending boon pick. **Failed** (0 lives) deletes the run save and awards Legacy points once. Legacy perks (credits, first-shop discount, shield, hull) are capped. Difficulty, elite waves (10, 15, 20, …), and the world guardian use a capped curve. Each world has its own roster emphasis, one rule, and a tint. An elite wave that is also a boss spawns at most 14 hostiles (rocks excluded); extras drop from the roster tail. Easy wave 5 guardian is 96 HP, with 3 aimed shots and 8 radial shots.
+
+Balance sweep (waves 1–80, no spending): credits through wave 35 cover about 193% of the shop + doctrine sticker on Normal (Easy about 216%, Hard about 163%). The 60–85% shop band is not reachable by the per-world credit bonus alone (8% per world, cap +50%). At +0% the Normal total is still about 155%, because the base clear stays 165. That base was left unchanged.
+
+### Speltest (Editor / Hub smoke)
+
+1. Hub-open: add this folder, open without a Continue dialog, press Play on `Assets/Scenes/Play.unity`.
+2. Start fresh on Normal. Clear a couple of waves. Stop Play mid-run. Press Play again and choose **Continue** — same wave, credits, and loadout.
+3. Clear wave 5, beat the guardian, pick one boon. Wave 6 should show the World 2 look (Deep Orbit / pylons).
+4. Lose the last life (**Failed**). The run save is gone. Legacy points show. Buy one perk, then start a new run.
+5. Reach wave 10 (elite + boss). Hostiles should stay at or under 14, rocks aside.
+6. Easy, wave 5: the guardian should be beatable (96 HP, a 3-shot aimed burst and an 8-shot radial).
+
+### Known limitations
+
+- No per-world music yet. The arena bed does not change with the world.
+- World hazards reuse the existing spike, mine, gate, and debris systems.
+
 ## Open the project
 
 1. Install **Unity 6.6** (`6000.6.0f1`) via Unity Hub.

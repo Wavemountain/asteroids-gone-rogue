@@ -5972,6 +5972,154 @@ def test_long_haul_difficulty_046() -> None:
         assert kind in wave31
 
 
+def test_longhaul_balance_046e() -> None:
+    """Wave 1-80 sweep, elite+boss cap, save/legacy, and SV/EN loc."""
+    import sys
+    from pathlib import Path
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    import audit_loc
+    import sim_longhaul
+
+    root = tools.parent
+    report = sim_longhaul.sweep(root)
+    print(sim_longhaul.format_report(report))
+    assert report["jumps"] == []
+    assert report["roster_empty"] == []
+    assert report["over_cap"] == []
+    assert report["non_finite"] == []
+    assert report["cap_breaks"] == []
+    for grade in ("easy", "normal", "hard"):
+        assert report["credit_total"][grade] > 0
+        assert report["ratio"][grade] > 0.85
+    # Base wave-clear credits already sit above the 60-85% shop band.
+    # CreditBonusPerWorld cannot close that gap inside its 0..50 cap.
+    assert report["credit_bonus_per_world"] == 8
+    assert report["floor_ratio"]["normal"] > 0.85
+    assert report["credit_total"]["normal"] == 7464
+    assert report["catalogue"] == 3875
+    assert report["easy_boss_hp"] == 96
+    assert report["easy_boss_hp"] <= 120
+    assert report["aimed_shots"] == 3
+    assert report["radial_shots"] == 8
+    assert report["aimed_shots"] <= 4
+    assert report["radial_shots"] <= 8
+    assert report["wave45_hard_count"] == 14
+    assert report["wave45_hard_dropped"] == 1
+    assert report["wave5_easy_count"] <= 6
+    assert report["wave10_hard_count"] <= 14
+
+    roster_src = (root / "Assets/Scripts/Core/WaveRoster.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+    curve = (root / "Assets/Scripts/Core/DifficultyCurve.cs").read_text(encoding="utf-8")
+    boss = (root / "Assets/Scripts/Core/BossRules.cs").read_text(encoding="utf-8")
+    assert "EliteBossHostileCap = 14" in roster_src
+    assert "FitEliteBossRoster" in roster_src
+    assert "WaveRoster.FitEliteBossRoster" in waves
+    assert "CreditBonusPerWorld = 8" in curve
+    assert "MaxCreditBonus = 50" in curve
+    assert "AimedBurstCount = 3" in boss
+    assert "RadialCount = 8" in boss
+
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    cap = (root / "Assets/Scripts/Core/CampaignCap.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    save = (root / "Assets/Scripts/Core/RunSave.cs").read_text(encoding="utf-8")
+    for stale in (
+        "campaign complete",
+        "CAMPAIGN COMPLETE",
+        "Campaign complete",
+        "World 1 complete - New Run",
+        "World 1 complete  ·  New Run",
+        "World 1 complete - New Run from the hangar",
+    ):
+        assert stale not in summary
+        assert stale not in cap
+        assert stale not in loc
+    assert summary.lower().count("campaign complete") == 0
+    restarts = session.split("public static bool PrimaryRestartsRun")[1].split("public static bool")[0]
+    assert "return phase == GamePhase.Failed;" in restarts
+    assert "WaveClear" not in restarts
+    assert "Hangar" not in restarts
+    for phase in ("Hangar", "Playing", "WaveClear", "CampaignClear"):
+        assert _primary_restarts(phase) is False
+    assert _primary_restarts("Failed") is True
+
+    fail = manager.split("private void FailRun")[1].split("public void AcceptContinue")[0]
+    assert fail.count("RunSaveStore.DeleteRun()") == 1
+    assert fail.count("AwardLegacy(") == 1
+    assert "return phase == GamePhase.Failed;" in save
+    assert "BoonChoiceOpen" in manager
+    assert "_boonRun.ReadSave" in manager
+    assert "OfferBoonChoice" in manager
+
+    v1 = {
+        "Version": 1,
+        "WaveIndex": 6,
+        "Score": 420,
+        "Credits": 80,
+        "Lives": 2,
+        "Hull": 4,
+        "Shield": 1,
+        "Difficulty": 1,
+        "UpgradeMask": 0,
+        "Doctrine": 0,
+        "PrimaryMode": 0,
+        "UtilityMode": 0,
+        "HasUtility": 0,
+        "RunId": 3,
+        "LastResolvedWave": 5,
+        "LastRunScore": 420,
+        "LastCreditsAwarded": 165,
+        "ExtraLifeStreak": 0,
+        "LegacyHull": 0,
+        "FirstDiscount": 0,
+        "FirstDiscountUsed": 0,
+        "Timestamp": "2026-10-03T09:00:00Z",
+    }
+    loaded_v1 = _save_parse(_save_to_json(v1))
+    assert loaded_v1 is not None
+    assert loaded_v1["Version"] == 1
+    assert "BoonPending" not in loaded_v1
+    assert _picker_open(False, "Hangar") is False
+
+    offer = (0) | (1 << 4) | (2 << 8)
+    v2 = dict(v1)
+    v2["Version"] = 2
+    v2["BoonLevels"] = 0
+    v2["BoonPending"] = 1
+    v2["BoonOffer"] = offer
+    loaded_v2 = _save_parse(_save_json_v2(v2))
+    assert loaded_v2 is not None
+    assert loaded_v2["Version"] == 2
+    assert loaded_v2["BoonPending"] == 1
+    assert loaded_v2["WaveIndex"] == 6
+    assert loaded_v2["LastResolvedWave"] == 5
+    # Continue restores the hangar and the pending offer, so the picker shows again.
+    assert _picker_open(loaded_v2["BoonPending"] == 1, "Hangar") is True
+    assert _picker_open(True, "Playing") is False
+
+    died_worlds, died_wave = _legacy_progress(6, True)
+    meta = {"points": 0, "awarded": "", "levels": [0, 0, 0, 0]}
+    first = _try_award(meta, v2["RunId"], died_worlds, died_wave)
+    second = _try_award(meta, v2["RunId"], died_worlds, died_wave)
+    assert first > 0
+    assert second == 0
+    assert meta["points"] == first
+
+    loc_errors = audit_loc.check(root)
+    assert loc_errors == [], loc_errors[:8]
+
+
+def _picker_open(pending: bool, phase: str) -> bool:
+    """Mirrors GameUi.BoonModalOpen: pending boon and not in the fight."""
+    return pending and phase != "Playing"
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -6029,6 +6177,7 @@ def main() -> int:
     test_save_continue_legacy()
     test_long_haul_difficulty_046()
     test_world_flavour_and_boons()
+    test_longhaul_balance_046e()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -6956,7 +7105,7 @@ def test_save_continue_legacy() -> None:
     assert "RunSaveCodec.ShouldWrite" in manager
     assert "RestoreHangar" in session and "GrantCredits" in session
     assert "ContinueRunLabel" in summary
-    assert 'Loc.Tf("ui.continue_run", "Continue run (World {0}, wave {1})"' in summary
+    assert 'Loc.Tf("ui.continue_run", "Continue W{0} wave {1}"' in summary
     assert 'Loc.T("ui.new_run", "New Run")' in ui
     assert "LegacyProgress.HangarLine" in ui
     assert "LegacyProgress.PerkLabel" in ui
@@ -7072,8 +7221,8 @@ def test_save_continue_legacy() -> None:
     missing = sorted(key for key in used if key not in swedish and not key.endswith("."))
     assert missing == []
 
-    continue_en = "Continue run (World 12, wave 120)"
-    continue_sv = "Fortsätt runda (Värld 12, våg 120)"
+    continue_en = "Continue W12 wave 120"
+    continue_sv = "Fortsätt V12 våg 120"
     panel = (0.55 - 0.014) * 1280
     button = 0.94 * panel
     assert _line_px(continue_en, 20) <= button

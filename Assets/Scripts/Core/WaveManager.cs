@@ -84,6 +84,9 @@ namespace AsteroidsGoneRogue
 
             bool bossWave = BossRules.IsBossWave(_activeWave);
             bool eliteWave = WaveModifier.IsElite(_activeWave);
+            int curveExtras = DifficultyCurve.ForWave(_activeWave).ExtraEnemies;
+            int gradeExtras = DifficultySettings.ExtraEnemyCount;
+            int extras = curveExtras + gradeExtras;
             int reserved = (bossWave ? 1 : 0) + (eliteWave ? 1 : 0);
             int budget = DifficultyCurve.MaxSpawnedEnemies - reserved;
             if (budget < 1)
@@ -92,7 +95,7 @@ namespace AsteroidsGoneRogue
             }
 
             int spawned = 0;
-            EnemyKind[] roster = RosterForWave(waveIndex);
+            EnemyKind[] roster = WaveRoster.FitEliteBossRoster(RosterForWave(waveIndex), waveIndex, extras);
             for (int rosterIndex = 0; rosterIndex < roster.Length; rosterIndex++)
             {
                 if (spawned >= budget)
@@ -118,9 +121,6 @@ namespace AsteroidsGoneRogue
                 spawned++;
             }
 
-            int curveExtras = DifficultyCurve.ForWave(_activeWave).ExtraEnemies;
-            int gradeExtras = DifficultySettings.ExtraEnemyCount;
-            int extras = curveExtras + gradeExtras;
             for (int extraIndex = 0; extraIndex < extras; extraIndex++)
             {
                 if (spawned >= budget)
