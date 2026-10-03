@@ -7,8 +7,8 @@ namespace AsteroidsGoneRogue
     /// </summary>
     public static class ShopGridLayout
     {
-        public const int ShopSortOrder = 120;
-        public const int PreviewSortOrder = 80;
+        public const int ShopSortOrder = CanvasOrder.HangarShop;
+        public const int PreviewSortOrder = CanvasOrder.ShipPreview;
         public const float HangarMinX = 0.014f;
         public const float HangarMinY = 0.080f;
         public const float HangarMaxX = 0.55f;

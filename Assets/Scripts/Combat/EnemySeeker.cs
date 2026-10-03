@@ -550,7 +550,18 @@ namespace AsteroidsGoneRogue
                 _boltAim = toPlayerDir;
                 _boltWindupUntil = Time.time + windup;
                 _nextShot = _boltWindupUntil + (cooldown - windup);
-                Vector3 far = transform.position + transform.forward * 18f;
+                Vector3 aimDir = _boltAim.sqrMagnitude > 0.01f ? _boltAim : transform.forward;
+                float telegraphX;
+                float telegraphZ;
+                BoltTelegraph.End(
+                    transform.position.x,
+                    transform.position.z,
+                    aimDir.x,
+                    aimDir.z,
+                    18f,
+                    out telegraphX,
+                    out telegraphZ);
+                Vector3 far = new Vector3(telegraphX, transform.position.y, telegraphZ);
                 _factory.SpawnTelegraphLaser(transform.position, far, UiTheme.Danger, 0.35f, windup);
                 if (AudioCues.Instance != null)
                 {

@@ -746,7 +746,6 @@ namespace AsteroidsGoneRogue
             CombatJuice.HeavyKill(position, 0.36f);
             Play(_bruteDeath != null ? _bruteDeath : _enemyDeath, BruteDeathScale);
             yield return new WaitForSeconds(0.72f);
-            PlayWaveClear();
         }
 
         private void PlayTell(AudioClip clip, float scale)

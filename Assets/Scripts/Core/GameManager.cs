@@ -1507,7 +1507,7 @@ namespace AsteroidsGoneRogue
             }
 
             if (AchievementCatalog.ShouldUnlockHardClear(clearedWave, DifficultySettings.Current)
-                && (_session == null || AssistRules.CountsForBoard(!_session.AssistUsed)))
+                && (_session == null || AssistRules.CountsForBoard(_session.AssistUsed)))
             {
                 TryUnlockAchievement(AchievementId.HardClear);
             }
@@ -1609,7 +1609,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (_session != null && !AssistRules.CountsForBoard(!_session.AssistUsed))
+            if (_session != null && !AssistRules.CountsForBoard(_session.AssistUsed))
             {
                 return;
             }

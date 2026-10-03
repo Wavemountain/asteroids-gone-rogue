@@ -8,8 +8,8 @@ namespace AsteroidsGoneRogue
     public static class BoonCardLayout
     {
         public const string CanvasName = "BoonModalCanvas";
-        public const int ModalSortOrder = 200;
-        public const int PreviewSortOrder = 80;
+        public const int ModalSortOrder = CanvasOrder.Boon;
+        public const int PreviewSortOrder = CanvasOrder.ShipPreview;
         public const int Count = 3;
         public const float PanelMinX = 0.12f;
         public const float PanelMinY = 0.20f;
