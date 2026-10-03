@@ -1327,6 +1327,12 @@ namespace AsteroidsGoneRogue
 
         public void MaybeDropPickup(Vector3 position)
         {
+            GameManager dropHost = Object.FindAnyObjectByType<GameManager>();
+            if (dropHost != null && dropHost.TutorialActive)
+            {
+                return;
+            }
+
             if (Random.value > 0.22f)
             {
                 return;
@@ -1354,6 +1360,11 @@ namespace AsteroidsGoneRogue
             }
 
             GameManager game = Object.FindAnyObjectByType<GameManager>();
+            if (game != null && game.TutorialActive)
+            {
+                return;
+            }
+
             if (game != null && game.Session != null && game.Session.Lives >= DifficultySettings.MaxLives)
             {
                 return;

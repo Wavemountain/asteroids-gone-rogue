@@ -16,6 +16,7 @@ namespace AsteroidsGoneRogue
         private float _speed;
         private float _turn;
         private bool _dead;
+        private bool _training;
         private Rigidbody _body;
         private ContentFactory _factory;
         private MonsterPresence _presence;
@@ -108,6 +109,7 @@ namespace AsteroidsGoneRogue
             }
 
             _dead = false;
+            _training = false;
             _boss = false;
             _elite = false;
             _bossPattern = 0;
@@ -127,6 +129,7 @@ namespace AsteroidsGoneRogue
 
         public void ConfigureTraining(int hp, float speedScale)
         {
+            _training = true;
             if (hp < 1)
             {
                 hp = 1;
@@ -205,8 +208,11 @@ namespace AsteroidsGoneRogue
             if (_factory != null)
             {
                 _factory.SpawnVfx("Vfx_Explosion_Lowpoly", transform.position, 0.45f);
-                _factory.MaybeDropPickup(transform.position);
-                _factory.MaybeDropExtraLife(transform.position, _kind);
+                if (!_training)
+                {
+                    _factory.MaybeDropPickup(transform.position);
+                    _factory.MaybeDropExtraLife(transform.position, _kind);
+                }
             }
 
             if (_waves != null)

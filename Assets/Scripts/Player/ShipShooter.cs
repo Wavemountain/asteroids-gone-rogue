@@ -105,6 +105,11 @@ namespace AsteroidsGoneRogue
             _boostUntil = Time.time + Mathf.Max(0.1f, seconds);
         }
 
+        public void ClearRapidBoost()
+        {
+            _boostUntil = 0f;
+        }
+
         public void CycleFireMode()
         {
             CycleFireMode(1);

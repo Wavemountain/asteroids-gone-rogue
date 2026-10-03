@@ -208,6 +208,112 @@ namespace AsteroidsGoneRogue
             return PrimarySlot;
         }
 
+        public static bool IsFirstStartSlot(int slot)
+        {
+            return slot == FirstEasySlot
+                || slot == FirstNormalSlot
+                || slot == FirstHardSlot
+                || slot == FirstGoSlot
+                || slot == FirstSkipSlot;
+        }
+
+        /// <summary>
+        /// Home control on the first-start card. Normal is the default grade.
+        /// </summary>
+        public static int OverlayHome(bool[] selectable)
+        {
+            if (Accepts(FirstNormalSlot, selectable))
+            {
+                return FirstNormalSlot;
+            }
+
+            if (Accepts(FirstEasySlot, selectable))
+            {
+                return FirstEasySlot;
+            }
+
+            if (Accepts(FirstHardSlot, selectable))
+            {
+                return FirstHardSlot;
+            }
+
+            if (Accepts(FirstGoSlot, selectable))
+            {
+                return FirstGoSlot;
+            }
+
+            if (Accepts(FirstSkipSlot, selectable))
+            {
+                return FirstSkipSlot;
+            }
+
+            return FirstNormalSlot;
+        }
+
+        /// <summary>
+        /// First-start pad step. Never forces slot 0 and never leaves the card
+        /// (Easy / Normal / Hard, Start, Skip). An off-card focus snaps home
+        /// and does not consume the direction into the hangar behind the card.
+        /// </summary>
+        public static int StepOverlay(int slot, int dx, int dy, bool[] selectable)
+        {
+            bool[] mask = OverlayOnly(selectable);
+            int home = OverlayHome(mask);
+            bool currentOk = IsFirstStartSlot(slot) && Accepts(slot, mask);
+            int origin = currentOk ? slot : home;
+            if (!currentOk || (dx == 0 && dy == 0))
+            {
+                return origin;
+            }
+
+            int count = mask.Length;
+            int candidate = Step(origin, dx, dy, mask);
+            int guard = 0;
+            while (guard < count)
+            {
+                if (IsFirstStartSlot(candidate) && Accepts(candidate, mask))
+                {
+                    return candidate;
+                }
+
+                int stepped = Step(candidate, dx, dy, mask);
+                if (stepped == candidate)
+                {
+                    return origin;
+                }
+
+                candidate = stepped;
+                guard++;
+            }
+
+            return origin;
+        }
+
+        /// <summary>
+        /// Overlay active: only the first-start card. Otherwise the hangar
+        /// grid, including the slot-0 fallback, is unchanged.
+        /// </summary>
+        public static int StepFocused(int slot, int dx, int dy, bool[] selectable, bool overlayActive)
+        {
+            if (overlayActive)
+            {
+                return StepOverlay(slot, dx, dy, selectable);
+            }
+
+            return StepSelectable(slot, dx, dy, selectable);
+        }
+
+        private static bool[] OverlayOnly(bool[] selectable)
+        {
+            bool[] mask = new bool[SlotCount];
+            for (int slot = 0; slot < SlotCount; slot++)
+            {
+                mask[slot] = IsFirstStartSlot(slot) && Accepts(slot, selectable);
+            }
+
+            return mask;
+        }
+
         public static bool Overlaps(
             float ax0,
             float ay0,

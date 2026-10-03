@@ -1230,6 +1230,11 @@ namespace AsteroidsGoneRogue
 
         private void OnPrimaryClicked()
         {
+            if (FirstStartOpen())
+            {
+                return;
+            }
+
             if (_confirmOpen)
             {
                 return;
@@ -1270,6 +1275,11 @@ namespace AsteroidsGoneRogue
 
         private void OnPrimary()
         {
+            if (FirstStartOpen())
+            {
+                return;
+            }
+
             if (_settingsOpen || _creditsVisible)
             {
                 return;
@@ -1373,20 +1383,6 @@ namespace AsteroidsGoneRogue
             request.Escape = false;
             request.Start = false;
             request.NewRunClick = false;
-            request.Submit = false;
-            request.Cancel = false;
-            request.Scrim = false;
-            request.FocusDelta = 0;
-            ApplyConfirmRoute(ConfirmDialogRouter.Route(request), request);
-            ApplyConfirmClock();
-        }
-
-        private void RequestNewRun()
-        {
-            ConfirmRequest request = ReadConfirmRequest();
-            request.NewRunClick = true;
-            request.Escape = false;
-            request.AbortClick = false;
             request.Submit = false;
             request.Cancel = false;
             request.Scrim = false;
@@ -2924,6 +2920,11 @@ namespace AsteroidsGoneRogue
 
         private void OnHangarStart()
         {
+            if (FirstStartOpen())
+            {
+                return;
+            }
+
             if (FailedRetryPrimary())
             {
                 OnOneMoreTry();
@@ -2957,6 +2958,23 @@ namespace AsteroidsGoneRogue
         {
             if (_primary == null)
             {
+                return;
+            }
+
+            if (FirstStartOpen())
+            {
+                _primary.interactable = false;
+                Image hiddenPlate = _primary.targetGraphic as Image;
+                if (hiddenPlate != null)
+                {
+                    hiddenPlate.raycastTarget = false;
+                }
+
+                if (_firstStartRoot != null)
+                {
+                    _firstStartRoot.transform.SetAsLastSibling();
+                }
+
                 return;
             }
 
@@ -3159,7 +3177,15 @@ namespace AsteroidsGoneRogue
                 fromSlot = selectedSlot;
             }
 
-            _padSlot = HangarPadNav.StepSelectable(fromSlot, dx, dy, padMask);
+            bool restrictOverlay = FirstStartOpen();
+            if (restrictOverlay)
+            {
+                _padSlot = HangarPadNav.StepOverlay(fromSlot, dx, dy, padMask);
+            }
+            else
+            {
+                _padSlot = HangarPadNav.StepSelectable(fromSlot, dx, dy, padMask);
+            }
             Button stepped = ButtonFromSlot(_padSlot);
             if (stepped != null && stepped.gameObject.activeInHierarchy && stepped.IsInteractable())
             {
@@ -3167,7 +3193,7 @@ namespace AsteroidsGoneRogue
             }
             else if (FirstStartOpen())
             {
-                FocusHangarSlot(HangarPadNav.FirstNormalSlot);
+                FocusHangarSlot(HangarPadNav.OverlayHome(padMask));
             }
             else
             {
@@ -6674,7 +6700,7 @@ namespace AsteroidsGoneRogue
         {
             if (_game != null)
             {
-                _game.SkipTutorial();
+                _game.SkipFirstStart(_firstStartPick);
             }
 
             if (AudioCues.Instance != null)
@@ -6731,6 +6757,23 @@ namespace AsteroidsGoneRogue
                 return true;
             }
 
+            bool keyboardStart = Input.GetKeyDown(KeyCode.Return)
+                || Input.GetKeyDown(KeyCode.KeypadEnter)
+                || Input.GetKeyDown(KeyCode.Space);
+            if (keyboardStart)
+            {
+                EventSystem keys = EventSystem.current;
+                int liveSlot = keys != null
+                    ? SlotFromSelected(keys.currentSelectedGameObject)
+                    : HangarPadNav.PrimarySlot;
+                if (!HangarPadNav.IsFirstStartSlot(liveSlot))
+                {
+                    FocusHangarSlot(HangarPadNav.OverlayHome(PadSelectableMask()));
+                }
+
+                return true;
+            }
+
             if (!escapeDown)
             {
                 return false;
@@ -6738,7 +6781,7 @@ namespace AsteroidsGoneRogue
 
             if (_game != null && _game.TutorialPending)
             {
-                _game.SkipTutorial();
+                _game.SkipFirstStart(_firstStartPick);
             }
 
             return true;

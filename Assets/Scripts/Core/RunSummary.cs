@@ -30,7 +30,7 @@ namespace AsteroidsGoneRogue
         {
             return Loc.T(
                 "run.over_explain",
-                "Your ship, upgrades and credits reset on New Run.");
+                "One more try keeps your ship. New Run resets it.");
         }
 
         public static string PrimaryActionLabel(GamePhase phase, int worldCleared, int nextWorld)
@@ -352,7 +352,7 @@ namespace AsteroidsGoneRogue
         {
             string almost = AlmostHadIt(remainingThreats);
             string keep = Loc.T("run.fail_keep", "Your hull. Run over — start from the hangar.");
-            string retry = Loc.T("run.fail_retry", "RETRY  ·  New Run from the hangar.");
+            string retry = Loc.T("run.fail_retry", "One more try keeps this run.");
             string tease = MonsterTeaser(waveIndex);
             string line = string.IsNullOrEmpty(almost) ? retry + "  ·  " + keep : almost + "  ·  " + retry;
             if (!string.IsNullOrEmpty(tease))
