@@ -213,7 +213,9 @@ namespace AsteroidsGoneRogue
             {
                 EnemySeeker seeker = other.GetComponentInParent<EnemySeeker>();
                 EnemyKind kind = seeker != null ? seeker.Kind : EnemyKind.Mid01;
-                ApplyDamage(1, cause, kind);
+                int contactWave = _game != null && _game.Session != null ? _game.Session.WaveIndex : 1;
+                int contactDamage = DifficultyCurve.ScaleOutgoingDamage(1, contactWave);
+                ApplyDamage(contactDamage, cause, kind);
             }
             else
             {

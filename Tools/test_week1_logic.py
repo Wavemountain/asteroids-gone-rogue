@@ -5600,6 +5600,378 @@ def test_pad_nav_source() -> None:
     assert "invert" not in state.lower()
 
 
+def _curve_world(wave: int) -> int:
+    shown = 1 if wave < 1 else wave
+    return ((shown - 1) // 5) + 1
+
+
+def _hp_steps(world: int) -> int:
+    steps = world - 1
+    if steps < 0:
+        steps = 0
+    if steps > 6:
+        steps = 6
+    return steps
+
+
+def _hp_percent_for_wave(wave: int) -> int:
+    shown = 1 if wave < 1 else wave
+    world = _curve_world(shown)
+    steps = _hp_steps(world)
+    within = (shown - 1) % 5
+    if steps >= 6 and world > 7:
+        within = 4
+    percent = 100 + 15 * steps + 3 * within
+    peak = 100 + 15 * 6 + 3 * 4
+    return min(percent, peak)
+
+
+def _damage_percent(world: int) -> int:
+    bonus = (max(world, 1) - 1) * 4
+    if bonus > 60:
+        bonus = 60
+    if bonus < 0:
+        bonus = 0
+    return 100 + bonus
+
+
+def _extra_enemies(world: int) -> int:
+    extra = (max(world, 1) - 1) // 2
+    if extra > 4:
+        extra = 4
+    if extra < 0:
+        extra = 0
+    return extra
+
+
+def _fire_percent(world: int) -> int:
+    bonus = (max(world, 1) - 1) * 2
+    if bonus > 30:
+        bonus = 30
+    if bonus < 0:
+        bonus = 0
+    return 100 + bonus
+
+
+def _credit_percent(world: int) -> int:
+    bonus = (max(world, 1) - 1) * 8
+    if bonus > 50:
+        bonus = 50
+    if bonus < 0:
+        bonus = 0
+    return 100 + bonus
+
+
+def _is_elite_wave(wave: int) -> bool:
+    return wave >= 10 and wave % 5 == 0
+
+
+def _is_boss_wave(wave: int) -> bool:
+    return wave >= 5 and wave % 5 == 0
+
+
+def _modifier_for_wave(wave: int) -> str:
+    if not _is_elite_wave(wave):
+        return "None"
+    slot = ((wave // 5) - 2) % 3
+    return ("FasterEnemies", "ShieldedAsteroids", "DenseSwarm")[slot]
+
+
+def _scale_credits(base: int, wave: int) -> int:
+    if base < 0:
+        base = 0
+    scaled = base * _credit_percent(_curve_world(wave)) // 100
+    if _is_elite_wave(wave):
+        scaled = scaled * 125 // 100
+    return scaled
+
+
+def _apply_grade_hp(hp: int, grade: str) -> int:
+    if hp < 1:
+        hp = 1
+    if grade == "easy":
+        easy = (hp * 4) // 5
+        return 1 if easy < 1 else easy
+    if grade == "hard":
+        hard = (hp * 5) // 4
+        if hard < hp + 1:
+            hard = hp + 1
+        return hard
+    return hp
+
+
+def _boss_hp(wave: int, grade: str) -> int:
+    world = _curve_world(wave)
+    world_percent = 100 + 15 * _hp_steps(world)
+    raw = 12 * 10 * world_percent // 100
+    if raw < 1:
+        raw = 1
+    return _apply_grade_hp(raw, grade)
+
+
+def _scale_hp(hp: int, wave: int, grade: str) -> int:
+    graded = _apply_grade_hp(hp, grade)
+    percent = _hp_percent_for_wave(wave)
+    scaled = graded * percent // 100
+    return 1 if scaled < 1 else scaled
+
+
+def _outgoing_damage(amount: int, wave: int) -> int:
+    if amount < 1:
+        return 0
+    percent = _damage_percent(_curve_world(wave))
+    scaled = (amount * percent + 50) // 100
+    return 1 if scaled < 1 else scaled
+
+
+_BASE_ROSTER = {
+    1: ("Mid01", "Mid01"),
+    2: ("Scout", "Mid01"),
+    3: ("Mid01", "Scout", "Drone"),
+    4: ("Gunner",),
+    5: ("Scout", "Drone", "Brute"),
+    6: ("Gunner", "Scout", "Swarm"),
+    7: ("Gunner", "Drone", "Scout", "Bomber"),
+    8: ("Gunner", "Scout", "Drone", "Sniper", "Brute", "Swarm"),
+    9: ("Gunner", "Mid01", "Drone", "SwarmPod", "Swarm"),
+    10: ("Gunner", "Bomber", "Sniper", "SwarmPod", "Scout", "Brute", "Swarm"),
+}
+
+
+def _spice_pool(layout: int) -> tuple[str, ...]:
+    pools = {
+        3: ("Bomber",),
+        4: ("Bomber", "Sniper"),
+        5: ("Bomber", "Sniper", "SwarmPod"),
+        6: ("Bomber", "Sniper", "SwarmPod", "Brute"),
+        7: ("Bomber", "Sniper", "SwarmPod", "Brute", "Swarm", "Gunner"),
+    }
+    return pools.get(layout, ())
+
+
+def _roster_for_wave(wave: int) -> tuple[str, ...]:
+    shown = 1 if wave < 1 else wave
+    rung = shown if shown < 10 else 10
+    if shown < 1:
+        rung = 1
+    source = _BASE_ROSTER[rung]
+    if shown <= 10:
+        return source
+    world = _curve_world(shown)
+    layout = ((world - 1) % 7) + 1
+    built: list[str] = []
+    pool = _spice_pool(layout)
+    if pool:
+        spin = (shown - 1) % len(pool)
+        built.append(pool[spin])
+        if len(pool) > 1:
+            built.append(pool[(spin + 1) % len(pool)])
+    if _modifier_for_wave(shown) == "DenseSwarm":
+        built.insert(0, "Swarm")
+    shift = (shown - 1) % len(source)
+    for step in range(len(source)):
+        built.append(source[(step + shift) % len(source)])
+    if not built:
+        return ("Mid01",)
+    return tuple(built[:8])
+
+
+def test_long_haul_difficulty_046() -> None:
+    """Difficulty curve, elite modifiers, boss HP, and post-10 rosters."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    curve = (root / "Assets/Scripts/Core/DifficultyCurve.cs").read_text(encoding="utf-8")
+    modifier = (root / "Assets/Scripts/Core/WaveModifier.cs").read_text(encoding="utf-8")
+    boss = (root / "Assets/Scripts/Core/BossRules.cs").read_text(encoding="utf-8")
+    roster_src = (root / "Assets/Scripts/Core/WaveRoster.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+    settings = (root / "Assets/Scripts/Core/DifficultySettings.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    seeker = (root / "Assets/Scripts/Combat/EnemySeeker.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+
+    assert "WithinWorldHpPercent = 3" in curve
+    assert "MaxDamageBonus = 60" in curve
+    assert "MaxExtraEnemies = 4" in curve
+    assert "MaxFireBonus = 30" in curve
+    assert "MaxCreditBonus = 50" in curve
+    assert "CreditBonusPerWorld = 8" in curve
+    assert "ScaleCredits" in curve
+    assert "EasyWaveClearCredits = 185" in settings
+    assert "NormalWaveClearCredits = 165" in settings
+    assert "HardWaveClearCredits = 140" in settings
+    assert "ApplyGradeHp" in settings
+    assert "DifficultyCurve.ScaleCredits(DifficultySettings.WaveClearCredits" in manager
+    assert "Mathf.Clamp(waveIndex, 1, 10)" in waves
+    assert "WaveRoster.Extend" in waves
+    assert "AnnounceEliteWave" in ui and "AnnounceEliteWave" in manager
+    assert "MarkElite" in factory
+    assert "ConfigureBoss" in seeker and "SpawnTelegraphRing" in seeker
+    assert "VisualScale = 1.8f" in boss and "HpFactor = 12" in boss
+    assert "FirstEliteWave = 10" in modifier
+    assert "MaxCount = 8" in roster_src
+    for key in (
+        "wave.elite.banner",
+        "wave.mod.faster",
+        "wave.mod.shielded",
+        "wave.mod.dense",
+        "ui.boss",
+    ):
+        assert f'{{ "{key}",' in loc
+        assert f'Loc.T' in modifier or f'Loc.T' in boss or f'Loc.T("{key}"' in ui or f'Loc.Tf("{key}"' in modifier
+    assert 'Loc.Tf("wave.elite.banner", "ELITE WAVE - {0}"' in modifier
+    assert 'Loc.T("wave.mod.faster", "Faster enemies"' in modifier
+    assert 'Loc.T("wave.mod.shielded", "Shielded asteroids"' in modifier
+    assert 'Loc.T("wave.mod.dense", "Dense swarm"' in modifier
+    assert 'Loc.T("ui.boss", "WORLD GUARDIAN"' in boss
+    assert 'Loc.T("ui.boss", "WORLD GUARDIAN"' in ui
+
+    prev_hp = 0
+    prev_dmg = 0
+    prev_extra = 0
+    prev_fire = 0
+    prev_rocks = 0
+    prev_credit_pct = 0
+    for wave in range(1, 201):
+        world = _curve_world(wave)
+        hp = _hp_percent_for_wave(wave)
+        dmg = _damage_percent(world)
+        extra = _extra_enemies(world)
+        fire = _fire_percent(world)
+        rocks = large_asteroid_count(wave)
+        credit_pct = _credit_percent(world)
+        assert hp >= prev_hp
+        assert dmg >= prev_dmg
+        assert extra >= prev_extra
+        assert fire >= prev_fire
+        assert rocks >= prev_rocks
+        assert credit_pct >= prev_credit_pct
+        assert 100 <= hp <= 202
+        assert 100 <= dmg <= 160
+        assert 0 <= extra <= 4
+        assert 100 <= fire <= 130
+        assert 5 <= rocks <= 10
+        assert 100 <= credit_pct <= 150
+        normal = _scale_credits(165, wave)
+        assert 165 <= normal <= 308
+        if not _is_elite_wave(wave):
+            assert normal <= 247
+        prev_hp = hp
+        prev_dmg = dmg
+        prev_extra = extra
+        prev_fire = fire
+        prev_rocks = rocks
+        prev_credit_pct = credit_pct
+
+    assert _hp_percent_for_wave(1) == 100
+    assert _hp_percent_for_wave(5) == 112
+    assert _hp_percent_for_wave(6) == 115
+    assert _hp_percent_for_wave(10) == 127
+    assert _hp_percent_for_wave(20) == 157
+    assert _hp_percent_for_wave(35) == 202
+    assert _hp_percent_for_wave(36) == 202
+    assert _hp_percent_for_wave(200) == 202
+    assert _damage_percent(1) == 100
+    assert _damage_percent(_curve_world(10)) == 104
+    assert _damage_percent(_curve_world(20)) == 112
+    assert _damage_percent(_curve_world(35)) == 124
+    assert _damage_percent(16) == 160
+    assert _damage_percent(40) == 160
+    assert _extra_enemies(1) == 0
+    assert _extra_enemies(2) == 0
+    assert _extra_enemies(4) == 1
+    assert _extra_enemies(7) == 3
+    assert _extra_enemies(9) == 4
+    assert _extra_enemies(20) == 4
+    assert _fire_percent(1) == 100
+    assert _fire_percent(7) == 112
+    assert _fire_percent(16) == 130
+    assert _scale_hp(10, 1, "normal") == 10
+    assert _scale_hp(10, 6, "normal") == 11
+    assert _scale_hp(10, 1, "easy") == 8
+    assert _outgoing_damage(1, 1) == 1
+    assert _outgoing_damage(1, 35) == 1
+    assert _outgoing_damage(1, 70) == 2
+
+    assert _scale_credits(165, 1) == 165
+    assert _scale_credits(165, 5) == 165
+    assert _scale_credits(165, 10) == 222
+    assert _scale_credits(165, 20) == 255
+    assert _scale_credits(165, 31) == 244
+    assert _scale_credits(165, 35) == 305
+    assert _scale_credits(165, 36) == 247
+    world_credits = []
+    for world in range(1, 11):
+        sample = (world - 1) * 5 + 1
+        amount = _scale_credits(165, sample)
+        assert 165 <= amount <= 247
+        world_credits.append(amount)
+    for index in range(1, len(world_credits)):
+        assert world_credits[index] >= world_credits[index - 1]
+    assert sum(_scale_credits(165, wave) for wave in range(1, 6)) == 825
+
+    for wave in range(1, 81):
+        elite = _is_elite_wave(wave)
+        assert elite == (wave in {10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80})
+        assert (not elite) or _modifier_for_wave(wave) != "None"
+        assert elite or _modifier_for_wave(wave) == "None"
+        assert _modifier_for_wave(wave) == _modifier_for_wave(wave)
+    assert _modifier_for_wave(5) == "None"
+    assert _modifier_for_wave(10) == "FasterEnemies"
+    assert _modifier_for_wave(15) == "ShieldedAsteroids"
+    assert _modifier_for_wave(20) == "DenseSwarm"
+    assert _modifier_for_wave(25) == "FasterEnemies"
+    assert not _is_boss_wave(1) and not _is_boss_wave(4) and not _is_boss_wave(6)
+    assert _is_boss_wave(5) and _is_boss_wave(10) and _is_boss_wave(35)
+
+    prev_easy = 0
+    prev_normal = 0
+    prev_hard = 0
+    for wave in range(5, 201, 5):
+        easy = _boss_hp(wave, "easy")
+        normal = _boss_hp(wave, "normal")
+        hard = _boss_hp(wave, "hard")
+        assert easy >= prev_easy
+        assert normal >= prev_normal
+        assert hard >= prev_hard
+        assert easy <= normal <= hard
+        prev_easy = easy
+        prev_normal = normal
+        prev_hard = hard
+    assert _boss_hp(5, "normal") == 120
+    assert _boss_hp(5, "easy") == 96
+    assert _boss_hp(5, "hard") == 150
+    assert _boss_hp(10, "normal") == 138
+    assert _boss_hp(20, "normal") == 174
+    assert _boss_hp(35, "normal") == 228
+    assert _boss_hp(40, "normal") == 228
+
+    seen = []
+    for wave in range(1, 81):
+        row = _roster_for_wave(wave)
+        again = _roster_for_wave(wave)
+        assert row == again
+        assert 1 <= len(row) <= 8
+        assert row
+        if wave <= 10:
+            assert row == _BASE_ROSTER[wave]
+        seen.append(row)
+    assert len(set(seen[10:])) > 1
+    assert seen[10] != seen[9]
+    for wave in range(11, 80):
+        assert seen[wave - 1] != seen[wave]
+    assert seen[10][0] == "Bomber"
+    assert "Sniper" in seen[15]
+    assert "SwarmPod" in seen[20]
+    assert "Brute" in seen[25]
+    wave31 = seen[30]
+    for kind in ("Bomber", "Sniper", "SwarmPod", "Brute", "Swarm", "Gunner"):
+        assert kind in wave31
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -5655,6 +6027,7 @@ def main() -> int:
     test_world_continue_and_hangar_readability()
     test_worlds_intro_medals()
     test_save_continue_legacy()
+    test_long_haul_difficulty_046()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

@@ -912,6 +912,61 @@ namespace AsteroidsGoneRogue
             return seeker;
         }
 
+        /// <summary>
+        /// Elite mark: tint from the renderer's existing material plus an outline
+        /// ring that reuses the hot accent material. No new art.
+        /// </summary>
+        public void MarkElite(Transform root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            Renderer[] eliteRenderers = root.GetComponentsInChildren<Renderer>(true);
+            for (int eliteIndex = 0; eliteIndex < eliteRenderers.Length; eliteIndex++)
+            {
+                Renderer eliteRenderer = eliteRenderers[eliteIndex];
+                if (eliteRenderer == null || eliteRenderer.sharedMaterial == null)
+                {
+                    continue;
+                }
+
+                string eliteName = eliteRenderer.gameObject.name;
+                if (eliteName == "TelegraphRing" || eliteName == "Aura" || eliteName == "EliteOutline")
+                {
+                    continue;
+                }
+
+                Material eliteMat = new Material(eliteRenderer.sharedMaterial);
+                eliteMat.color = new Color(1f, 0.78f, 0.28f);
+                if (eliteMat.HasProperty("_EmissionColor"))
+                {
+                    eliteMat.SetColor("_EmissionColor", new Color(1f, 0.55f, 0.12f) * 1.6f);
+                }
+
+                eliteRenderer.sharedMaterial = eliteMat;
+            }
+
+            MonsterPresence elitePresence = root.GetComponent<MonsterPresence>();
+            if (elitePresence != null)
+            {
+                elitePresence.Configure(new Color(1f, 0.72f, 0.22f), elitePresence.AuraRange);
+            }
+
+            if (_accentHot != null)
+            {
+                CreatePrimitive(
+                    PrimitiveType.Cylinder,
+                    "EliteOutline",
+                    root,
+                    _accentHot,
+                    new Vector3(0f, 0.06f, 0f),
+                    new Vector3(2.6f, 0.015f, 2.6f),
+                    Quaternion.identity);
+            }
+        }
+
         public Projectile SpawnProjectile(Vector3 origin, Vector3 direction, float speed, int damage)
         {
             return SpawnProjectile(origin, direction, speed, damage, false);

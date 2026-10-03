@@ -32,6 +32,12 @@ namespace AsteroidsGoneRogue
             _waves = waves;
             _factory = factory;
             _hits = size == AsteroidSize.Large ? LargeHits : SmallHits;
+            if (waves != null && waves.Modifier == WaveModifierKind.ShieldedAsteroids)
+            {
+                _hits += size == AsteroidSize.Large
+                    ? WaveModifier.ShieldedLargeBonus
+                    : WaveModifier.ShieldedSmallBonus;
+            }
             _dead = false;
 
             _body = GetComponent<Rigidbody>();

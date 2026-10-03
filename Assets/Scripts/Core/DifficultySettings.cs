@@ -198,26 +198,35 @@ namespace AsteroidsGoneRogue
 
         public static int ScaleEnemyHpFor(int hp, DifficultyGrade grade, int worldIndex)
         {
+            return ApplyWorldHp(ApplyGradeHp(hp, grade), worldIndex);
+        }
+
+        /// <summary>
+        /// Easy 4/5, Hard 5/4 (at least +1). No world step. Shared with the boss.
+        /// </summary>
+        public static int ApplyGradeHp(int hp, DifficultyGrade grade)
+        {
             if (hp < 1)
             {
                 hp = 1;
             }
 
-            int graded;
             switch (grade)
             {
                 case DifficultyGrade.Easy:
-                    graded = Math.Max(1, (hp * 4) / 5);
-                    break;
+                    int easy = (hp * 4) / 5;
+                    return easy < 1 ? 1 : easy;
                 case DifficultyGrade.Hard:
-                    graded = Math.Max(hp + 1, (hp * 5) / 4);
-                    break;
-                default:
-                    graded = hp;
-                    break;
-            }
+                    int hard = (hp * 5) / 4;
+                    if (hard < hp + 1)
+                    {
+                        hard = hp + 1;
+                    }
 
-            return ApplyWorldHp(graded, worldIndex);
+                    return hard;
+                default:
+                    return hp;
+            }
         }
 
         public static int WorldHpSteps(int worldIndex)
