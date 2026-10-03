@@ -287,8 +287,9 @@ namespace AsteroidsGoneRogue
     }
 
     /// <summary>
-    /// Assist mode numbers. Default off. Enemy and hazard damage is multiplied
-    /// by 75 percent and never rounded below 1. Asteroids are unchanged.
+    /// Assist mode numbers. Default off. Enemy and hazard damage keeps a 75
+    /// percent average by carrying the unused fraction. A one-point hit can
+    /// deal 0 until the remainder reaches a full point. Asteroids are unchanged.
     /// An assisted run does not count for the highscore board or purity medals.
     /// </summary>
     public static class AssistRules
@@ -307,15 +308,32 @@ namespace AsteroidsGoneRogue
 
         public static int ScaleIncoming(int amount, DamageCause cause, bool assist)
         {
+            int remainder = 0;
+            return ScaleIncoming(amount, cause, assist, ref remainder);
+        }
+
+        /// <summary>
+        /// <paramref name="remainder"/> is the unused percent (0–99) from earlier hits.
+        /// One hundred one-point hits deal 75.
+        /// </summary>
+        public static int ScaleIncoming(int amount, DamageCause cause, bool assist, ref int remainder)
+        {
             if (!assist || amount <= 0 || !Affects(cause))
             {
                 return amount;
             }
 
-            int scaled = amount * DamagePercent / 100;
-            if (scaled < MinDamage)
+            if (remainder < 0)
             {
-                scaled = MinDamage;
+                remainder = 0;
+            }
+
+            int pool = (amount * DamagePercent) + remainder;
+            int scaled = pool / 100;
+            remainder = pool % 100;
+            if (scaled < 0)
+            {
+                scaled = 0;
             }
 
             return scaled;
@@ -385,6 +403,71 @@ namespace AsteroidsGoneRogue
             if (capped > MaxAlpha)
             {
                 capped = MaxAlpha;
+            }
+
+            if (capped < 0f)
+            {
+                capped = 0f;
+            }
+
+            if (capped <= 0.01f)
+            {
+                return false;
+            }
+
+            float decay = decaySeconds;
+            if (decay < 0.05f)
+            {
+                decay = 0.05f;
+            }
+
+            alpha = capped;
+            start = now;
+            until = now + decay;
+            return true;
+        }
+
+        public static bool TryBegin(
+            float now,
+            float lastStart,
+            float currentUntil,
+            float requestedAlpha,
+            float decaySeconds,
+            float alphaCap,
+            float gapSeconds,
+            out float alpha,
+            out float start,
+            out float until)
+        {
+            alpha = 0f;
+            start = lastStart;
+            until = currentUntil;
+            if (currentUntil > now)
+            {
+                return false;
+            }
+
+            float gap = gapSeconds;
+            if (gap < 0f)
+            {
+                gap = 0f;
+            }
+
+            if (lastStart > 0f && now - lastStart < gap)
+            {
+                return false;
+            }
+
+            float cap = alphaCap;
+            if (cap < 0f)
+            {
+                cap = 0f;
+            }
+
+            float capped = requestedAlpha;
+            if (capped > cap)
+            {
+                capped = cap;
             }
 
             if (capped < 0f)

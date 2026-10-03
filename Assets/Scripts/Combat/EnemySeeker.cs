@@ -641,7 +641,9 @@ namespace AsteroidsGoneRogue
                     elapsed = 1f;
                 }
 
-                float pulse = 1f + 0.12f * Mathf.Sin(elapsed * Mathf.PI);
+                float pulse = EffectScale.ScalePulse(
+                    SettingsState.ReduceEffectsEnabled,
+                    1f + 0.12f * Mathf.Sin(elapsed * Mathf.PI));
                 transform.localScale = Vector3.one * (_bossBaseScale * pulse);
                 if (now < _aimedFireAt)
                 {

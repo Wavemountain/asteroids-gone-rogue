@@ -19,18 +19,18 @@ namespace AsteroidsGoneRogue
 
         public static void PlayerDamaged(bool lethal)
         {
+            PlayerHullHit();
             if (lethal)
             {
+                FlashScreen(HeavyKillFlash, UiTheme.Primary, HitFlashLimiter.DefaultDecay, true);
                 return;
             }
-
-            PlayerHullHit();
         }
 
         public static void PlayerHullHit()
         {
             Shake(PlayerHitShake);
-            FlashScreen(PlayerHitFlash, UiTheme.Danger, HitFlashLimiter.DefaultDecay);
+            FlashScreen(PlayerHitFlash, UiTheme.Danger, HitFlashLimiter.DefaultDecay, false);
         }
 
         public static void PlayerShieldHit(Transform ship)
@@ -46,7 +46,7 @@ namespace AsteroidsGoneRogue
         public static void PlayerShieldBreak(Transform ship)
         {
             Shake(PlayerHitShake);
-            FlashScreen(ShieldBreakFlash, UiTheme.Secondary, 0.14f);
+            FlashScreen(ShieldBreakFlash, UiTheme.Secondary, 0.14f, false);
             if (ship != null)
             {
                 Ripple(ship.position, UiTheme.Secondary, 0.25f);
@@ -57,7 +57,7 @@ namespace AsteroidsGoneRogue
         {
             JuiceBurst.KillBloom(position, true);
             Shake(shake);
-            FlashScreen(HeavyKillFlash, UiTheme.Primary, HitFlashLimiter.DefaultDecay);
+            FlashScreen(HeavyKillFlash, UiTheme.Primary, HitFlashLimiter.DefaultDecay, true);
         }
 
         public static void Ripple(Vector3 position, Color color, float seconds)
@@ -131,7 +131,7 @@ namespace AsteroidsGoneRogue
             Shake(exploded ? ExplosionShake : ThreatHitShake);
             if (exploded && monster)
             {
-                FlashScreen(HeavyKillFlash, UiTheme.Primary, HitFlashLimiter.DefaultDecay);
+                FlashScreen(HeavyKillFlash, UiTheme.Primary, HitFlashLimiter.DefaultDecay, true);
             }
         }
 
@@ -144,7 +144,7 @@ namespace AsteroidsGoneRogue
         {
             JuiceBurst.HeartBloom(position);
             Shake(ExtraLifeShake);
-            FlashScreen(ExtraLifeFlash, new Color(1f, 0.22f, 0.38f), HitFlashLimiter.DefaultDecay);
+            FlashScreen(ExtraLifeFlash, new Color(1f, 0.22f, 0.38f), HitFlashLimiter.DefaultDecay, false);
         }
 
         public static void PickupBloom(Vector3 position, Color color)
@@ -169,11 +169,21 @@ namespace AsteroidsGoneRogue
 
         public static void FlashScreen(float strength)
         {
-            FlashScreen(strength, UiTheme.Danger, HitFlashLimiter.DefaultDecay);
+            FlashScreen(strength, UiTheme.Danger, HitFlashLimiter.DefaultDecay, false);
         }
 
         public static void FlashScreen(float strength, Color color, float decay)
         {
+            FlashScreen(strength, color, decay, false);
+        }
+
+        public static void FlashScreen(float strength, Color color, float decay, bool killFlash)
+        {
+            if (killFlash && !EffectScale.AllowsKillFlash(SettingsState.ReduceEffectsEnabled))
+            {
+                return;
+            }
+
             if (GameUi.Instance != null)
             {
                 GameUi.Instance.FlashHit(strength, color, decay);

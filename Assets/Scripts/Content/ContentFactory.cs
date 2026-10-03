@@ -82,15 +82,45 @@ namespace AsteroidsGoneRogue
 
         public void BuildPalette()
         {
-            _hull = MakeMaterial("Mat_Ship_Hull", new Color(0.45f, 0.52f, 0.58f), 0.45f, 0.35f);
+            float dangerR;
+            float dangerG;
+            float dangerB;
+            float steelR;
+            float steelG;
+            float steelB;
+            ReadabilityPalette.DangerRgb(out dangerR, out dangerG, out dangerB);
+            ReadabilityPalette.SecondaryRgb(out steelR, out steelG, out steelB);
+            Color dangerEmit = new Color(dangerR, dangerG, dangerB);
+            Color steelEmit = new Color(steelR, steelG, steelB);
+            _hull = MakeMaterial(
+                "Mat_Ship_Hull",
+                new Color(ReadabilityPalette.HullR, ReadabilityPalette.HullG, ReadabilityPalette.HullB),
+                0.45f,
+                0.35f,
+                steelEmit * ReadabilityPalette.HullRimScale);
             _accent = MakeMaterial("Mat_Ship_Accent", new Color(1f, 0.55f, 0.14f), 0.2f, 0.55f, new Color(1f, 0.4f, 0.05f) * 1.4f);
             _accentHot = MakeMaterial("Mat_Ship_Accent_Hot", new Color(1f, 0.38f, 0.08f), 0.15f, 0.45f, new Color(1f, 0.25f, 0.04f) * 1.8f);
             _accentWarm = MakeMaterial("Mat_Ship_Accent_Warm", new Color(1f, 0.68f, 0.28f), 0.18f, 0.5f, new Color(1f, 0.5f, 0.12f) * 1.1f);
             _glass = MakeTransparent("Mat_Ship_Glass", new Color(0.35f, 0.7f, 0.95f, 0.28f), new Color(0.2f, 0.5f, 0.8f) * 0.4f);
             _glow = MakeMaterial("Mat_Ship_Glow", new Color(1f, 0.55f, 0.15f), 0f, 0.15f, new Color(1f, 0.45f, 0.05f) * 2.2f);
-            _asteroid = MakeMaterial("Mat_Asteroid", new Color(0.38f, 0.32f, 0.28f), 0.05f, 0.18f);
-            _asteroidB = MakeMaterial("Mat_Asteroid_B", new Color(0.46f, 0.3f, 0.22f), 0.04f, 0.14f);
-            _enemy = MakeMaterial("Mat_Enemy", new Color(0.5f, 0.3f, 0.32f), 0.22f, 0.35f, new Color(0.42f, 0.08f, 0.1f) * 0.42f);
+            _asteroid = MakeMaterial(
+                "Mat_Asteroid",
+                new Color(ReadabilityPalette.AsteroidR, ReadabilityPalette.AsteroidG, ReadabilityPalette.AsteroidB) * ReadabilityPalette.AsteroidAlbedoScale,
+                0.05f,
+                0.18f,
+                steelEmit * ReadabilityPalette.AsteroidEmissionScale);
+            _asteroidB = MakeMaterial(
+                "Mat_Asteroid_B",
+                new Color(ReadabilityPalette.AsteroidVariantR, ReadabilityPalette.AsteroidVariantG, ReadabilityPalette.AsteroidVariantB) * ReadabilityPalette.AsteroidAlbedoScale,
+                0.04f,
+                0.14f,
+                steelEmit * ReadabilityPalette.AsteroidEmissionScale);
+            _enemy = MakeMaterial(
+                "Mat_Enemy",
+                new Color(ReadabilityPalette.EnemyBodyR, ReadabilityPalette.EnemyBodyG, ReadabilityPalette.EnemyBodyB),
+                0.22f,
+                0.35f,
+                dangerEmit * ReadabilityPalette.EnemyEmissionScale);
             _arena = MakeMaterial("Mat_Arena", new Color(0.039f, 0.063f, 0.086f), 0.08f, 0.1f);
             _astroRim = MakeMaterial("Mat_AstroRim", new Color(0.357f, 0.561f, 0.659f), 0.12f, 0.38f, new Color(0.357f, 0.561f, 0.659f) * 0.55f);
             _projectile = MakeMaterial("Mat_Projectile", new Color(0.831f, 0.627f, 0.29f), 0f, 0.32f, new Color(0.831f, 0.627f, 0.29f) * 1.6f);
@@ -1168,7 +1198,9 @@ namespace AsteroidsGoneRogue
             TrailRenderer trail = root.AddComponent<TrailRenderer>();
             const float TrailScale = 0.75f;
             trail.time = (pierce ? 0.42f : (spread ? 0.14f : (seeker ? 0.28f : (ricochet ? 0.18f : (hostile ? 0.16f : 0.12f))))) * TrailScale;
-            trail.startWidth = (spread ? 0.52f : (pierce ? 0.07f : (seeker ? 0.28f : (twin ? 0.1f : 0.2f)))) * TrailScale;
+            trail.startWidth = EffectScale.TrailWidth(
+                SettingsState.ReduceEffectsEnabled,
+                (spread ? 0.52f : (pierce ? 0.07f : (seeker ? 0.28f : (twin ? 0.1f : 0.2f)))) * TrailScale);
             trail.endWidth = pierce ? 0.005f : (spread ? 0.04f : 0.02f);
             trail.minVertexDistance = 0.12f;
             trail.material = boltMat;
@@ -1569,7 +1601,9 @@ namespace AsteroidsGoneRogue
 
         private void DressMidMesh(Transform root)
         {
-            DressEnemyEmission(root, new Color(0.82f, 0.1f, 0.12f));
+            DressEnemyEmission(
+                root,
+                new Color(ReadabilityPalette.MidR, ReadabilityPalette.MidG, ReadabilityPalette.MidB) * ReadabilityPalette.MidEmissionScale);
         }
 
         private void DressSniperMesh(Transform root)
