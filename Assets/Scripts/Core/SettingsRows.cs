@@ -309,7 +309,10 @@ namespace AsteroidsGoneRogue
         public const float OldSliderMinUnits = 101f;
         public const float LadderMinX = 0.355f;
         public const float LadderMaxX = 0.478f;
+        public const float LadderMinY = 0.905f;
+        public const float LadderMaxY = 0.950f;
         public const int LadderFont = 12;
+        public const float LadderLineSpacing = 0.85f;
 
         public static float CanvasScale(float screenWidth, float screenHeight)
         {
@@ -433,6 +436,28 @@ namespace AsteroidsGoneRogue
         {
             float box = LadderBoxWidth(screenWidth, screenHeight);
             return EstimateWidth(header, LadderFont) <= box && EstimateWidth(count, LadderFont) <= box;
+        }
+
+        public static float LadderBoxHeight(float screenWidth, float screenHeight)
+        {
+            return (LadderMaxY - LadderMinY) * CanvasHeight(screenWidth, screenHeight);
+        }
+
+        /// <summary>
+        /// Three short lines at <see cref="LadderFont"/> with tightened spacing stay inside the top-bar box.
+        /// </summary>
+        public static bool LadderBlockFits(string text, float screenWidth, float screenHeight)
+        {
+            float boxWidth = LadderBoxWidth(screenWidth, screenHeight);
+            float boxHeight = LadderBoxHeight(screenWidth, screenHeight);
+            if (boxWidth <= 1f || boxHeight <= 1f)
+            {
+                return false;
+            }
+
+            int lines = WrappedLineCount(text, boxWidth, LadderFont);
+            float lineHeight = LadderFont * 1.2f * LadderLineSpacing;
+            return lines * lineHeight <= boxHeight;
         }
     }
 }

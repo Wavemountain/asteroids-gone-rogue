@@ -43,7 +43,7 @@ namespace AsteroidsGoneRogue
             int worldIndex = 1;
             if (waves != null)
             {
-                worldIndex = ArenaLayout.WorldIndexForWave(waves.ActiveWave);
+                worldIndex = WorldCatalog.NumberForWave(waves.ActiveWave);
             }
 
             _hp = DifficultySettings.ScaleEnemyHpForWorld(EnemyCatalog.HitPoints(kind), worldIndex);

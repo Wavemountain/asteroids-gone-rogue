@@ -217,7 +217,7 @@ namespace AsteroidsGoneRogue
             Credits += credits;
             LastRunScore = Score;
             WorldCleared = CampaignCap.IsWorldBoundary(clearedWave)
-                ? ArenaLayout.WorldIndexForWave(clearedWave)
+                ? WorldCatalog.NumberForWave(clearedWave)
                 : 0;
             WaveIndex += 1;
             Phase = GamePhase.WaveClear;

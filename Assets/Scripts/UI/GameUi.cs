@@ -58,6 +58,7 @@ namespace AsteroidsGoneRogue
         private bool _doctrineIntroDismissed;
         private float _worldFlashUntil;
         private int _flashedWorld = 1;
+        private int _flashedWave = 1;
         private string _flashedLayout = string.Empty;
         private string _flashedBadge = string.Empty;
         private string _medalBeat = string.Empty;
@@ -383,30 +384,26 @@ namespace AsteroidsGoneRogue
                 _credits.gameObject.SetActive(false);
             }
 
-            int nextWorld = ArenaLayout.WorldIndexForWave(_session.WaveIndex);
             switch (_session.Phase)
             {
                 case GamePhase.WaveClear:
                     _statusBase = string.Empty;
-                    _primaryLabel.text = RunSummary.PrimaryActionLabel(
-                        GamePhase.WaveClear,
-                        _session.WorldCleared,
-                        nextWorld);
+                    ApplyPrimaryCaption(GamePhase.WaveClear, _session.WorldCleared, _session.WaveIndex);
                     break;
                 case GamePhase.CampaignClear:
                     _statusBase = string.Empty;
-                    _primaryLabel.text = RunSummary.PrimaryActionLabel(
+                    ApplyPrimaryCaption(
                         GamePhase.WaveClear,
                         CampaignCap.FinalWorld,
-                        CampaignCap.NextWorldIndex(CampaignCap.FinalWave));
+                        CampaignCap.FinalWave + 1);
                     break;
                 case GamePhase.Failed:
                     _statusBase = string.Empty;
-                    _primaryLabel.text = RunSummary.PrimaryActionLabel(GamePhase.Failed, 0, 1);
+                    ApplyPrimaryCaption(GamePhase.Failed, 0, _session.WaveIndex);
                     break;
                 default:
                     _statusBase = string.Empty;
-                    _primaryLabel.text = RunSummary.PrimaryActionLabel(GamePhase.Hangar, 0, 1);
+                    ApplyPrimaryCaption(GamePhase.Hangar, 0, _session.WaveIndex);
                     break;
             }
 
@@ -432,7 +429,7 @@ namespace AsteroidsGoneRogue
                     "ui.hangar_wave_line",
                     "Hangar  ·  Wave {0}  ·  World {1} layout: {2}",
                     _session.WaveIndex,
-                    ContentFactory.WorldIndexForWave(_session.WaveIndex),
+                    WorldCatalog.NumberForWave(_session.WaveIndex),
                     ArenaLayout.Title(ArenaLayout.ForWave(_session.WaveIndex)));
             string tease = RunSummary.MonsterTeaser(_session.WaveIndex);
             string hook = RunSummary.NextMedalHook(_session.WaveIndex);
@@ -1142,7 +1139,7 @@ namespace AsteroidsGoneRogue
             }
 
             int wave = _session.LastResolvedWave > 0 ? _session.LastResolvedWave : _session.WaveIndex;
-            int world = ContentFactory.WorldIndexForWave(wave);
+            int world = WorldCatalog.NumberForWave(wave);
             LoadoutState loadout = _loadout != null ? _loadout.State : null;
             bool failed = _session.Phase == GamePhase.Failed;
             ApplyFailChrome(failed && summaryPhase);
@@ -1208,7 +1205,7 @@ namespace AsteroidsGoneRogue
                 : HangarReadyStatus();
             if (failed && summaryPhase)
             {
-                row3 = RunSummary.RunOverExplain();
+                row3 = RunSummary.ReachedLine(wave) + "  ·  " + RunSummary.RunOverExplain();
             }
             else if (summaryPhase)
             {
@@ -1909,11 +1906,55 @@ namespace AsteroidsGoneRogue
             }
         }
 
-        public void AnnounceWorldChange(int world)
+        private void ApplyPrimaryCaption(GamePhase phase, int worldCleared, int upcomingWave)
         {
-            _flashedWorld = world;
-            _flashedLayout = ArenaLayout.Title(ArenaLayout.ForWorld(world));
-            _flashedBadge = ArenaLayout.Badge(ArenaLayout.ForWorld(world));
+            if (_primaryLabel == null)
+            {
+                return;
+            }
+
+            int nextNumber = WorldCatalog.NumberForWave(upcomingWave);
+            string actionLabel = RunSummary.PrimaryActionLabel(phase, worldCleared, nextNumber);
+            string nextSubtitle = string.Empty;
+            if (phase == GamePhase.WaveClear && worldCleared > 0)
+            {
+                string withLoop = RunSummary.ContinueSubtitle(upcomingWave);
+                if (RunSummary.PrimarySubtitleFits(actionLabel, withLoop))
+                {
+                    nextSubtitle = withLoop;
+                }
+                else
+                {
+                    string nameOnly = WorldCatalog.ContinueSubtitle(upcomingWave);
+                    if (RunSummary.PrimarySubtitleFits(actionLabel, nameOnly))
+                    {
+                        nextSubtitle = nameOnly;
+                    }
+                }
+            }
+
+            if (!string.IsNullOrEmpty(nextSubtitle))
+            {
+                _primaryLabel.text = actionLabel + "\n" + nextSubtitle;
+                _primaryLabel.lineSpacing = 0.8f;
+            }
+            else
+            {
+                _primaryLabel.text = actionLabel;
+                _primaryLabel.lineSpacing = 1f;
+            }
+
+            _primaryLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _primaryLabel.verticalOverflow = VerticalWrapMode.Truncate;
+        }
+
+        public void AnnounceWorldChange(int waveIndex)
+        {
+            int flashedWave = waveIndex < 1 ? 1 : waveIndex;
+            _flashedWave = flashedWave;
+            _flashedWorld = ArenaLayout.WorldIndexForWave(flashedWave);
+            _flashedLayout = ArenaLayout.Title(ArenaLayout.ForWorld(_flashedWorld));
+            _flashedBadge = ArenaLayout.Badge(ArenaLayout.ForWorld(_flashedWorld));
             _worldFlashUntil = Time.unscaledTime + 2.2f;
             bool hangar = _session != null && _session.Phase != GamePhase.Playing;
             if (hangar)
@@ -2081,14 +2122,17 @@ namespace AsteroidsGoneRogue
                 ArenaLayoutId flashId = ArenaLayout.ForWorld(_flashedWorld);
                 _flashedLayout = ArenaLayout.Title(flashId);
                 _flashedBadge = ArenaLayout.Badge(flashId);
-                string flash = Loc.Tf("ui.layout_swap", "LAYOUT SWAP\nWORLD {0}  ONLINE", _flashedWorld);
-                if (!string.IsNullOrEmpty(_flashedLayout))
+                string flash = Loc.Tf(
+                    "ui.layout_swap",
+                    "LAYOUT SWAP\nWORLD {0}  ONLINE",
+                    WorldCatalog.NumberForWave(_flashedWave));
+                string intro = WorldCatalog.IntroBanner(_flashedWave);
+                if (string.IsNullOrEmpty(intro))
                 {
-                    string badge = string.IsNullOrEmpty(_flashedBadge)
-                        ? _flashedLayout.ToUpperInvariant()
-                        : _flashedBadge;
-                    flash += "\n" + badge + "  ·  " + _flashedLayout.ToUpperInvariant();
+                    intro = _flashedBadge + "  ·  " + _flashedLayout;
                 }
+
+                flash += "\n" + intro;
 
                 if (!string.IsNullOrEmpty(_medalBeat))
                 {
@@ -2659,12 +2703,13 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            int world = ContentFactory.WorldIndexForWave(_session.WaveIndex);
+            int shownWorld = WorldCatalog.NumberForWave(_session.WaveIndex);
+            int layoutWorld = ArenaLayout.WorldIndexForWave(_session.WaveIndex);
             _world.text = Loc.Tf(
                 "ui.world_badge",
                 "WORLD {0}  ·  {1}",
-                world,
-                ArenaLayout.Badge(ArenaLayout.ForWorld(world)));
+                shownWorld,
+                ArenaLayout.Badge(ArenaLayout.ForWorld(layoutWorld)));
             _world.color = UiTheme.Primary;
         }
 
@@ -2705,9 +2750,21 @@ namespace AsteroidsGoneRogue
             if (!playing)
             {
                 string header = Loc.T("ach.header", "ACHIEVEMENTS");
-                _achievementLadder.text = header + "\n" + count;
+                HangarPersist medalPersist = _game != null && _game.Persist != null
+                    ? _game.Persist
+                    : HangarPersist.Load();
+                int medalMask = medalPersist != null ? medalPersist.MedalMask : 0;
+                string medalBoard = MedalCatalog.WorldClearBoard(medalMask);
+                string achBlock = header + "  " + count + "\n" + medalBoard;
+                if (!SettingsMeasure.LadderBlockFits(achBlock, Screen.width, Screen.height))
+                {
+                    achBlock = header + "\n" + count;
+                }
+
+                _achievementLadder.text = achBlock;
+                _achievementLadder.lineSpacing = SettingsMeasure.LadderLineSpacing;
                 _achievementLadder.horizontalOverflow = HorizontalWrapMode.Wrap;
-                _achievementLadder.verticalOverflow = VerticalWrapMode.Overflow;
+                _achievementLadder.verticalOverflow = VerticalWrapMode.Truncate;
             }
         }
 
@@ -2886,8 +2943,8 @@ namespace AsteroidsGoneRogue
                 return string.Empty;
             }
 
-            int world = ContentFactory.WorldIndexForWave(_session.WaveIndex);
-            return best.PlayCompare(_session.Score, _session.WaveIndex, world);
+            int shownWorld = WorldCatalog.NumberForWave(_session.WaveIndex);
+            return best.PlayCompare(_session.Score, _session.WaveIndex, shownWorld);
         }
 
         private void RefreshLoadoutSlots()

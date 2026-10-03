@@ -9,7 +9,11 @@ namespace AsteroidsGoneRogue
     {
         ScoutWing = 1,
         DeepOrbit = 2,
-        FarDrift = 4
+        FarDrift = 4,
+        MineFields = 8,
+        CrossGates = 16,
+        DebrisIslands = 32,
+        SpokeRing = 64
     }
 
     public static class MedalCatalog
@@ -22,6 +26,10 @@ namespace AsteroidsGoneRogue
         public const int World3EntryWorld = 3;
         public const int ScoutWingClearsAtWave = 3;
         public const int FarDriftClearsAtWave = 10;
+        public const int MineFieldsClearsAtWave = 20;
+        public const int CrossGatesClearsAtWave = 25;
+        public const int DebrisIslandsClearsAtWave = 30;
+        public const int SpokeRingClearsAtWave = 35;
         public const int BadgeCapacity = 3;
         public const float World2FlashSeconds = 1.55f;
         public const float World3FlashSeconds = 2.15f;
@@ -30,7 +38,11 @@ namespace AsteroidsGoneRogue
         {
             MedalId.ScoutWing,
             MedalId.DeepOrbit,
-            MedalId.FarDrift
+            MedalId.FarDrift,
+            MedalId.MineFields,
+            MedalId.CrossGates,
+            MedalId.DebrisIslands,
+            MedalId.SpokeRing
         };
 
         public static string Title(MedalId id)
@@ -41,6 +53,14 @@ namespace AsteroidsGoneRogue
                     return Loc.T("medal.deep", DeepOrbitTitle);
                 case MedalId.FarDrift:
                     return Loc.T("medal.far", FarDriftTitle);
+                case MedalId.MineFields:
+                    return WorldCatalog.Name(4);
+                case MedalId.CrossGates:
+                    return WorldCatalog.Name(5);
+                case MedalId.DebrisIslands:
+                    return WorldCatalog.Name(6);
+                case MedalId.SpokeRing:
+                    return WorldCatalog.Name(7);
                 default:
                     return Loc.T("medal.scout", ScoutWingTitle);
             }
@@ -70,8 +90,62 @@ namespace AsteroidsGoneRogue
                 return true;
             }
 
+            if (clearedWave == MineFieldsClearsAtWave)
+            {
+                medal = MedalId.MineFields;
+                return true;
+            }
+
+            if (clearedWave == CrossGatesClearsAtWave)
+            {
+                medal = MedalId.CrossGates;
+                return true;
+            }
+
+            if (clearedWave == DebrisIslandsClearsAtWave)
+            {
+                medal = MedalId.DebrisIslands;
+                return true;
+            }
+
+            if (clearedWave == SpokeRingClearsAtWave)
+            {
+                medal = MedalId.SpokeRing;
+                return true;
+            }
+
             medal = MedalId.ScoutWing;
             return false;
+        }
+
+        /// <summary>
+        /// World 2 entry (wave 6) awards Deep Orbit. Wave 10 clear awards Far Drift.
+        /// Wave 11 is the World 3 entry beat and is not a medal.
+        /// </summary>
+        public static bool AwardsOnWave(int wave, out MedalId medal)
+        {
+            if (wave == 6)
+            {
+                return TryForWorldEntry(World2EntryWorld, out medal);
+            }
+
+            return TryForClearedWave(wave, out medal);
+        }
+
+        public static string WorldClearBoard(int mask)
+        {
+            string lineA = BoardMark(mask, MedalId.MineFields)
+                + "  ·  "
+                + BoardMark(mask, MedalId.CrossGates);
+            string lineB = BoardMark(mask, MedalId.DebrisIslands)
+                + "  ·  "
+                + BoardMark(mask, MedalId.SpokeRing);
+            return lineA + "\n" + lineB;
+        }
+
+        private static string BoardMark(int mask, MedalId id)
+        {
+            return Owns(mask, id) ? AwardLine(id) : LockedLine(id);
         }
 
         public static bool TryForWorldEntry(int world, out MedalId medal)
