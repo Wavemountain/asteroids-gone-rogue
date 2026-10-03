@@ -21,26 +21,30 @@ namespace AsteroidsGoneRogue
             try
             {
                 string path = Path.Combine(Application.persistentDataPath, RunFileName);
-                if (!File.Exists(path))
+                string backupPath = path + SaveFileChoice.BackupSuffix;
+                bool mainExists = File.Exists(path);
+                string mainText = mainExists ? File.ReadAllText(path) : null;
+                bool backupExists = File.Exists(backupPath);
+                string backupText = backupExists ? File.ReadAllText(backupPath) : null;
+                string chosen = SaveFileChoice.Choose(mainText, mainExists, backupText, backupExists, RunSaveCodec.CommitAllowed);
+                if (chosen == null)
                 {
                     return false;
                 }
 
-                string json = File.ReadAllText(path);
-                RunSaveData utility = JsonUtility.FromJson<RunSaveData>(json);
-                if (!RunSaveCodec.TryParse(json, out data))
+                if (RunSaveCodec.TryParse(chosen, out data))
                 {
-                    data = null;
-                    if (utility != null && RunSaveCodec.IsValid(utility) && RunSaveCodec.TryParse(JsonUtility.ToJson(utility), out data))
-                    {
-                        return data != null;
-                    }
-
-                    data = null;
-                    return false;
+                    return true;
                 }
 
-                return true;
+                RunSaveData utility = JsonUtility.FromJson<RunSaveData>(chosen);
+                if (utility != null && RunSaveCodec.IsValid(utility) && RunSaveCodec.TryParse(JsonUtility.ToJson(utility), out data))
+                {
+                    return data != null;
+                }
+
+                data = null;
+                return false;
             }
             catch (Exception)
             {
@@ -86,6 +90,12 @@ namespace AsteroidsGoneRogue
                 {
                     File.Delete(path);
                 }
+
+                string runBackup = path + SaveFileChoice.BackupSuffix;
+                if (File.Exists(runBackup))
+                {
+                    File.Delete(runBackup);
+                }
             }
             catch (Exception)
             {
@@ -98,16 +108,21 @@ namespace AsteroidsGoneRogue
             try
             {
                 string path = Path.Combine(Application.persistentDataPath, MetaFileName);
-                if (!File.Exists(path))
+                string backupPath = path + SaveFileChoice.BackupSuffix;
+                bool mainExists = File.Exists(path);
+                string mainText = mainExists ? File.ReadAllText(path) : null;
+                bool backupExists = File.Exists(backupPath);
+                string backupText = backupExists ? File.ReadAllText(backupPath) : null;
+                string chosen = SaveFileChoice.Choose(mainText, mainExists, backupText, backupExists, MetaJsonOk);
+                if (chosen == null)
                 {
                     return MetaData.Fresh();
                 }
 
-                string json = File.ReadAllText(path);
                 MetaData parsed;
-                if (!MetaCodec.TryParse(json, out parsed))
+                if (!MetaCodec.TryParse(chosen, out parsed))
                 {
-                    MetaData utility = JsonUtility.FromJson<MetaData>(json);
+                    MetaData utility = JsonUtility.FromJson<MetaData>(chosen);
                     if (utility != null && MetaCodec.IsValid(utility))
                     {
                         return utility;
@@ -182,18 +197,15 @@ namespace AsteroidsGoneRogue
 
             if (File.Exists(dest))
             {
-                string backup = dest + ".bak";
+                string backup = dest + SaveFileChoice.BackupSuffix;
                 File.Replace(temp, dest, backup);
-                if (File.Exists(backup))
-                {
-                    File.Delete(backup);
-                }
             }
             else
             {
                 File.Move(temp, dest);
             }
 
+            File.WriteAllText(dest + SaveFileChoice.BackupSuffix, json);
             return true;
         }
     }

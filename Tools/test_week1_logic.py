@@ -416,7 +416,7 @@ def test_tighter_loop_wrap_abort_weapons() -> None:
     assert "AbortWave" in manager
     assert "DespawnAll()" in manager.split("public void AbortWave()")[1].split("public void")[0]
     assert "CompleteWave" not in manager.split("public void AbortWave()")[1].split("public void")[0]
-    assert "Abort → Hangar" in ui
+    assert "Abort > Hangar" in ui
     assert "KeyCode.Escape" in ui
     assert "SpreadBolt" in catalog and "Pierce" in catalog
     assert "SpreadPelletCount = 3" in shooter
@@ -1742,9 +1742,9 @@ def test_monsters_arenas_040() -> None:
     assert "Your hull" in summary
     assert "start from the hangar" in summary
     assert "MonsterTeaser" in ui
-    assert "FailContinueHint" in ui
+    assert "FailContinueHint" not in ui
     assert "PlayerFaultLine" in cause
-    assert "PlayerFaultLine" in ui
+    assert "PlayerFaultLine" not in ui
     assert "Spoke ring" in layout
     assert "ArenaLayoutId.SpokeRing" in factory
 
@@ -2385,9 +2385,9 @@ def test_fair_death_042() -> None:
     assert "FailContinueHint(string failReason, int waveIndex, int remainingThreats)" in summary
     assert "that was you. Run over — start from the hangar." in cause
     assert "PlayerFaultLine" in cause
-    assert "PlayerFaultLine" in ui
-    assert "FailContinueHint" in ui
-    assert "FailRemainingThreats" in ui
+    assert "PlayerFaultLine" not in ui
+    assert "FailContinueHint" not in ui
+    assert "FailRemainingThreats" not in ui
     assert "ApplyFailChrome" in ui
     assert "LayoutHealthRack" in ui
     assert "GamePhase.Failed" in ui.split("private void RefreshHealthBar()")[1].split("private void")[0]
@@ -3497,8 +3497,8 @@ def test_dual_fire_v1() -> None:
     assert "KeyCode.JoystickButton5" in pad
     assert "m_Name: UtilityTrigger" in inputs
     assert "LT utility · LB cycle primary · RT fire" in ui
-    assert "LT utility · LB cykla primary · RT skjut" in loc
-    assert "Buy Seeker → hold LT" in summary
+    assert "LT verktyg · LB cykla primär · RT skjut" in loc
+    assert "Buy Seeker > hold LT" in summary
     assert "PRIMARY {0}" in ui and "UTILITY {0}" in ui
     assert "ui.hud_empty" in loc and "tom" in loc
     assert "UtilityHud" in ui and "Radial360" in ui
@@ -4478,11 +4478,11 @@ def test_doctrine_rows_pad_reachable() -> None:
     assert down_left, "Next Wave must be reachable from the gear"
 
     en_hint = "LS move · LT utility · LB cycle · A confirm · B / Esc Next Wave · Start launch wave"
-    sv_hint = "LS styr · LT utility · LB cykla · A bekräfta · B / Esc nästa våg · Start starta våg"
+    sv_hint = "LS styr · LT verktyg · LB cykla · A bekräfta · B / Esc nästa våg · Start starta våg"
     assert "LS move · {0}" in ui
     assert "LT utility · LB cycle · A confirm · B / Esc Next Wave · Start launch wave" in ui
     assert "LS styr · {0}" in loc
-    assert "LT utility · LB cykla · A bekräfta · B / Esc nästa våg · Start starta våg" in loc
+    assert "LT verktyg · LB cykla · A bekräfta · B / Esc nästa våg · Start starta våg" in loc
     # Footer is one line in (0.14, 0.008)–(0.86, 0.072). At 18px, Kenney Future
     # Narrow is about 10px/char and the 1280px hint box is 922px, so stay <= 90.
     hint_box = (0.86 - 0.14) * 1280
@@ -4514,7 +4514,7 @@ def test_hangar_footer_launch_and_hint_size() -> None:
         assert f'"{key}"' in ui, key
 
     en_hangar = "LS move · LT utility · LB cycle · A confirm · B / Esc Next Wave · Start launch wave"
-    sv_hangar = "LS styr · LT utility · LB cykla · A bekräfta · B / Esc nästa våg · Start starta våg"
+    sv_hangar = "LS styr · LT verktyg · LB cykla · A bekräfta · B / Esc nästa våg · Start starta våg"
     assert "Start launch wave" in en_hangar and "Start launch wave" in ui
     assert "Start starta våg" in sv_hangar and "Start starta våg" in loc
     assert "LS move · {0}" in ui and "LS styr · {0}" in loc
@@ -4524,7 +4524,7 @@ def test_hangar_footer_launch_and_hint_size() -> None:
     assert len(sv_hangar) * 10 < hint_box
 
     en_play = "WASD/LS move · Mouse/RS aim · LMB/RT fire · E/LT utility · Q/LB cycle · Esc / Start = back to hangar"
-    sv_play = "WASD/LS styr · Mus/RS sikte · VMB/RT skjut · E/LT utility · Q/LB cykla · Esc/Start = tillbaka till hangaren"
+    sv_play = "WASD/LS styr · Mus/RS sikte · VMB/RT skjut · E/LT verktyg · Q/LB cykla · Esc/Start = tillbaka till hangaren"
     assert en_play in ui and sv_play in loc
     assert "Esc / Start abort" not in ui
     assert "Esc / Start avbryt" not in loc
@@ -5190,9 +5190,9 @@ def test_settings_shell() -> None:
         body_h = body_span * (0.88 - 0.12) * (height / scale)
         body_w = (0.92 - 0.08) * (0.70 - 0.30) * canvas_w
         play_en = "WASD/LS move · Mouse/RS aim · LMB/RT fire · E/LT utility · Q/LB cycle · Esc / Start = back to hangar"
-        play_sv = "WASD/LS styr · Mus/RS sikte · VMB/RT skjut · E/LT utility · Q/LB cykla · Esc/Start = tillbaka till hangaren"
+        play_sv = "WASD/LS styr · Mus/RS sikte · VMB/RT skjut · E/LT verktyg · Q/LB cykla · Esc/Start = tillbaka till hangaren"
         hang_en = "LS move · LT utility · LB cycle · A confirm · B / Esc Next Wave · Start launch wave"
-        hang_sv = "LS styr · LT utility · LB cykla · A bekräfta · B / Esc nästa våg · Start starta våg"
+        hang_sv = "LS styr · LT verktyg · LB cykla · A bekräfta · B / Esc nästa våg · Start starta våg"
         for block in (
             "Play\n" + play_en + "\nHangar\n" + hang_en,
             "Spel\n" + play_sv + "\nHangar\n" + hang_sv,
@@ -5232,13 +5232,13 @@ def test_settings_shell() -> None:
             "LS / WASD fly  ·  RT / LMB shoot  ·  LT / E utility\n"
             "Start = launch wave  ·  B / Esc = focus Next Wave\n"
             "Clear a wave to earn credits and upgrades.\n"
-            "Medal ladder (top-left): ★ Scout Wing at wave 3."
+            "Medal ladder (top-left): \u2022 Scout Wing at wave 3."
         )
         card_sv = (
-            "LS / WASD fly  ·  RT / VMB skjut  ·  LT / E utility\n"
+            "LS / WASD fly  ·  RT / VMB skjut  ·  LT / E verktyg\n"
             "Start = starta våg  ·  B / Esc = fokusera Nästa våg\n"
             "Rensa en våg för kredit och uppgraderingar.\n"
-            "Medaljstege (uppe till vänster): ★ Spejarvinge på våg 3."
+            "Medaljstege (uppe till vänster): \u2022 Spejarvinge på våg 3."
         )
         for card in (card_en, card_sv):
             card_lines = _wrapped_line_count(card, card_w, 22)
@@ -5993,13 +5993,14 @@ def test_longhaul_balance_046e() -> None:
     assert report["cap_breaks"] == []
     for grade in ("easy", "normal", "hard"):
         assert report["credit_total"][grade] > 0
-        assert report["ratio"][grade] > 0.85
-    # Base wave-clear credits already sit above the 60-85% shop band.
-    # CreditBonusPerWorld cannot close that gap inside its 0..50 cap.
+        # credits through wave 35 / (Mk I + Mk II + doctrine gates). ±6 points.
+        target = {"easy": 0.85, "normal": 0.76, "hard": 0.64}[grade]
+        assert abs(report["ratio"][grade] - target) <= 0.06, (grade, report["ratio"][grade])
     assert report["credit_bonus_per_world"] == 8
-    assert report["floor_ratio"]["normal"] > 0.85
+    assert report["floor_ratio"]["normal"] < report["ratio"]["normal"]
     assert report["credit_total"]["normal"] == 7464
-    assert report["catalogue"] == 3875
+    assert report["catalogue"] == report["shop"] + report["mk2"] + report["gates"]
+    assert report["catalogue"] > 3875
     assert report["easy_boss_hp"] == 96
     assert report["easy_boss_hp"] <= 120
     assert report["aimed_shots"] == 3
@@ -6180,6 +6181,7 @@ def main() -> int:
     test_longhaul_balance_046e()
     test_sector_chip_differs_from_title()
     test_upgrades_line_fits_card()
+    test_pr2_046()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -6782,11 +6784,21 @@ def _legacy_discount(level: int) -> int:
 
 
 def _legacy_shield(level: int) -> int:
-    return 1 if _legacy_clamp_level(level) > 0 else 0
+    rank = _legacy_clamp_level(level)
+    if rank <= 0:
+        return 0
+    if rank >= 3:
+        return 2
+    return 1
 
 
 def _legacy_hull(level: int) -> int:
-    return 1 if _legacy_clamp_level(level) > 0 else 0
+    rank = _legacy_clamp_level(level)
+    if rank <= 0:
+        return 0
+    if rank >= 3:
+        return 2
+    return 1
 
 
 def _legacy_cost(level: int) -> int:
@@ -6899,7 +6911,7 @@ def _boon_offer_valid(packed: int, pending: int, levels_packed: int) -> bool:
 
 def _save_valid(data: dict) -> bool:
     version = data.get("Version")
-    if version not in (1, 2):
+    if version not in (1, 2, 3):
         return False
     if not 1 <= data.get("WaveIndex", 0) <= 9999:
         return False
@@ -6907,11 +6919,11 @@ def _save_valid(data: dict) -> bool:
         return False
     if not 0 <= data.get("Credits", -1) <= 100000000:
         return False
-    if not 1 <= data.get("Lives", 0) <= 5:
+    if not 1 <= data.get("Lives", 0) <= 6:
         return False
     if not 1 <= data.get("Hull", 0) <= 12:
         return False
-    if not 0 <= data.get("Shield", -1) <= 3:
+    if not 0 <= data.get("Shield", -1) <= 4:
         return False
     if not 0 <= data.get("Difficulty", -1) <= 2:
         return False
@@ -6934,7 +6946,7 @@ def _save_valid(data: dict) -> bool:
         return False
     if data.get("ExtraLifeStreak", -1) < 0:
         return False
-    if not 0 <= data.get("LegacyHull", -1) <= 1:
+    if not 0 <= data.get("LegacyHull", -1) <= 2:
         return False
     if not 0 <= data.get("FirstDiscount", -1) <= 20:
         return False
@@ -6945,6 +6957,18 @@ def _save_valid(data: dict) -> bool:
         return False
     if version == 1:
         return True
+    if version >= 3:
+        if data.get("WaveInProgress") not in (0, 1):
+            return False
+        if not 0 <= data.get("LivesAtWaveStart", -1) <= 6:
+            return False
+        mk2_mask = data.get("Mk2Mask", -1)
+        if mk2_mask < 0 or mk2_mask >= (1 << 22):
+            return False
+        if not 0 <= data.get("BankedLegacy", -1) <= 3:
+            return False
+        if not 0 <= data.get("ExtraLifeWorld", -1) <= 9999:
+            return False
     if not _boon_levels_valid(data.get("BoonLevels", 0)):
         return False
     pending = data.get("BoonPending", 0)
@@ -6983,6 +7007,11 @@ def _save_parse(text: str) -> dict | None:
         "BoonLevels": 0,
         "BoonPending": 0,
         "BoonOffer": 0,
+        "WaveInProgress": 0,
+        "LivesAtWaveStart": 0,
+        "Mk2Mask": 0,
+        "BankedLegacy": 0,
+        "ExtraLifeWorld": 0,
         "Timestamp": "",
     }
     saw_version = False
@@ -7058,6 +7087,12 @@ def _save_parse(text: str) -> dict | None:
         parsed.pop("BoonLevels", None)
         parsed.pop("BoonPending", None)
         parsed.pop("BoonOffer", None)
+    if parsed.get("Version", 0) < 3:
+        parsed.pop("WaveInProgress", None)
+        parsed.pop("LivesAtWaveStart", None)
+        parsed.pop("Mk2Mask", None)
+        parsed.pop("BankedLegacy", None)
+        parsed.pop("ExtraLifeWorld", None)
     return parsed
 
 
@@ -7082,8 +7117,8 @@ def test_save_continue_legacy() -> None:
     session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
 
     assert "class RunSaveCodec" in save
-    assert "CurrentVersion = 2" in save
-    assert "data.Version != 1 && data.Version != CurrentVersion" in save
+    assert "CurrentVersion = 3" in save
+    assert "data.Version != 1 && data.Version != 2 && data.Version != CurrentVersion" in save
     assert "ShouldWrite" in save and "ShouldDelete" in save
     assert "return phase == GamePhase.Hangar || phase == GamePhase.WaveClear;" in save
     assert "return phase == GamePhase.Failed;" in save
@@ -7192,14 +7227,14 @@ def test_save_continue_legacy() -> None:
     assert rich["levels"][2] == 3
     assert not _try_buy(rich, 2)
     assert _legacy_shield(0) == 0
-    assert _legacy_shield(1) == 1 and _legacy_shield(3) == 1 and _legacy_shield(9) == 1
-    assert _legacy_hull(0) == 0 and _legacy_hull(3) == 1 and _legacy_hull(8) == 1
+    assert _legacy_shield(1) == 1 and _legacy_shield(2) == 1 and _legacy_shield(3) == 2 and _legacy_shield(9) == 2
+    assert _legacy_hull(0) == 0 and _legacy_hull(2) == 1 and _legacy_hull(3) == 2 and _legacy_hull(8) == 2
     assert _legacy_credits(0) == 0 and _legacy_credits(3) == 30 and _legacy_credits(9) == 30
     assert _legacy_discount(0) == 0
     assert _legacy_discount(1) == 7 and _legacy_discount(2) == 14
     assert _legacy_discount(3) == 20 and _legacy_discount(9) == 20
     assert "DiscountCapPercent = 20" in legacy
-    assert "HullBonusCap = 1" in legacy and "ShieldBonusCap = 1" in legacy
+    assert "HullBonusCap = 2" in legacy and "ShieldBonusCap = 2" in legacy
     assert "MaxLevel = 3" in legacy
     assert "CreditsPerLevel = 10" in legacy
     assert "AwardPoints" in legacy and "TryAward" in legacy and "TryBuy" in legacy
@@ -7593,14 +7628,14 @@ def test_world_flavour_and_boons() -> None:
     cards = (
         "Fire rate",
         "+8% fire rate",
-        "-10% incoming damage",
+        "10% chance to ignore a hit",
         "+1 shield each wave",
         "Utility cooldown",
         "Eldhastighet",
         "+8% eldhastighet",
-        "-10% skada",
+        "10% chans att ignorera en träff",
         "+1 sköld per våg",
-        "Utility-tid",
+        "Verktygstid",
         "Lv 3",
         "Nv 3",
     )
@@ -7654,7 +7689,7 @@ def _summary_card_explain(width: int, height: int) -> tuple[float, float]:
     scale = _canvas_scale(width, height)
     hangar = (0.014, 0.080, 0.55, 0.888)
     summary = _map_anchors(*hangar, 0.02, 0.82, 0.98, 0.995)
-    explain = _map_anchors(*summary, 0.03, 0.06, 0.97, 0.34)
+    explain = _map_anchors(*summary, 0.03, 0.22, 0.97, 0.52)
     box_w = (explain[2] - explain[0]) * (width / scale)
     box_h = (explain[3] - explain[1]) * (height / scale)
     return box_w, box_h
@@ -7709,17 +7744,17 @@ def test_sector_chip_differs_from_title() -> None:
         return fmt.format(world)
 
     def wave_chip(wave: int, lang: str) -> str:
+        mark = "\u2022 "
         if wave == 5:
             cleared = swedish["run.world_cleared"] if lang == "sv" else "{0} cleared"
-            return "★ " + cleared.format(world_name(1, lang))
+            return mark + cleared.format(world_name(1, lang))
         if wave == 10:
             name = swedish["medal.far"] if lang == "sv" else "Far Drift"
-            at = swedish["run.world3_at"] if lang == "sv" else "World 3 at wave {0}"
-            return "★ " + name + "  ·  " + at.format(11)
+            return mark + name
         if wave == 15:
             return ""
         medal_world = {20: 4, 25: 5, 30: 6, 35: 7}[wave]
-        return "★ " + world_name(medal_world, lang)
+        return mark + world_name(medal_world, lang)
 
     for wave in (5, 10, 15, 20, 25, 30, 35):
         world = _world_number(wave)
@@ -7727,10 +7762,10 @@ def test_sector_chip_differs_from_title() -> None:
             title = sector_title(world, lang)
             chip = wave_chip(wave, lang)
             assert title != chip, (wave, lang, title, chip)
-            assert "★ ★" not in chip
-        assert wave_chip(wave, "en").startswith("★") or wave == 15
-        assert wave_chip(5, "en") == "★ Launch Belt cleared"
-        assert wave_chip(5, "sv") == "★ " + swedish["world.launch"] + " rensad"
+            assert "\u2022 \u2022" not in chip
+        assert wave_chip(wave, "en").startswith("\u2022") or wave == 15
+        assert wave_chip(5, "en") == "\u2022 Launch Belt cleared"
+        assert wave_chip(5, "sv") == "\u2022 " + swedish["run.world_cleared"].format(swedish["world.launch"])
 
 
 def test_upgrades_line_fits_card() -> None:
@@ -7812,9 +7847,8 @@ def test_upgrades_line_fits_card() -> None:
         return prefix.format(body)
 
     max_lines = 2
-    resolutions = ((1280, 800), (1600, 900), (1920, 1080), (2560, 1440), (3440, 1440))
-    for wave in (20, 35):
-        assert wave >= 20
+    resolutions = ((1280, 800), (1600, 900), (1920, 1080), (2560, 1080), (2560, 1440), (3440, 1440))
+    for wave in (10, 20, 35):
         for lang in ("en", "sv"):
             limited = render(lang, cap)
             open_line = render(lang, None)
@@ -7825,6 +7859,223 @@ def test_upgrades_line_fits_card() -> None:
                 assert lines <= max_lines, (wave, lang, width, lines, limited)
                 assert lines * 16 * 1.1 <= box_h, (wave, lang, width, lines, box_h)
                 assert _wrapped_line_count(open_line, box_w, 16) > max_lines
+
+
+def _i32(value: int) -> int:
+    wrapped = value & 0xFFFFFFFF
+    if wrapped >= 0x80000000:
+        wrapped -= 0x100000000
+    return wrapped
+
+
+def _hit_roll(run_seed: int, hit_index: int) -> int:
+    state = run_seed if run_seed >= 0 else -run_seed
+    index = 0 if hit_index < 0 else hit_index
+    state = _i32(state * 1103515245 + 12345)
+    state = _i32(state + index * 97)
+    state = _i32(state * 1664525 + 1013904223)
+    if state == -2147483648:
+        return 0
+    if state < 0:
+        state = -state
+    return state
+
+
+def _ignores_hit(level: int, run_seed: int, hit_index: int) -> bool:
+    rank = 0 if level < 0 else (3 if level > 3 else level)
+    if rank <= 0:
+        return False
+    chance = rank * 10
+    if chance > 100:
+        chance = 100
+    roll = _hit_roll(run_seed, hit_index) % 100
+    return roll < chance
+
+
+def _abandoned_lives(lives: int, lives_at_start: int) -> int:
+    start = lives_at_start if lives_at_start > 0 else lives
+    if start < 1:
+        start = 1
+    nxt = start - 1
+    return 1 if nxt < 1 else nxt
+
+
+def _choose_save(main_text, main_exists, backup_text, backup_exists):
+    def accept(text):
+        return _save_parse(text) is not None
+
+    if not main_exists:
+        return None
+    if main_text is not None and accept(main_text):
+        return main_text
+    if backup_exists and backup_text is not None and accept(backup_text):
+        return backup_text
+    return None
+
+
+def test_pr2_046() -> None:
+    """0.46 PR 2: music map, boss wind-up, save bak/marker, boon ignore, chip width."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    music = (root / "Assets/Scripts/Core/MusicPlan.cs").read_text(encoding="utf-8")
+    boss = (root / "Assets/Scripts/Core/BossRules.cs").read_text(encoding="utf-8")
+    seeker = (root / "Assets/Scripts/Combat/EnemySeeker.cs").read_text(encoding="utf-8")
+    save = (root / "Assets/Scripts/Core/RunSave.cs").read_text(encoding="utf-8")
+    store = (root / "Assets/Scripts/Core/RunSaveStore.cs").read_text(encoding="utf-8")
+    choice = (root / "Assets/Scripts/Core/SaveFileChoice.cs").read_text(encoding="utf-8")
+    boons = (root / "Assets/Scripts/Core/BoonCatalog.cs").read_text(encoding="utf-8")
+    prices = (root / "Assets/Scripts/Core/ShopPrices.cs").read_text(encoding="utf-8")
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    credits = (root / "CREDITS.md").read_text(encoding="utf-8")
+    names = [
+        "world1_launch_belt",
+        "world2_deep_orbit",
+        "world3_far_drift",
+        "world4_mine_fields",
+        "world5_cross_gates",
+        "world6_debris_islands",
+        "world7_spoke_ring",
+    ]
+    for name in names:
+        assert name in music
+    assert "WorldMusicScale = 0.65f" in music
+    assert "BossMusicScale = 0.65f" in music
+    assert "MusicCrossfadeSeconds = 0.5f" in music
+    assert "EliteStingScale = 0.78f" in music
+    assert "EliteStingDuckSeconds = 1.5f" in music
+    assert "EliteStingDuckScale = 0.4f" in music
+    assert "PlayWorldMusic" in audio and "PlayBossMusic" in audio and "PlayEliteSting" in audio
+    assert "Resources.Load<AudioClip>(\"Audio/Music/\"" in audio or 'Resources.Load<AudioClip>("Audio/Music/"' in audio
+    for wave in range(1, 81):
+        layout = _layout_world(wave)
+        loop = _loop_number(wave)
+        assert names[layout - 1] == names[(layout - 1) % 7]
+        boss_wave = wave >= 5 and wave % 5 == 0
+        elite = wave >= 10 and wave % 5 == 0
+        final = layout == 7 or loop >= 2
+        if boss_wave and final:
+            assert "boss_guardian_final" in music
+        if boss_wave and not final:
+            assert "boss_guardian" in music
+        assert elite == (wave >= 10 and wave % 5 == 0)
+    assert "AimedWindupSeconds = 0.4f" in boss
+    assert "WindupInBand" in boss
+    assert "_aimedDir" in seeker and "FireAimedBurst(_aimedDir)" in seeker
+    assert "SpawnTelegraphRing" in seeker
+    assert "CurrentVersion = 3" in save
+    assert "LivesAfterAbandonedWave" in save
+    assert "ApplyAbandonedWave" in save
+    assert "SaveFileChoice.Choose" in store
+    assert "File.WriteAllText(dest + SaveFileChoice.BackupSuffix, json)" in store
+    assert "if (!mainExists)" in choice
+    assert _abandoned_lives(3, 3) == 2
+    assert _abandoned_lives(1, 1) == 1
+    assert _abandoned_lives(5, 0) == 4
+    good = _save_to_json(
+        {
+            "Version": 1,
+            "WaveIndex": 6,
+            "Score": 10,
+            "Credits": 20,
+            "Lives": 3,
+            "Hull": 3,
+            "Shield": 0,
+            "Difficulty": 1,
+            "UpgradeMask": 0,
+            "Doctrine": 0,
+            "PrimaryMode": 0,
+            "UtilityMode": 0,
+            "HasUtility": 0,
+            "RunId": 2,
+            "LastResolvedWave": 5,
+            "LastRunScore": 10,
+            "LastCreditsAwarded": 165,
+            "ExtraLifeStreak": 0,
+            "LegacyHull": 0,
+            "FirstDiscount": 0,
+            "FirstDiscountUsed": 0,
+            "Timestamp": "2026-10-03T12:00:00Z",
+        }
+    )
+    corrupt = "\x00\x01\x02not-json"
+    assert _choose_save(corrupt, True, good, True) == good
+    assert _choose_save(good, True, corrupt, True) == good
+    assert _choose_save(None, False, good, True) is None
+    assert _choose_save(corrupt, True, corrupt, True) is None
+    v3 = {
+        "Version": 3,
+        "WaveIndex": 8,
+        "Score": 10,
+        "Credits": 500,
+        "Lives": 3,
+        "Hull": 3,
+        "Shield": 1,
+        "Difficulty": 1,
+        "UpgradeMask": 0,
+        "Doctrine": 0,
+        "PrimaryMode": 0,
+        "UtilityMode": 0,
+        "HasUtility": 0,
+        "RunId": 9,
+        "LastResolvedWave": 7,
+        "LastRunScore": 10,
+        "LastCreditsAwarded": 165,
+        "ExtraLifeStreak": 0,
+        "LegacyHull": 0,
+        "FirstDiscount": 0,
+        "FirstDiscountUsed": 0,
+        "BoonLevels": 0,
+        "BoonPending": 0,
+        "BoonOffer": 0,
+        "WaveInProgress": 1,
+        "LivesAtWaveStart": 3,
+        "Mk2Mask": 0,
+        "BankedLegacy": 1,
+        "ExtraLifeWorld": 2,
+        "Timestamp": "2026-10-03T12:00:00Z",
+    }
+    v3_json = _save_to_json(v3).replace(
+        ',"Timestamp"',
+        ',"BoonLevels":0,"BoonPending":0,"BoonOffer":0'
+        ',"WaveInProgress":1,"LivesAtWaveStart":3,"Mk2Mask":0'
+        ',"BankedLegacy":1,"ExtraLifeWorld":2,"Timestamp"',
+    )
+    loaded = _save_parse(v3_json)
+    assert loaded is not None and loaded["WaveInProgress"] == 1 and loaded["BankedLegacy"] == 1
+    assert _hit_roll(7, 0) % 100 == 3
+    assert _ignores_hit(1, 7, 0) is True
+    assert _ignores_hit(1, 7, 1) is False
+    assert _ignores_hit(3, 7, 1) is True
+    assert _ignores_hit(0, 7, 0) is False
+    assert _ignores_hit(1, 7, 0) == _ignores_hit(1, 7, 0)
+    assert "IgnoresHit" in boons and "HitRoll" in boons
+    assert "10% chance to ignore a hit" in boons
+    assert "10% chans att ignorera en träff" in loc
+    assert "Mk2Percent = 160" in prices
+    assert "HullRepairCost = 60" in prices
+    assert "ExtraLifeCost = 400" in prices
+    assert "ShieldRefillCost = 40" in prices
+    assert "BankCreditsPerPoint = 500" in prices
+    assert "BankMaxPerRun = 3" in prices
+    assert "Klar: {0}" in loc
+    assert "All 0.46 music files normalised to about -15 LUFS" in credits
+    assert "world1_launch_belt.ogg" in credits
+    assert "jingles_NES00.ogg" in credits
+    swedish = _loc_values(loc)
+    for wave, text in (
+        (6, "\u2022 Deep Orbit"),
+        (10, "\u2022 Far Drift"),
+        (5, "\u2022 " + swedish["run.world_cleared"].format(swedish["world.launch"])),
+    ):
+        for width, height in ((1280, 800), (1920, 1080), (2560, 1080), (3440, 1440)):
+            scale = _canvas_scale(width, height)
+            hangar = (0.014, 0.080, 0.55, 0.888)
+            summary = _map_anchors(*hangar, 0.02, 0.82, 0.98, 0.995)
+            chip = _map_anchors(*summary, 0.54, 0.78, 0.97, 0.96)
+            box_w = (chip[2] - chip[0]) * (width / scale)
+            assert _estimate_width(text, 14) <= box_w, (wave, width, text, box_w)
 
 
 if __name__ == "__main__":

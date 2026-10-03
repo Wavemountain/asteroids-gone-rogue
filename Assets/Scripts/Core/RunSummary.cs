@@ -17,7 +17,7 @@ namespace AsteroidsGoneRogue
         /// Twelve keeps a fully upgraded EN/SV line inside two wrapped lines
         /// of the hangar card from 1280x800 through 3440x1440.
         /// </summary>
-        public const int UpgradesLineMaxShown = 12;
+        public const int UpgradesLineMaxShown = 7;
         public const string Wave3MedalTitle = "Scout Wing";
 
         public static string RunOverTitle(int wave)
@@ -455,7 +455,7 @@ namespace AsteroidsGoneRogue
             {
                 string seekerTip = loadout != null && loadout.Seeker
                     ? Loc.T("run.hold_lt", "Hold LT to fire utility")
-                    : Loc.T("run.buy_seeker_lt", "Buy Seeker → hold LT");
+                    : Loc.T("run.buy_seeker_lt", "Buy Seeker > hold LT");
                 return NextUnlockLandmark(lastResolvedWave) + "  ·  " + seekerTip;
             }
 
@@ -468,13 +468,13 @@ namespace AsteroidsGoneRogue
             {
                 return Loc.Tf(
                     "run.deep_orbit_now",
-                    "World 2  ·  ★ " + MedalCatalog.DeepOrbitTitle,
+                    "World 2  ·  \u2022 " + MedalCatalog.DeepOrbitTitle,
                     MedalCatalog.Title(MedalId.DeepOrbit));
             }
 
             return Loc.Tf(
                 "run.deep_orbit_at",
-                "★ " + MedalCatalog.DeepOrbitTitle + " at wave " + World2StartsAtWave,
+                "\u2022 " + MedalCatalog.DeepOrbitTitle + " at wave " + World2StartsAtWave,
                 MedalCatalog.Title(MedalId.DeepOrbit),
                 World2StartsAtWave);
         }
@@ -485,13 +485,13 @@ namespace AsteroidsGoneRogue
             {
                 return Loc.Tf(
                     "run.far_drift_clear",
-                    "Clear wave 10  ·  ★ " + MedalCatalog.FarDriftTitle,
+                    "Clear wave 10  ·  \u2022 " + MedalCatalog.FarDriftTitle,
                     MedalCatalog.Title(MedalId.FarDrift));
             }
 
             return Loc.Tf(
                 "run.far_drift_at",
-                "★ " + MedalCatalog.FarDriftTitle + " at wave " + MedalCatalog.FarDriftClearsAtWave,
+                "\u2022 " + MedalCatalog.FarDriftTitle + " at wave " + MedalCatalog.FarDriftClearsAtWave,
                 MedalCatalog.Title(MedalId.FarDrift),
                 MedalCatalog.FarDriftClearsAtWave);
         }
@@ -554,14 +554,12 @@ namespace AsteroidsGoneRogue
 
             if (lastResolvedWave == World2StartsAtWave)
             {
-                return MedalCatalog.AwardLine(MedalId.DeepOrbit)
-                    + "  ·  " + Loc.Tf("run.world3_at", "World 3 at wave {0}", World3StartsAtWave);
+                return MedalCatalog.AwardLine(MedalId.DeepOrbit);
             }
 
             if (lastResolvedWave == MedalCatalog.FarDriftClearsAtWave)
             {
-                return MedalCatalog.AwardLine(MedalId.FarDrift)
-                    + "  ·  " + Loc.Tf("run.world3_at", "World 3 at wave {0}", World3StartsAtWave);
+                return MedalCatalog.AwardLine(MedalId.FarDrift);
             }
 
             if (lastResolvedWave == World3StartsAtWave)
@@ -588,7 +586,7 @@ namespace AsteroidsGoneRogue
             {
                 return Loc.Tf(
                     "run.next_medal",
-                    "Next  ·  ★ " + MedalCatalog.ScoutWingTitle
+                    "Next  ·  \u2022 " + MedalCatalog.ScoutWingTitle
                         + " at wave " + MedalCatalog.ScoutWingClearsAtWave,
                     MedalCatalog.Title(MedalId.ScoutWing),
                     MedalCatalog.ScoutWingClearsAtWave);
@@ -606,7 +604,7 @@ namespace AsteroidsGoneRogue
             {
                 return Loc.Tf(
                     "run.next_medal",
-                    "Next  ·  ★ " + MedalCatalog.DeepOrbitTitle
+                    "Next  ·  \u2022 " + MedalCatalog.DeepOrbitTitle
                         + " at wave " + World2StartsAtWave,
                     MedalCatalog.Title(MedalId.DeepOrbit),
                     World2StartsAtWave);
@@ -616,7 +614,7 @@ namespace AsteroidsGoneRogue
             {
                 return Loc.Tf(
                     "run.next_medal",
-                    "Next  ·  ★ " + MedalCatalog.FarDriftTitle
+                    "Next  ·  \u2022 " + MedalCatalog.FarDriftTitle
                         + " at wave " + MedalCatalog.FarDriftClearsAtWave,
                     MedalCatalog.Title(MedalId.FarDrift),
                     MedalCatalog.FarDriftClearsAtWave);
@@ -656,7 +654,7 @@ namespace AsteroidsGoneRogue
             {
                 return Loc.Tf(
                     "run.star_at",
-                    "★ " + MedalCatalog.ScoutWingTitle + " at wave "
+                    "\u2022 " + MedalCatalog.ScoutWingTitle + " at wave "
                         + MedalCatalog.ScoutWingClearsAtWave,
                     MedalCatalog.Title(MedalId.ScoutWing),
                     MedalCatalog.ScoutWingClearsAtWave);

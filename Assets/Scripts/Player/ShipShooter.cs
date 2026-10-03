@@ -313,6 +313,7 @@ namespace AsteroidsGoneRogue
             else if (mode == FireMode.Ricochet)
             {
                 cooldown = LoadoutState.RicochetFireCooldown;
+                cooldown *= loadout.Mk2WeaponMul(FireMode.Ricochet);
             }
 
             if (BoonHooks.UtilityCooldownPercent > 0 && BoonHooks.UtilityCooldownPercent != 100)

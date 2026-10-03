@@ -68,12 +68,12 @@ namespace AsteroidsGoneRogue
 
         public static string AwardLine(MedalId id)
         {
-            return "★ " + Title(id);
+            return UiGlyph.Medal + Title(id);
         }
 
         public static string LockedLine(MedalId id)
         {
-            return "○ " + Title(id);
+            return UiGlyph.Locked + Title(id);
         }
 
         public static bool TryForClearedWave(int clearedWave, out MedalId medal)

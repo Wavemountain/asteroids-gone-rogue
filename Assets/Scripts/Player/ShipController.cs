@@ -50,6 +50,16 @@ namespace AsteroidsGoneRogue
 
         public void ResetForWave(LoadoutState loadout)
         {
+            ResetForWave(loadout, true, false);
+        }
+
+        public void ResetForWave(LoadoutState loadout, bool refillHull)
+        {
+            ResetForWave(loadout, refillHull, false);
+        }
+
+        public void ResetForWave(LoadoutState loadout, bool refillHull, bool applyWaveShield)
+        {
             transform.SetPositionAndRotation(new Vector3(0f, PlayHeight, 0f), Quaternion.identity);
             if (_body != null)
             {
@@ -59,7 +69,7 @@ namespace AsteroidsGoneRogue
 
             if (Health != null)
             {
-                Health.ResetForWave(loadout);
+                Health.ResetForWave(loadout, refillHull, applyWaveShield);
             }
 
             if (_shooter != null)

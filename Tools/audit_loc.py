@@ -9,8 +9,21 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-# Same gap as Tools/validate_week1_project.py `_MISSING_UI_FONT`.
-MISSING_CODEPOINTS = {0x2699}
+# Fallback when fontTools cannot read the Kenney cmaps.
+MISSING_CODEPOINTS = {0x2699, 0x2605}
+_FONT_FILES = (
+    "Assets/Resources/Fonts/KenneyFuture.ttf",
+    "Assets/Resources/Fonts/KenneyFutureNarrow.ttf",
+)
+_UI_LITERAL_FILES = (
+    "Assets/Scripts/Core/Loc.cs",
+    "Assets/Scripts/Core/MedalCatalog.cs",
+    "Assets/Scripts/Core/RunSummary.cs",
+    "Assets/Scripts/Core/WorldCatalog.cs",
+    "Assets/Scripts/Core/AchievementCatalog.cs",
+    "Assets/Scripts/UI/GameUi.cs",
+    "Assets/Scripts/UI/UiTheme.cs",
+)
 
 # Compact button captions. Body copy, hints, and shop descriptions are not buttons.
 BUTTON_KEYS = {
@@ -62,6 +75,7 @@ SAME_LANGUAGE_ALLOW = {
     "Storm",
     "Brute",
     "Session —",
+    "Mk II",
     "Session {0}",
     " / Sess {0}",
 }
@@ -125,12 +139,38 @@ def _dynamic_english(root: Path) -> dict[str, str]:
     return found
 
 
-def _glyphs(text: str) -> list[str]:
+def _font_allowed(root: Path) -> set[int] | None:
+    try:
+        from fontTools.ttLib import TTFont
+    except ImportError:
+        return None
+    shared: set[int] | None = None
+    for relative in _FONT_FILES:
+        path = root / relative
+        if not path.is_file():
+            return None
+        font = TTFont(str(path))
+        cmap: set[int] = set()
+        for table in font["cmap"].tables:
+            cmap.update(int(code) for code in table.cmap.keys())
+        shared = cmap if shared is None else shared & cmap
+    return shared
+
+
+def _glyphs(text: str, allowed: set[int] | None) -> list[str]:
     hits = []
     for char in text:
-        if ord(char) in MISSING_CODEPOINTS:
-            hits.append(f"U+{ord(char):04X}")
+        code = ord(char)
+        if code < 32:
+            continue
+        missing = code not in allowed if allowed is not None else code in MISSING_CODEPOINTS
+        if missing:
+            hits.append(f"U+{code:04X}")
     return hits
+
+
+def _string_literals(source: str) -> list[str]:
+    return [_unescape(match.group(1)) for match in re.finditer(r'"((?:\\.|[^"\\])*)"', source)]
 
 
 def check(root: Path) -> list[str]:
@@ -140,14 +180,19 @@ def check(root: Path) -> list[str]:
     swedish = _entries(_dict_block(loc_src, 1))
     english = _entries(_dict_block(loc_src, 2))
     errors: list[str] = []
+    allowed = _font_allowed(root)
 
     for table_name, table in (("SV", swedish), ("EN", english)):
         for key, values in table.items():
             if len(values) > 1:
                 errors.append(f"duplicate {table_name} key {key}")
             for value in values:
-                for glyph in _glyphs(value):
+                for glyph in _glyphs(value, allowed):
                     errors.append(f"{table_name} {key} contains {glyph}")
+                if table_name == "SV":
+                    for word in ("Primary", "Utility", "primary", "utility"):
+                        if word in value:
+                            errors.append(f"SV {key} contains English {word}")
 
     fallbacks: dict[str, set[str]] = {}
     for path in sorted(scripts.rglob("*.cs")):
@@ -161,7 +206,7 @@ def check(root: Path) -> list[str]:
             if fallback.strip() == "":
                 errors.append(f"{rel} {key} has an empty EN fallback")
             fallbacks.setdefault(key, set()).add(fallback)
-            for glyph in _glyphs(fallback):
+            for glyph in _glyphs(fallback, allowed):
                 errors.append(f"{rel} {key} contains {glyph}")
             if key not in swedish:
                 errors.append(f"SV loc table missing {key}")
@@ -215,6 +260,14 @@ def check(root: Path) -> list[str]:
         for label in texts:
             if len(_filled(label)) > BUTTON_LIMIT:
                 errors.append(f"button {key} EN is long: {label}")
+
+    for relative in _UI_LITERAL_FILES:
+        path = root / relative
+        if not path.is_file():
+            continue
+        for literal in _string_literals(path.read_text(encoding="utf-8")):
+            for glyph in _glyphs(literal, allowed):
+                errors.append(f"{relative} literal contains {glyph}: {literal!r}")
 
     dynamic = _dynamic_english(root)
     for key, values in swedish.items():

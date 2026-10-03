@@ -77,13 +77,13 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// Medal chip for a cleared world, e.g. "★ Launch Belt cleared".
+        /// Medal chip for a cleared world. Distinct from the sector headline.
         /// Distinct from <see cref="CampaignCap.SectorClearTitle"/> so the
         /// headline and the chip are not the same string.
         /// </summary>
         public static string ClearedMedal(int worldNumber)
         {
-            return "★ " + Loc.Tf("run.world_cleared", "{0} cleared", Name(worldNumber));
+            return UiGlyph.Medal + Loc.Tf("run.world_cleared", "{0} cleared", Name(worldNumber));
         }
 
         public static string Tip(int worldNumber)

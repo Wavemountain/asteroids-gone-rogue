@@ -68,6 +68,13 @@ namespace AsteroidsGoneRogue
 
         public bool FirstDiscountUsed { get; private set; }
 
+        private int _mk2Mask;
+
+        public int Mk2Mask
+        {
+            get { return _mk2Mask; }
+        }
+
         /// <summary>Equipped primary. Default Bolt. Cycle LB/RB among owned primaries.</summary>
         public FireMode PrimaryMode { get; private set; }
 
@@ -108,11 +115,23 @@ namespace AsteroidsGoneRogue
             LegacyHullBonus = 0;
             FirstDiscountPercent = 0;
             FirstDiscountUsed = false;
+            _mk2Mask = 0;
         }
+
+        public const int SaveMaxShield = MatrixMaxShieldCharges + 1;
 
         public int CurrentMaxShield
         {
-            get { return ShieldMatrix ? MatrixMaxShieldCharges : MaxShieldCharges; }
+            get
+            {
+                int cap = ShieldMatrix ? MatrixMaxShieldCharges : MaxShieldCharges;
+                if (OwnsMk2(UpgradeId.ShieldCell))
+                {
+                    cap += 1;
+                }
+
+                return cap;
+            }
         }
 
         public int CurrentHullHitPoints
@@ -126,6 +145,16 @@ namespace AsteroidsGoneRogue
                 }
 
                 if (BodyUpgrade02)
+                {
+                    hull += BodyUpgradeHullBonus;
+                }
+
+                if (OwnsMk2(UpgradeId.BodyUpgrade01))
+                {
+                    hull += BodyUpgradeHullBonus;
+                }
+
+                if (OwnsMk2(UpgradeId.BodyUpgrade02))
                 {
                     hull += BodyUpgradeHullBonus;
                 }
@@ -164,6 +193,7 @@ namespace AsteroidsGoneRogue
                     cooldown += OverchargerCooldownPenalty;
                 }
 
+                cooldown *= Mk2EngineMul();
                 return cooldown;
             }
         }
@@ -209,6 +239,7 @@ namespace AsteroidsGoneRogue
                     damage += OverchargerDamageBonus;
                 }
 
+                damage += Mk2NoseBonus();
                 return damage;
             }
         }
@@ -253,6 +284,7 @@ namespace AsteroidsGoneRogue
                 mul *= DoctrineRules.OverchargeTwinCooldownMul;
             }
 
+            mul *= Mk2WeaponMul(mode);
             return mul;
         }
 
@@ -269,6 +301,7 @@ namespace AsteroidsGoneRogue
                 mul *= DoctrineRules.TwinSeekCooldownMul;
             }
 
+            mul *= Mk2WeaponMul(FireMode.Seeker);
             return mul;
         }
 
@@ -301,12 +334,172 @@ namespace AsteroidsGoneRogue
 
         public int EffectiveCost(ShopItem item)
         {
+            return EffectiveCost(item, 1);
+        }
+
+        public int EffectiveCost(ShopItem item, int worldNumber)
+        {
             if (item == null)
             {
                 return 0;
             }
 
-            return MaybeDiscount(DoctrineRules.PenalizedCost(item.Cost, IsOffPath(item.Id)));
+            int penalized = DoctrineRules.PenalizedCost(item.Cost, IsOffPath(item.Id));
+            return MaybeDiscount(ShopPrices.ApplyWorld(penalized, worldNumber));
+        }
+
+        public int Mk2Price(ShopItem item, int worldNumber)
+        {
+            if (item == null)
+            {
+                return 0;
+            }
+
+            int mk2 = ShopPrices.Mk2Cost(item.Cost);
+            int penalized = DoctrineRules.PenalizedCost(mk2, IsOffPath(item.Id));
+            return MaybeDiscount(ShopPrices.ApplyWorld(penalized, worldNumber));
+        }
+
+        public bool OwnsMk2(UpgradeId id)
+        {
+            int bit = (int)id;
+            if (bit < 0 || bit >= RunSaveCodec.UpgradeBitCount)
+            {
+                return false;
+            }
+
+            return (_mk2Mask & (1 << bit)) != 0;
+        }
+
+        public bool CanBuyMk2(UpgradeId id)
+        {
+            if (OwnsMk2(id))
+            {
+                return false;
+            }
+
+            if (id == UpgradeId.ShieldCell)
+            {
+                return ShieldCharges >= 1;
+            }
+
+            return Owns(id);
+        }
+
+        public void GrantMk2(UpgradeId id)
+        {
+            int bit = (int)id;
+            if (bit < 0 || bit >= RunSaveCodec.UpgradeBitCount)
+            {
+                return;
+            }
+
+            _mk2Mask |= 1 << bit;
+            if (id == UpgradeId.ShieldCell && ShieldCharges < CurrentMaxShield)
+            {
+                ShieldCharges += 1;
+            }
+        }
+
+        public void SetMk2Mask(int mask)
+        {
+            int limit = 1 << RunSaveCodec.UpgradeBitCount;
+            if (mask < 0)
+            {
+                mask = 0;
+            }
+
+            if (mask >= limit)
+            {
+                mask = limit - 1;
+            }
+
+            _mk2Mask = mask;
+        }
+
+        private int Mk2NoseBonus()
+        {
+            if (NoseUpgrade03 && OwnsMk2(UpgradeId.NoseUpgrade03))
+            {
+                return 1;
+            }
+
+            if (NoseUpgrade02 && OwnsMk2(UpgradeId.NoseUpgrade02))
+            {
+                return 1;
+            }
+
+            if (NoseHardpoint && OwnsMk2(UpgradeId.NoseHardpoint))
+            {
+                return 1;
+            }
+
+            if (Overcharger && OwnsMk2(UpgradeId.Overcharger))
+            {
+                return 1;
+            }
+
+            return 0;
+        }
+
+        private float Mk2EngineMul()
+        {
+            if (Afterburner && OwnsMk2(UpgradeId.Afterburner))
+            {
+                return ShopPrices.Mk2CooldownMul;
+            }
+
+            if (EngineUpgrade03 && OwnsMk2(UpgradeId.EngineUpgrade03))
+            {
+                return ShopPrices.Mk2CooldownMul;
+            }
+
+            if (EngineUpgrade02 && OwnsMk2(UpgradeId.EngineUpgrade02))
+            {
+                return ShopPrices.Mk2CooldownMul;
+            }
+
+            if (RapidFire && OwnsMk2(UpgradeId.RapidFire))
+            {
+                return ShopPrices.Mk2CooldownMul;
+            }
+
+            return 1f;
+        }
+
+        public float Mk2WeaponMul(FireMode mode)
+        {
+            UpgradeId id;
+            switch (mode)
+            {
+                case FireMode.Spread:
+                    id = UpgradeId.SpreadBolt;
+                    break;
+                case FireMode.Pierce:
+                    id = UpgradeId.Pierce;
+                    break;
+                case FireMode.Twin:
+                    id = UpgradeId.TwinGuns;
+                    break;
+                case FireMode.Seeker:
+                    id = UpgradeId.Seeker;
+                    break;
+                case FireMode.Ricochet:
+                    id = UpgradeId.Ricochet;
+                    break;
+                case FireMode.Rail:
+                    id = UpgradeId.Rail;
+                    break;
+                default:
+                    return 1f;
+            }
+
+            if (!OwnsMk2(id))
+            {
+                return 1f;
+            }
+
+            return ShopPrices.Mk2CooldownMul;
         }
 
         public int MaybeDiscount(int cost)
@@ -705,6 +898,7 @@ namespace AsteroidsGoneRogue
             copy.LegacyHullBonus = LegacyHullBonus;
             copy.FirstDiscountPercent = FirstDiscountPercent;
             copy.FirstDiscountUsed = FirstDiscountUsed;
+            copy._mk2Mask = _mk2Mask;
             return copy;
         }
 

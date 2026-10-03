@@ -50,7 +50,7 @@ namespace AsteroidsGoneRogue
         public const int PanelPadMax = 24;
         public const int ButtonPadMin = 8;
         public const int ButtonPadMax = 12;
-        public const string OwnedCheck = " ✓";
+        public const string OwnedCheck = " +";
 
         public static readonly Color Void = Parse(VoidHex);
         public static readonly Color Surface = Parse(SurfaceHex);

@@ -35,12 +35,17 @@ namespace AsteroidsGoneRogue
         public int BoonLevels;
         public int BoonPending;
         public int BoonOffer;
+        public int WaveInProgress;
+        public int LivesAtWaveStart;
+        public int Mk2Mask;
+        public int BankedLegacy;
+        public int ExtraLifeWorld;
         public string Timestamp = string.Empty;
     }
 
     public static class RunSaveCodec
     {
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
         public const int UpgradeBitCount = 22;
         public const int MaxWave = 9999;
         public const int MaxScore = 100000000;
@@ -100,6 +105,15 @@ namespace AsteroidsGoneRogue
                 data.LegacyHull = loadout.LegacyHullBonus;
                 data.FirstDiscount = loadout.FirstDiscountPercent;
                 data.FirstDiscountUsed = loadout.FirstDiscountUsed ? 1 : 0;
+                data.Mk2Mask = loadout.Mk2Mask;
+            }
+
+            if (session != null)
+            {
+                data.WaveInProgress = session.WaveInProgress ? 1 : 0;
+                data.LivesAtWaveStart = session.LivesAtWaveStart;
+                data.BankedLegacy = session.BankedLegacy;
+                data.ExtraLifeWorld = session.ExtraLifeWorld;
             }
 
             data.Difficulty = difficulty;
@@ -155,7 +169,7 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (data.Version != 1 && data.Version != CurrentVersion)
+            if (data.Version != 1 && data.Version != 2 && data.Version != CurrentVersion)
             {
                 return false;
             }
@@ -175,7 +189,7 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (data.Lives < 1 || data.Lives > DifficultySettings.MaxLives)
+            if (data.Lives < 1 || data.Lives > DifficultySettings.MaxLives + 1)
             {
                 return false;
             }
@@ -185,7 +199,7 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (data.Shield < 0 || data.Shield > LoadoutState.MatrixMaxShieldCharges)
+            if (data.Shield < 0 || data.Shield > LoadoutState.SaveMaxShield)
             {
                 return false;
             }
@@ -256,7 +270,7 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (data.Version == CurrentVersion)
+            if (data.Version >= 2)
             {
                 if (!BoonCatalog.LevelsValid(data.BoonLevels))
                 {
@@ -274,7 +288,66 @@ namespace AsteroidsGoneRogue
                 }
             }
 
+            if (data.WaveInProgress != 0 && data.WaveInProgress != 1)
+            {
+                return false;
+            }
+
+            if (data.LivesAtWaveStart < 0 || data.LivesAtWaveStart > DifficultySettings.MaxLives + 1)
+            {
+                return false;
+            }
+
+            int mk2Limit = 1 << UpgradeBitCount;
+            if (data.Mk2Mask < 0 || data.Mk2Mask >= mk2Limit)
+            {
+                return false;
+            }
+
+            if (data.BankedLegacy < 0 || data.BankedLegacy > ShopPrices.BankMaxPerRun)
+            {
+                return false;
+            }
+
+            if (data.ExtraLifeWorld < 0 || data.ExtraLifeWorld > MaxWave)
+            {
+                return false;
+            }
+
             return true;
+        }
+
+        /// <summary>
+        /// Abandoned wave costs one life from the count stored at wave start.
+        /// Never drops below 1, and never ends the run.
+        /// </summary>
+        public static int LivesAfterAbandonedWave(int lives, int livesAtWaveStart)
+        {
+            int start = livesAtWaveStart > 0 ? livesAtWaveStart : lives;
+            if (start < 1)
+            {
+                start = 1;
+            }
+
+            int next = start - 1;
+            if (next < 1)
+            {
+                next = 1;
+            }
+
+            return next;
+        }
+
+        public static void ApplyAbandonedWave(RunSaveData data)
+        {
+            if (data == null || data.WaveInProgress == 0)
+            {
+                return;
+            }
+
+            data.Lives = LivesAfterAbandonedWave(data.Lives, data.LivesAtWaveStart);
+            data.WaveInProgress = 0;
+            data.LivesAtWaveStart = 0;
         }
 
         public static bool Same(RunSaveData left, RunSaveData right)
@@ -308,6 +381,11 @@ namespace AsteroidsGoneRogue
                 && left.BoonLevels == right.BoonLevels
                 && left.BoonPending == right.BoonPending
                 && left.BoonOffer == right.BoonOffer
+                && left.WaveInProgress == right.WaveInProgress
+                && left.LivesAtWaveStart == right.LivesAtWaveStart
+                && left.Mk2Mask == right.Mk2Mask
+                && left.BankedLegacy == right.BankedLegacy
+                && left.ExtraLifeWorld == right.ExtraLifeWorld
                 && left.Timestamp == right.Timestamp;
         }
 
@@ -344,6 +422,11 @@ namespace AsteroidsGoneRogue
             AppendInt(builder, "BoonLevels", data.BoonLevels, false);
             AppendInt(builder, "BoonPending", data.BoonPending, false);
             AppendInt(builder, "BoonOffer", data.BoonOffer, false);
+            AppendInt(builder, "WaveInProgress", data.WaveInProgress, false);
+            AppendInt(builder, "LivesAtWaveStart", data.LivesAtWaveStart, false);
+            AppendInt(builder, "Mk2Mask", data.Mk2Mask, false);
+            AppendInt(builder, "BankedLegacy", data.BankedLegacy, false);
+            AppendInt(builder, "ExtraLifeWorld", data.ExtraLifeWorld, false);
             builder.Append(",\"Timestamp\":\"");
             builder.Append(Escape(data.Timestamp));
             builder.Append("\"}");
@@ -448,6 +531,15 @@ namespace AsteroidsGoneRogue
                 parsed.BoonOffer = 0;
             }
 
+            if (parsed.Version < 3)
+            {
+                parsed.WaveInProgress = 0;
+                parsed.LivesAtWaveStart = 0;
+                parsed.Mk2Mask = 0;
+                parsed.BankedLegacy = 0;
+                parsed.ExtraLifeWorld = 0;
+            }
+
             if (!IsValid(parsed))
             {
                 return false;
@@ -542,6 +634,21 @@ namespace AsteroidsGoneRogue
                     return true;
                 case "BoonOffer":
                     data.BoonOffer = number;
+                    return true;
+                case "WaveInProgress":
+                    data.WaveInProgress = number;
+                    return true;
+                case "LivesAtWaveStart":
+                    data.LivesAtWaveStart = number;
+                    return true;
+                case "Mk2Mask":
+                    data.Mk2Mask = number;
+                    return true;
+                case "BankedLegacy":
+                    data.BankedLegacy = number;
+                    return true;
+                case "ExtraLifeWorld":
+                    data.ExtraLifeWorld = number;
                     return true;
                 default:
                     return true;

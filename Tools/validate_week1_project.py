@@ -1293,17 +1293,49 @@ def _enum_names(source: str, enum_name: str) -> list[str]:
     return re.findall(r"^\s*([A-Z][A-Za-z0-9_]*)\s*,?\s*$", body, re.M)
 
 
-# Kenney Future and Future Narrow both omit U+2699 GEAR. UI loc strings must
-# not use symbols we know those fonts cannot draw.
+# Kenney Future and Future Narrow both omit U+2699 GEAR and U+2605 STAR.
+# When fontTools is installed the check uses the intersection of the two cmaps.
 _MISSING_UI_FONT = {
     0x2699,
+    0x2605,
 }
+_UI_FONT_FILES = (
+    ROOT / "Assets/Resources/Fonts/KenneyFuture.ttf",
+    ROOT / "Assets/Resources/Fonts/KenneyFutureNarrow.ttf",
+)
+
+
+def _kenney_allowed() -> set[int] | None:
+    try:
+        from fontTools.ttLib import TTFont
+    except ImportError:
+        return None
+    shared: set[int] | None = None
+    for path in _UI_FONT_FILES:
+        if not path.is_file():
+            return None
+        font = TTFont(str(path))
+        cmap: set[int] = set()
+        for table in font["cmap"].tables:
+            cmap.update(int(code) for code in table.cmap.keys())
+        shared = cmap if shared is None else shared & cmap
+    return shared
 
 
 def check_ui_loc_font_coverage(loc_src: str, ui_src: str) -> None:
-    """Loc strings used by the UI must stay inside the known Kenney font coverage."""
-    missing = {chr(codepoint) for codepoint in _MISSING_UI_FONT}
+    """UI string literals must stay inside both Kenney Future cmaps."""
+    allowed = _kenney_allowed()
     blobs = [("Assets/Scripts/Core/Loc.cs", loc_src)]
+    for relative in (
+        "Assets/Scripts/Core/MedalCatalog.cs",
+        "Assets/Scripts/Core/RunSummary.cs",
+        "Assets/Scripts/Core/WorldCatalog.cs",
+        "Assets/Scripts/Core/AchievementCatalog.cs",
+        "Assets/Scripts/UI/UiTheme.cs",
+    ):
+        path = ROOT / relative
+        if path.is_file():
+            blobs.append((relative, path.read_text(encoding="utf-8")))
     seen = set()
     ui_dir = ROOT / "Assets/Scripts/UI"
     for path in sorted(ui_dir.rglob("*.cs")):
@@ -1312,10 +1344,20 @@ def check_ui_loc_font_coverage(loc_src: str, ui_src: str) -> None:
         blobs.append((rel, path.read_text(encoding="utf-8")))
     if "Assets/Scripts/UI/GameUi.cs" not in seen:
         blobs.append(("Assets/Scripts/UI/GameUi.cs", ui_src))
+    literal = re.compile(r'"((?:\\.|[^"\\])*)"')
     for name, text in blobs:
-        for ch in missing:
-            if ch in text:
-                err(f"{name} contains U+{ord(ch):04X}, missing from Kenney Future")
+        for match in literal.finditer(text):
+            raw = match.group(1)
+            raw = raw.replace(r"\n", "\n").replace(r"\"", '"').replace(r"\\", "\\")
+            raw = re.sub(r"\\u([0-9a-fA-F]{4})", lambda item: chr(int(item.group(1), 16)), raw)
+            for char in raw:
+                code = ord(char)
+                if code < 32:
+                    continue
+                missing = code not in allowed if allowed is not None else code in _MISSING_UI_FONT
+                if missing:
+                    err(f"{name} contains U+{code:04X}, missing from Kenney Future")
+                    return
 
 
 def check_loc_key_parity(loc_src: str) -> None:

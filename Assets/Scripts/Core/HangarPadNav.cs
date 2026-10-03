@@ -35,9 +35,19 @@ namespace AsteroidsGoneRogue
 
         public static int LegacySlot0 { get { return NewRunSlot + 1; } }
 
+        public const int ServiceSlots = 4;
+
+        public static int HullRepairSlot { get { return LegacySlot0 + LegacyPerkSlots; } }
+
+        public static int ExtraLifeSlot { get { return HullRepairSlot + 1; } }
+
+        public static int ShieldRefillSlot { get { return HullRepairSlot + 2; } }
+
+        public static int BankSlot { get { return HullRepairSlot + 3; } }
+
         public static int SlotCount
         {
-            get { return LegacySlot0 + LegacyPerkSlots; }
+            get { return BankSlot + 1; }
         }
 
         public static int ShopSlot(int shopIndex)
@@ -457,6 +467,34 @@ namespace AsteroidsGoneRogue
             {
                 x = slot - LegacySlot0;
                 y = -5;
+                return;
+            }
+
+            if (slot == HullRepairSlot)
+            {
+                x = 5;
+                y = 2;
+                return;
+            }
+
+            if (slot == ExtraLifeSlot)
+            {
+                x = 5;
+                y = 3;
+                return;
+            }
+
+            if (slot == ShieldRefillSlot)
+            {
+                x = 5;
+                y = 4;
+                return;
+            }
+
+            if (slot == BankSlot)
+            {
+                x = 2;
+                y = 2;
                 return;
             }
 

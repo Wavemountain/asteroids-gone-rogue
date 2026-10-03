@@ -28,6 +28,14 @@ namespace AsteroidsGoneRogue
         private Text[] _legacyLabels;
         private Button[] _buyButtons;
         private Text[] _buyLabels;
+        private Button _hullRepairButton;
+        private Button _extraLifeButton;
+        private Button _shieldRefillButton;
+        private Button _bankButton;
+        private Text _hullRepairLabel;
+        private Text _extraLifeLabel;
+        private Text _shieldRefillLabel;
+        private Text _bankLabel;
         private Button _abortButton;
         private Text _abortLabel;
         private GameObject _tutorialRoot;
@@ -38,6 +46,7 @@ namespace AsteroidsGoneRogue
         private Text _summaryBody;
         private Text _waveMedal;
         private Text _continueHint;
+        private Text _summaryRecord;
         private GameObject _boonRoot;
         private Text _boonTitle;
         private Text _boonHint;
@@ -240,7 +249,7 @@ namespace AsteroidsGoneRogue
             "LS / WASD fly  ·  RT / LMB shoot  ·  LT / E utility\n"
             + "Start = launch wave  ·  B / Esc = focus Next Wave\n"
             + "Clear a wave to earn credits and upgrades.\n"
-            + "Medal ladder (top-left): ★ Scout Wing at wave 3.";
+            + "Medal ladder (top-left): \u2022 Scout Wing at wave 3.";
         public const string FirstWaveCoach = "Shoot rocks  ·  Esc / Start returns to hangar";
         public const string HintPlay =
             "WASD/LS move · Mouse/RS aim · LMB/RT fire · E/LT utility · Q/LB cycle · Esc / Start = back to hangar";
@@ -439,6 +448,8 @@ namespace AsteroidsGoneRogue
             {
                 RefreshBuyButton(i, ShopCatalog.Items[i]);
             }
+
+            RefreshServiceButtons();
 
             RefreshSettingsAudio();
             EnsurePrimaryClickable();
@@ -646,7 +657,7 @@ namespace AsteroidsGoneRogue
 
             _abortButton = CreateButton("AbortWave", transform, body, new Vector2(0.78f, 0.09f), new Vector2(0.97f, 0.155f));
             _abortLabel = _abortButton.GetComponentInChildren<Text>();
-            _abortLabel.text = "Abort → Hangar";
+            _abortLabel.text = "Abort > Hangar";
             _abortLabel.fontSize = 16;
             _abortButton.onClick.AddListener(RequestAbort);
             _abortPlate = _abortButton.targetGraphic as Image;
@@ -1047,6 +1058,55 @@ namespace AsteroidsGoneRogue
                 UiTheme.ApplyButton(button, false, false, true);
                 button.transform.SetAsLastSibling();
             }
+
+            BuildServiceButtons(body);
+        }
+
+        private void BuildServiceButtons(Font body)
+        {
+            float rowStep = ShopCellHeight + ShopCellGutter;
+            _hullRepairButton = CreateButton("Buy_HullRepair", _menuRoot.transform, body, DefenseServiceRect(2, rowStep).min, DefenseServiceRect(2, rowStep).max);
+            _extraLifeButton = CreateButton("Buy_ExtraLife", _menuRoot.transform, body, DefenseServiceRect(3, rowStep).min, DefenseServiceRect(3, rowStep).max);
+            _shieldRefillButton = CreateButton("Buy_ShieldRefill", _menuRoot.transform, body, DefenseServiceRect(4, rowStep).min, DefenseServiceRect(4, rowStep).max);
+            float bankX = 0.02f + 2f * 0.1175f;
+            float bankTop = ShopGridTop - 2f * rowStep;
+            _bankButton = CreateButton(
+                "Buy_Bank",
+                _menuRoot.transform,
+                body,
+                new Vector2(bankX, bankTop - ShopCellHeight),
+                new Vector2(bankX + 0.110f, bankTop));
+            _hullRepairButton.onClick.AddListener(OnHullRepair);
+            _extraLifeButton.onClick.AddListener(OnExtraLife);
+            _shieldRefillButton.onClick.AddListener(OnShieldRefill);
+            _bankButton.onClick.AddListener(OnBankCredits);
+            _hullRepairLabel = _hullRepairButton.GetComponentInChildren<Text>();
+            _extraLifeLabel = _extraLifeButton.GetComponentInChildren<Text>();
+            _shieldRefillLabel = _shieldRefillButton.GetComponentInChildren<Text>();
+            _bankLabel = _bankButton.GetComponentInChildren<Text>();
+            FitShopLabel(_hullRepairLabel, ShopGroup.Defense);
+            FitShopLabel(_extraLifeLabel, ShopGroup.Defense);
+            FitShopLabel(_shieldRefillLabel, ShopGroup.Defense);
+            FitShopLabel(_bankLabel, ShopGroup.Hull);
+            UiTheme.ApplyButton(_hullRepairButton, false, false, true);
+            UiTheme.ApplyButton(_extraLifeButton, false, false, true);
+            UiTheme.ApplyButton(_shieldRefillButton, false, false, true);
+            UiTheme.ApplyButton(_bankButton, false, false, true);
+        }
+
+        private struct ServiceRect
+        {
+            public Vector2 min;
+            public Vector2 max;
+        }
+
+        private ServiceRect DefenseServiceRect(int row, float rowStep)
+        {
+            float top = ShopGridTop - row * rowStep;
+            ServiceRect rect = new ServiceRect();
+            rect.min = new Vector2(0.755f, top - ShopCellHeight);
+            rect.max = new Vector2(0.98f, top);
+            return rect;
         }
 
         private static void FitShopLabel(Text label, ShopGroup group)
@@ -1198,7 +1258,11 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (_loadout != null && _loadout.State != null
+            bool mk2Offer = _loadout != null && _loadout.State != null
+                && _loadout.State.Owns(id)
+                && _loadout.State.CanBuyMk2(id);
+            if (!mk2Offer
+                && _loadout != null && _loadout.State != null
                 && _loadout.State.Owns(id)
                 && WeaponSlots.IsWeapon(id))
             {
@@ -1207,6 +1271,38 @@ namespace AsteroidsGoneRogue
             }
 
             _shop.TryBuy(id);
+        }
+
+        private void OnHullRepair()
+        {
+            if (_shop != null)
+            {
+                _shop.TryRepairHull();
+            }
+        }
+
+        private void OnExtraLife()
+        {
+            if (_shop != null)
+            {
+                _shop.TryBuyExtraLife();
+            }
+        }
+
+        private void OnShieldRefill()
+        {
+            if (_shop != null)
+            {
+                _shop.TryRefillShield();
+            }
+        }
+
+        private void OnBankCredits()
+        {
+            if (_shop != null)
+            {
+                _shop.TryBankCredits();
+            }
         }
 
         private void OnAbort()
@@ -1260,29 +1356,34 @@ namespace AsteroidsGoneRogue
             _summaryRule = _summaryRoot.transform.Find("RunSummaryCardRule").GetComponent<Image>();
 
             _summaryTitle = CreateText("SummaryTitle", _summaryRoot.transform, display, UiTheme.HeaderMin, TextAnchor.MiddleCenter, FontStyle.Bold);
-            // r1 headline. One line, left of the medal chip, so EN/SV cannot cover NEXT WAVE.
-            Stretch(_summaryTitle.rectTransform, new Vector2(0.03f, 0.62f), new Vector2(0.70f, 0.96f));
+            // r1 headline. One line, left of the medal chip, above the stats row.
+            Stretch(_summaryTitle.rectTransform, new Vector2(0.03f, 0.78f), new Vector2(0.52f, 0.96f));
             _summaryTitle.color = UiTheme.Primary;
             ClampOneLine(_summaryTitle);
 
             _summaryBody = CreateText("SummaryBody", _summaryRoot.transform, body, UiTheme.BodyMin, TextAnchor.MiddleCenter, FontStyle.Normal);
-            // r2 SCORE · WAVE · WORLD · CREDITS (+delta). One line, truncate.
-            Stretch(_summaryBody.rectTransform, new Vector2(0.03f, 0.36f), new Vector2(0.97f, 0.58f));
+            // r2 SCORE · WAVE · WORLD · CREDITS (+delta). One line, above the upgrades row.
+            Stretch(_summaryBody.rectTransform, new Vector2(0.03f, 0.58f), new Vector2(0.97f, 0.76f));
             _summaryBody.color = UiTheme.Accent;
             ClampOneLine(_summaryBody);
 
             _waveMedal = CreateText("WaveMedal", _summaryRoot.transform, display, 14, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Stretch(_waveMedal.rectTransform, new Vector2(0.72f, 0.62f), new Vector2(0.97f, 0.96f));
+            Stretch(_waveMedal.rectTransform, new Vector2(0.54f, 0.78f), new Vector2(0.97f, 0.96f));
             _waveMedal.color = UiTheme.Primary;
             ClampOneLine(_waveMedal);
 
             _continueHint = CreateText("ContinueHint", _summaryRoot.transform, body, UiTheme.ShopHeaderSize, TextAnchor.MiddleLeft, FontStyle.Normal);
             _continueHint.lineSpacing = UiTheme.ShopLineSpacing;
             // r3 upgrades or the run-over explanation. Wrap inside the card; do not cover NEXT WAVE.
-            Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.06f), new Vector2(0.97f, 0.34f));
+            Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.22f), new Vector2(0.97f, 0.52f));
             _continueHint.color = UiTheme.Secondary;
             _continueHint.horizontalOverflow = HorizontalWrapMode.Wrap;
             _continueHint.verticalOverflow = VerticalWrapMode.Truncate;
+            _summaryRecord = CreateText("SummaryRecord", _summaryRoot.transform, body, UiTheme.ShopHeaderSize, TextAnchor.MiddleLeft, FontStyle.Normal);
+            Stretch(_summaryRecord.rectTransform, new Vector2(0.03f, 0.04f), new Vector2(0.97f, 0.20f));
+            _summaryRecord.color = UiTheme.Secondary;
+            _summaryRecord.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _summaryRecord.verticalOverflow = VerticalWrapMode.Truncate;
             _summaryRoot.SetActive(false);
         }
 
@@ -1381,30 +1482,9 @@ namespace AsteroidsGoneRogue
             }
             else if (summaryPhase)
             {
-                LocalBest sessionBest = _game != null ? _game.SessionBest : null;
-                if (sessionBest != null)
-                {
-                    row3 += "  ·  " + sessionBest.DeathRetryLine(_session.LastRunScore);
-                }
-
-                if (_game != null && _game.LastRunWasNewBest)
-                {
-                    row3 += "  ·  " + Loc.T("ui.new_best", "NEW BEST");
-                }
-
                 if (_session.Phase == GamePhase.CampaignClear)
                 {
                     row3 = RunSummary.CampaignWinHint() + "  ·  " + row3;
-                }
-                else if (failed && RunSummary.ShowFailContinue(_session.Phase))
-                {
-                    row3 = DamageCauseText.PlayerFaultLine(FailReasonText())
-                        + "  ·  "
-                        + RunSummary.FailContinueHint(
-                            FailReasonText(),
-                            _session.WaveIndex,
-                            _session.FailRemainingThreats).Replace("\n", "  ·  ")
-                        + "  ·  " + RunSummary.UpgradesLine(loadout);
                 }
                 else if (RunSummary.ShowContinueHint(_session.LastResolvedWave, _session.Phase))
                 {
@@ -1425,6 +1505,57 @@ namespace AsteroidsGoneRogue
                 _continueHint.gameObject.SetActive(true);
                 _continueHint.horizontalOverflow = HorizontalWrapMode.Wrap;
                 _continueHint.verticalOverflow = VerticalWrapMode.Truncate;
+                bool ultraWide = Screen.width * 10 >= Screen.height * 21;
+                if (summaryPhase && ultraWide)
+                {
+                    Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.22f), new Vector2(0.97f, 0.56f));
+                    if (_summaryBody != null)
+                    {
+                        Stretch(_summaryBody.rectTransform, new Vector2(0.03f, 0.60f), new Vector2(0.97f, 0.76f));
+                    }
+                }
+                else if (summaryPhase)
+                {
+                    Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.22f), new Vector2(0.97f, 0.52f));
+                    if (_summaryBody != null)
+                    {
+                        Stretch(_summaryBody.rectTransform, new Vector2(0.03f, 0.58f), new Vector2(0.97f, 0.76f));
+                    }
+                }
+                else
+                {
+                    Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.10f), new Vector2(0.97f, 0.34f));
+                    if (_summaryBody != null)
+                    {
+                        Stretch(_summaryBody.rectTransform, new Vector2(0.03f, 0.58f), new Vector2(0.97f, 0.76f));
+                    }
+                }
+            }
+
+            if (_summaryRecord != null)
+            {
+                string recordLine = string.Empty;
+                if (summaryPhase)
+                {
+                    LocalBest recordBest = _game != null ? _game.SessionBest : null;
+                    if (recordBest != null)
+                    {
+                        recordLine = recordBest.DeathRetryLine(_session.LastRunScore);
+                    }
+
+                    if (_game != null && _game.LastRunWasNewBest)
+                    {
+                        if (recordLine.Length > 0)
+                        {
+                            recordLine += "  ·  ";
+                        }
+
+                        recordLine += Loc.T("ui.new_best", "NEW BEST");
+                    }
+                }
+
+                _summaryRecord.text = recordLine;
+                _summaryRecord.gameObject.SetActive(summaryPhase && recordLine.Length > 0);
             }
         }
 
@@ -1939,7 +2070,7 @@ namespace AsteroidsGoneRogue
         {
             if (_abortLabel != null)
             {
-                _abortLabel.text = Loc.T("ui.abort", "Abort → Hangar");
+                _abortLabel.text = Loc.T("ui.abort", "Abort > Hangar");
             }
 
             if (_creditsButtonLabel != null)
@@ -2997,6 +3128,26 @@ namespace AsteroidsGoneRogue
                 return ButtonIfActive(_newRunButton);
             }
 
+            if (slot == HangarPadNav.HullRepairSlot)
+            {
+                return ButtonIfActive(_hullRepairButton);
+            }
+
+            if (slot == HangarPadNav.ExtraLifeSlot)
+            {
+                return ButtonIfActive(_extraLifeButton);
+            }
+
+            if (slot == HangarPadNav.ShieldRefillSlot)
+            {
+                return ButtonIfActive(_shieldRefillButton);
+            }
+
+            if (slot == HangarPadNav.BankSlot)
+            {
+                return ButtonIfActive(_bankButton);
+            }
+
             if (slot >= HangarPadNav.LegacySlot0 && slot < HangarPadNav.LegacySlot0 + HangarPadNav.LegacyPerkSlots)
             {
                 int legacyIndex = slot - HangarPadNav.LegacySlot0;
@@ -3110,6 +3261,26 @@ namespace AsteroidsGoneRogue
             if (_newRunButton != null && go == _newRunButton.gameObject)
             {
                 return HangarPadNav.NewRunSlot;
+            }
+
+            if (_hullRepairButton != null && go == _hullRepairButton.gameObject)
+            {
+                return HangarPadNav.HullRepairSlot;
+            }
+
+            if (_extraLifeButton != null && go == _extraLifeButton.gameObject)
+            {
+                return HangarPadNav.ExtraLifeSlot;
+            }
+
+            if (_shieldRefillButton != null && go == _shieldRefillButton.gameObject)
+            {
+                return HangarPadNav.ShieldRefillSlot;
+            }
+
+            if (_bankButton != null && go == _bankButton.gameObject)
+            {
+                return HangarPadNav.BankSlot;
             }
 
             if (_legacyButtons != null)
@@ -3316,17 +3487,21 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            int price = _loadout.State.EffectiveCost(item);
-            bool runOver = GameSession.ShopLockedForPhase(_session.Phase);
+            int shopWorld = _session != null ? WorldCatalog.NumberForWave(_session.WaveIndex) : 1;
             bool owned = _loadout.State.Owns(item.Id);
+            bool mk2Offer = owned && _loadout.State.CanBuyMk2(item.Id);
+            int price = mk2Offer
+                ? _loadout.State.Mk2Price(item, shopWorld)
+                : _loadout.State.EffectiveCost(item, shopWorld);
+            bool runOver = GameSession.ShopLockedForPhase(_session.Phase);
             bool canApply = _loadout.State.CanApply(item.Id);
             bool locked = runOver || (!owned && !canApply);
-            bool tooPoor = !runOver && !owned && canApply && _session.Credits < price;
+            bool tooPoor = !runOver && ((mk2Offer && _session.Credits < price) || (!owned && canApply && _session.Credits < price));
             bool weapon = WeaponSlots.IsWeapon(item.Id);
             bool equipped = owned && weapon && _loadout.State.IsEquipped(item.Id);
             _buyButtons[index].interactable = !runOver
                 && _session.ShopOpen
-                && ((owned && weapon) || (!owned && !locked && !tooPoor));
+                && ((mk2Offer && !tooPoor) || (owned && weapon) || (!owned && !locked && !tooPoor));
 
             bool offPath = _loadout.State.IsOffPath(item.Id);
             Image plate = _buyButtons[index].targetGraphic as Image;
@@ -3350,7 +3525,11 @@ namespace AsteroidsGoneRogue
             UiTheme.SetPadFocus(_buyButtons[index].gameObject, focused, true);
 
             string costLine;
-            if (owned)
+            if (mk2Offer)
+            {
+                costLine = Loc.T("ui.mk2", "Mk II") + "  " + Loc.Tf("ui.cost_cr", "{0} cr", price);
+            }
+            else if (owned)
             {
                 costLine = Loc.T("ui.owned", "OWNED") + UiTheme.OwnedCheck;
             }
@@ -3377,6 +3556,36 @@ namespace AsteroidsGoneRogue
             }
 
             _buyLabels[index].text = item.Title + "\n" + costLine;
+        }
+
+        private void RefreshServiceButtons()
+        {
+            int serviceWorld = _session != null ? WorldCatalog.NumberForWave(_session.WaveIndex) : 1;
+            bool runOver = _session == null || GameSession.ShopLockedForPhase(_session.Phase) || !_session.ShopOpen;
+            int repairPrice = ShopPrices.ApplyWorld(ShopPrices.HullRepairCost, serviceWorld);
+            int lifePrice = ShopPrices.ApplyWorld(ShopPrices.ExtraLifeCost, serviceWorld);
+            int refillPrice = ShopPrices.ApplyWorld(ShopPrices.ShieldRefillCost, serviceWorld);
+            bool hullHurt = _game != null && _game.PlayerHealth != null && _game.PlayerHealth.Hull > 0 && _game.PlayerHealth.Hull < _game.PlayerHealth.MaxHull;
+            bool shieldLow = _game != null && _game.PlayerHealth != null && _game.PlayerHealth.MaxShield > 0 && _game.PlayerHealth.Shield < _game.PlayerHealth.MaxShield;
+            bool lifeOk = _session != null && _session.CanBuyExtraLife(serviceWorld);
+            bool bankOk = _session != null && _session.CanBankCredits();
+            PaintService(_hullRepairButton, _hullRepairLabel, Loc.T("shop.hull_repair", "Hull repair"), repairPrice, !runOver && hullHurt && _session.Credits >= repairPrice);
+            PaintService(_extraLifeButton, _extraLifeLabel, Loc.T("shop.extra_life", "Extra life"), lifePrice, !runOver && lifeOk && _session.Credits >= lifePrice);
+            PaintService(_shieldRefillButton, _shieldRefillLabel, Loc.T("shop.shield_refill", "Shield refill"), refillPrice, !runOver && shieldLow && _session.Credits >= refillPrice);
+            PaintService(_bankButton, _bankLabel, Loc.T("shop.bank", "Bank credits"), ShopPrices.BankCreditsPerPoint, !runOver && bankOk);
+        }
+
+        private static void PaintService(Button button, Text label, string title, int price, bool canBuy)
+        {
+            if (button == null || label == null)
+            {
+                return;
+            }
+
+            button.interactable = canBuy;
+            label.text = title + "\n" + Loc.Tf("ui.cost_cr", "{0} cr", price);
+            Image plate = button.targetGraphic as Image;
+            UiTheme.PaintShopPlate(plate, label, false, !canBuy, !canBuy);
         }
 
         private string BestCardLine()
@@ -3890,7 +4099,7 @@ namespace AsteroidsGoneRogue
                 lives = cap;
             }
 
-            return Loc.T("ui.lives", "LIVES") + "  " + new string('●', lives) + new string('○', cap - lives);
+            return Loc.T("ui.lives", "LIVES") + "  " + new string(UiGlyph.LifeFull, lives) + new string(UiGlyph.LifeEmpty, cap - lives);
         }
 
         private void LayoutHealthRack(bool failed)

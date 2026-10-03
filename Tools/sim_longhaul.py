@@ -61,6 +61,7 @@ def _load(root: Path) -> dict:
     catalog = (root / "Assets/Scripts/Core/WorldCatalog.cs").read_text(encoding="utf-8")
     enemies = (root / "Assets/Scripts/Combat/EnemyKind.cs").read_text(encoding="utf-8")
     shop = (root / "Assets/Scripts/Core/ShopCatalog.cs").read_text(encoding="utf-8")
+    prices = (root / "Assets/Scripts/Core/ShopPrices.cs").read_text(encoding="utf-8")
     doctrine = (root / "Assets/Scripts/Core/DoctrineRules.cs").read_text(encoding="utf-8")
     boons = (root / "Assets/Scripts/Core/BoonCatalog.cs").read_text(encoding="utf-8")
     legacy = (root / "Assets/Scripts/Core/LegacyProgress.cs").read_text(encoding="utf-8")
@@ -108,6 +109,7 @@ def _load(root: Path) -> dict:
         "hull_cap": _const(legacy, "HullBonusCap"),
         "legacy_credits": _const(legacy, "CreditsPerLevel"),
         "shop_costs": _shop_costs(shop),
+        "mk2_percent": _const(prices, "Mk2Percent"),
         "gates": [
             _const(doctrine, "BarrageGateCost"),
             _const(doctrine, "LanceGateCost"),
@@ -446,7 +448,15 @@ def sweep(root: Path | None = None) -> dict:
             if easy_boss < 1:
                 non_finite.append(f"boss {wave}")
 
-    catalogue = sum(spec["shop_costs"]) + sum(spec["gates"])
+    mk2_costs = []
+    for base_cost in spec["shop_costs"]:
+        mk2_cost = base_cost * spec["mk2_percent"] // 100
+        if mk2_cost < 1:
+            mk2_cost = 1
+        mk2_costs.append(mk2_cost)
+    # Spend-everything catalogue at world-1 prices: Mk I + Mk II + doctrine gates.
+    # World surcharge and the credit bank are reported by the shop, not in this sum.
+    catalogue = sum(spec["shop_costs"]) + sum(mk2_costs) + sum(spec["gates"])
     if catalogue < 1:
         non_finite.append("catalogue")
     for cost in spec["shop_costs"] + spec["gates"]:
@@ -468,7 +478,7 @@ def sweep(root: Path | None = None) -> dict:
     applied_discount = spec["legacy_max"] * spec["discount_step"]
     if applied_discount > spec["discount_cap"]:
         applied_discount = spec["discount_cap"]
-    if applied_discount > spec["discount_cap"] or spec["shield_cap"] > 1 or spec["hull_cap"] > 1:
+    if applied_discount > spec["discount_cap"] or spec["shield_cap"] > 2 or spec["hull_cap"] > 2:
         cap_breaks.append("legacy caps")
     if spec["legacy_max"] * spec["legacy_credits"] > 30:
         cap_breaks.append("legacy credits")
@@ -481,6 +491,7 @@ def sweep(root: Path | None = None) -> dict:
         "floor_total": floor_total,
         "catalogue": catalogue,
         "shop": sum(spec["shop_costs"]),
+        "mk2": sum(mk2_costs),
         "gates": sum(spec["gates"]),
         "credit_bonus_per_world": spec["credit_bonus"],
         "jumps": jumps,
