@@ -123,7 +123,7 @@ namespace AsteroidsGoneRogue
     /// </summary>
     public sealed class SettingsState
     {
-        public const int CurrentVersion = 4;
+        public const int CurrentVersion = 3;
         public const int DefaultHintSizeStep = 1;
         public const int MaxHintSizeStep = 2;
 
@@ -135,11 +135,9 @@ namespace AsteroidsGoneRogue
         public const string ConfirmRestartNewRunKey = "agr.settings.confirmRestartNewRun";
         public const string PadNavSourceKey = "agr.settings.padNavSource";
         public const string AssistModeKey = "agr.settings.assistMode";
-        public const string ReduceEffectsKey = "agr.settings.reduceEffects";
 
         public bool ScreenShake;
         public bool AssistMode;
-        public bool ReduceEffects;
         public HintMode HintMode;
         public int HintSizeStep;
         public bool ConfirmRestartInPlay;
@@ -156,7 +154,6 @@ namespace AsteroidsGoneRogue
             state.ConfirmRestartNewRun = true;
             state.PadNavSource = AsteroidsGoneRogue.PadNavSource.Both;
             state.AssistMode = false;
-            state.ReduceEffects = false;
             return state;
         }
 
@@ -166,8 +163,6 @@ namespace AsteroidsGoneRogue
         private static bool _menuPadNavReady;
         private static bool _assistCached;
         private static bool _assistReady;
-        private static bool _reduceCached;
-        private static bool _reduceReady;
 
         public static bool AssistEnabled
         {
@@ -180,24 +175,6 @@ namespace AsteroidsGoneRogue
                 }
 
                 return _assistCached;
-            }
-        }
-
-        /// <summary>
-        /// Cached copy of <see cref="ReduceEffects"/>. Juice reads this and does
-        /// not touch PlayerPrefs. Missing or pre-v4 saves stay off.
-        /// </summary>
-        public static bool ReduceEffectsEnabled
-        {
-            get
-            {
-                if (!_reduceReady)
-                {
-                    _reduceCached = UnityEngine.PlayerPrefs.GetInt(ReduceEffectsKey, 0) != 0;
-                    _reduceReady = true;
-                }
-
-                return _reduceCached;
             }
         }
 
@@ -250,8 +227,6 @@ namespace AsteroidsGoneRogue
             _menuPadNavReady = true;
             _assistCached = source.AssistMode;
             _assistReady = true;
-            _reduceCached = source.ReduceEffects;
-            _reduceReady = true;
         }
 
         /// <summary>
@@ -597,7 +572,6 @@ namespace AsteroidsGoneRogue
             prefs.ConfirmRestartNewRun = ConfirmRestartNewRun ? 1 : 0;
             prefs.PadNavSource = (int)PadNavSource;
             prefs.AssistMode = AssistMode ? 1 : 0;
-            prefs.ReduceEffects = ReduceEffects ? 1 : 0;
             return prefs;
         }
 
@@ -618,7 +592,6 @@ namespace AsteroidsGoneRogue
                 confirmRestartInPlay,
                 confirmRestartNewRun,
                 padNavSource,
-                0,
                 0);
         }
 
@@ -631,29 +604,6 @@ namespace AsteroidsGoneRogue
             int confirmRestartNewRun,
             int padNavSource,
             int assistMode)
-        {
-            return FromInts(
-                version,
-                screenShake,
-                hintMode,
-                hintSizeStep,
-                confirmRestartInPlay,
-                confirmRestartNewRun,
-                padNavSource,
-                assistMode,
-                0);
-        }
-
-        public static SettingsState FromInts(
-            int version,
-            int screenShake,
-            int hintMode,
-            int hintSizeStep,
-            int confirmRestartInPlay,
-            int confirmRestartNewRun,
-            int padNavSource,
-            int assistMode,
-            int reduceEffects)
         {
             if (version < 1 || version > CurrentVersion)
             {
@@ -669,7 +619,6 @@ namespace AsteroidsGoneRogue
             state.ConfirmRestartNewRun = version == 1 || confirmRestartNewRun != 0;
             state.PadNavSource = NormalizePadNavSource(padNavSource);
             state.AssistMode = version >= 3 && assistMode != 0;
-            state.ReduceEffects = version >= 4 && reduceEffects != 0;
             return state;
         }
 
@@ -683,8 +632,7 @@ namespace AsteroidsGoneRogue
                 prefs.ConfirmRestartInPlay,
                 prefs.ConfirmRestartNewRun,
                 prefs.PadNavSource,
-                prefs.AssistMode,
-                prefs.ReduceEffects);
+                prefs.AssistMode);
         }
 
         public static SettingsState Load()
@@ -698,8 +646,7 @@ namespace AsteroidsGoneRogue
                 UnityEngine.PlayerPrefs.GetInt(ConfirmRestartInPlayKey, 1),
                 UnityEngine.PlayerPrefs.GetInt(ConfirmRestartNewRunKey, 1),
                 UnityEngine.PlayerPrefs.GetInt(PadNavSourceKey, (int)AsteroidsGoneRogue.PadNavSource.Both),
-                UnityEngine.PlayerPrefs.GetInt(AssistModeKey, 0),
-                UnityEngine.PlayerPrefs.GetInt(ReduceEffectsKey, 0));
+                UnityEngine.PlayerPrefs.GetInt(AssistModeKey, 0));
             Publish(state);
             if (version != CurrentVersion)
             {
@@ -720,7 +667,6 @@ namespace AsteroidsGoneRogue
             UnityEngine.PlayerPrefs.SetInt(ConfirmRestartNewRunKey, prefs.ConfirmRestartNewRun);
             UnityEngine.PlayerPrefs.SetInt(PadNavSourceKey, prefs.PadNavSource);
             UnityEngine.PlayerPrefs.SetInt(AssistModeKey, prefs.AssistMode);
-            UnityEngine.PlayerPrefs.SetInt(ReduceEffectsKey, prefs.ReduceEffects);
             UnityEngine.PlayerPrefs.Save();
             Publish(this);
         }
@@ -736,6 +682,5 @@ namespace AsteroidsGoneRogue
         public int ConfirmRestartNewRun;
         public int PadNavSource;
         public int AssistMode;
-        public int ReduceEffects;
     }
 }

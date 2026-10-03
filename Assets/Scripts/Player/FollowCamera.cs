@@ -68,14 +68,12 @@ namespace AsteroidsGoneRogue
             }
 
             float applied = SettingsState.ShakeAmplitude(true, amplitude);
-            applied = EffectScale.ShakeAdd(true, SettingsState.ReduceEffectsEnabled, applied);
             if (applied <= 0f)
             {
                 return;
             }
 
-            float shakeCap = EffectScale.ShakeCap(SettingsState.ReduceEffectsEnabled, MaxShake);
-            _shake = Mathf.Min(shakeCap, _shake + applied);
+            _shake = Mathf.Min(MaxShake, _shake + applied);
         }
 
         private void LateUpdate()

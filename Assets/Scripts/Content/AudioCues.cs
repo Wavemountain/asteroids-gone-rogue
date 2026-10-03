@@ -214,16 +214,11 @@ namespace AsteroidsGoneRogue
         private float _aimTellT;
         private float _radTellT;
         private bool _muted;
-        private float _sfxVolume = MixCurve.DefaultSfxSlider;
-        private float _musicVolume = MixCurve.DefaultMusicSlider;
+        private float _sfxVolume = DefaultSfxVolume;
+        private float _musicVolume = DefaultMusicVolume;
         private AudioClip _currentMusic;
-        private float _outScale = HangarMusicScale;
-        private float _outPitch = HangarMusicPitch;
-        private int _outHangar;
-        private float _inScale = HangarMusicScale;
-        private float _inPitch = HangarMusicPitch;
-        private int _inHangar;
-        private float _fadeStartAngle;
+        private float _musicScale = HangarMusicScale;
+        private float _musicPitch = HangarMusicPitch;
         private float _duckScale = 1f;
         private float _duckUntil;
         private float _duckSeconds = AbortDuckSeconds;
@@ -269,7 +264,8 @@ namespace AsteroidsGoneRogue
             _railHold = CreateSource("RailHoldSource", true);
             LoadClips();
             _muted = PlayerPrefs.GetInt(MuteKey, 0) == 1;
-            LoadMixSliders();
+            _sfxVolume = PlayerPrefs.GetFloat(SfxKey, DefaultSfxVolume);
+            _musicVolume = PlayerPrefs.GetFloat(MusicKey, DefaultMusicVolume);
             ApplyVolumes();
         }
 
@@ -314,7 +310,7 @@ namespace AsteroidsGoneRogue
             _railRise.clip = clip;
             _railRise.loop = false;
             _railRise.pitch = RailChargePitch;
-            _railRise.volume = SfxGain() * RailChargeScale;
+            _railRise.volume = _muted ? 0f : _sfxVolume * RailChargeScale;
             if (!_muted)
             {
                 _railRise.Play();
@@ -341,7 +337,7 @@ namespace AsteroidsGoneRogue
             float along = Mathf.Clamp01(charge01 - 1f);
             _railHoldFadeUntil = 0f;
             _railHold.pitch = Mathf.Lerp(RailHoldPitchMin, RailHoldPitchMax, along);
-            _railHold.volume = SfxGain() * RailHoldLoopScale;
+            _railHold.volume = _sfxVolume * RailHoldLoopScale;
             if (_railHold.clip != _railHoldClip)
             {
                 _railHold.clip = _railHoldClip;
@@ -1125,19 +1121,13 @@ namespace AsteroidsGoneRogue
 
             _crossfading = false;
             _fadeElapsed = 0f;
-            _fadeStartAngle = 0f;
             if (_musicB != null)
             {
                 _musicB.Stop();
             }
 
-            _outScale = scale;
-            _outPitch = pitch;
-            _outHangar = HangarFlag(clip);
-            _inScale = scale;
-            _inPitch = pitch;
-            _inHangar = 0;
-            _incomingClip = null;
+            _musicScale = scale;
+            _musicPitch = pitch;
             if (_currentMusic == clip && _music.isPlaying)
             {
                 ApplyVolumes();
@@ -1165,75 +1155,40 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            bool settledSame = !_crossfading && _currentMusic == clip && _music.isPlaying;
+            bool sameAsCurrent = _currentMusic == clip && (_crossfading || _music.isPlaying);
             bool sameAsIncoming = _crossfading && _incomingClip == clip;
-            if (!MusicPlan.ShouldStartCrossfade(settledSame, sameAsIncoming))
+            if (!MusicPlan.ShouldStartCrossfade(sameAsCurrent, sameAsIncoming))
             {
-                if (_crossfading)
-                {
-                    _inScale = scale;
-                    _inPitch = pitch;
-                    _inHangar = HangarFlag(clip);
-                }
-                else
-                {
-                    _outScale = scale;
-                    _outPitch = pitch;
-                    _outHangar = HangarFlag(clip);
-                }
-
+                _musicScale = scale;
+                _musicPitch = pitch;
                 ApplyVolumes();
                 return;
             }
 
+            _musicScale = scale;
+            _musicPitch = pitch;
             if (_currentMusic == null || !_music.isPlaying || _musicB == null)
             {
                 PlayLoop(clip, scale, pitch);
                 return;
             }
 
-            float outWeight;
-            float inWeight;
-            CurrentMusicWeights(out outWeight, out inWeight);
-            int reverse = (_crossfading && _currentMusic == clip) ? 1 : 0;
-            MusicRetarget plan = MusicCrossfade.Retarget(
-                outWeight,
-                inWeight,
-                _outScale,
-                _outPitch,
-                _outHangar,
-                _inScale,
-                _inPitch,
-                _inHangar,
-                _crossfading ? 1 : 0,
-                reverse,
-                scale,
-                pitch,
-                HangarFlag(clip));
-            if (plan.SwapSources != 0)
+            if (_crossfading)
             {
-                SwapMusicSources();
+                FinishCrossfade();
             }
 
-            _outScale = plan.OutScale;
-            _outPitch = plan.OutPitch;
-            _outHangar = plan.OutHangar;
-            _inScale = plan.InScale;
-            _inPitch = plan.InPitch;
-            _inHangar = plan.InHangar;
-            _fadeStartAngle = plan.StartAngle;
+            _incomingClip = clip;
+            _musicB.clip = clip;
+            _musicB.loop = true;
+            _musicB.pitch = pitch;
+            _musicB.volume = 0f;
             _fadeElapsed = 0f;
             _fadeSeconds = MusicPlan.MusicCrossfadeSeconds;
             _crossfading = true;
-            if (plan.ReplaceIncoming != 0)
+            if (!_muted && !_musicHeld)
             {
-                _incomingClip = clip;
-                _musicB.clip = clip;
-                _musicB.loop = true;
-                if (!_muted && !_musicHeld)
-                {
-                    _musicB.Play();
-                }
+                _musicB.Play();
             }
 
             ApplyVolumes();
@@ -1241,29 +1196,17 @@ namespace AsteroidsGoneRogue
 
         private void FinishCrossfade()
         {
-            _outScale = _inScale;
-            _outPitch = _inPitch;
-            _outHangar = _inHangar;
-            SwapMusicSources();
+            AudioSource outgoing = _music;
+            _music = _musicB;
+            _musicB = outgoing;
             if (_musicB != null)
             {
                 _musicB.Stop();
             }
 
-            _incomingClip = null;
+            _currentMusic = _incomingClip;
             _crossfading = false;
             _fadeElapsed = 0f;
-            _fadeStartAngle = 0f;
-        }
-
-        private void SwapMusicSources()
-        {
-            AudioSource outgoing = _music;
-            _music = _musicB;
-            _musicB = outgoing;
-            AudioClip settled = _currentMusic;
-            _currentMusic = _incomingClip;
-            _incomingClip = settled;
         }
 
         private void HoldMusicForPause()
@@ -1338,43 +1281,40 @@ namespace AsteroidsGoneRogue
 
         private void ApplyVolumes()
         {
-            float sfxGain = SfxGain();
             if (_sfx != null)
             {
-                _sfx.volume = sfxGain;
+                _sfx.volume = _muted ? 0f : _sfxVolume;
             }
 
             if (_vary != null)
             {
-                _vary.volume = sfxGain;
+                _vary.volume = _muted ? 0f : _sfxVolume;
             }
 
             if (_tell != null)
             {
-                _tell.volume = sfxGain;
+                _tell.volume = _muted ? 0f : _sfxVolume;
                 _tell.pitch = 1f;
             }
 
             if (_tick != null)
             {
-                _tick.volume = sfxGain;
+                _tick.volume = _muted ? 0f : _sfxVolume;
             }
 
             if (_railRise != null)
             {
-                _railRise.volume = sfxGain * RailChargeScale;
+                _railRise.volume = _muted ? 0f : _sfxVolume * RailChargeScale;
             }
 
             ApplyRailHoldVolume();
 
-            float outWeight;
-            float inWeight;
-            CurrentMusicWeights(out outWeight, out inWeight);
-            float musicGain = MusicGain();
+            float musicLevel = _muted ? 0f : _musicVolume * _musicScale * _duckScale;
+            float fadeRamp = _crossfading ? MusicPlan.CrossfadeRamp(_fadeElapsed, _fadeSeconds) : 1f;
             if (_music != null)
             {
-                _music.pitch = _outPitch;
-                _music.volume = musicGain * _outScale * _duckScale * outWeight;
+                _music.pitch = _musicPitch;
+                _music.volume = _crossfading ? musicLevel * (1f - fadeRamp) : musicLevel;
                 if (_muted || _musicHeld)
                 {
                     if (_music.isPlaying)
@@ -1394,8 +1334,8 @@ namespace AsteroidsGoneRogue
 
             if (_musicB != null)
             {
-                _musicB.pitch = _inPitch;
-                _musicB.volume = _crossfading ? musicGain * _inScale * _duckScale * inWeight : 0f;
+                _musicB.pitch = _musicPitch;
+                _musicB.volume = _crossfading ? musicLevel * fadeRamp : 0f;
                 if (!_crossfading)
                 {
                     if (_musicB.isPlaying)
@@ -1452,7 +1392,7 @@ namespace AsteroidsGoneRogue
 
             if (_railHold.isPlaying)
             {
-                _railHold.volume = SfxGain() * RailHoldLoopScale;
+                _railHold.volume = _muted ? 0f : _sfxVolume * RailHoldLoopScale;
             }
         }
 
@@ -1463,24 +1403,10 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            float outWeight;
-            float inWeight;
-            CurrentMusicWeights(out outWeight, out inWeight);
-            float hangarWeight = 0f;
-            if (_outHangar != 0)
-            {
-                hangarWeight += outWeight;
-            }
-
-            if (_crossfading && _inHangar != 0)
-            {
-                hangarWeight += inWeight;
-            }
-
+            bool hangar = _currentMusic == _hangarAmbience && !_muted;
             _hangarLayer.pitch = HangarLayerPitch;
-            float level = MusicGain() * HangarLayerScale * _duckScale * hangarWeight;
-            _hangarLayer.volume = level;
-            if (level <= 0.0001f || _muted)
+            _hangarLayer.volume = hangar ? _musicVolume * HangarLayerScale * _duckScale : 0f;
+            if (!hangar)
             {
                 if (_hangarLayer.isPlaying)
                 {
@@ -1496,90 +1422,10 @@ namespace AsteroidsGoneRogue
                 _hangarLayer.loop = true;
             }
 
-            if (!_hangarLayer.isPlaying && !_musicHeld)
+            if (!_hangarLayer.isPlaying)
             {
                 _hangarLayer.Play();
             }
-        }
-
-        private float SfxGain()
-        {
-            if (_muted)
-            {
-                return 0f;
-            }
-
-            return MixCurve.Gain(_sfxVolume);
-        }
-
-        private float MusicGain()
-        {
-            if (_muted)
-            {
-                return 0f;
-            }
-
-            return MixCurve.Gain(_musicVolume);
-        }
-
-        private int HangarFlag(AudioClip clip)
-        {
-            if (clip != null && clip == _hangarAmbience)
-            {
-                return 1;
-            }
-
-            return 0;
-        }
-
-        private void CurrentMusicWeights(out float outWeight, out float inWeight)
-        {
-            if (!_crossfading)
-            {
-                outWeight = 1f;
-                inWeight = 0f;
-                return;
-            }
-
-            float progress = MusicPlan.CrossfadeRamp(_fadeElapsed, _fadeSeconds);
-            MusicCrossfade.Weights(_fadeStartAngle, progress, out outWeight, out inWeight);
-        }
-
-        private void LoadMixSliders()
-        {
-            int curve = PlayerPrefs.GetInt(MixCurve.CurveKey, 0);
-            bool hasSfx = PlayerPrefs.HasKey(SfxKey);
-            bool hasMusic = PlayerPrefs.HasKey(MusicKey);
-            if (curve >= MixCurve.CurveVersion)
-            {
-                _sfxVolume = hasSfx ? PlayerPrefs.GetFloat(SfxKey, MixCurve.DefaultSfxSlider) : MixCurve.DefaultSfxSlider;
-                _musicVolume = hasMusic ? PlayerPrefs.GetFloat(MusicKey, MixCurve.DefaultMusicSlider) : MixCurve.DefaultMusicSlider;
-            }
-            else if (hasSfx || hasMusic)
-            {
-                _sfxVolume = hasSfx
-                    ? MixCurve.SliderFromLinear(PlayerPrefs.GetFloat(SfxKey, DefaultSfxVolume))
-                    : MixCurve.DefaultSfxSlider;
-                _musicVolume = hasMusic
-                    ? MixCurve.SliderFromLinear(PlayerPrefs.GetFloat(MusicKey, DefaultMusicVolume))
-                    : MixCurve.DefaultMusicSlider;
-                PlayerPrefs.SetFloat(SfxKey, _sfxVolume);
-                PlayerPrefs.SetFloat(MusicKey, _musicVolume);
-                PlayerPrefs.SetInt(MixCurve.CurveKey, MixCurve.CurveVersion);
-                PlayerPrefs.Save();
-            }
-            else
-            {
-                _sfxVolume = MixCurve.DefaultSfxSlider;
-                _musicVolume = MixCurve.DefaultMusicSlider;
-                PlayerPrefs.SetFloat(SfxKey, _sfxVolume);
-                PlayerPrefs.SetFloat(MusicKey, _musicVolume);
-                PlayerPrefs.SetInt(MixCurve.CurveKey, MixCurve.CurveVersion);
-                PlayerPrefs.Save();
-            }
-
-            _sfxVolume = Mathf.Clamp01(_sfxVolume);
-            _musicVolume = Mathf.Clamp01(_musicVolume);
         }
 
         private void LoadClips()
