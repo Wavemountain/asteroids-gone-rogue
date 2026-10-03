@@ -1740,11 +1740,12 @@ def test_monsters_arenas_040() -> None:
     assert "forceModuleActive" not in (root / "Assets/Scripts/Content/GameBootstrap.cs").read_text(encoding="utf-8")
     assert "ShowFailContinue" in summary
     assert "FailContinueHint" in summary
-    assert "Your hull" in summary
-    assert "start from the hangar" in summary
+    assert "One more try: start over from wave 1, Legacy is kept" in summary
+    assert "keeps this run" not in summary
+    assert "keeps your ship" not in summary
     assert "MonsterTeaser" in ui
     assert "FailContinueHint" not in ui
-    assert "PlayerFaultLine" in cause
+    assert "PlayerFaultLine" not in cause
     assert "PlayerFaultLine" not in ui
     assert "Spoke ring" in layout
     assert "ArenaLayoutId.SpokeRing" in factory
@@ -2382,10 +2383,10 @@ def test_fair_death_042() -> None:
     assert "One left. Almost had it." in summary
     assert "Almost had it — {0} left." in summary
     assert "{0} left." in summary
-    assert "Your hull. Run over — start from the hangar." in summary
+    assert "One more try: start over from wave 1, Legacy is kept" in summary
     assert "FailContinueHint(string failReason, int waveIndex, int remainingThreats)" in summary
-    assert "that was you. One more try, or New Run separately." in cause
-    assert "PlayerFaultLine" in cause
+    assert "that was you" not in cause
+    assert "PlayerFaultLine" not in cause
     assert "PlayerFaultLine" not in ui
     assert "FailContinueHint" not in ui
     assert "FailRemainingThreats" not in ui
@@ -3106,14 +3107,15 @@ def test_steam_slice_044() -> None:
     assert "AnnounceAchievement" in ui
     assert "SessionBest" in ui
     assert "DeathRetryLine" in ui and "DeathRetryLine" in best
-    assert "One more try keeps this run." in summary
+    assert "One more try: start over from wave 1, Legacy is kept" in summary
     assert "CampaignClear" in ui
     assert "New Run" in ui
     assert "SECTOR CLEAR" in cap
     assert "CampaignCap.SectorClearTitle" in summary
     assert "HangarWinHint" not in cap and "HangarWinHint" not in summary
     assert "run.next_sector" in summary
-    assert "run.fail_retry" in loc
+    assert "run.over_explain" in loc
+    assert "run.fail_retry" not in loc
     assert "session.card" in loc and "ach.first" in loc
     assert "StoreCaptureDirector.Ensure" in bootstrap
     assert "HoldCapturePose" in follow
@@ -7249,6 +7251,7 @@ def main() -> int:
     test_mk2_grant_and_abandoned_lives()
     test_first_minutes_047()
     test_speltest_047_part_a()
+    test_honest_fail_copy()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -7720,8 +7723,8 @@ def test_world_continue_and_hangar_readability() -> None:
         "Ny runda (nollställ)",
         "One more try",
         "En gång till",
-        "One more try keeps your ship. New Run resets it.",
-        "En gång till behåller skeppet. Ny runda nollställer.",
+        "One more try: start over from wave 1, Legacy is kept",
+        "En gång till: börja om från våg 1, Legacy behålls",
     )
     for width, height in resolutions:
         scale = _canvas_scale(width, height)
@@ -10350,17 +10353,126 @@ def test_speltest_047_part_a() -> None:
         "RETRY  ·  New Run from the hangar.",
         "Your ship, upgrades and credits reset on New Run.",
         "that was you. Run over — start from the hangar.",
+        "One more try keeps this run.",
+        "One more try keeps your ship. New Run resets it.",
+        "that was you. One more try, or New Run separately.",
+        "En gång till behåller rundan.",
+        "En gång till behåller skeppet. Ny runda nollställer.",
+        "En gång till, eller Ny runda separat.",
+        "Your hull. Run over — start from the hangar.",
     ):
         assert stale not in summary
         assert stale not in loc
         assert stale not in cause
-    assert "One more try keeps this run." in summary
-    assert "One more try keeps your ship. New Run resets it." in summary
-    assert "that was you. One more try, or New Run separately." in cause
-    assert "En gång till behåller rundan." in loc
-    assert "En gång till behåller skeppet. Ny runda nollställer." in loc
-    assert "En gång till, eller Ny runda separat." in loc
-    assert "start from the hangar" in summary
+    assert "One more try: start over from wave 1, Legacy is kept" in summary
+    assert "En gång till: börja om från våg 1, Legacy behålls" in loc
+    assert "PlayerFaultLine" not in cause
+    assert "fail.fault" not in loc
+    assert "run.fail_retry" not in loc
+    assert "run.fail_keep" not in loc
+
+
+def test_honest_fail_copy() -> None:
+    """Failed copy matches One more try: wave 1, empty ship, Legacy kept."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    cause = (root / "Assets/Scripts/Core/DamageCause.cs").read_text(encoding="utf-8")
+    rules = (root / "Assets/Scripts/Core/FirstRunRules.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
+
+    explain_en = "One more try: start over from wave 1, Legacy is kept"
+    explain_sv = "En gång till: börja om från våg 1, Legacy behålls"
+    button_en = "One more try"
+    button_sv = "En gång till"
+    assert f'Loc.T(\n                "run.over_explain",\n                "{explain_en}")' in summary
+    assert f'{{ "run.over_explain", "{explain_sv}" }}' in loc
+    assert f'Loc.T("ui.one_more_try", "{button_en}")' in rules
+    assert f'{{ "ui.one_more_try", "{button_sv}" }}' in loc
+
+    hint = summary.split(
+        "public static string FailContinueHint(string failReason, int waveIndex, int remainingThreats)"
+    )[1].split("public static string AlmostHadIt")[0]
+    assert "RunOverExplain()" in hint
+    assert "run.fail_keep" not in hint and "run.fail_retry" not in hint
+    assert 'string.IsNullOrEmpty(almost) ? explain' in hint
+    assert "almost + \"  ·  \" + explain" in hint
+
+    # One explanation. A Failed string must not say both of these.
+    banned_pair = ("start from the hangar", "keeps this run")
+    for name, source in (("summary", summary), ("loc", loc), ("cause", cause), ("ui", ui)):
+        for literal in re.findall(r'"((?:\\.|[^"\\])*)"', source):
+            if banned_pair[0] in literal and banned_pair[1] in literal:
+                raise AssertionError(name + " " + literal)
+        blob = "\n".join(re.findall(r'"((?:\\.|[^"\\])*)"', source))
+        assert not (banned_pair[0] in blob and banned_pair[1] in blob), name
+
+    swedish = _sv_keys(loc)
+    for source in (summary, cause, rules):
+        for key in re.findall(r'Loc\.T(?:f)?\(\s*"([^"]+)"', source):
+            if key.endswith("."):
+                continue
+            assert key in swedish, key
+
+    assert "PlayerFaultLine" not in cause and "fail.fault" not in loc and "fail.fault" not in cause
+    assert "Killed by:" in cause and "CardText()" in cause
+
+    retry = manager.split("public void OneMoreTry()")[1].split("public void NotifyPlayerDestroyed()")[0]
+    assert retry.index("ResetFullRun()") < retry.index("StartWave()")
+    fail_run = manager.split("private void FailRun(")[1].split("public void AcceptContinue()")[0]
+    assert "AwardLegacy(true)" in fail_run and "DeleteRun()" in fail_run
+    assert fail_run.index("AwardLegacy(true)") < fail_run.index("DeleteRun()")
+    assert "return phase == GamePhase.Failed" in session
+    assert "ShopLockedForPhase" in session
+    chrome = ui.split("private void RefreshContinueChrome()")[1].split("private void OnDisable()")[0]
+    assert "HasContinueOffer" in chrome
+    assert "GamePhase.Failed" not in chrome
+    assert "RunSummary.RunOverExplain()" in ui
+    assert "FailedRetryPrimary()" in ui
+
+    assert "HangarPanelMin = new Vector2(0.014f, 0.080f)" in ui
+    assert "HangarPanelMax = new Vector2(0.55f, 0.888f)" in ui
+    assert "new Vector2(0.03f, 0.735f)" in ui and "new Vector2(0.97f, 0.800f)" in ui
+    assert "Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.22f), new Vector2(0.97f, 0.52f))" in ui
+    assert "_primaryLabel.fontSize = 28" in ui
+    assert "ShopHeaderSize = 16" in (root / "Assets/Scripts/UI/UiTheme.cs").read_text(encoding="utf-8")
+
+    hangar = (0.014, 0.080, 0.55, 0.888)
+    resolutions = (
+        (1280, 800),
+        (1366, 768),
+        (1440, 900),
+        (1600, 900),
+        (1920, 1080),
+        (2560, 1080),
+        (2560, 1440),
+        (3440, 1440),
+    )
+    for width, height in resolutions:
+        scale = _canvas_scale(width, height)
+        canvas_w = width / scale
+        canvas_h = height / scale
+        summary_box = _map_anchors(*hangar, 0.02, 0.82, 0.98, 0.995)
+        hint = _map_anchors(*summary_box, 0.03, 0.22, 0.97, 0.52)
+        primary = _map_anchors(*hangar, 0.03, 0.735, 0.97, 0.800)
+        hint_w = (hint[2] - hint[0]) * canvas_w
+        hint_h = (hint[3] - hint[1]) * canvas_h
+        primary_w = (primary[2] - primary[0]) * canvas_w
+        for label in (button_en, button_sv):
+            assert _estimate_width(label, 28) <= primary_w, (width, label)
+            assert _kenney_future_width(label, 28) <= primary_w, (width, label, primary_w)
+        for line in (explain_en, explain_sv):
+            assert "\u2699" not in line and "\u2605" not in line
+            assert _wrapped_line_count(line, hint_w, 16) == 1, (width, line)
+            assert _estimate_width(line, 16) <= hint_w, (width, line)
+            # Display face is wider than the body face on this row. If it fits, Narrow fits.
+            assert _kenney_future_width(line, 16) <= hint_w, (width, line, hint_w)
+            assert 16 * 1.1 <= hint_h, (width, hint_h)
 
 
 if __name__ == "__main__":

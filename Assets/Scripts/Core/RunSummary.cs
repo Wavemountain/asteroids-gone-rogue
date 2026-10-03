@@ -26,11 +26,14 @@ namespace AsteroidsGoneRogue
             return Loc.Tf("run.over_title", "RUN OVER - wave {0}", shown);
         }
 
+        /// <summary>
+        /// Failed offers One more try: wave 1, empty ship, Legacy kept.
+        /// </summary>
         public static string RunOverExplain()
         {
             return Loc.T(
                 "run.over_explain",
-                "One more try keeps your ship. New Run resets it.");
+                "One more try: start over from wave 1, Legacy is kept");
         }
 
         public static string PrimaryActionLabel(GamePhase phase, int worldCleared, int nextWorld)
@@ -350,11 +353,10 @@ namespace AsteroidsGoneRogue
 
         public static string FailContinueHint(string failReason, int waveIndex, int remainingThreats)
         {
+            string explain = RunOverExplain();
             string almost = AlmostHadIt(remainingThreats);
-            string keep = Loc.T("run.fail_keep", "Your hull. Run over — start from the hangar.");
-            string retry = Loc.T("run.fail_retry", "One more try keeps this run.");
             string tease = MonsterTeaser(waveIndex);
-            string line = string.IsNullOrEmpty(almost) ? retry + "  ·  " + keep : almost + "  ·  " + retry;
+            string line = string.IsNullOrEmpty(almost) ? explain : almost + "  ·  " + explain;
             if (!string.IsNullOrEmpty(tease))
             {
                 return line + "\n" + tease;

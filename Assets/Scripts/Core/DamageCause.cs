@@ -199,14 +199,6 @@ namespace AsteroidsGoneRogue
             }
         }
 
-        public static string PlayerFaultLine(string failReason)
-        {
-            string reason = string.IsNullOrEmpty(failReason)
-                ? Loc.T("fail.unknown", "Unknown cause")
-                : failReason;
-            return Loc.Tf("fail.fault", "{0} — that was you. One more try, or New Run separately.", reason);
-        }
-
         public static string FailReason(DamageCause cause, EnemyKind kind)
         {
             if (cause == DamageCause.EnemyContact)
