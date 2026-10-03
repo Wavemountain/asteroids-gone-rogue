@@ -76,6 +76,16 @@ namespace AsteroidsGoneRogue
             return Name(NumberForWave(waveIndex));
         }
 
+        /// <summary>
+        /// Medal chip for a cleared world, e.g. "★ Launch Belt cleared".
+        /// Distinct from <see cref="CampaignCap.SectorClearTitle"/> so the
+        /// headline and the chip are not the same string.
+        /// </summary>
+        public static string ClearedMedal(int worldNumber)
+        {
+            return "★ " + Loc.Tf("run.world_cleared", "{0} cleared", Name(worldNumber));
+        }
+
         public static string Tip(int worldNumber)
         {
             switch (LayoutNumber(worldNumber))

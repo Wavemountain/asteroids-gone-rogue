@@ -724,7 +724,7 @@ namespace AsteroidsGoneRogue
             _boonRow.horizontalOverflow = HorizontalWrapMode.Wrap;
             _boonRow.verticalOverflow = VerticalWrapMode.Truncate;
             _boonRow.gameObject.SetActive(false);
-            BuildBoonModal(display, body);
+            BuildBoonModal(UiFonts.Display(), body);
         }
 
         private void OnLegacyPerk(int perk)
@@ -1423,7 +1423,8 @@ namespace AsteroidsGoneRogue
             {
                 _continueHint.text = row3;
                 _continueHint.gameObject.SetActive(true);
-                ClampOneLine(_continueHint);
+                _continueHint.horizontalOverflow = HorizontalWrapMode.Wrap;
+                _continueHint.verticalOverflow = VerticalWrapMode.Truncate;
             }
         }
 
