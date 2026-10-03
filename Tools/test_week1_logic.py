@@ -2383,7 +2383,7 @@ def test_fair_death_042() -> None:
     assert "{0} left." in summary
     assert "Your hull. Run over — start from the hangar." in summary
     assert "FailContinueHint(string failReason, int waveIndex, int remainingThreats)" in summary
-    assert "that was you. Run over — start from the hangar." in cause
+    assert "that was you. One more try, or New Run separately." in cause
     assert "PlayerFaultLine" in cause
     assert "PlayerFaultLine" not in ui
     assert "FailContinueHint" not in ui
@@ -3105,7 +3105,7 @@ def test_steam_slice_044() -> None:
     assert "AnnounceAchievement" in ui
     assert "SessionBest" in ui
     assert "DeathRetryLine" in ui and "DeathRetryLine" in best
-    assert "RETRY" in summary
+    assert "One more try keeps this run." in summary
     assert "CampaignClear" in ui
     assert "New Run" in ui
     assert "SECTOR CLEAR" in cap
@@ -6281,6 +6281,7 @@ def main() -> int:
     test_speltest_063_marker_title_bank()
     test_mk2_grant_and_abandoned_lives()
     test_first_minutes_047()
+    test_speltest_047_part_a()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -6752,8 +6753,8 @@ def test_world_continue_and_hangar_readability() -> None:
         "Ny runda (nollställ)",
         "One more try",
         "En gång till",
-        "Your ship, upgrades and credits reset on New Run.",
-        "Skepp, uppgraderingar och kredit nollställs vid Ny runda.",
+        "One more try keeps your ship. New Run resets it.",
+        "En gång till behåller skeppet. Ny runda nollställer.",
     )
     for width, height in resolutions:
         scale = _canvas_scale(width, height)
@@ -9082,6 +9083,312 @@ def test_first_minutes_047() -> None:
                 box = banner_w
             assert _estimate_width(text, size) <= box, (width, height, text, box)
             assert _kenney_future_width(text, size) <= box * 1.05, (width, height, text, box)
+
+
+def _first_start_layout(shop_count: int):
+    """Slot indexes and pad cells for the first-start row, matching HangarPadNav."""
+    shop0 = 1
+    credits = shop0 + shop_count
+    easy = credits + 1
+    normal = credits + 2
+    hard = credits + 3
+    got = credits + 4
+    barrage = got + 1
+    lance = got + 2
+    hunter = got + 3
+    hint = hunter + 1
+    settings = hint + 1
+    new_run = settings + 1
+    legacy0 = new_run + 1
+    hull = legacy0 + 4
+    extra = hull + 1
+    shield_refill = hull + 2
+    bank = hull + 3
+    tutor_skip = bank + 1
+    first_easy = bank + 2
+    first_normal = bank + 3
+    first_hard = bank + 4
+    first_go = bank + 5
+    first_skip = bank + 6
+    count = first_skip + 1
+    overlay = (first_easy, first_normal, first_hard, first_go, first_skip)
+    coords = [(1, -1)] * count
+    coords[0] = (1, -1)
+    coords[credits] = (0, 8)
+    coords[easy] = (0, -3)
+    coords[normal] = (1, -3)
+    coords[hard] = (2, -3)
+    coords[got] = (0, -4)
+    coords[barrage] = (6, -2)
+    coords[lance] = (7, -2)
+    coords[hunter] = (8, -2)
+    coords[hint] = (8, -1)
+    coords[settings] = (3, -3)
+    coords[new_run] = (2, -1)
+    for index in range(4):
+        coords[legacy0 + index] = (index, -5)
+    coords[hull] = (5, 2)
+    coords[extra] = (5, 3)
+    coords[shield_refill] = (5, 4)
+    coords[bank] = (2, 2)
+    coords[tutor_skip] = (4, -3)
+    coords[first_easy] = (0, -6)
+    coords[first_normal] = (1, -6)
+    coords[first_hard] = (2, -6)
+    coords[first_go] = (3, -6)
+    coords[first_skip] = (4, -6)
+    return {
+        "count": count,
+        "overlay": overlay,
+        "coords": coords,
+        "normal": normal,
+        "primary": 0,
+        "first_normal": first_normal,
+        "first_skip": first_skip,
+    }
+
+
+def _overlay_only(selectable, count: int, overlay: set[int]) -> list[bool]:
+    mask = [False] * count
+    for slot in range(count):
+        mask[slot] = slot in overlay and _pad_accepts(slot, selectable)
+    return mask
+
+
+def _overlay_home(mask: list[bool], overlay: tuple[int, ...]) -> int:
+    easy, normal, hard, go, skip = overlay
+    for slot in (normal, easy, hard, go, skip):
+        if _pad_accepts(slot, mask):
+            return slot
+    return normal
+
+
+def _step_overlay(slot: int, dx: int, dy: int, selectable, coords, overlay: tuple[int, ...]) -> int:
+    """Mirrors HangarPadNav.StepOverlay. Off-card focus snaps home and does not step."""
+    members = set(overlay)
+    mask = _overlay_only(selectable, len(coords), members)
+    home = _overlay_home(mask, overlay)
+    current_ok = slot in members and _pad_accepts(slot, mask)
+    origin = slot if current_ok else home
+    if not current_ok or (dx == 0 and dy == 0):
+        return origin
+    count = len(mask)
+    candidate = _pad_step(origin, dx, dy, coords, mask)
+    guard = 0
+    while guard < count:
+        if candidate in members and _pad_accepts(candidate, mask):
+            return candidate
+        stepped = _pad_step(candidate, dx, dy, coords, mask)
+        if stepped == candidate:
+            return origin
+        candidate = stepped
+        guard += 1
+    return origin
+
+
+def _overlay_reachable(start: int, selectable, coords, overlay: tuple[int, ...]) -> set[int]:
+    home = _step_overlay(start, 0, 0, selectable, coords, overlay)
+    seen = {home}
+    queue = [home]
+    while queue:
+        current = queue.pop()
+        for dx, dy in _PAD_DIRS:
+            nxt = _step_overlay(current, dx, dy, selectable, coords, overlay)
+            if nxt not in seen:
+                seen.add(nxt)
+                queue.append(nxt)
+    return seen
+
+
+def _should_finish_empty_tutorial(threats_left: int, prompt: int, empty_seconds: float) -> bool:
+    if threats_left > 0:
+        return False
+    if prompt >= 3:
+        return True
+    return empty_seconds >= 6.0
+
+
+def _next_empty_seconds(empty_seconds: float, threats_left: int, delta_seconds: float) -> float:
+    if threats_left > 0:
+        return 0.0
+    step = delta_seconds if delta_seconds > 0.0 else 0.0
+    nxt = empty_seconds + step
+    return 0.0 if nxt < 0.0 else nxt
+
+
+def _completes_shield_prompt(kind: int) -> bool:
+    return kind == 1
+
+
+def _lives_after_tutorial(lives_at_start: int) -> int:
+    if lives_at_start < 1:
+        return 3
+    return lives_at_start
+
+
+def _grade_on_first_skip(picked_explicit: bool, picked: str) -> str:
+    if not picked_explicit:
+        return "Normal"
+    return picked
+
+
+def _first_start_skip_stored(tutorial_done: int, difficulty_chosen: int) -> bool:
+    return tutorial_done != 0 and difficulty_chosen != 0
+
+
+def _tutorial_flag_after_continue() -> int:
+    return 1
+
+
+def test_speltest_047_part_a() -> None:
+    """Speltest on 0.47 Part A: overlay nav, tutorial exit, drops, skip, continue, copy."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    padnav = (root / "Assets/Scripts/Core/HangarPadNav.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    rules = (root / "Assets/Scripts/Core/FirstRunRules.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
+    seeker = (root / "Assets/Scripts/Combat/EnemySeeker.cs").read_text(encoding="utf-8")
+    pickup = (root / "Assets/Scripts/Combat/Pickup.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    cause = (root / "Assets/Scripts/Core/DamageCause.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    shop = (root / "Assets/Scripts/Core/ShopCatalog.cs").read_text(encoding="utf-8")
+    shooter = (root / "Assets/Scripts/Player/ShipShooter.cs").read_text(encoding="utf-8")
+
+    layout = _first_start_layout(shop.count("new ShopItem("))
+    overlay = layout["overlay"]
+    coords = layout["coords"]
+    count = layout["count"]
+    live = [False] * count
+    live[layout["primary"]] = True
+    live[layout["normal"]] = True
+    for slot in overlay:
+        live[slot] = True
+    for start in range(count):
+        for dx, dy in ((0, 0),) + _PAD_DIRS:
+            landed = _step_overlay(start, dx, dy, live, coords, overlay)
+            assert landed in overlay, (start, dx, dy, landed)
+        reached = _overlay_reachable(start, live, coords, overlay)
+        assert reached
+        assert layout["primary"] not in reached
+        assert layout["normal"] not in reached
+        assert reached <= set(overlay)
+    full = _overlay_reachable(layout["first_normal"], live, coords, overlay)
+    assert set(overlay) <= full
+    hidden_skip = list(live)
+    hidden_skip[layout["first_skip"]] = False
+    without_skip = _overlay_reachable(layout["first_normal"], hidden_skip, coords, overlay)
+    assert layout["first_skip"] not in without_skip
+    assert layout["primary"] not in without_skip
+    assert _step_overlay(layout["primary"], 0, 1, live, coords, overlay) == layout["first_normal"]
+    hangar_only = [False] * _PAD_SLOTS
+    hangar_only[0] = True
+    assert _pad_step_live(8, 0, 1, hangar_only, _pad_coords(False), True) == 0
+    step_body = padnav.split("public static int StepSelectable(int slot, int dx, int dy, bool[] selectable)")[1].split("public static bool IsFirstStartSlot")[0]
+    assert "ForcePrimarySelectable(selectable)" in step_body
+    assert "return PrimarySlot" in step_body
+    overlay_body = padnav.split("public static int StepOverlay(")[1].split("public static int StepFocused")[0]
+    assert "ForcePrimarySelectable" not in overlay_body
+    assert "return PrimarySlot" not in overlay_body
+    assert "HangarPadNav.StepSelectable(fromSlot, dx, dy, padMask)" in ui
+    assert "HangarPadNav.StepOverlay(fromSlot, dx, dy, padMask)" in ui
+    assert "StepFocused" in padnav
+    primary = ui.split("private void OnPrimary()")[1].split("private void OnBuy")[0]
+    assert primary.index("FirstStartOpen()") < primary.index("StartWave()")
+    clicked = ui.split("private void OnPrimaryClicked()")[1].split("private bool FailedRetryPrimary")[0]
+    assert "FirstStartOpen()" in clicked
+    hangar_start = ui.split("private void OnHangarStart()")[1].split("private void OnHangarBack")[0]
+    assert "FirstStartOpen()" in hangar_start
+    assert "OnPrimary()" in hangar_start
+    consume = ui.split("private bool ConsumeFirstStartInput()")[1].split("private bool ConsumeTutorialSkip")[0]
+    assert "KeyCode.Return" in consume and "KeyCode.Space" in consume
+    assert "SkipFirstStart" in consume
+    assert "IsFirstStartSlot" in consume
+    first_skip = ui.split("private void OnFirstSkip()")[1].split("private void")[0]
+    assert "SkipFirstStart" in first_skip
+    assert "SkipTutorial()" not in first_skip
+    assert "RequestNewRun" not in ui
+    plate = ui.split("private void EnsurePrimaryClickable()")[1].split("private void FocusHangarSlot")[0]
+    assert "interactable = false" in plate
+    start_wave = manager.split("public void StartWave()")[1].split("public void ContinueFromResults")[0]
+    assert "ShowDifficultyChooser" in start_wave
+
+    assert _should_finish_empty_tutorial(2, 3, 9) is False
+    assert _should_finish_empty_tutorial(0, 3, 0) is True
+    assert _should_finish_empty_tutorial(0, 0, 5.9) is False
+    assert _should_finish_empty_tutorial(0, 1, 6) is True
+    assert _should_finish_empty_tutorial(0, 2, 6) is True
+    assert _next_empty_seconds(4, 3, 1) == 0
+    assert _next_empty_seconds(4, 0, 2) == 6
+    assert _next_empty_seconds(1, 0, -3) == 1
+    assert "TutorialEmptySeconds = 6f" in rules
+    assert "ShouldFinishEmptyTutorial" in rules and "ShouldFinishEmptyTutorial" in manager
+    soft = manager.split("public void NotifySoftLockAbort()")[1].split("public void SetSoftLockHint")[0]
+    assert "ShouldFinishEmptyTutorial" in soft
+    assert "FinishTutorial()" in soft
+    tick = manager.split("public void TickTutorial(")[1].split("public void SkipTutorial")[0]
+    assert "NextEmptySeconds" in tick and "FinishTutorial()" in tick
+
+    for kind in (0, 2, 3, 4):
+        assert _completes_shield_prompt(kind) is False
+    assert _completes_shield_prompt(1) is True
+    assert "return kind == Pickup.Kind.Shield" in rules
+    assert "CompletesShieldPrompt" in pickup
+    assert "NoteTutorialPickup()" in pickup.split("CompletesShieldPrompt")[1]
+    assert _lives_after_tutorial(0) == 3
+    assert _lives_after_tutorial(3) == 3
+    assert _lives_after_tutorial(5) == 5
+    finish = manager.split("private void FinishTutorial()")[1].split("private bool TryRespawnAfterLifeLoss")[0]
+    assert "LivesAfterTutorial" in finish and "RestoreAfterTutorial" in finish
+    assert "ClearRapidBoost" in finish and "ClearRapidBoost" in shooter
+    assert "RestoreAfterTutorial" in session
+    damage = seeker.split("public void ApplyDamage")[1].split("public void Despawn")[0]
+    assert "if (!_training)" in damage
+    assert "_training = true" in seeker.split("public void ConfigureTraining")[1].split("public void ConfigureElite")[0]
+    drop = factory.split("public void MaybeDropPickup")[1].split("private static void DressExtraLifeHeart")[0]
+    extra = factory.split("public void MaybeDropExtraLife")[1].split("private static string PickAsteroidVisual")[0]
+    assert "TutorialActive" in drop and "TutorialActive" in extra
+    grant = manager.split("public bool TryGrantExtraLife()")[1].split("public void NotifyPlayerHit")[0]
+    assert grant.index("TutorialActive") < grant.index("TryGainLife")
+
+    assert _grade_on_first_skip(False, "Hard") == "Normal"
+    assert _grade_on_first_skip(True, "Easy") == "Easy"
+    assert _grade_on_first_skip(True, "Normal") == "Normal"
+    assert _first_start_skip_stored(1, 1) is True
+    assert _first_start_skip_stored(1, 0) is False
+    assert _first_start_skip_stored(0, 1) is False
+    assert "GradeOnFirstSkip" in rules and "FirstStartSkipStored" in rules
+    skip_first = manager.split("public void SkipFirstStart(")[1].split("public void ConfirmFirstStart")[0]
+    assert "MarkTutorialDone" in skip_first and "SetDifficulty" in skip_first
+    assert "ReturnToHangar" in skip_first
+
+    assert _tutorial_flag_after_continue() == 1
+    assert "TutorialFlagAfterContinue" in rules
+    accept = manager.split("public void AcceptContinue()")[1].split("private void ConcludeAbandonedLastLife")[0]
+    assert "TutorialFlagAfterContinue()" in accept
+    assert "MarkDifficultyChosen" in accept
+
+    for stale in (
+        "New Run from the hangar",
+        "Ny runda från hangaren",
+        "RETRY  ·  New Run from the hangar.",
+        "Your ship, upgrades and credits reset on New Run.",
+        "that was you. Run over — start from the hangar.",
+    ):
+        assert stale not in summary
+        assert stale not in loc
+        assert stale not in cause
+    assert "One more try keeps this run." in summary
+    assert "One more try keeps your ship. New Run resets it." in summary
+    assert "that was you. One more try, or New Run separately." in cause
+    assert "En gång till behåller rundan." in loc
+    assert "En gång till behåller skeppet. Ny runda nollställer." in loc
+    assert "En gång till, eller Ny runda separat." in loc
+    assert "start from the hangar" in summary
 
 
 if __name__ == "__main__":

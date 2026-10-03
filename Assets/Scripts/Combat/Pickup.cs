@@ -153,9 +153,20 @@ namespace AsteroidsGoneRogue
         private void Apply(ShipController ship)
         {
             GameManager host = UnityEngine.Object.FindAnyObjectByType<GameManager>();
-            if (host != null)
+            bool tutorialLive = host != null && host.TutorialActive;
+            if (host != null && FirstRunRules.CompletesShieldPrompt(_kind))
             {
                 host.NoteTutorialPickup();
+            }
+
+            if (tutorialLive && !FirstRunRules.CompletesShieldPrompt(_kind))
+            {
+                if (AudioCues.Instance != null)
+                {
+                    AudioCues.Instance.PlayPickupMinor();
+                }
+
+                return;
             }
 
             switch (_kind)

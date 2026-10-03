@@ -256,6 +256,79 @@ namespace AsteroidsGoneRogue
             return !tutorialActive;
         }
 
+        public const float TutorialEmptySeconds = 6f;
+
+        /// <summary>
+        /// Empty arena during the guided wave. Finish once the last prompt is up,
+        /// or after a short wait if the threats vanished before the prompts ended.
+        /// </summary>
+        public static bool ShouldFinishEmptyTutorial(int threatsLeft, int prompt, float emptySeconds)
+        {
+            if (threatsLeft > 0)
+            {
+                return false;
+            }
+
+            if (prompt >= TutorialRun.PromptFinish)
+            {
+                return true;
+            }
+
+            return emptySeconds >= TutorialEmptySeconds;
+        }
+
+        public static float NextEmptySeconds(float emptySeconds, int threatsLeft, float deltaSeconds)
+        {
+            if (threatsLeft > 0)
+            {
+                return 0f;
+            }
+
+            float step = deltaSeconds > 0f ? deltaSeconds : 0f;
+            float next = emptySeconds + step;
+            if (next < 0f)
+            {
+                return 0f;
+            }
+
+            return next;
+        }
+
+        public static bool CompletesShieldPrompt(Pickup.Kind kind)
+        {
+            return kind == Pickup.Kind.Shield;
+        }
+
+        public static int LivesAfterTutorial(int livesAtStart)
+        {
+            if (livesAtStart < 1)
+            {
+                return DifficultySettings.StartLivesCount;
+            }
+
+            return livesAtStart;
+        }
+
+        public static DifficultyGrade GradeOnFirstSkip(bool pickedExplicit, DifficultyGrade picked)
+        {
+            if (!pickedExplicit)
+            {
+                return DifficultyGrade.Normal;
+            }
+
+            return picked;
+        }
+
+        public static bool FirstStartSkipStored(int tutorialDone, int difficultyChosen)
+        {
+            return tutorialDone != 0 && difficultyChosen != 0;
+        }
+
+        public static int TutorialFlagAfterContinue()
+        {
+            return 1;
+        }
+
         public static string PromptLine(int prompt, bool pad)
         {
             if (prompt <= TutorialRun.PromptMove)

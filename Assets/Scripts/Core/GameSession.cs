@@ -468,6 +468,19 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
+        /// Pickups taken during the guided wave do not carry lives, credits, or score out.
+        /// </summary>
+        public void RestoreAfterTutorial(int lives, int streak)
+        {
+            ResetLives(lives);
+            ExtraLifeStreak = streak < 0 ? 0 : streak;
+            Score = 0;
+            Credits = 0;
+            LastCreditsAwarded = 0;
+            LastRunScore = 0;
+        }
+
+        /// <summary>
         /// Leave a live wave without the clear bonus or wave increment. Loadout is untouched.
         /// </summary>
         public void AbortToHangar()

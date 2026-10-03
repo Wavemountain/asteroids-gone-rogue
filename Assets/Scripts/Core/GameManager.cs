@@ -64,6 +64,12 @@ namespace AsteroidsGoneRogue
 
         private bool _skipTutorialRedirect;
 
+        private float _tutorialEmptySeconds;
+
+        private int _tutorialLives = DifficultySettings.NormalStartLives;
+
+        private int _tutorialStreak;
+
         public bool TutorialActive
         {
             get { return _tutorial != null && _tutorial.Active; }
@@ -227,6 +233,11 @@ namespace AsteroidsGoneRogue
 
         public bool TryGrantExtraLife()
         {
+            if (TutorialActive)
+            {
+                return false;
+            }
+
             if (_session == null || !_session.TryGainLife())
             {
                 return false;
@@ -286,6 +297,11 @@ namespace AsteroidsGoneRogue
             bool fromRetry = _skipTutorialRedirect;
             _skipTutorialRedirect = false;
             if (!_session.CanStartWave)
+            {
+                return;
+            }
+
+            if (!fromRetry && ShowDifficultyChooser)
             {
                 return;
             }
@@ -412,6 +428,18 @@ namespace AsteroidsGoneRogue
         {
             if (TutorialActive)
             {
+                int threatsLeft = _waves != null ? _waves.RemainingThreats : 0;
+                if (FirstRunRules.ShouldFinishEmptyTutorial(threatsLeft, TutorialPrompt, _tutorialEmptySeconds))
+                {
+                    FinishTutorial();
+                    return;
+                }
+
+                if (threatsLeft <= 0)
+                {
+                    return;
+                }
+
                 SoftResetTutorialShip();
                 return;
             }
@@ -504,6 +532,14 @@ namespace AsteroidsGoneRogue
             {
                 _tutorial.NoteThreats(_waves.RemainingThreats);
             }
+
+            int threatsLeft = _waves != null ? _waves.RemainingThreats : 0;
+            float delta = Time.unscaledDeltaTime;
+            _tutorialEmptySeconds = FirstRunRules.NextEmptySeconds(_tutorialEmptySeconds, threatsLeft, delta);
+            if (FirstRunRules.ShouldFinishEmptyTutorial(threatsLeft, _tutorial.Prompt, _tutorialEmptySeconds))
+            {
+                FinishTutorial();
+            }
         }
 
         public void SkipTutorial()
@@ -526,6 +562,35 @@ namespace AsteroidsGoneRogue
 
             FirstRunRules.MarkTutorialDone(Meta);
             RunSaveStore.TrySaveMeta(Meta);
+            RaiseStateChanged();
+        }
+
+        /// <summary>
+        /// Close the first-start card. Stores the highlighted grade, or Normal
+        /// when the player never moved off the default, and skips the guided wave.
+        /// </summary>
+        public void SkipFirstStart(DifficultyGrade grade)
+        {
+            DifficultyGrade stored = FirstRunRules.GradeOnFirstSkip(true, grade);
+            if (TutorialActive)
+            {
+                SetDifficulty(stored);
+                FinishTutorial();
+                return;
+            }
+
+            if (Meta == null)
+            {
+                Meta = MetaData.Fresh();
+            }
+
+            FirstRunRules.MarkTutorialDone(Meta);
+            SetDifficulty(stored);
+            if (_session != null && _session.Phase != GamePhase.Playing)
+            {
+                _session.ReturnToHangar();
+            }
+
             RaiseStateChanged();
         }
 
@@ -658,6 +723,9 @@ namespace AsteroidsGoneRogue
                 _tutorial.Begin();
             }
 
+            _tutorialLives = _session.Lives;
+            _tutorialStreak = _session.ExtraLifeStreak;
+            _tutorialEmptySeconds = 0f;
             _session.BeginWave();
             if (_ship != null)
             {
@@ -687,9 +755,12 @@ namespace AsteroidsGoneRogue
                 _tutorial.Clear();
             }
 
+            _tutorialEmptySeconds = 0f;
             if (_session != null)
             {
                 _session.FinishTutorialToHangar();
+                int keptLives = FirstRunRules.LivesAfterTutorial(_tutorialLives);
+                _session.RestoreAfterTutorial(keptLives, _tutorialStreak);
             }
 
             if (Meta == null)
@@ -707,6 +778,11 @@ namespace AsteroidsGoneRogue
                 if (_factory != null)
                 {
                     _factory.ApplyLoadoutVisuals(_ship, shipLoadout);
+                }
+
+                if (_ship.Shooter != null)
+                {
+                    _ship.Shooter.ClearRapidBoost();
                 }
             }
 
@@ -794,6 +870,13 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (Meta == null)
+            {
+                Meta = MetaData.Fresh();
+            }
+
+            Meta.TutorialDone = FirstRunRules.TutorialFlagAfterContinue();
+            FirstRunRules.MarkDifficultyChosen(Meta);
             RunSaveData data = PendingContinue;
             if (RunSaveCodec.AbandonedWaveEndsRun(data))
             {
