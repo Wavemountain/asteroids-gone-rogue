@@ -6389,6 +6389,268 @@ def test_fairness_047b() -> None:
     assert report["credit_total"]["normal"] == 7464
 
 
+def _boon_layout_consts(text: str) -> dict:
+    import re
+
+    consts = {}
+    for name, value in re.findall(r"public const float (\w+) = ([0-9.]+)f;", text):
+        consts[name] = float(value)
+    for name, value in re.findall(r"public const int (\w+) = (\d+);", text):
+        consts[name] = int(value)
+    return consts
+
+
+def _boon_canvas_scale(width: float, height: float, layout: dict) -> float:
+    import math
+
+    wide = max(width, 1.0)
+    high = max(height, 1.0)
+    log_w = math.log(wide / layout["RefWidth"], 2.0)
+    log_h = math.log(high / layout["RefHeight"], 2.0)
+    return 2.0 ** (log_w + ((log_h - log_w) * layout["Match"]))
+
+
+def _boon_screen_rect(index: int, layout: dict) -> tuple:
+    slot = index
+    if slot < 0:
+        slot = 0
+    if slot >= layout["Count"]:
+        slot = layout["Count"] - 1
+    left = layout["CardInsetX"] + (slot * layout["CardStep"])
+    local = (left, layout["CardMinY"], left + layout["CardWidth"], layout["CardMaxY"])
+    panel_w = layout["PanelMaxX"] - layout["PanelMinX"]
+    panel_h = layout["PanelMaxY"] - layout["PanelMinY"]
+    return (
+        layout["PanelMinX"] + (local[0] * panel_w),
+        layout["PanelMinY"] + (local[1] * panel_h),
+        layout["PanelMinX"] + (local[2] * panel_w),
+        layout["PanelMinY"] + (local[3] * panel_h),
+    )
+
+
+def _boon_child_screen(child: tuple, layout: dict) -> tuple:
+    panel_w = layout["PanelMaxX"] - layout["PanelMinX"]
+    panel_h = layout["PanelMaxY"] - layout["PanelMinY"]
+    return (
+        layout["PanelMinX"] + (child[0] * panel_w),
+        layout["PanelMinY"] + (child[1] * panel_h),
+        layout["PanelMinX"] + (child[2] * panel_w),
+        layout["PanelMinY"] + (child[3] * panel_h),
+    )
+
+
+def _boon_overlaps(left: tuple, right: tuple) -> bool:
+    return left[0] < right[2] and left[2] > right[0] and left[1] < right[3] and left[3] > right[1]
+
+
+def _boon_estimate(text: str, font_size: int) -> float:
+    if not text or font_size <= 0:
+        return 0.0
+    return len(text) * 10.0 * font_size / 18.0
+
+
+def _boon_wrapped_lines(text: str, box_width: float, font_size: int) -> int:
+    if not text:
+        return 0
+    char_width = 10.0 * font_size / 18.0
+    if char_width < 0.01:
+        char_width = 0.01
+    lines = 0
+    for para in text.split("\n"):
+        if para == "":
+            lines += 1
+            continue
+        used = 0.0
+        count = 1
+        for word in para.split(" "):
+            word_width = len(word) * char_width
+            space = char_width if used > 0 else 0.0
+            if used + space + word_width > box_width and used > 0:
+                count += 1
+                used = word_width
+            else:
+                used += space + word_width
+        lines += count
+    return lines
+
+
+def _boon_text_fits(text: str, box_width: float, box_height: float, font_size: int) -> bool:
+    if font_size <= 0 or box_width <= 0 or box_height <= 0:
+        return False
+    if not text:
+        return True
+    for chunk in text.replace("\n", " ").split(" "):
+        if _boon_estimate(chunk, font_size) > box_width:
+            return False
+    lines = _boon_wrapped_lines(text, box_width, font_size)
+    return lines * (font_size * 1.2) <= box_height
+
+
+def _boon_fit_font(box_width: float, box_height: float, text: str, base_size: int, min_font: int) -> int:
+    size = base_size if base_size >= min_font else min_font
+    while size > min_font and not _boon_text_fits(text, box_width, box_height, size):
+        size -= 1
+    return size
+
+
+def _boon_step(slot: int, dx: int, count: int = 3) -> int:
+    if count < 1:
+        return 0
+    if slot < 0:
+        slot = 0
+    if slot >= count:
+        slot = count - 1
+    if dx == 0:
+        return slot
+    nxt = slot + 1 if dx > 0 else slot - 1
+    if nxt < 0:
+        nxt = 0
+    if nxt >= count:
+        nxt = count - 1
+    return nxt
+
+
+def test_boon_card_layout() -> None:
+    """Boon cards stay on screen, in front of the ship preview, and reachable."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    layout_src = (root / "Assets/Scripts/Core/BoonCardLayout.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    pad = (root / "Assets/Scripts/Core/HangarPadNav.cs").read_text(encoding="utf-8")
+    boon_pad = (root / "Assets/Scripts/Core/BoonPadNav.cs").read_text(encoding="utf-8")
+    layout = _boon_layout_consts(layout_src)
+
+    assert "using UnityEngine" not in layout_src
+    assert "class BoonCardLayout" in layout_src
+    assert "ScreenRect" in layout_src and "PixelRect" in layout_src
+    assert "InsideScreen" in layout_src and "Overlaps" in layout_src
+    assert "FitFont" in layout_src and "CardInnerCanvasWidth" in layout_src
+    assert layout["ModalSortOrder"] > layout["PreviewSortOrder"]
+    assert layout["PreviewSortOrder"] == 80
+    assert "ShipPreviewSortOrder = 80" in ui
+    assert layout["ModalSortOrder"] > 80
+    assert "BoonCardLayout.ModalSortOrder" in ui
+    assert "BoonCardLayout.CardAnchors" in ui
+    assert "BoonCardLayout.FitFont" in ui
+    assert 'new GameObject(BoonCardLayout.CanvasName)' in ui
+    assert "canvas.overrideSorting = true" in ui
+    assert "canvas.sortingOrder = BoonCardLayout.ModalSortOrder" in ui
+    assert "canvas.renderMode = RenderMode.ScreenSpaceOverlay" in ui
+    assert "canvasGo.AddComponent<GraphicRaycaster>()" in ui
+    assert "previewCaster.enabled = !BoonModalOpen()" in ui
+    assert "boonPlate.raycastTarget = true" in ui
+    assert "boonCardLabel.raycastTarget = false" in ui
+    assert "UiTheme.SetPadFocus" in ui
+    assert "KeyCode.LeftArrow" in ui and "KeyCode.RightArrow" in ui
+    assert "GamepadInput.ConfirmPressed()" in ui
+    assert "ChooseBoon(_boonFocus)" in ui
+    assert "BoonPadNav.Step" in ui
+    assert "BoonCard" not in pad
+    assert "class BoonPadNav" in boon_pad
+    build = ui.split("void BuildBoonModal")[1].split("void RefreshBoonChrome")[0]
+    assert build.index("BoonScrim") < build.index('"BoonCard"')
+    assert build.index("BoonPanel") < build.index('"BoonCard"')
+
+    preview = (0.562, 0.080, 0.986, 0.596)
+    cards = [_boon_screen_rect(index, layout) for index in range(layout["Count"])]
+    assert any(_boon_overlaps(card, preview) for card in cards)
+    title = _boon_child_screen(
+        (layout["TitleMinX"], layout["TitleMinY"], layout["TitleMaxX"], layout["TitleMaxY"]),
+        layout,
+    )
+    hint = _boon_child_screen(
+        (layout["HintMinX"], layout["HintMinY"], layout["HintMaxX"], layout["HintMaxY"]),
+        layout,
+    )
+    blocks = cards + [title, hint]
+    for left_index, left in enumerate(blocks):
+        for right in blocks[left_index + 1 :]:
+            assert not _boon_overlaps(left, right), (left, right)
+
+    resolutions = (
+        (1280, 800),
+        (1440, 900),
+        (1920, 1080),
+        (2560, 1440),
+        (2560, 1080),
+        (3440, 1440),
+    )
+    en_cards = (
+        "Move speed\n+10% move speed\nLv 3",
+        "Max hull\n+1 max hull\nLv 3",
+        "Wave credits\n+15% wave credits\nLv 3",
+        "Rail charge\n+15% rail charge\nLv 3",
+        "Extra shard\n+1 shard on split\nLv 3",
+        "Less damage\n10% chance to ignore a hit\nLv 3",
+        "Wave shield\n+1 shield each wave\nLv 3",
+        "Utility cooldown\n-10% utility cooldown\nLv 3",
+        "Fire rate\n+8% fire rate\nLv 3",
+    )
+    sv_cards = (
+        "Fart\n+10% fart\nNv 3",
+        "Maxskrov\n+1 maxskrov\nNv 3",
+        "Vågkredit\n+15% vågkredit\nNv 3",
+        "Rälsladdning\n+15% räls\nNv 3",
+        "Splitter\n+1 extra splitter\nNv 3",
+        "Mindre skada\n10% chans att ignorera en träff\nNv 3",
+        "Vågsköld\n+1 sköld per våg\nNv 3",
+        "Verktygstid\n-10% verktyg\nNv 3",
+        "Eldhastighet\n+8% eldhastighet\nNv 3",
+    )
+    en_chrome = ("Choose 1 bonus", "A select  ·  D-pad or stick moves")
+    sv_chrome = ("Välj 1 bonus", "A välj  ·  D-pad eller spak")
+    for width, height in resolutions:
+        scale = _boon_canvas_scale(width, height, layout)
+        for card in cards:
+            pixel = (card[0] * width, card[1] * height, card[2] * width, card[3] * height)
+            assert pixel[0] >= 0 and pixel[1] >= 0
+            assert pixel[2] <= width and pixel[3] <= height
+            assert pixel[2] > pixel[0] and pixel[3] > pixel[1]
+        for left_index, left in enumerate(cards):
+            left_px = (left[0] * width, left[1] * height, left[2] * width, left[3] * height)
+            for right in cards[left_index + 1 :]:
+                right_px = (right[0] * width, right[1] * height, right[2] * width, right[3] * height)
+                assert not _boon_overlaps(left_px, right_px), (width, height)
+        box_w = (cards[0][2] - cards[0][0]) * (layout["LabelMaxX"] - layout["LabelMinX"]) * width / scale
+        box_h = (cards[0][3] - cards[0][1]) * (layout["LabelMaxY"] - layout["LabelMinY"]) * height / scale
+        panel_w = (layout["PanelMaxX"] - layout["PanelMinX"]) * width / scale
+        title_w = (layout["TitleMaxX"] - layout["TitleMinX"]) * panel_w
+        title_h = (layout["TitleMaxY"] - layout["TitleMinY"]) * (layout["PanelMaxY"] - layout["PanelMinY"]) * height / scale
+        hint_h = (layout["HintMaxY"] - layout["HintMinY"]) * (layout["PanelMaxY"] - layout["PanelMinY"]) * height / scale
+        for language in (en_cards, sv_cards):
+            for line in language:
+                fitted = _boon_fit_font(box_w, box_h, line, layout["CardFont"], layout["MinFont"])
+                assert _boon_text_fits(line, box_w, box_h, fitted), (width, height, line, fitted)
+                assert _boon_estimate(max(line.replace("\n", " ").split(" "), key=len), fitted) <= box_w
+        for line, font, box_h in (
+            (en_chrome[0], layout["TitleFont"], title_h),
+            (sv_chrome[0], layout["TitleFont"], title_h),
+            (en_chrome[1], layout["HintFont"], hint_h),
+            (sv_chrome[1], layout["HintFont"], hint_h),
+        ):
+            fitted = _boon_fit_font(title_w, box_h, line, font, layout["MinFont"])
+            assert _boon_text_fits(line, title_w, box_h, fitted), (width, height, line, fitted)
+
+    seen = {0}
+    focus = 0
+    focus = _boon_step(focus, 1)
+    seen.add(focus)
+    focus = _boon_step(focus, 1)
+    seen.add(focus)
+    assert seen == {0, 1, 2}
+    assert _boon_step(focus, 1) == 2
+    assert _boon_step(2, -1) == 1
+    assert _boon_step(0, -1) == 0
+    assert _boon_step(1, -1) == 0
+    confirmed = focus
+    assert confirmed == 2
+
+    states = list(_pad_states("Barrage", ("SpreadBolt",), "FlakFeed", (140, 150, 160, 165), False))
+    total, bad, dead, _far = _pad_audit(states, _pad_coords(False), True)
+    assert total == 1536 and bad == 0 and dead == 0
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -6447,6 +6709,7 @@ def main() -> int:
     test_save_continue_legacy()
     test_long_haul_difficulty_046()
     test_world_flavour_and_boons()
+    test_boon_card_layout()
     test_longhaul_balance_046e()
     test_sector_chip_differs_from_title()
     test_upgrades_line_fits_card()
