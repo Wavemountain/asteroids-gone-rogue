@@ -32,10 +32,14 @@ namespace AsteroidsGoneRogue
 
         public const float BlinkIntervalSeconds = 0.18f;
 
+        private static readonly int DimColorId = Shader.PropertyToID("_Color");
+
         private float _blinkUntil;
         private float _nextToggle;
         private bool _blinkHidden;
+        private bool _dimmed;
         private Renderer[] _blinkRenderers;
+        private MaterialPropertyBlock _dimBlock;
         private readonly System.Collections.Generic.List<Renderer> _ghosted =
             new System.Collections.Generic.List<Renderer>();
         private readonly System.Collections.Generic.List<Material[]> _ghostRestore =
@@ -58,6 +62,12 @@ namespace AsteroidsGoneRogue
             _blinkUntil = Time.time + duration;
             _nextToggle = Time.time;
             _blinkHidden = false;
+            if (EffectScale.SteadyInvulnDim(SettingsState.ReduceEffectsEnabled))
+            {
+                ApplyInvulnDim();
+                return;
+            }
+
             ToggleBlink();
         }
 
@@ -66,6 +76,7 @@ namespace AsteroidsGoneRogue
             _blinkUntil = 0f;
             _nextToggle = 0f;
             _blinkHidden = false;
+            ClearInvulnDim();
             SetBlinkRenderersVisible(true);
             _blinkRenderers = null;
         }
@@ -264,10 +275,81 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (EffectScale.SteadyInvulnDim(SettingsState.ReduceEffectsEnabled))
+            {
+                if (_blinkHidden)
+                {
+                    _blinkHidden = false;
+                    SetBlinkRenderersVisible(true);
+                }
+
+                if (!_dimmed)
+                {
+                    ApplyInvulnDim();
+                }
+
+                return;
+            }
+
+            if (_dimmed)
+            {
+                ClearInvulnDim();
+            }
+
             if (Time.time >= _nextToggle)
             {
                 ToggleBlink();
             }
+        }
+
+        private void ApplyInvulnDim()
+        {
+            if (_blinkRenderers == null)
+            {
+                return;
+            }
+
+            if (_dimBlock == null)
+            {
+                _dimBlock = new MaterialPropertyBlock();
+            }
+
+            float dim = EffectScale.InvulnDim;
+            Color tint = new Color(dim, dim, dim, 1f);
+            for (int index = 0; index < _blinkRenderers.Length; index++)
+            {
+                Renderer renderer = _blinkRenderers[index];
+                if (renderer == null)
+                {
+                    continue;
+                }
+
+                renderer.enabled = true;
+                _dimBlock.Clear();
+                _dimBlock.SetColor(DimColorId, tint);
+                renderer.SetPropertyBlock(_dimBlock);
+            }
+
+            _dimmed = true;
+        }
+
+        private void ClearInvulnDim()
+        {
+            if (!_dimmed || _blinkRenderers == null)
+            {
+                _dimmed = false;
+                return;
+            }
+
+            for (int index = 0; index < _blinkRenderers.Length; index++)
+            {
+                if (_blinkRenderers[index] != null)
+                {
+                    _blinkRenderers[index].SetPropertyBlock(null);
+                }
+            }
+
+            _dimmed = false;
         }
 
         private void ToggleBlink()

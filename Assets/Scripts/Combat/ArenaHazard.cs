@@ -91,8 +91,9 @@ namespace AsteroidsGoneRogue
             }
 
             _phase += Time.deltaTime * (Damaging ? 5.4f : 2.1f);
-            float pulse = 0.72f + Mathf.Sin(_phase) * (Damaging ? 0.38f : 0.16f);
-            if (Damaging && _listener != null)
+            bool reduceGlow = SettingsState.ReduceEffectsEnabled;
+            float pulse = EffectScale.SpikeMul(reduceGlow, Damaging, Mathf.Sin(_phase));
+            if (!reduceGlow && Damaging && _listener != null)
             {
                 Vector3 delta = transform.position - _listener.position;
                 delta.y = 0f;
