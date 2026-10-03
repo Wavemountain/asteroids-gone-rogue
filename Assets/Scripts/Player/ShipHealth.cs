@@ -14,6 +14,7 @@ namespace AsteroidsGoneRogue
         private int _maxShield = LoadoutState.MaxShieldCharges;
         private bool _dead;
         private float _invulnerableUntil;
+        private int _iframePercent = 100;
         private DamageCause _lastCause = DamageCause.Unknown;
         private EnemyKind _lastEnemyKind = EnemyKind.Mid01;
 
@@ -60,18 +61,63 @@ namespace AsteroidsGoneRogue
 
         public void ResetForWave(LoadoutState loadout)
         {
+            ResetForWave(loadout, true, false);
+        }
+
+        public void ResetForWave(LoadoutState loadout, bool refillHull)
+        {
+            ResetForWave(loadout, refillHull, false);
+        }
+
+        public void ResetForWave(LoadoutState loadout, bool refillHull, bool applyWaveShield)
+        {
             _dead = false;
             int hullBonus = DifficultySettings.PlayerHullBonus;
+            int previousShieldMax = _maxShield;
             _maxHull = (loadout != null ? loadout.CurrentHullHitPoints : LoadoutState.HullHitPoints) + hullBonus;
-            _hull = _maxHull;
             _maxShield = loadout != null ? loadout.CurrentMaxShield : LoadoutState.MaxShieldCharges;
-            _shield = loadout != null ? loadout.ShieldCharges : 0;
-            int waveShield = BoonHooks.StartingShield;
-            if (waveShield > 0 && _shield < _maxShield)
+            if (refillHull || _hull <= 0)
             {
-                int raisedShield = _shield + waveShield;
-                _shield = raisedShield > _maxShield ? _maxShield : raisedShield;
+                _hull = _maxHull;
             }
+            else if (_hull > _maxHull)
+            {
+                _hull = _maxHull;
+            }
+
+            if (refillHull)
+            {
+                _shield = loadout != null ? loadout.ShieldCharges : 0;
+            }
+            else
+            {
+                int gainedShield = _maxShield - previousShieldMax;
+                if (gainedShield > 0)
+                {
+                    _shield += gainedShield;
+                }
+
+                if (_shield > _maxShield)
+                {
+                    _shield = _maxShield;
+                }
+
+                if (_shield < 0)
+                {
+                    _shield = 0;
+                }
+            }
+
+            if (applyWaveShield)
+            {
+                int waveShield = BoonHooks.StartingShield;
+                if (waveShield > 0 && _shield < _maxShield)
+                {
+                    int raisedShield = _shield + waveShield;
+                    _shield = raisedShield > _maxShield ? _maxShield : raisedShield;
+                }
+            }
+
             _lastCause = DamageCause.Unknown;
             _lastEnemyKind = EnemyKind.Mid01;
             ClearInvulnerability();
@@ -79,6 +125,64 @@ namespace AsteroidsGoneRogue
             {
                 _visuals.SetShieldVisible(_shield > 0);
             }
+        }
+
+        public void SetHull(int hull)
+        {
+            if (hull < 0)
+            {
+                hull = 0;
+            }
+
+            if (hull > _maxHull)
+            {
+                hull = _maxHull;
+            }
+
+            _hull = hull;
+            _dead = _hull <= 0;
+        }
+
+        public void SetIFramePercent(int percent)
+        {
+            _iframePercent = percent < 100 ? 100 : percent;
+        }
+
+        public bool RefillHull()
+        {
+            if (_dead || _hull >= _maxHull)
+            {
+                return false;
+            }
+
+            _hull = _maxHull;
+            if (_game != null)
+            {
+                _game.RefreshHud();
+            }
+
+            return true;
+        }
+
+        public bool RefillShield()
+        {
+            if (_dead || _maxShield <= 0 || _shield >= _maxShield)
+            {
+                return false;
+            }
+
+            _shield = _maxShield;
+            if (_visuals != null)
+            {
+                _visuals.SetShieldVisible(true);
+            }
+
+            if (_game != null)
+            {
+                _game.RefreshHud();
+            }
+
+            return true;
         }
 
         public bool TryHeal(int amount)
@@ -136,6 +240,12 @@ namespace AsteroidsGoneRogue
             }
 
             amount = DifficultySettings.ScaleIncomingDamage(amount, cause);
+            if (amount > 0 && BoonHooks.TryIgnoreHit())
+            {
+                BeginInvulnerability();
+                return;
+            }
+
             if (BoonHooks.IncomingPercent < 100 && amount > 0)
             {
                 int resisted = amount * BoonHooks.IncomingPercent / 100;
@@ -248,10 +358,11 @@ namespace AsteroidsGoneRogue
 
         private void BeginInvulnerability()
         {
-            _invulnerableUntil = Time.time + HitInvulnerabilitySeconds;
+            float iframeSeconds = HitInvulnerabilitySeconds * _iframePercent / 100f;
+            _invulnerableUntil = Time.time + iframeSeconds;
             if (_visuals != null)
             {
-                _visuals.PlayHitBlink(HitInvulnerabilitySeconds);
+                _visuals.PlayHitBlink(iframeSeconds);
             }
         }
 

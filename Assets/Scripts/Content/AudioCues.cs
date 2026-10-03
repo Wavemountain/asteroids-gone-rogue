@@ -96,12 +96,19 @@ namespace AsteroidsGoneRogue
         public const float DoctrinePickScale = 0.68f;
         public const float DoctrinePickDuckSeconds = 0.3f;
         public const float DoctrinePickDuckScale = 0.4f;
+        public const float WorldMusicScale = MusicPlan.WorldMusicScale;
+        public const float BossMusicScale = MusicPlan.BossMusicScale;
+        public const float MusicCrossfadeSeconds = MusicPlan.MusicCrossfadeSeconds;
+        public const float EliteStingScale = MusicPlan.EliteStingScale;
+        public const float EliteStingDuckSeconds = MusicPlan.EliteStingDuckSeconds;
+        public const float EliteStingDuckScale = MusicPlan.EliteStingDuckScale;
 
         public static AudioCues Instance { get; private set; }
 
         private AudioSource _sfx;
         private AudioSource _vary;
         private AudioSource _music;
+        private AudioSource _musicB;
         private AudioSource _hangarLayer;
         private AudioSource _railRise;
         private AudioSource _railHold;
@@ -154,6 +161,10 @@ namespace AsteroidsGoneRogue
         private AudioClip[] _hazardHits;
         private AudioClip _arenaLoop;
         private AudioClip _arenaHigh;
+        private AudioClip[] _worldMusic;
+        private AudioClip _bossMusic;
+        private AudioClip _bossMusicFinal;
+        private AudioClip _eliteSting;
         private AudioClip _hangarAmbience;
         private AudioClip _creditsLoop;
         private AudioClip _creditsOpen;
@@ -173,6 +184,11 @@ namespace AsteroidsGoneRogue
         private float _duckTarget = AbortDuckScale;
         private bool _creditsMusic;
         private float _lastSwarmPodSpawn;
+        private bool _crossfading;
+        private float _fadeElapsed;
+        private float _fadeSeconds;
+        private AudioClip _incomingClip;
+        private bool _musicHeld;
 
         public bool Muted
         {
@@ -195,6 +211,7 @@ namespace AsteroidsGoneRogue
             _sfx = CreateSource("SfxSource", false);
             _vary = CreateSource("VarySfxSource", false);
             _music = CreateSource("MusicSource", true);
+            _musicB = CreateSource("MusicSourceB", true);
             _hangarLayer = CreateSource("HangarLayerSource", true);
             _railRise = CreateSource("RailRiseSource", false);
             _railHold = CreateSource("RailHoldSource", true);
@@ -633,21 +650,51 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (phase == GamePhase.WaveClear || phase == GamePhase.CampaignClear)
+            {
+                return;
+            }
+
             _creditsMusic = false;
             if (phase == GamePhase.Playing)
             {
-                AudioClip clip = _arenaLoop;
-                if (waveIndex >= HighWaveMusicWave && _arenaHigh != null)
+                if (MusicPlan.UsesBossTrack(waveIndex))
                 {
-                    clip = _arenaHigh;
+                    PlayBossMusic(waveIndex);
                 }
-
-                PlayLoop(clip, ArenaMusicScale, ArenaMusicPitch);
+                else
+                {
+                    PlayWorldMusic(waveIndex);
+                }
             }
             else
             {
                 PlayLoop(_hangarAmbience, HangarMusicScale, HangarMusicPitch);
             }
+        }
+
+        public void PlayWorldMusic(int wave)
+        {
+            AudioClip worldClip = WorldClipFor(wave);
+            CrossfadeTo(worldClip, MusicPlan.WorldMusicScale, ArenaMusicPitch);
+        }
+
+        public void PlayBossMusic(int wave)
+        {
+            AudioClip bossClip = BossClipFor(wave);
+            if (bossClip == null)
+            {
+                bossClip = WorldClipFor(wave);
+            }
+
+            CrossfadeTo(bossClip, MusicPlan.BossMusicScale, ArenaMusicPitch);
+        }
+
+        public void PlayEliteSting()
+        {
+            AudioClip sting = _eliteSting != null ? _eliteSting : _waveClear;
+            Play(sting, MusicPlan.EliteStingScale);
+            DuckMusic(MusicPlan.EliteStingDuckSeconds, MusicPlan.EliteStingDuckScale);
         }
 
         public void SetMuted(bool muted)
@@ -788,6 +835,19 @@ namespace AsteroidsGoneRogue
                 refresh = true;
             }
 
+            HoldMusicForPause();
+            if (_crossfading && !_musicHeld)
+            {
+                _fadeElapsed += Time.unscaledDeltaTime;
+                float ramp = MusicPlan.CrossfadeRamp(_fadeElapsed, _fadeSeconds);
+                if (ramp >= 1f)
+                {
+                    FinishCrossfade();
+                }
+
+                refresh = true;
+            }
+
             if (refresh)
             {
                 ApplyVolumes();
@@ -799,6 +859,13 @@ namespace AsteroidsGoneRogue
             if (_music == null || clip == null)
             {
                 return;
+            }
+
+            _crossfading = false;
+            _fadeElapsed = 0f;
+            if (_musicB != null)
+            {
+                _musicB.Stop();
             }
 
             _musicScale = scale;
@@ -813,7 +880,7 @@ namespace AsteroidsGoneRogue
             _music.clip = clip;
             _music.loop = true;
             ApplyVolumes();
-            if (!_muted)
+            if (!_muted && !_musicHeld)
             {
                 _music.Play();
             }
@@ -821,6 +888,133 @@ namespace AsteroidsGoneRogue
             {
                 _music.Stop();
             }
+        }
+
+        private void CrossfadeTo(AudioClip clip, float scale, float pitch)
+        {
+            if (clip == null || _music == null)
+            {
+                return;
+            }
+
+            _musicScale = scale;
+            _musicPitch = pitch;
+            if (!_crossfading && _currentMusic == clip && _music.isPlaying)
+            {
+                ApplyVolumes();
+                return;
+            }
+
+            if (_currentMusic == null || !_music.isPlaying || _musicB == null)
+            {
+                PlayLoop(clip, scale, pitch);
+                return;
+            }
+
+            if (_crossfading)
+            {
+                FinishCrossfade();
+            }
+
+            _incomingClip = clip;
+            _musicB.clip = clip;
+            _musicB.loop = true;
+            _musicB.pitch = pitch;
+            _musicB.volume = 0f;
+            _fadeElapsed = 0f;
+            _fadeSeconds = MusicPlan.MusicCrossfadeSeconds;
+            _crossfading = true;
+            if (!_muted && !_musicHeld)
+            {
+                _musicB.Play();
+            }
+
+            ApplyVolumes();
+        }
+
+        private void FinishCrossfade()
+        {
+            AudioSource outgoing = _music;
+            _music = _musicB;
+            _musicB = outgoing;
+            if (_musicB != null)
+            {
+                _musicB.Stop();
+            }
+
+            _currentMusic = _incomingClip;
+            _crossfading = false;
+            _fadeElapsed = 0f;
+        }
+
+        private void HoldMusicForPause()
+        {
+            bool paused = Time.timeScale <= 0.0001f;
+            if (paused == _musicHeld)
+            {
+                return;
+            }
+
+            _musicHeld = paused;
+            if (paused)
+            {
+                if (_music != null && _music.isPlaying)
+                {
+                    _music.Pause();
+                }
+
+                if (_musicB != null && _musicB.isPlaying)
+                {
+                    _musicB.Pause();
+                }
+
+                return;
+            }
+
+            ApplyVolumes();
+        }
+
+        private AudioClip WorldClipFor(int wave)
+        {
+            string trackName = MusicPlan.WorldTrackName(wave);
+            int trackIndex = 0;
+            for (int nameIndex = 0; nameIndex < MusicPlan.WorldTrackNames.Length; nameIndex++)
+            {
+                if (MusicPlan.WorldTrackNames[nameIndex] == trackName)
+                {
+                    trackIndex = nameIndex;
+                    break;
+                }
+            }
+
+            AudioClip loaded = null;
+            if (_worldMusic != null && trackIndex >= 0 && trackIndex < _worldMusic.Length)
+            {
+                loaded = _worldMusic[trackIndex];
+            }
+
+            if (loaded != null)
+            {
+                return loaded;
+            }
+
+            if (wave >= HighWaveMusicWave && _arenaHigh != null)
+            {
+                return _arenaHigh;
+            }
+
+            return _arenaLoop;
+        }
+
+        private AudioClip BossClipFor(int wave)
+        {
+            string bossName = MusicPlan.BossTrackName(wave);
+            if (bossName == MusicPlan.BossFinalTrack)
+            {
+                return _bossMusicFinal != null ? _bossMusicFinal : _bossMusic;
+            }
+
+            return _bossMusic != null ? _bossMusic : _bossMusicFinal;
         }
 
         private void ApplyVolumes()
@@ -842,17 +1036,54 @@ namespace AsteroidsGoneRogue
 
             ApplyRailHoldVolume();
 
+            float musicLevel = _muted ? 0f : _musicVolume * _musicScale * _duckScale;
+            float fadeRamp = _crossfading ? MusicPlan.CrossfadeRamp(_fadeElapsed, _fadeSeconds) : 1f;
             if (_music != null)
             {
                 _music.pitch = _musicPitch;
-                _music.volume = _muted ? 0f : _musicVolume * _musicScale * _duckScale;
-                if (_muted)
+                _music.volume = _crossfading ? musicLevel * (1f - fadeRamp) : musicLevel;
+                if (_muted || _musicHeld)
                 {
-                    _music.Pause();
+                    if (_music.isPlaying)
+                    {
+                        _music.Pause();
+                    }
                 }
                 else if (_currentMusic != null && !_music.isPlaying)
                 {
-                    _music.Play();
+                    _music.UnPause();
+                    if (!_music.isPlaying)
+                    {
+                        _music.Play();
+                    }
+                }
+            }
+
+            if (_musicB != null)
+            {
+                _musicB.pitch = _musicPitch;
+                _musicB.volume = _crossfading ? musicLevel * fadeRamp : 0f;
+                if (!_crossfading)
+                {
+                    if (_musicB.isPlaying)
+                    {
+                        _musicB.Stop();
+                    }
+                }
+                else if (_muted || _musicHeld)
+                {
+                    if (_musicB.isPlaying)
+                    {
+                        _musicB.Pause();
+                    }
+                }
+                else if (_incomingClip != null && !_musicB.isPlaying)
+                {
+                    _musicB.UnPause();
+                    if (!_musicB.isPlaying)
+                    {
+                        _musicB.Play();
+                    }
                 }
             }
 
@@ -1037,6 +1268,15 @@ namespace AsteroidsGoneRogue
             }
 
             _arenaHigh = Resources.Load<AudioClip>("Audio/Music/TimeDriving");
+            _worldMusic = new AudioClip[MusicPlan.WorldTrackNames.Length];
+            for (int worldSlot = 0; worldSlot < MusicPlan.WorldTrackNames.Length; worldSlot++)
+            {
+                _worldMusic[worldSlot] = Resources.Load<AudioClip>("Audio/Music/" + MusicPlan.WorldTrackNames[worldSlot]);
+            }
+
+            _bossMusic = Resources.Load<AudioClip>("Audio/Music/" + MusicPlan.BossTrack);
+            _bossMusicFinal = Resources.Load<AudioClip>("Audio/Music/" + MusicPlan.BossFinalTrack);
+            _eliteSting = Resources.Load<AudioClip>("Audio/Sfx/" + MusicPlan.EliteStingTrack);
             _hangarAmbience = Resources.Load<AudioClip>("Audio/Music/spacelifeNo14");
             _creditsLoop = Resources.Load<AudioClip>("Audio/Music/SpaceCadet");
             _creditsOpen = Resources.Load<AudioClip>("Audio/Sfx/jingles_NES07");

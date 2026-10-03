@@ -1,0 +1,8 @@
+Verified 2026-10-03 on the OpenGameArt pages (License(s): CC0):
+- Juhani Junkala (SubspaceAudio) - https://opengameart.org/content/5-chiptunes-action  (zip: "Juhani Junkala [Retro Game Music Pack] Level 1/2/3, Ending, Title Screen"; INFO.txt says CC0)
+- MintoDog - Space Battle        https://opengameart.org/content/space-battle
+- MintoDog - Space Boss Battle   https://opengameart.org/content/space-boss-battle
+- MintoDog - 8bit Action Boss Battle (+ Climax) https://opengameart.org/content/8bit-action-boss-battle
+- HydroGene - 8-bit Epic Space Shooter Music  https://opengameart.org/content/8-bit-epic-space-shooter-music
+- Kenney - Music Loops 1.1 (kenney.nl/assets/music-loops now 404; pack obtained from mirror gamesounds.xyz, readme = CC0; file sizes of Mission Plausible/Space Cadet/Time Driving/Game Over are byte-identical to the ones already in the repo)
+- Kenney - Music Jingles (jingles_NES00) CC0, already in /workspace/kenney/music-jingles

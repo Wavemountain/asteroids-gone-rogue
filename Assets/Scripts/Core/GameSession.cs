@@ -25,6 +25,11 @@ namespace AsteroidsGoneRogue
         public bool CampaignWon { get; private set; }
         public bool WaveTookHit { get; private set; }
         public int ExtraLifeStreak { get; private set; }
+        public bool WaveInProgress { get; private set; }
+        public int LivesAtWaveStart { get; private set; }
+        public int BankedLegacy { get; private set; }
+        public int ExtraLifeWorld { get; private set; }
+        private int _lifeCapBonus;
 
         /// <summary>
         /// World index just completed when the latest clear was a world boundary
@@ -118,9 +123,107 @@ namespace AsteroidsGoneRogue
             Phase = GamePhase.Playing;
         }
 
+        public void MarkWaveStarted()
+        {
+            WaveInProgress = true;
+            LivesAtWaveStart = Lives;
+        }
+
+        public void ClearWaveMarker()
+        {
+            WaveInProgress = false;
+            LivesAtWaveStart = 0;
+        }
+
+        public void ApplyAbandonedWavePenalty()
+        {
+            if (!WaveInProgress)
+            {
+                return;
+            }
+
+            Lives = RunSaveCodec.LivesAfterAbandonedWave(Lives, LivesAtWaveStart);
+            ClearWaveMarker();
+        }
+
+        public void ReadContinue(int waveInProgress, int livesAtStart, int banked, int extraLifeWorld)
+        {
+            WaveInProgress = waveInProgress != 0;
+            LivesAtWaveStart = livesAtStart < 0 ? 0 : livesAtStart;
+            BankedLegacy = banked < 0 ? 0 : banked;
+            if (BankedLegacy > ShopPrices.BankMaxPerRun)
+            {
+                BankedLegacy = ShopPrices.BankMaxPerRun;
+            }
+
+            ExtraLifeWorld = extraLifeWorld < 0 ? 0 : extraLifeWorld;
+            _lifeCapBonus = ExtraLifeWorld > 0 ? 1 : 0;
+            int raised = DifficultySettings.MaxLives + _lifeCapBonus;
+            if (MaxLives < raised)
+            {
+                MaxLives = raised;
+            }
+        }
+
+        public bool CanBuyExtraLife(int world)
+        {
+            int worldNumber = world < 1 ? 1 : world;
+            if (ExtraLifeWorld == worldNumber)
+            {
+                return false;
+            }
+
+            int cap = DifficultySettings.MaxLives + (_lifeCapBonus > 0 ? _lifeCapBonus : 1);
+            return Lives < cap;
+        }
+
+        public bool TryBuyExtraLife(int world)
+        {
+            int worldNumber = world < 1 ? 1 : world;
+            if (!CanBuyExtraLife(worldNumber))
+            {
+                return false;
+            }
+
+            if (_lifeCapBonus == 0)
+            {
+                _lifeCapBonus = 1;
+                MaxLives = DifficultySettings.MaxLives + _lifeCapBonus;
+            }
+
+            if (!TryGainLife())
+            {
+                return false;
+            }
+
+            ExtraLifeWorld = worldNumber;
+            return true;
+        }
+
+        public bool CanBankCredits()
+        {
+            return BankedLegacy < ShopPrices.BankMaxPerRun && Credits >= ShopPrices.BankCreditsPerPoint;
+        }
+
+        public bool TryBankCredits()
+        {
+            if (BankedLegacy >= ShopPrices.BankMaxPerRun)
+            {
+                return false;
+            }
+
+            if (!TrySpend(ShopPrices.BankCreditsPerPoint))
+            {
+                return false;
+            }
+
+            BankedLegacy += 1;
+            return true;
+        }
+
         public void ResetLives(int startLives)
         {
-            int cap = DifficultySettings.MaxLives;
+            int cap = DifficultySettings.MaxLives + _lifeCapBonus;
             MaxLives = cap;
             if (startLives < 1)
             {
@@ -149,6 +252,10 @@ namespace AsteroidsGoneRogue
             WaveTookHit = false;
             ExtraLifeStreak = 0;
             WorldCleared = 0;
+            _lifeCapBonus = 0;
+            BankedLegacy = 0;
+            ExtraLifeWorld = 0;
+            ClearWaveMarker();
             ResetLives(DifficultySettings.StartLives);
             Phase = GamePhase.Hangar;
         }
@@ -300,6 +407,7 @@ namespace AsteroidsGoneRogue
 
         public void ReturnToHangar()
         {
+            ClearWaveMarker();
             Phase = GamePhase.Hangar;
         }
 
@@ -318,6 +426,7 @@ namespace AsteroidsGoneRogue
             FailEnemyKind = EnemyKind.Mid01;
             HasStructuredFail = false;
             FailRemainingThreats = 0;
+            ClearWaveMarker();
             Phase = GamePhase.Hangar;
         }
 

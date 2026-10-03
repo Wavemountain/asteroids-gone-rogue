@@ -21,19 +21,34 @@ namespace AsteroidsGoneRogue
             }
 
             ShopItem item = FindItem(id);
-            if (item == null || !_loadout.State.CanApply(id))
+            if (item == null)
             {
                 return false;
             }
 
-            if (!_session.TrySpend(_loadout.State.EffectiveCost(item)))
+            int world = ShopWorld();
+            bool mk2 = !_loadout.State.CanApply(id) && _loadout.State.CanBuyMk2(id);
+            if (!_loadout.State.CanApply(id) && !mk2)
+            {
+                return false;
+            }
+
+            int price = mk2 ? _loadout.State.Mk2Price(item, world) : _loadout.State.EffectiveCost(item, world);
+            if (!_session.TrySpend(price))
             {
                 return false;
             }
 
             _loadout.State.ConsumeFirstDiscount();
-            _loadout.State.Apply(id);
-            _loadout.State.AutoEquipAfterPurchase(id);
+            if (mk2)
+            {
+                _loadout.State.GrantMk2(id);
+            }
+            else
+            {
+                _loadout.State.Apply(id);
+                _loadout.State.AutoEquipAfterPurchase(id);
+            }
             if (AudioCues.Instance != null)
             {
                 AudioCues.Instance.PlayHangarPurchase();
@@ -97,6 +112,32 @@ namespace AsteroidsGoneRogue
             _game.NotifyDoctrinePicked(id);
             _game.NotifyLoadoutChanged();
             return true;
+        }
+
+        public bool TryRepairHull()
+        {
+            return _game != null && _game.TryBuyHullRepair();
+        }
+
+        public bool TryRefillShield()
+        {
+            return _game != null && _game.TryBuyShieldRefill();
+        }
+
+        public bool TryBuyExtraLife()
+        {
+            return _game != null && _game.TryBuyExtraLife();
+        }
+
+        public bool TryBankCredits()
+        {
+            return _game != null && _game.TryBankCredits();
+        }
+
+        private int ShopWorld()
+        {
+            int wave = _session != null ? _session.WaveIndex : 1;
+            return WorldCatalog.NumberForWave(wave);
         }
 
         public static ShopItem FindItem(UpgradeId id)

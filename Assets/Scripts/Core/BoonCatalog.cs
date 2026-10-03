@@ -116,7 +116,7 @@ namespace AsteroidsGoneRogue
                 case (int)BoonId.ExtraShard:
                     return Loc.T("boon.shard.fx", "+1 shard on split");
                 case (int)BoonId.DamageResist:
-                    return Loc.T("boon.resist.fx", "-10% incoming damage");
+                    return Loc.T("boon.resist.fx", "10% chance to ignore a hit");
                 case (int)BoonId.WaveShield:
                     return Loc.T("boon.shield.fx", "+1 shield each wave");
                 case (int)BoonId.UtilityCooldown:
@@ -153,6 +153,68 @@ namespace AsteroidsGoneRogue
                 default:
                     return Loc.T("boon.fire.tag", "Fire");
             }
+        }
+
+        /// <summary>
+        /// 10% per level to ignore a hit. The roll is a seeded hash of the run
+        /// and the hit index, so tests can pin hit 0.
+        /// </summary>
+        public static bool IgnoresHit(int level, int runSeed, int hitIndex)
+        {
+            int rank = level;
+            if (rank < 0)
+            {
+                rank = 0;
+            }
+
+            if (rank > MaxLevel)
+            {
+                rank = MaxLevel;
+            }
+
+            if (rank <= 0)
+            {
+                return false;
+            }
+
+            int chance = rank * ResistPerLevel;
+            if (chance > 100)
+            {
+                chance = 100;
+            }
+
+            int roll = HitRoll(runSeed, hitIndex) % 100;
+            if (roll < 0)
+            {
+                roll = -roll;
+            }
+
+            return roll < chance;
+        }
+
+        public static int HitRoll(int runSeed, int hitIndex)
+        {
+            int state = runSeed;
+            if (state < 0)
+            {
+                state = -state;
+            }
+
+            int index = hitIndex < 0 ? 0 : hitIndex;
+            state = state * 1103515245 + 12345;
+            state = state + index * 97;
+            state = state * 1664525 + 1013904223;
+            if (state == int.MinValue)
+            {
+                return 0;
+            }
+
+            if (state < 0)
+            {
+                state = -state;
+            }
+
+            return state;
         }
 
         public static string OwnedLabel(int id, int level)
@@ -468,6 +530,9 @@ namespace AsteroidsGoneRogue
         public static int IncomingPercent = 100;
         public static int StartingShield = 0;
         public static int UtilityCooldownPercent = 100;
+        public static int ResistLevel = 0;
+        public static int RunSeed = 1;
+        public static int HitCounter = 0;
 
         public static void Reset()
         {
@@ -480,6 +545,20 @@ namespace AsteroidsGoneRogue
             IncomingPercent = 100;
             StartingShield = 0;
             UtilityCooldownPercent = 100;
+            ResistLevel = 0;
+        }
+
+        public static void ResetRunCounters()
+        {
+            HitCounter = 0;
+            RunSeed = 1;
+        }
+
+        public static bool TryIgnoreHit()
+        {
+            int index = HitCounter < 0 ? 0 : HitCounter;
+            HitCounter = index + 1;
+            return BoonCatalog.IgnoresHit(ResistLevel, RunSeed, index);
         }
 
         public static void Sync(BoonRun run)
@@ -497,7 +576,8 @@ namespace AsteroidsGoneRogue
             CreditPercent = 100 + Level(levels, BoonId.WaveCredits) * BoonCatalog.CreditPerLevel;
             RailChargePercent = 100 + Level(levels, BoonId.RailCharge) * BoonCatalog.RailPerLevel;
             ExtraShards = Level(levels, BoonId.ExtraShard) * BoonCatalog.ShardPerLevel;
-            IncomingPercent = 100 - (Level(levels, BoonId.DamageResist) * BoonCatalog.ResistPerLevel);
+            IncomingPercent = 100;
+            ResistLevel = Level(levels, BoonId.DamageResist);
             StartingShield = Level(levels, BoonId.WaveShield) * BoonCatalog.ShieldPerLevel;
             UtilityCooldownPercent = 100 - (Level(levels, BoonId.UtilityCooldown) * BoonCatalog.UtilityPerLevel);
         }

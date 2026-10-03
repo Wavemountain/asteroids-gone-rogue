@@ -38,6 +38,11 @@ namespace AsteroidsGoneRogue
 
         public int ActiveRunId { get; private set; }
 
+        public ShipHealth PlayerHealth
+        {
+            get { return _ship != null ? _ship.Health : null; }
+        }
+
         private readonly BoonRun _boonRun = new BoonRun();
         private int _boonChosenFrame = -1;
 
@@ -224,6 +229,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            bool retrying = _session.Phase == GamePhase.Failed;
             if (GameSession.PrimaryRestartsRun(_session.Phase))
             {
                 ResetFullRun();
@@ -244,8 +250,11 @@ namespace AsteroidsGoneRogue
             }
 
             _runLaunched = true;
+            EnsureRunId();
             _session.BeginWave();
-            _ship.ResetForWave(_loadout.State);
+            _session.MarkWaveStarted();
+            BoonHooks.RunSeed = ActiveRunId > 0 ? ActiveRunId : 1;
+            _ship.ResetForWave(_loadout.State, false, true);
             _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
             _ship.SetInputEnabled(true);
             int world = ContentFactory.WorldIndexForWave(_session.WaveIndex);
@@ -256,7 +265,8 @@ namespace AsteroidsGoneRogue
             }
 
             _waves.SpawnWave(_session.WaveIndex);
-            if (WaveModifier.IsElite(_session.WaveIndex) && _ui != null)
+            bool eliteWave = WaveModifier.IsElite(_session.WaveIndex);
+            if (eliteWave && _ui != null)
             {
                 _ui.AnnounceEliteWave(_session.WaveIndex);
             }
@@ -269,7 +279,13 @@ namespace AsteroidsGoneRogue
                 }
             }
 
+            if (!retrying && eliteWave && AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayEliteSting();
+            }
+
             RaiseStateChanged();
+            WriteWaveProgress();
         }
 
         public void ContinueFromResults()
@@ -278,8 +294,7 @@ namespace AsteroidsGoneRogue
             {
                 _session.ReturnToHangar();
                 _ship.SetInputEnabled(false);
-                _ship.ResetForWave(_loadout.State);
-                _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
+                PreserveShip(true);
                 RaiseStateChanged();
             }
         }
@@ -309,8 +324,7 @@ namespace AsteroidsGoneRogue
 
             if (_ship != null)
             {
-                _ship.ResetForWave(_loadout.State);
-                _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
+                PreserveShip(true);
             }
 
             RaiseStateChanged();
@@ -485,6 +499,8 @@ namespace AsteroidsGoneRogue
             }
 
             DifficultySettings.SetGrade(grade);
+            _session.ReadContinue(0, 0, data.BankedLegacy, data.ExtraLifeWorld);
+            RunSaveCodec.ApplyAbandonedWave(data);
             _loadout.State.RestoreSnapshot(
                 data.UpgradeMask,
                 data.Shield,
@@ -504,8 +520,11 @@ namespace AsteroidsGoneRogue
                 data.LastRunScore,
                 data.LastCreditsAwarded,
                 data.ExtraLifeStreak);
+            _session.ReadContinue(data.WaveInProgress, data.LivesAtWaveStart, data.BankedLegacy, data.ExtraLifeWorld);
+            _loadout.State.SetMk2Mask(data.Mk2Mask);
             _boonRun.ReadSave(data.BoonLevels, data.BoonPending, data.BoonOffer);
             BoonHooks.Sync(_boonRun);
+            BoonHooks.RunSeed = ActiveRunId > 0 ? ActiveRunId : 1;
             if (_ship != null)
             {
                 _ship.SetInputEnabled(false);
@@ -596,8 +615,200 @@ namespace AsteroidsGoneRogue
             }
 
             ClearBoons();
+            BoonHooks.ResetRunCounters();
             EnsureRunId();
+            BoonHooks.RunSeed = ActiveRunId > 0 ? ActiveRunId : 1;
             ApplyLegacyToNewRun();
+        }
+
+        public void GrantBankedLegacy()
+        {
+            if (Meta == null)
+            {
+                Meta = MetaData.Fresh();
+            }
+
+            Meta.LegacyPoints += 1;
+            RunSaveStore.TrySaveMeta(Meta);
+        }
+
+        public bool TryBuyHullRepair()
+        {
+            if (!ServiceShopOpen() || _ship == null || _ship.Health == null)
+            {
+                return false;
+            }
+
+            if (_ship.Health.Hull >= _ship.Health.MaxHull || _ship.Health.Hull <= 0)
+            {
+                return false;
+            }
+
+            int repairPrice = ShopPrices.ApplyWorld(ShopPrices.HullRepairCost, ShopWorld());
+            if (!_session.TrySpend(repairPrice))
+            {
+                return false;
+            }
+
+            _ship.Health.RefillHull();
+            PlayServicePurchase();
+            NotifyLoadoutChanged();
+            return true;
+        }
+
+        public bool TryBuyShieldRefill()
+        {
+            if (!ServiceShopOpen() || _ship == null || _ship.Health == null)
+            {
+                return false;
+            }
+
+            if (_ship.Health.MaxShield <= 0 || _ship.Health.Shield >= _ship.Health.MaxShield)
+            {
+                return false;
+            }
+
+            int refillPrice = ShopPrices.ApplyWorld(ShopPrices.ShieldRefillCost, ShopWorld());
+            if (!_session.TrySpend(refillPrice))
+            {
+                return false;
+            }
+
+            _ship.Health.RefillShield();
+            PlayServicePurchase();
+            NotifyLoadoutChanged();
+            return true;
+        }
+
+        public bool TryBuyExtraLife()
+        {
+            if (!ServiceShopOpen())
+            {
+                return false;
+            }
+
+            int lifePrice = ShopPrices.ApplyWorld(ShopPrices.ExtraLifeCost, ShopWorld());
+            if (_session.Credits < lifePrice || !_session.CanBuyExtraLife(ShopWorld()))
+            {
+                return false;
+            }
+
+            if (!_session.TrySpend(lifePrice))
+            {
+                return false;
+            }
+
+            if (!_session.TryBuyExtraLife(ShopWorld()))
+            {
+                _session.GrantCredits(lifePrice);
+                return false;
+            }
+
+            PlayServicePurchase();
+            NotifyLoadoutChanged();
+            return true;
+        }
+
+        public bool TryBankCredits()
+        {
+            if (!ServiceShopOpen())
+            {
+                return false;
+            }
+
+            if (!_session.TryBankCredits())
+            {
+                return false;
+            }
+
+            GrantBankedLegacy();
+            PlayServicePurchase();
+            NotifyLoadoutChanged();
+            return true;
+        }
+
+        private bool ServiceShopOpen()
+        {
+            return _session != null && _session.ShopOpen && _loadout != null;
+        }
+
+        private int ShopWorld()
+        {
+            int wave = _session != null ? _session.WaveIndex : 1;
+            return WorldCatalog.NumberForWave(wave);
+        }
+
+        private static void PlayServicePurchase()
+        {
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayHangarPurchase();
+            }
+        }
+
+        private void PreserveShip(bool mend)
+        {
+            if (_ship == null || _loadout == null)
+            {
+                return;
+            }
+
+            _ship.ResetForWave(_loadout.State, false, false);
+            if (mend)
+            {
+                MendBetweenWorlds();
+            }
+
+            if (_factory != null)
+            {
+                _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
+            }
+        }
+
+        private void MendBetweenWorlds()
+        {
+            if (_ship == null || _ship.Health == null || Meta == null)
+            {
+                return;
+            }
+
+            int hullLevel = LegacyProgress.Level(Meta, LegacyProgress.HullPerk);
+            int mended = LegacyProgress.MendHull(_ship.Health.Hull, _ship.Health.MaxHull, hullLevel);
+            _ship.Health.SetHull(mended);
+        }
+
+        private void ApplyShieldDuration()
+        {
+            if (_ship == null || _ship.Health == null || Meta == null)
+            {
+                return;
+            }
+
+            int shieldLevel = LegacyProgress.Level(Meta, LegacyProgress.ShieldPerk);
+            _ship.Health.SetIFramePercent(LegacyProgress.ShieldDurationPercent(shieldLevel));
+        }
+
+        private void WriteWaveProgress()
+        {
+            if (_session == null || !_session.WaveInProgress || _loadout == null || _loadout.State == null)
+            {
+                return;
+            }
+
+            if (PendingContinue != null)
+            {
+                return;
+            }
+
+            EnsureRunId();
+            string waveStamp = System.DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture);
+            RunSaveData waveData = RunSaveCodec.Capture(_session, _loadout.State, (int)DifficultySettings.Current, ActiveRunId, waveStamp, _boonRun);
+            if (!RunSaveCodec.IsValid(waveData))
+            {
+                return;
+            }
+
+            RunSaveStore.TrySaveRun(waveData);
         }
 
         public void NotifyLoadoutChanged()
@@ -607,11 +818,11 @@ namespace AsteroidsGoneRogue
                 _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
                 if (_session.Phase == GamePhase.Playing)
                 {
-                    _ship.ResetForWave(_loadout.State);
+                    _ship.ResetForWave(_loadout.State, false, false);
                 }
                 else if (_ship.Health != null)
                 {
-                    _ship.Health.ResetForWave(_loadout.State);
+                    _ship.Health.ResetForWave(_loadout.State, false, false);
                 }
 
                 if (_ship.Shooter != null)
@@ -990,6 +1201,7 @@ namespace AsteroidsGoneRogue
                 _ui.Refresh();
             }
 
+            ApplyShieldDuration();
             if (AudioCues.Instance != null)
             {
                 AudioCues.Instance.SyncMusicToPhase(_session.Phase, _session.WaveIndex);

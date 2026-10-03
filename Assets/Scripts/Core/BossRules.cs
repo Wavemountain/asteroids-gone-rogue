@@ -15,6 +15,9 @@ namespace AsteroidsGoneRogue
         public const int AimedBurstCount = 3;
         public const int RadialCount = 8;
         public const float TelegraphSeconds = 0.8f;
+        public const float AimedWindupSeconds = 0.4f;
+        public const float AimedWindupMin = 0.3f;
+        public const float AimedWindupMax = 0.5f;
         public const float AimedGapSeconds = 1.7f;
         public const float RadialGapSeconds = 2.6f;
 
@@ -49,6 +52,11 @@ namespace AsteroidsGoneRogue
             }
 
             return DifficultySettings.ApplyGradeHp(raw, grade);
+        }
+
+        public static bool WindupInBand()
+        {
+            return AimedWindupSeconds >= AimedWindupMin && AimedWindupSeconds <= AimedWindupMax;
         }
 
         public static string Label()

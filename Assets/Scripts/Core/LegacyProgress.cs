@@ -51,8 +51,10 @@ namespace AsteroidsGoneRogue
         public const int CreditsPerLevel = 10;
         public const int DiscountPercentPerLevel = 7;
         public const int DiscountCapPercent = 20;
-        public const int ShieldBonusCap = 1;
-        public const int HullBonusCap = 1;
+        public const int ShieldBonusCap = 2;
+        public const int HullBonusCap = 2;
+        public const int ShieldDurationStep = 10;
+        public const int HullRegenStep = 5;
         public const int AwardMemory = 32;
 
         public static int ClampLevel(int level)
@@ -127,12 +129,31 @@ namespace AsteroidsGoneRogue
 
         public static int StartingShield(int level)
         {
-            if (ClampLevel(level) <= 0)
+            int rank = ClampLevel(level);
+            if (rank <= 0)
             {
                 return 0;
             }
 
-            return ShieldBonusCap;
+            if (rank >= MaxLevel)
+            {
+                return ShieldBonusCap;
+            }
+
+            return 1;
+        }
+
+        /// <summary>100, 100, 110, 120 for levels 0-3. Level 2 is the first longer shield.</summary>
+        public static int ShieldDurationPercent(int level)
+        {
+            int rank = ClampLevel(level);
+            if (rank < 2)
+            {
+                return 100;
+            }
+
+            int bonus = (rank - 1) * ShieldDurationStep;
+            return 100 + bonus;
         }
 
         public static int StartingShield(MetaData meta)
@@ -142,12 +163,69 @@ namespace AsteroidsGoneRogue
 
         public static int HullBonus(int level)
         {
-            if (ClampLevel(level) <= 0)
+            int rank = ClampLevel(level);
+            if (rank <= 0)
             {
                 return 0;
             }
 
-            return HullBonusCap;
+            if (rank >= MaxLevel)
+            {
+                return HullBonusCap;
+            }
+
+            return 1;
+        }
+
+        /// <summary>0, 0, 5, 10. Level 2 mends between waves; level 3 also adds the second hull hit.</summary>
+        public static int HullRegenPercent(int level)
+        {
+            int rank = ClampLevel(level);
+            if (rank < 2)
+            {
+                return 0;
+            }
+
+            return (rank - 1) * HullRegenStep;
+        }
+
+        public static int MendHull(int current, int maxHull, int level)
+        {
+            if (maxHull < 1)
+            {
+                return current < 0 ? 0 : current;
+            }
+
+            if (current < 0)
+            {
+                current = 0;
+            }
+
+            if (current > maxHull)
+            {
+                current = maxHull;
+            }
+
+            int percent = HullRegenPercent(level);
+            if (percent <= 0 || current >= maxHull)
+            {
+                return current;
+            }
+
+            int missing = maxHull - current;
+            int gained = missing * percent / 100;
+            if (gained < 1)
+            {
+                gained = 1;
+            }
+
+            int mended = current + gained;
+            if (mended > maxHull)
+            {
+                mended = maxHull;
+            }
+
+            return mended;
         }
 
         public static int HullBonus(MetaData meta)
@@ -465,12 +543,28 @@ namespace AsteroidsGoneRogue
                         "ui.legacy.shield",
                         "Shield +{0}",
                         StartingShield(shownLevel));
+                    if (ShieldDurationPercent(shownLevel) > 100)
+                    {
+                        effect += Loc.Tf(
+                            "ui.legacy.shield_dur",
+                            "  ·  {0}% time",
+                            ShieldDurationPercent(shownLevel));
+                    }
+
                     break;
                 case HullPerk:
                     effect = Loc.Tf(
                         "ui.legacy.hull",
                         "Hull +{0}",
                         HullBonus(shownLevel));
+                    if (HullRegenPercent(shownLevel) > 0)
+                    {
+                        effect += Loc.Tf(
+                            "ui.legacy.hull_regen",
+                            "  ·  +{0}% mend",
+                            HullRegenPercent(shownLevel));
+                    }
+
                     break;
                 default:
                     effect = Loc.Tf(

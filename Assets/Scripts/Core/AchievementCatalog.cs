@@ -111,12 +111,12 @@ namespace AsteroidsGoneRogue
 
         public static string AwardLine(AchievementId id)
         {
-            return "★ " + Title(id);
+            return UiGlyph.Medal + Title(id);
         }
 
         public static string LockedLine(AchievementId id)
         {
-            return "○ " + Title(id);
+            return UiGlyph.Locked + Title(id);
         }
 
         public static string ToastLine(AchievementId id)
@@ -171,7 +171,7 @@ namespace AsteroidsGoneRogue
         /// </summary>
         public static string CompactCount(int mask)
         {
-            return Loc.Tf("ach.compact", "★ {0}/{1}", OwnedCount(mask), All.Length);
+            return Loc.Tf("ach.compact", "\u2022 {0}/{1}", OwnedCount(mask), All.Length);
         }
 
         public static bool ShouldUnlockFirstClear(int clearedWave)

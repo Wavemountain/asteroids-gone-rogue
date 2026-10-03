@@ -31,6 +31,10 @@ namespace AsteroidsGoneRogue
         private int _bossPattern;
         private float _bossNext;
         private float _radialAt;
+        private float _aimedFireAt;
+        private Vector3 _aimedDir;
+        private bool _aimedWinding;
+        private float _bossBaseScale;
 
         public EnemyKind Kind
         {
@@ -109,6 +113,9 @@ namespace AsteroidsGoneRogue
             _bossPattern = 0;
             _bossNext = 0f;
             _radialAt = 0f;
+            _aimedFireAt = 0f;
+            _aimedWinding = false;
+            _bossBaseScale = 1f;
             _body = GetComponent<Rigidbody>();
             _factory = Object.FindAnyObjectByType<ContentFactory>();
             _presence = GetComponent<MonsterPresence>();
@@ -144,6 +151,14 @@ namespace AsteroidsGoneRogue
             _turn *= 0.85f;
             _bossPattern = 0;
             _radialAt = 0f;
+            _aimedFireAt = 0f;
+            _aimedWinding = false;
+            _bossBaseScale = transform.localScale.x;
+            if (_bossBaseScale < 0.01f)
+            {
+                _bossBaseScale = BossRules.VisualScale;
+            }
+
             _bossNext = Time.time + 1.35f;
         }
 
@@ -405,6 +420,35 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (_aimedWinding)
+            {
+                float wind = BossRules.AimedWindupSeconds;
+                float elapsed = wind <= 0.0001f ? 1f : 1f - ((_aimedFireAt - now) / wind);
+                if (elapsed < 0f)
+                {
+                    elapsed = 0f;
+                }
+
+                if (elapsed > 1f)
+                {
+                    elapsed = 1f;
+                }
+
+                float pulse = 1f + 0.12f * Mathf.Sin(elapsed * Mathf.PI);
+                transform.localScale = Vector3.one * (_bossBaseScale * pulse);
+                if (now < _aimedFireAt)
+                {
+                    return;
+                }
+
+                _aimedWinding = false;
+                transform.localScale = Vector3.one * _bossBaseScale;
+                FireAimedBurst(_aimedDir);
+                _bossPattern = 1;
+                _bossNext = now + BossRules.AimedGapSeconds;
+                return;
+            }
+
             if (now < _bossNext)
             {
                 return;
@@ -412,9 +456,22 @@ namespace AsteroidsGoneRogue
 
             if (_bossPattern == 0)
             {
-                FireAimedBurst(toPlayerDir);
-                _bossPattern = 1;
-                _bossNext = now + BossRules.AimedGapSeconds;
+                Vector3 locked = toPlayerDir;
+                if (locked.sqrMagnitude < 0.01f)
+                {
+                    locked = transform.forward;
+                }
+
+                _aimedDir = locked.normalized;
+                _aimedFireAt = now + BossRules.AimedWindupSeconds;
+                _aimedWinding = true;
+                Vector3 windOrigin = transform.position + _aimedDir * 2.4f;
+                _factory.SpawnTelegraphRing(windOrigin, new Color(1f, 0.82f, 0.2f), BossRules.AimedWindupSeconds);
+                if (AudioCues.Instance != null)
+                {
+                    AudioCues.Instance.PlayEnemyShoot();
+                }
+
                 return;
             }
 
