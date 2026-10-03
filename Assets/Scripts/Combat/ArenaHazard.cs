@@ -12,11 +12,61 @@ namespace AsteroidsGoneRogue
         public bool Damaging;
         public bool PulseVisual;
 
+        private static Transform _listener;
+        private static readonly System.Collections.Generic.List<ArenaHazard> Live = new System.Collections.Generic.List<ArenaHazard>();
+
         private MeshRenderer[] _renderers;
         private Light _glow;
         private MaterialPropertyBlock _block;
         private Color _baseEmit = new Color(0.722f, 0.353f, 0.157f);
         private float _phase;
+
+        public static void SetListener(Transform player)
+        {
+            _listener = player;
+        }
+
+        public static float NearestDamagingDistance(Vector3 point)
+        {
+            float best = 999f;
+            for (int i = Live.Count - 1; i >= 0; i--)
+            {
+                ArenaHazard hazard = Live[i];
+                if (hazard == null)
+                {
+                    Live.RemoveAt(i);
+                    continue;
+                }
+
+                if (!hazard.Damaging)
+                {
+                    continue;
+                }
+
+                Vector3 delta = hazard.transform.position - point;
+                delta.y = 0f;
+                float distance = delta.magnitude;
+                if (distance < best)
+                {
+                    best = distance;
+                }
+            }
+
+            return best;
+        }
+
+        private void OnEnable()
+        {
+            if (!Live.Contains(this))
+            {
+                Live.Add(this);
+            }
+        }
+
+        private void OnDisable()
+        {
+            Live.Remove(this);
+        }
 
         public void DressPulse(Color emit, Light glow)
         {
@@ -42,6 +92,13 @@ namespace AsteroidsGoneRogue
 
             _phase += Time.deltaTime * (Damaging ? 5.4f : 2.1f);
             float pulse = 0.72f + Mathf.Sin(_phase) * (Damaging ? 0.38f : 0.16f);
+            if (Damaging && _listener != null)
+            {
+                Vector3 delta = transform.position - _listener.position;
+                delta.y = 0f;
+                pulse *= SpikeProximity.GlowMul(delta.magnitude);
+            }
+
             Color emit = _baseEmit * pulse;
             for (int i = 0; i < _renderers.Length; i++)
             {

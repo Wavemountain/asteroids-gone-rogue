@@ -54,6 +54,7 @@ namespace AsteroidsGoneRogue
         /// (version 1–3 files, or a field the file omitted).
         /// </summary>
         public int HullNow = -1;
+        public int AssistUsed;
 
         /// <summary>
         /// Remaining shield charges when the save was written. -1 means full
@@ -66,7 +67,7 @@ namespace AsteroidsGoneRogue
 
     public static class RunSaveCodec
     {
-        public const int CurrentVersion = 4;
+        public const int CurrentVersion = 5;
         public const int MaxHullNow = 16;
 
         /// <summary>
@@ -150,6 +151,7 @@ namespace AsteroidsGoneRogue
 
             data.HullNow = hullNow < -1 ? -1 : hullNow;
             data.ShieldNow = shieldNow < -1 ? -1 : shieldNow;
+            data.AssistUsed = session != null && session.AssistUsed ? 1 : 0;
             data.Difficulty = difficulty;
             data.RunId = runId;
             data.Timestamp = timestamp == null ? string.Empty : timestamp;
@@ -363,6 +365,11 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            if (data.AssistUsed != 0 && data.AssistUsed != 1)
+            {
+                return false;
+            }
+
             return true;
         }
 
@@ -461,6 +468,7 @@ namespace AsteroidsGoneRogue
                 && left.ExtraLifeWorld == right.ExtraLifeWorld
                 && left.HullNow == right.HullNow
                 && left.ShieldNow == right.ShieldNow
+                && left.AssistUsed == right.AssistUsed
                 && left.Timestamp == right.Timestamp;
         }
 
@@ -505,6 +513,7 @@ namespace AsteroidsGoneRogue
             AppendInt(builder, "ExtraLifeWorld", data.ExtraLifeWorld, false);
             AppendInt(builder, "HullNow", data.HullNow, false);
             AppendInt(builder, "ShieldNow", data.ShieldNow, false);
+            AppendInt(builder, "AssistUsed", data.AssistUsed, false);
             builder.Append(",\"Timestamp\":\"");
             builder.Append(Escape(data.Timestamp));
             builder.Append("\"}");
@@ -622,6 +631,11 @@ namespace AsteroidsGoneRogue
             {
                 parsed.HullNow = -1;
                 parsed.ShieldNow = -1;
+            }
+
+            if (parsed.Version < 5)
+            {
+                parsed.AssistUsed = 0;
             }
 
             if (!IsValid(parsed))
@@ -742,6 +756,9 @@ namespace AsteroidsGoneRogue
                     return true;
                 case "ShieldNow":
                     data.ShieldNow = number;
+                    return true;
+                case "AssistUsed":
+                    data.AssistUsed = number;
                     return true;
                 default:
                     return true;

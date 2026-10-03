@@ -14,6 +14,7 @@ namespace AsteroidsGoneRogue
         ConfirmAbort = 9,
         ConfirmNewRun = 10,
         PadNav = 11,
+        AssistMode = 12,
     }
 
     public enum SettingsRowRole
@@ -48,6 +49,7 @@ namespace AsteroidsGoneRogue
             SettingsRowId.ConfirmAbort,
             SettingsRowId.ConfirmNewRun,
             SettingsRowId.PadNav,
+            SettingsRowId.AssistMode,
             SettingsRowId.Controls,
             SettingsRowId.Close,
         };

@@ -70,6 +70,8 @@ SAME_LANGUAGE_ALLOW = {
     "Normal",
     "Rail",
     "Legacy",
+    "Assist",
+    "Asteroid",
     "Hangar",
     "Analog",
     "D-pad",

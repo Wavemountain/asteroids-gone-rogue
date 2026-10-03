@@ -110,7 +110,7 @@ namespace AsteroidsGoneRogue
                 pulse = 1.18f + Mathf.Sin(Time.time * hz) * (urgent ? 0.28f : 0.2f);
                 if (urgent)
                 {
-                    pulse *= 0.72f + Mathf.PingPong(Time.time * 6f, 0.4f);
+                    pulse *= 0.72f + Mathf.PingPong(Time.time * 2f, 0.4f);
                 }
 
                 PulseBeacon(urgent);
@@ -177,6 +177,7 @@ namespace AsteroidsGoneRogue
                         ship.Health.TryAddShield();
                     }
 
+                    CombatJuice.PickupBloom(transform.position, UiTheme.Secondary);
                     break;
                 case Kind.Health:
                     if (ship.Health != null)
@@ -184,6 +185,7 @@ namespace AsteroidsGoneRogue
                         ship.Health.TryHeal(1);
                     }
 
+                    CombatJuice.PickupBloom(transform.position, UiTheme.Primary);
                     break;
                 case Kind.RapidFire:
                     if (ship.Shooter != null)
@@ -191,6 +193,7 @@ namespace AsteroidsGoneRogue
                         ship.Shooter.GrantRapidBoost(8f);
                     }
 
+                    CombatJuice.PickupBloom(transform.position, UiTheme.Focus);
                     break;
                 case Kind.ExtraLife:
                     GameManager extra = UnityEngine.Object.FindAnyObjectByType<GameManager>();
@@ -208,6 +211,7 @@ namespace AsteroidsGoneRogue
                         game.AddBonusScore(ScoreValues.SmallAsteroid);
                     }
 
+                    CombatJuice.PickupBloom(transform.position, UiTheme.Accent);
                     break;
             }
 
@@ -222,7 +226,7 @@ namespace AsteroidsGoneRogue
             }
             else
             {
-                AudioCues.Instance.PlayPickupMinor();
+                AudioCues.Instance.PlayPickup(_kind);
             }
         }
 
@@ -258,7 +262,7 @@ namespace AsteroidsGoneRogue
                 float pulse = 1.8f + Mathf.Sin(Time.time * (urgent ? 14f : 8f)) * 0.85f;
                 if (urgent)
                 {
-                    pulse += 0.8f * Mathf.PingPong(Time.time * 9f, 1f);
+                    pulse += 0.8f * Mathf.PingPong(Time.time * 2f, 1f);
                 }
 
                 _beacon.intensity = pulse;

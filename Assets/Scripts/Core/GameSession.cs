@@ -16,6 +16,8 @@ namespace AsteroidsGoneRogue
         public DamageCause FailCause { get; private set; }
         public EnemyKind FailEnemyKind { get; private set; }
         public bool HasStructuredFail { get; private set; }
+        public string DeathCard { get; private set; } = string.Empty;
+        public bool AssistUsed { get; private set; }
         public int FailRemainingThreats { get; private set; }
         public int LastResolvedWave { get; private set; }
         public int LastCreditsAwarded { get; private set; }
@@ -276,6 +278,8 @@ namespace AsteroidsGoneRogue
             FailEnemyKind = EnemyKind.Mid01;
             HasStructuredFail = false;
             FailRemainingThreats = 0;
+            DeathCard = string.Empty;
+            AssistUsed = false;
             CampaignWon = false;
             WaveTookHit = false;
             ExtraLifeStreak = 0;
@@ -301,6 +305,16 @@ namespace AsteroidsGoneRogue
         public void NoteLifeLost()
         {
             ExtraLifeStreak = 0;
+        }
+
+        public void NoteAssist()
+        {
+            AssistUsed = true;
+        }
+
+        public void RememberDeathCard(string card)
+        {
+            DeathCard = card == null ? string.Empty : card;
         }
 
         /// <summary>

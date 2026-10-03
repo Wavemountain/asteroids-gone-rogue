@@ -123,7 +123,7 @@ namespace AsteroidsGoneRogue
     /// </summary>
     public sealed class SettingsState
     {
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
         public const int DefaultHintSizeStep = 1;
         public const int MaxHintSizeStep = 2;
 
@@ -134,8 +134,10 @@ namespace AsteroidsGoneRogue
         public const string ConfirmRestartInPlayKey = "agr.settings.confirmRestartInPlay";
         public const string ConfirmRestartNewRunKey = "agr.settings.confirmRestartNewRun";
         public const string PadNavSourceKey = "agr.settings.padNavSource";
+        public const string AssistModeKey = "agr.settings.assistMode";
 
         public bool ScreenShake;
+        public bool AssistMode;
         public HintMode HintMode;
         public int HintSizeStep;
         public bool ConfirmRestartInPlay;
@@ -151,6 +153,7 @@ namespace AsteroidsGoneRogue
             state.ConfirmRestartInPlay = true;
             state.ConfirmRestartNewRun = true;
             state.PadNavSource = AsteroidsGoneRogue.PadNavSource.Both;
+            state.AssistMode = false;
             return state;
         }
 
@@ -158,6 +161,22 @@ namespace AsteroidsGoneRogue
         private static bool _screenShakeReady;
         private static PadNavSource _menuPadNav = AsteroidsGoneRogue.PadNavSource.Both;
         private static bool _menuPadNavReady;
+        private static bool _assistCached;
+        private static bool _assistReady;
+
+        public static bool AssistEnabled
+        {
+            get
+            {
+                if (!_assistReady)
+                {
+                    _assistCached = UnityEngine.PlayerPrefs.GetInt(AssistModeKey, 0) != 0;
+                    _assistReady = true;
+                }
+
+                return _assistCached;
+            }
+        }
 
         /// <summary>
         /// Cached copy of <see cref="ScreenShake"/>. The camera reads this and
@@ -206,6 +225,8 @@ namespace AsteroidsGoneRogue
             _screenShakeReady = true;
             _menuPadNav = source.PadNavSource;
             _menuPadNavReady = true;
+            _assistCached = source.AssistMode;
+            _assistReady = true;
         }
 
         /// <summary>
@@ -550,6 +571,7 @@ namespace AsteroidsGoneRogue
             prefs.ConfirmRestartInPlay = ConfirmRestartInPlay ? 1 : 0;
             prefs.ConfirmRestartNewRun = ConfirmRestartNewRun ? 1 : 0;
             prefs.PadNavSource = (int)PadNavSource;
+            prefs.AssistMode = AssistMode ? 1 : 0;
             return prefs;
         }
 
@@ -562,7 +584,28 @@ namespace AsteroidsGoneRogue
             int confirmRestartNewRun,
             int padNavSource)
         {
-            if (version != CurrentVersion && version != 1)
+            return FromInts(
+                version,
+                screenShake,
+                hintMode,
+                hintSizeStep,
+                confirmRestartInPlay,
+                confirmRestartNewRun,
+                padNavSource,
+                0);
+        }
+
+        public static SettingsState FromInts(
+            int version,
+            int screenShake,
+            int hintMode,
+            int hintSizeStep,
+            int confirmRestartInPlay,
+            int confirmRestartNewRun,
+            int padNavSource,
+            int assistMode)
+        {
+            if (version < 1 || version > CurrentVersion)
             {
                 return CreateDefault();
             }
@@ -575,6 +618,7 @@ namespace AsteroidsGoneRogue
             // Version 1 stored the old default (off). Treat that saved value as unset.
             state.ConfirmRestartNewRun = version == 1 || confirmRestartNewRun != 0;
             state.PadNavSource = NormalizePadNavSource(padNavSource);
+            state.AssistMode = version >= 3 && assistMode != 0;
             return state;
         }
 
@@ -587,7 +631,8 @@ namespace AsteroidsGoneRogue
                 prefs.HintSizeStep,
                 prefs.ConfirmRestartInPlay,
                 prefs.ConfirmRestartNewRun,
-                prefs.PadNavSource);
+                prefs.PadNavSource,
+                prefs.AssistMode);
         }
 
         public static SettingsState Load()
@@ -600,7 +645,8 @@ namespace AsteroidsGoneRogue
                 UnityEngine.PlayerPrefs.GetInt(HintSizeStepKey, DefaultHintSizeStep),
                 UnityEngine.PlayerPrefs.GetInt(ConfirmRestartInPlayKey, 1),
                 UnityEngine.PlayerPrefs.GetInt(ConfirmRestartNewRunKey, 1),
-                UnityEngine.PlayerPrefs.GetInt(PadNavSourceKey, (int)AsteroidsGoneRogue.PadNavSource.Both));
+                UnityEngine.PlayerPrefs.GetInt(PadNavSourceKey, (int)AsteroidsGoneRogue.PadNavSource.Both),
+                UnityEngine.PlayerPrefs.GetInt(AssistModeKey, 0));
             Publish(state);
             if (version != CurrentVersion)
             {
@@ -620,6 +666,7 @@ namespace AsteroidsGoneRogue
             UnityEngine.PlayerPrefs.SetInt(ConfirmRestartInPlayKey, prefs.ConfirmRestartInPlay);
             UnityEngine.PlayerPrefs.SetInt(ConfirmRestartNewRunKey, prefs.ConfirmRestartNewRun);
             UnityEngine.PlayerPrefs.SetInt(PadNavSourceKey, prefs.PadNavSource);
+            UnityEngine.PlayerPrefs.SetInt(AssistModeKey, prefs.AssistMode);
             UnityEngine.PlayerPrefs.Save();
             Publish(this);
         }
@@ -634,5 +681,6 @@ namespace AsteroidsGoneRogue
         public int ConfirmRestartInPlay;
         public int ConfirmRestartNewRun;
         public int PadNavSource;
+        public int AssistMode;
     }
 }

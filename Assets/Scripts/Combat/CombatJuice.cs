@@ -8,12 +8,13 @@ namespace AsteroidsGoneRogue
     public static class CombatJuice
     {
         public const float PlayerHitShake = 0.14f;
-        public const float ThreatHitShake = 0.07f;
+        public const float ShieldHitShake = 0.07f;
+        public const float ThreatHitShake = 0.05f;
         public const float ExplosionShake = 0.22f;
         public const float PlayerHitFlash = 0.2f;
-        public const float ThreatHitFlash = 0.1f;
-        public const float ExplosionFlash = 0.16f;
-        public const float ExtraLifeFlash = 0.28f;
+        public const float ShieldBreakFlash = 0.16f;
+        public const float HeavyKillFlash = 0.12f;
+        public const float ExtraLifeFlash = 0.20f;
         public const float ExtraLifeShake = 0.12f;
 
         public static void PlayerDamaged(bool lethal)
@@ -23,8 +24,48 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            PlayerHullHit();
+        }
+
+        public static void PlayerHullHit()
+        {
             Shake(PlayerHitShake);
-            FlashScreen(PlayerHitFlash);
+            FlashScreen(PlayerHitFlash, UiTheme.Danger, HitFlashLimiter.DefaultDecay);
+        }
+
+        public static void PlayerShieldHit(Transform ship)
+        {
+            Shake(ShieldHitShake);
+            if (ship != null)
+            {
+                MeshHitFlash.Play(ship, UiTheme.Secondary, 0.09f);
+                Ripple(ship.position, UiTheme.Secondary, 0.14f);
+            }
+        }
+
+        public static void PlayerShieldBreak(Transform ship)
+        {
+            Shake(PlayerHitShake);
+            FlashScreen(ShieldBreakFlash, UiTheme.Secondary, 0.14f);
+            if (ship != null)
+            {
+                Ripple(ship.position, UiTheme.Secondary, 0.25f);
+            }
+        }
+
+        public static void HeavyKill(Vector3 position, float shake)
+        {
+            JuiceBurst.KillBloom(position, true);
+            Shake(shake);
+            FlashScreen(HeavyKillFlash, UiTheme.Primary, HitFlashLimiter.DefaultDecay);
+        }
+
+        public static void Ripple(Vector3 position, Color color, float seconds)
+        {
+            GameObject root = new GameObject("ShieldRipple");
+            root.transform.position = new Vector3(position.x, 0.04f, position.z);
+            TelegraphRing ring = root.AddComponent<TelegraphRing>();
+            ring.Play(color, seconds);
         }
 
         public static void ThreatDamaged(Transform target, bool exploded)
@@ -52,9 +93,33 @@ namespace AsteroidsGoneRogue
 
         public static void ThreatDamaged(Transform target, bool exploded, bool heavy)
         {
+            bool armor = false;
+            bool monster = false;
+            if (target != null)
+            {
+                EnemySeeker seeker = target.GetComponent<EnemySeeker>();
+                if (seeker != null)
+                {
+                    armor = seeker.Kind == EnemyKind.Brute || seeker.IsBoss;
+                    monster = AudioCues.UsesMonsterThreatSfx(seeker.Kind) || seeker.IsElite || seeker.IsBoss;
+                }
+            }
+
             if (target != null && !exploded)
             {
-                MeshHitFlash.Play(target);
+                if (armor)
+                {
+                    MeshHitFlash.Play(target, UiTheme.Accent, 0.07f);
+                    if (AudioCues.Instance != null)
+                    {
+                        AudioCues.Instance.PlayArmorHit();
+                    }
+                }
+                else
+                {
+                    MeshHitFlash.Play(target);
+                }
+
                 JuiceBurst.HitSpark(target.position);
             }
 
@@ -64,7 +129,10 @@ namespace AsteroidsGoneRogue
             }
 
             Shake(exploded ? ExplosionShake : ThreatHitShake);
-            FlashScreen(exploded ? ExplosionFlash : ThreatHitFlash);
+            if (exploded && monster)
+            {
+                FlashScreen(HeavyKillFlash, UiTheme.Primary, HitFlashLimiter.DefaultDecay);
+            }
         }
 
         public static void ExtraLifeSpawn(Vector3 position)
@@ -76,7 +144,12 @@ namespace AsteroidsGoneRogue
         {
             JuiceBurst.HeartBloom(position);
             Shake(ExtraLifeShake);
-            FlashScreen(ExtraLifeFlash);
+            FlashScreen(ExtraLifeFlash, new Color(1f, 0.22f, 0.38f), HitFlashLimiter.DefaultDecay);
+        }
+
+        public static void PickupBloom(Vector3 position, Color color)
+        {
+            JuiceBurst.ColoredBloom(position, color, 0.42f, 0.2f, 1.15f);
         }
 
         public static void Shake(float amplitude)
@@ -96,9 +169,14 @@ namespace AsteroidsGoneRogue
 
         public static void FlashScreen(float strength)
         {
+            FlashScreen(strength, UiTheme.Danger, HitFlashLimiter.DefaultDecay);
+        }
+
+        public static void FlashScreen(float strength, Color color, float decay)
+        {
             if (GameUi.Instance != null)
             {
-                GameUi.Instance.FlashHit(strength);
+                GameUi.Instance.FlashHit(strength, color, decay);
             }
         }
     }

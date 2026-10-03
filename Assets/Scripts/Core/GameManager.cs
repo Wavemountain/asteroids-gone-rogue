@@ -343,6 +343,7 @@ namespace AsteroidsGoneRogue
             _session.MarkWaveStarted();
             BoonHooks.RunSeed = ActiveRunId > 0 ? ActiveRunId : 1;
             _ship.ResetForWave(_loadout.State, false, true);
+            ApplyWaveFairness();
             _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
             _ship.SetInputEnabled(true);
             int world = ContentFactory.WorldIndexForWave(_session.WaveIndex);
@@ -789,6 +790,60 @@ namespace AsteroidsGoneRogue
             RaiseStateChanged();
         }
 
+        public void NoteAssistUsed()
+        {
+            if (_session != null)
+            {
+                _session.NoteAssist();
+            }
+        }
+
+        private void ApplyWaveFairness()
+        {
+            if (SettingsState.AssistEnabled)
+            {
+                NoteAssistUsed();
+            }
+
+            if (_ship == null || _ship.Health == null)
+            {
+                return;
+            }
+
+            ArenaHazard.SetListener(_ship.transform);
+            SpikeProximityWatch watch = GetComponent<SpikeProximityWatch>();
+            if (watch == null)
+            {
+                watch = gameObject.AddComponent<SpikeProximityWatch>();
+            }
+
+            watch.Bind(_ship.transform, _ship.Health);
+            if (SettingsState.AssistEnabled)
+            {
+                int raised = AssistRules.BonusShieldAtWaveStart(
+                    _ship.Health.Shield,
+                    _ship.Health.MaxShield,
+                    true);
+                _ship.Health.SetShield(raised);
+            }
+
+            _ship.Health.GrantWaveImmunity();
+        }
+
+        private void RememberShipDeath()
+        {
+            string card = string.Empty;
+            if (_ship != null && _ship.Health != null)
+            {
+                card = _ship.Health.Hits.CardText();
+            }
+
+            if (_session != null)
+            {
+                _session.RememberDeathCard(card);
+            }
+        }
+
         private bool TryRespawnAfterLifeLoss()
         {
             if (_session == null || !_session.TryLoseLife())
@@ -796,6 +851,7 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            RememberShipDeath();
             _session.NoteLifeLost();
             if (_ship != null)
             {
@@ -816,7 +872,7 @@ namespace AsteroidsGoneRogue
 
             if (_ui != null)
             {
-                _ui.AnnounceLifeLost(_session.Lives);
+                _ui.AnnounceLifeLost(_session.Lives, _session.DeathCard);
             }
 
             RaiseStateChanged();
@@ -831,6 +887,7 @@ namespace AsteroidsGoneRogue
             }
 
             int remaining = _waves != null ? _waves.RemainingThreats : 0;
+            RememberShipDeath();
             if (_ship != null)
             {
                 _ship.SetInputEnabled(false);
@@ -931,6 +988,10 @@ namespace AsteroidsGoneRogue
                 data.LastCreditsAwarded,
                 data.ExtraLifeStreak);
             _session.ReadContinue(data.WaveInProgress, data.LivesAtWaveStart, data.BankedLegacy, data.ExtraLifeWorld);
+            if (data.AssistUsed != 0)
+            {
+                _session.NoteAssist();
+            }
             _loadout.State.SetMk2Mask(data.Mk2Mask);
             _boonRun.ReadSave(data.BoonLevels, data.BoonPending, data.BoonOffer);
             BoonHooks.Sync(_boonRun);
@@ -1445,7 +1506,8 @@ namespace AsteroidsGoneRogue
                 TryUnlockAchievement(AchievementId.NoHitWave);
             }
 
-            if (AchievementCatalog.ShouldUnlockHardClear(clearedWave, DifficultySettings.Current))
+            if (AchievementCatalog.ShouldUnlockHardClear(clearedWave, DifficultySettings.Current)
+                && (_session == null || AssistRules.CountsForBoard(!_session.AssistUsed)))
             {
                 TryUnlockAchievement(AchievementId.HardClear);
             }
@@ -1543,6 +1605,11 @@ namespace AsteroidsGoneRogue
         private void RecordBest(int wave)
         {
             if (TutorialActive || !FirstRunRules.CountsForHighscore(TutorialActive))
+            {
+                return;
+            }
+
+            if (_session != null && !AssistRules.CountsForBoard(!_session.AssistUsed))
             {
                 return;
             }

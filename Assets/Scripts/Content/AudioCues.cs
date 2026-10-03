@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 namespace AsteroidsGoneRogue
@@ -78,6 +79,24 @@ namespace AsteroidsGoneRogue
         public const float SeekerShotScale = 0.72f;
         public const float RicochetShotScale = 0.88f;
         public const float RicochetPitchJitter = 0.04f;
+        public const float ShieldHitScale = 1.00f;
+        public const float ShieldHitThudScale = 0.50f;
+        public const float ShieldBreakScale = 1.00f;
+        public const float ShieldBreakHumScale = 0.50f;
+        public const float ArmorHitScale = 0.60f;
+        public const float PickupShieldScale = 1.00f;
+        public const float PickupHealthScale = 1.00f;
+        public const float PickupRapidScale = 1.00f;
+        public const float PickupScoreScale = 1.00f;
+        public const float BruteTellScale = 1.00f;
+        public const float NestTellScale = 1.00f;
+        public const float BossAimedTellScale = 1.00f;
+        public const float BossRadialTellScale = 1.00f;
+        public const float GunnerTellScale = 0.60f;
+        public const float SpikeTickScale = 1.00f;
+        public const float InvulnEndScale = 0.80f;
+        public const float HullDuckSeconds = 0.15f;
+        public const float HullDuckScale = 0.7f;
 
         // Rail mix sits under Brute death (1.04 + 1.12 layer) and over a lone bolt.
         // Charge 0.6 and the hold loop 0.2 stay under Swarm hit (0.88).
@@ -107,6 +126,8 @@ namespace AsteroidsGoneRogue
 
         private AudioSource _sfx;
         private AudioSource _vary;
+        private AudioSource _tell;
+        private AudioSource _tick;
         private AudioSource _music;
         private AudioSource _musicB;
         private AudioSource _hangarLayer;
@@ -172,6 +193,26 @@ namespace AsteroidsGoneRogue
         private AudioClip _fail;
         private AudioClip _failLayer;
         private AudioClip _retry;
+        private AudioClip _shieldHit;
+        private AudioClip _shieldBreak;
+        private AudioClip _armorHit;
+        private AudioClip _pickupShield;
+        private AudioClip _pickupHealth;
+        private AudioClip _pickupRapid;
+        private AudioClip _pickupScore;
+        private AudioClip _tellBrute;
+        private AudioClip _tellNest;
+        private AudioClip _tellBossAimed;
+        private AudioClip _tellBossRadial;
+        private AudioClip _tellSpikeNear;
+        private AudioClip _invulnEnd;
+        private float _hitGapT;
+        private float _armorT;
+        private float _pickupT;
+        private float _tellAnyT;
+        private float _bruteTellT;
+        private float _aimTellT;
+        private float _radTellT;
         private bool _muted;
         private float _sfxVolume = DefaultSfxVolume;
         private float _musicVolume = DefaultMusicVolume;
@@ -210,6 +251,12 @@ namespace AsteroidsGoneRogue
             Instance = this;
             _sfx = CreateSource("SfxSource", false);
             _vary = CreateSource("VarySfxSource", false);
+            _tell = CreateSource("TellSource", false);
+            _tick = CreateSource("SpikeTickSource", false);
+            if (_tell != null)
+            {
+                _tell.pitch = 1f;
+            }
             _music = CreateSource("MusicSource", true);
             _musicB = CreateSource("MusicSourceB", true);
             _hangarLayer = CreateSource("HangarLayerSource", true);
@@ -366,6 +413,16 @@ namespace AsteroidsGoneRogue
 
         public void PlayHit()
         {
+            if (!ClaimHitGap())
+            {
+                return;
+            }
+
+            PlayHitNow();
+        }
+
+        private void PlayHitNow()
+        {
             PlayPooledPitched(_hits, 1f, _hit, HitPitchJitter);
             if (_hitPunch != null)
             {
@@ -373,8 +430,24 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        private bool ClaimHitGap()
+        {
+            if (!CueVoiceBudget.GapReady(Time.unscaledTime, _hitGapT, CueVoiceBudget.SameClipGapSeconds))
+            {
+                return false;
+            }
+
+            _hitGapT = Time.unscaledTime;
+            return true;
+        }
+
         public void PlayHit(EnemyKind kind)
         {
+            if (!ClaimHitGap())
+            {
+                return;
+            }
+
             if (UsesLightThreatSfx(kind))
             {
                 Play(_hitLight != null ? _hitLight : _hit, 0.92f);
@@ -393,7 +466,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            PlayHit();
+            PlayHitNow();
         }
 
         public void PlayExplosion()
@@ -495,6 +568,196 @@ namespace AsteroidsGoneRogue
         {
             Play(_playerDamage, 1.15f);
             Play(_hit, 0.85f);
+        }
+
+        public void PlayShieldHit()
+        {
+            if (!CueVoiceBudget.GapReady(Time.unscaledTime, _hitGapT, CueVoiceBudget.SameClipGapSeconds))
+            {
+                return;
+            }
+
+            _hitGapT = Time.unscaledTime;
+            PlayPitched(_shieldHit, ShieldHitScale, 1f + Random.Range(-HitPitchJitter, HitPitchJitter));
+            Play(_hitLight, ShieldHitThudScale);
+        }
+
+        public void PlayShieldBreak()
+        {
+            Play(_shieldBreak, ShieldBreakScale);
+            Play(_hazardActivate, ShieldBreakHumScale);
+            DuckMusic(0.25f, 0.55f);
+        }
+
+        public void PlayArmorHit()
+        {
+            if (!CueVoiceBudget.GapReady(Time.unscaledTime, _armorT, 0.12f))
+            {
+                return;
+            }
+
+            _armorT = Time.unscaledTime;
+            Play(_armorHit, ArmorHitScale);
+        }
+
+        public void PlayPickup(Pickup.Kind kind)
+        {
+            if (kind == Pickup.Kind.ExtraLife)
+            {
+                PlayExtraLifePickup();
+                return;
+            }
+
+            if (!CueVoiceBudget.GapReady(Time.unscaledTime, _pickupT, CueVoiceBudget.PickupGapSeconds))
+            {
+                return;
+            }
+
+            _pickupT = Time.unscaledTime;
+            if (kind == Pickup.Kind.Shield)
+            {
+                Play(_pickupShield != null ? _pickupShield : _pickupMinor, PickupShieldScale);
+                return;
+            }
+
+            if (kind == Pickup.Kind.Health)
+            {
+                Play(_pickupHealth != null ? _pickupHealth : _pickupMinor, PickupHealthScale);
+                return;
+            }
+
+            if (kind == Pickup.Kind.RapidFire)
+            {
+                Play(_pickupRapid != null ? _pickupRapid : _pickupMinor, PickupRapidScale);
+                return;
+            }
+
+            if (kind == Pickup.Kind.Score)
+            {
+                Play(_pickupScore != null ? _pickupScore : _pickupMinor, PickupScoreScale);
+                return;
+            }
+
+            PlayPickupMinor();
+        }
+
+        public void PlayBruteTell()
+        {
+            if (!CueVoiceBudget.AllowTell(Time.unscaledTime, _tellAnyT, _bruteTellT, 1.2f))
+            {
+                return;
+            }
+
+            _bruteTellT = Time.unscaledTime;
+            _tellAnyT = _bruteTellT;
+            PlayTell(_tellBrute, BruteTellScale);
+        }
+
+        public void PlayNestTell()
+        {
+            if (!CueVoiceBudget.AllowTell(Time.unscaledTime, _tellAnyT, 0f, 0f))
+            {
+                return;
+            }
+
+            _tellAnyT = Time.unscaledTime;
+            PlayTell(_tellNest, NestTellScale);
+        }
+
+        public void PlayBossAimedTell()
+        {
+            if (!CueVoiceBudget.AllowTell(Time.unscaledTime, _tellAnyT, _aimTellT, 1.7f))
+            {
+                return;
+            }
+
+            _aimTellT = Time.unscaledTime;
+            _tellAnyT = _aimTellT;
+            PlayTell(_tellBossAimed, BossAimedTellScale);
+        }
+
+        public void PlayGunnerTell()
+        {
+            if (!CueVoiceBudget.AllowTell(Time.unscaledTime, _tellAnyT, _aimTellT, 0.25f))
+            {
+                return;
+            }
+
+            _aimTellT = Time.unscaledTime;
+            _tellAnyT = _aimTellT;
+            PlayTell(_tellBossAimed, GunnerTellScale);
+        }
+
+        public void PlayBossRadialTell()
+        {
+            if (!CueVoiceBudget.AllowTell(Time.unscaledTime, _tellAnyT, _radTellT, 2.6f))
+            {
+                return;
+            }
+
+            _radTellT = Time.unscaledTime;
+            _tellAnyT = _radTellT;
+            PlayTell(_tellBossRadial, BossRadialTellScale);
+        }
+
+        public void PlaySpikeNearTick(float p01)
+        {
+            if (_tick == null || _tellSpikeNear == null || _muted)
+            {
+                return;
+            }
+
+            float near = p01;
+            if (near < 0f)
+            {
+                near = 0f;
+            }
+
+            if (near > 1f)
+            {
+                near = 1f;
+            }
+
+            _tick.pitch = Mathf.Clamp(1f + 0.25f * near, 0.5f, 1.5f);
+            _tick.PlayOneShot(_tellSpikeNear, Mathf.Clamp(SpikeTickScale, 0f, 1.4f));
+        }
+
+        public void PlayInvulnEnd()
+        {
+            Play(_invulnEnd, InvulnEndScale);
+        }
+
+        public void PlayBossFinale(Vector3 position)
+        {
+            StartCoroutine(BossFinaleRoutine(position));
+        }
+
+        private IEnumerator BossFinaleRoutine(Vector3 position)
+        {
+            CombatJuice.HeavyKill(position, CombatJuice.ExplosionShake);
+            Play(_bruteDeath != null ? _bruteDeath : _enemyDeath, BruteDeathScale);
+            if (_bruteDeathLayer != null)
+            {
+                Play(_bruteDeathLayer, BruteDeathLayerScale);
+            }
+
+            DuckMusic(0.9f, 0.25f);
+            yield return new WaitForSeconds(0.18f);
+            CombatJuice.HeavyKill(position, 0.36f);
+            Play(_bruteDeath != null ? _bruteDeath : _enemyDeath, BruteDeathScale);
+            yield return new WaitForSeconds(0.72f);
+            PlayWaveClear();
+        }
+
+        private void PlayTell(AudioClip clip, float scale)
+        {
+            if (_tell == null || clip == null || _muted)
+            {
+                return;
+            }
+
+            _tell.pitch = 1f;
+            _tell.PlayOneShot(clip, Mathf.Clamp(scale, 0f, 1.4f));
         }
 
         public void PlayHangarPurchase()
@@ -1028,6 +1291,17 @@ namespace AsteroidsGoneRogue
                 _vary.volume = _muted ? 0f : _sfxVolume;
             }
 
+            if (_tell != null)
+            {
+                _tell.volume = _muted ? 0f : _sfxVolume;
+                _tell.pitch = 1f;
+            }
+
+            if (_tick != null)
+            {
+                _tick.volume = _muted ? 0f : _sfxVolume;
+            }
+
             if (_railRise != null)
             {
                 _railRise.volume = _muted ? 0f : _sfxVolume * RailChargeScale;
@@ -1169,7 +1443,7 @@ namespace AsteroidsGoneRogue
             _shootPierce = Resources.Load<AudioClip>("Audio/Sfx/laserLarge_000");
             _shootSeeker = Resources.Load<AudioClip>("Audio/Sfx/phaserUp5");
             _shootTwin = Resources.Load<AudioClip>("Audio/Sfx/twoTone1");
-            _shootRicochet = Resources.Load<AudioClip>("Audio/Sfx/zap1");
+            _shootRicochet = Resources.Load<AudioClip>("Audio/Sfx/agr_ricochet");
             _railCharge = Resources.Load<AudioClip>("Audio/Sfx/phaserUp3");
             if (_railCharge == null)
             {
@@ -1251,10 +1525,22 @@ namespace AsteroidsGoneRogue
                 "Audio/Sfx/laserSmall_003",
                 "Audio/Sfx/laserSmall_004");
             _swarmDeaths = LoadPool(
-                "Audio/Sfx/zap1",
-                "Audio/Sfx/spaceTrash1",
-                "Audio/Sfx/spaceTrash2",
-                "Audio/Sfx/spaceTrash3");
+                "Audio/Sfx/agr_swarm_death_0",
+                "Audio/Sfx/agr_swarm_death_1",
+                "Audio/Sfx/agr_swarm_death_2");
+            _shieldHit = Resources.Load<AudioClip>("Audio/Sfx/agr_shield_hit");
+            _shieldBreak = Resources.Load<AudioClip>("Audio/Sfx/agr_shield_break");
+            _armorHit = Resources.Load<AudioClip>("Audio/Sfx/agr_armor_hit");
+            _pickupShield = Resources.Load<AudioClip>("Audio/Sfx/agr_pickup_shield");
+            _pickupHealth = Resources.Load<AudioClip>("Audio/Sfx/agr_pickup_health");
+            _pickupRapid = Resources.Load<AudioClip>("Audio/Sfx/agr_pickup_rapid");
+            _pickupScore = Resources.Load<AudioClip>("Audio/Sfx/agr_pickup_score");
+            _tellBrute = Resources.Load<AudioClip>("Audio/Sfx/agr_tell_brute");
+            _tellNest = Resources.Load<AudioClip>("Audio/Sfx/agr_tell_nest");
+            _tellBossAimed = Resources.Load<AudioClip>("Audio/Sfx/agr_tell_boss_aimed");
+            _tellBossRadial = Resources.Load<AudioClip>("Audio/Sfx/agr_tell_boss_radial");
+            _tellSpikeNear = Resources.Load<AudioClip>("Audio/Sfx/agr_tell_spike_near");
+            _invulnEnd = Resources.Load<AudioClip>("Audio/Sfx/agr_invuln_end");
             _hazardActivate = Resources.Load<AudioClip>("Audio/Sfx/forceField_001");
             _hazardHits = LoadPool(
                 "Audio/Sfx/laserRetro_000",

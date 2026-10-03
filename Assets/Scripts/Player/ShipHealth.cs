@@ -17,6 +17,13 @@ namespace AsteroidsGoneRogue
         private int _iframePercent = 100;
         private DamageCause _lastCause = DamageCause.Unknown;
         private EnemyKind _lastEnemyKind = EnemyKind.Mid01;
+        private bool _invulnCueArmed;
+        private readonly DamageCauseLog _hits = new DamageCauseLog();
+
+        public DamageCauseLog Hits
+        {
+            get { return _hits; }
+        }
 
         public int Hull
         {
@@ -120,6 +127,8 @@ namespace AsteroidsGoneRogue
 
             _lastCause = DamageCause.Unknown;
             _lastEnemyKind = EnemyKind.Mid01;
+            _hits.Clear();
+            _invulnCueArmed = false;
             ClearInvulnerability();
             if (_visuals != null)
             {
@@ -253,12 +262,24 @@ namespace AsteroidsGoneRogue
 
         public void ApplyDamage(int amount, DamageCause cause, EnemyKind enemyKind)
         {
+            ApplyDamage(amount, cause, enemyKind, false, string.Empty);
+        }
+
+        public void ApplyDamage(int amount, DamageCause cause, EnemyKind enemyKind, bool elite, string modifier)
+        {
             if (_dead || amount <= 0 || IsInvulnerable)
             {
                 return;
             }
 
             amount = DifficultySettings.ScaleIncomingDamage(amount, cause);
+            bool assist = SettingsState.AssistEnabled;
+            amount = AssistRules.ScaleIncoming(amount, cause, assist);
+            if (assist && _game != null)
+            {
+                _game.NoteAssistUsed();
+            }
+
             if (amount > 0 && BoonHooks.TryIgnoreHit())
             {
                 BeginInvulnerability();
@@ -278,6 +299,8 @@ namespace AsteroidsGoneRogue
 
             _lastCause = cause;
             _lastEnemyKind = enemyKind;
+            int shieldBefore = _shield;
+            int hullBefore = _hull;
             int remaining = amount;
             if (_shield > 0)
             {
@@ -291,14 +314,26 @@ namespace AsteroidsGoneRogue
                 _hull -= remaining;
             }
 
+            int hullLost = hullBefore - _hull;
+            if (hullLost < 0)
+            {
+                hullLost = 0;
+            }
+
+            bool shieldBroke = shieldBefore > 0 && _shield <= 0;
+            bool shieldOnly = hullLost <= 0;
+            int waveNumber = 1;
+            int worldNumber = 1;
+            if (_game != null && _game.Session != null)
+            {
+                waveNumber = _game.Session.WaveIndex;
+                worldNumber = WorldCatalog.NumberForWave(waveNumber);
+            }
+
+            _hits.Record(cause, enemyKind, amount, hullLost, waveNumber, worldNumber, shieldOnly, elite, modifier);
             if (_game != null)
             {
                 _game.NotifyPlayerHit();
-            }
-
-            if (AudioCues.Instance != null)
-            {
-                AudioCues.Instance.PlayPlayerDamage();
             }
 
             if (_visuals != null)
@@ -310,21 +345,58 @@ namespace AsteroidsGoneRogue
             {
                 _hull = 0;
                 _dead = true;
+                if (shieldBroke && AudioCues.Instance != null)
+                {
+                    AudioCues.Instance.PlayShieldBreak();
+                }
+
                 ClearInvulnerability();
                 CombatJuice.PlayerDamaged(true);
                 if (_game != null)
                 {
                     _game.NotifyPlayerDestroyed(cause, enemyKind);
                 }
+
+                return;
+            }
+
+            if (shieldOnly && shieldBroke)
+            {
+                if (AudioCues.Instance != null)
+                {
+                    AudioCues.Instance.PlayShieldBreak();
+                }
+
+                CombatJuice.PlayerShieldBreak(transform);
+            }
+            else if (shieldOnly)
+            {
+                if (AudioCues.Instance != null)
+                {
+                    AudioCues.Instance.PlayShieldHit();
+                }
+
+                CombatJuice.PlayerShieldHit(transform);
             }
             else
             {
-                CombatJuice.PlayerDamaged(false);
-                BeginInvulnerability();
-                if (_game != null)
+                if (AudioCues.Instance != null)
                 {
-                    _game.RefreshHud();
+                    AudioCues.Instance.PlayPlayerDamage();
+                    AudioCues.Instance.DuckMusic(AudioCues.HullDuckSeconds, AudioCues.HullDuckScale);
+                    if (shieldBroke)
+                    {
+                        AudioCues.Instance.PlayShieldBreak();
+                    }
                 }
+
+                CombatJuice.PlayerDamaged(false);
+            }
+
+            BeginInvulnerability();
+            if (_game != null)
+            {
+                _game.RefreshHud();
             }
         }
 
@@ -353,10 +425,17 @@ namespace AsteroidsGoneRogue
             if (cause == DamageCause.EnemyContact)
             {
                 EnemySeeker seeker = other.GetComponentInParent<EnemySeeker>();
+                if (seeker != null && !seeker.CanHarm)
+                {
+                    return;
+                }
+
                 EnemyKind kind = seeker != null ? seeker.Kind : EnemyKind.Mid01;
+                bool eliteHit = seeker != null && seeker.IsElite;
                 int contactWave = _game != null && _game.Session != null ? _game.Session.WaveIndex : 1;
+                string eliteName = eliteHit ? WaveModifier.NameForWave(contactWave) : string.Empty;
                 int contactDamage = DifficultyCurve.ScaleOutgoingDamage(1, contactWave);
-                ApplyDamage(contactDamage, cause, kind);
+                ApplyDamage(contactDamage, cause, kind, eliteHit, eliteName);
             }
             else
             {
@@ -372,22 +451,58 @@ namespace AsteroidsGoneRogue
         public void GrantRespawnIFrames()
         {
             _dead = false;
-            BeginInvulnerability();
+            BeginImmunity(SpawnClearance.WaveImmunitySeconds);
+        }
+
+        public void GrantWaveImmunity()
+        {
+            if (_dead)
+            {
+                return;
+            }
+
+            BeginImmunity(SpawnClearance.WaveImmunitySeconds);
+        }
+
+        private void Update()
+        {
+            if (!_invulnCueArmed || IsInvulnerable || _dead)
+            {
+                return;
+            }
+
+            _invulnCueArmed = false;
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayInvulnEnd();
+            }
         }
 
         private void BeginInvulnerability()
         {
             float iframeSeconds = HitInvulnerabilitySeconds * _iframePercent / 100f;
-            _invulnerableUntil = Time.time + iframeSeconds;
+            BeginImmunity(iframeSeconds);
+        }
+
+        private void BeginImmunity(float seconds)
+        {
+            if (seconds < 0.05f)
+            {
+                seconds = 0.05f;
+            }
+
+            _invulnerableUntil = Time.time + seconds;
+            _invulnCueArmed = true;
             if (_visuals != null)
             {
-                _visuals.PlayHitBlink(iframeSeconds);
+                _visuals.PlayHitBlink(seconds);
             }
         }
 
         private void ClearInvulnerability()
         {
             _invulnerableUntil = 0f;
+            _invulnCueArmed = false;
             if (_visuals != null)
             {
                 _visuals.StopHitBlink();

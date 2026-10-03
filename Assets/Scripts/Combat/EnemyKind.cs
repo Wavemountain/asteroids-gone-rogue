@@ -23,6 +23,8 @@ namespace AsteroidsGoneRogue
         public const float BruteChargeTurn = 210f;
         public const float BruteChargeSeconds = 0.95f;
         public const float BruteRestSeconds = 2.4f;
+        public const float BruteWindupSeconds = 0.45f;
+        public const float BoltWindupSeconds = 0.25f;
         public const float NestSpawnSeconds = 3.5f;
         public const int NestMaxMinions = 3;
 

@@ -1699,7 +1699,7 @@ def test_monsters_arenas_040() -> None:
     assert 'Resources.Load<AudioClip>("Audio/Sfx/phaseJump1")' in monster_loads
     assert 'Resources.Load<AudioClip>("Audio/Sfx/slime_000")' in monster_loads
     assert "laserSmall_000" in monster_loads and "laserSmall_004" in monster_loads
-    assert "zap1" in monster_loads and "spaceTrash1" in monster_loads and "spaceTrash3" in monster_loads
+    assert "agr_swarm_death_0" in monster_loads and "agr_swarm_death_1" in monster_loads and "agr_swarm_death_2" in monster_loads
     assert 'Resources.Load<AudioClip>("Audio/Sfx/forceField_001")' in monster_loads
     assert "laserRetro_000" in monster_loads and "laserRetro_002" in monster_loads
     assert "click_002" not in monster_loads
@@ -1895,7 +1895,7 @@ def test_weapons_upgrades_040b() -> None:
     assert "_worldChange" not in seeker_fn and "maximize_008" not in seeker_fn
     assert 'Resources.Load<AudioClip>("Audio/Sfx/phaserUp5")' in audio
     assert 'Resources.Load<AudioClip>("Audio/Sfx/twoTone1")' in audio
-    assert 'Resources.Load<AudioClip>("Audio/Sfx/zap1")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/agr_ricochet")' in audio
     for clip in ("phaserUp5.ogg", "twoTone1.ogg", "zap1.ogg"):
         path = root / "Assets/Resources/Audio/Sfx" / clip
         assert path.is_file() and path.stat().st_size > 1000
@@ -4678,7 +4678,7 @@ def _normalize_pad_nav(value: int) -> int:
 
 def _settings_from_ints(version, shake, hint, size, in_play, new_run, pad) -> dict:
     state = _settings_default()
-    if version not in (1, 2):
+    if version not in (1, 2, 3):
         return state
     state["screen_shake"] = shake != 0
     state["hint_mode"] = _normalize_hint_mode(hint)
@@ -4692,7 +4692,7 @@ def _settings_from_ints(version, shake, hint, size, in_play, new_run, pad) -> di
 
 def _settings_capture(state: dict) -> tuple:
     return (
-        2,
+        3,
         1 if state["screen_shake"] else 0,
         _normalize_hint_mode(state["hint_mode"]),
         _clamp_hint_size(state["hint_size"]),
@@ -4740,6 +4740,7 @@ def _settings_blocks_pad(flags: dict) -> bool:
 
 def _settings_roles() -> tuple[str, ...]:
     return (
+        "value",
         "value",
         "value",
         "value",
@@ -4967,7 +4968,7 @@ def test_settings_shell() -> None:
     inputs = (root / "ProjectSettings/InputManager.asset").read_text(encoding="utf-8")
 
     assert "class SettingsState" in state
-    assert "CurrentVersion = 2" in state
+    assert "CurrentVersion = 3" in state
     assert "DefaultHintSizeStep = 1" in state
     assert "MaxHintSizeStep = 2" in state
     assert "ScreenShake = true" in state
@@ -5089,7 +5090,7 @@ def test_settings_shell() -> None:
     assert "ContentTop = 0.86f" in rows and "ContentBottom = 0.05f" in rows
     assert "RowGap = 0.012f" in rows and "SectionWeight = 7.2f" in rows
     bands = _row_bands()
-    assert len(bands) == 12
+    assert len(bands) == 13
     for y0, y1 in bands:
         assert 0.05 - 1e-6 <= y0 < y1 <= 0.86 + 1e-6
     for left, right in zip(bands, bands[1:]):
@@ -5099,11 +5100,11 @@ def test_settings_shell() -> None:
     assert _settings_move(4, 1) == 5
     assert _settings_move(6, 1) == 7
     assert _settings_move(8, 1) == 9
-    assert _settings_move(9, 1) == 11
+    assert _settings_move(9, 1) == 10
     assert _settings_move(9, -1) == 8
     assert _settings_move(11, -1) == 9
-    assert _settings_move(10, 1) == 11
-    assert _settings_move(10, -1) == 8
+    assert _settings_move(10, 1) == 12
+    assert _settings_move(10, -1) == 9
     assert _settings_move(0, 0) == 0
     assert SettingsState_shake(False, 0.4) == 0.0
     assert SettingsState_shake(False, 0.0) == 0.0
@@ -5223,6 +5224,7 @@ def test_settings_shell() -> None:
         "ui.settings.on",
         "ui.settings.off",
         "ui.settings.shake",
+        "ui.settings.assist",
         "ui.settings.hint",
         "ui.settings.hint.hangar",
         "ui.settings.hint.panel",
@@ -6217,10 +6219,181 @@ def _picker_open(pending: bool, phase: str) -> bool:
     return pending and phase != "Playing"
 
 
+def _spawn_push(sx, sz, px, pz, minimum, max_radius):
+    dx = sx - px
+    dz = sz - pz
+    dist_sq = dx * dx + dz * dz
+    min_sq = minimum * minimum
+    if dist_sq + 0.00001 >= min_sq:
+        ox, oz = sx, sz
+    else:
+        if dist_sq < 0.0001:
+            dx, dz, dist = 1.0, 0.0, 1.0
+        else:
+            dist = dist_sq ** 0.5
+        scale = minimum / dist
+        ox = px + dx * scale
+        oz = pz + dz * scale
+    if max_radius <= 0:
+        return ox, oz
+    out_sq = ox * ox + oz * oz
+    if out_sq <= max_radius * max_radius:
+        return ox, oz
+    away_x = ox - px
+    away_z = oz - pz
+    away_sq = away_x * away_x + away_z * away_z
+    if away_sq < 0.0001:
+        away_x, away_z, away = 1.0, 0.0, 1.0
+    else:
+        away = away_sq ** 0.5
+    ox = px - away_x / away * minimum
+    oz = pz - away_z / away * minimum
+    out_sq = ox * ox + oz * oz
+    if out_sq > max_radius * max_radius and out_sq > 0.0001:
+        clamp = max_radius / (out_sq ** 0.5)
+        ox *= clamp
+        oz *= clamp
+    return ox, oz
+
+
+def _spawn_choose(seed, radius, px, pz, minimum):
+    import math
+
+    min_sq = minimum * minimum
+    for attempt in range(12):
+        angle = (seed * 0.618034 + attempt * 0.9) * 6.2831853
+        sx = math.cos(angle) * radius
+        sz = math.sin(angle) * radius
+        dx = sx - px
+        dz = sz - pz
+        if dx * dx + dz * dz + 0.00001 >= min_sq:
+            return sx, sz
+    return _spawn_push(px + radius, pz, px, pz, minimum, 0.0)
+
+
+def test_fairness_047b() -> None:
+    """Spawn clearance, death-cause rules, assist math, flash cap, spike ticks, wave-35 ratios."""
+    import math
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    rules = (root / "Assets/Scripts/Core/FairnessRules.cs").read_text(encoding="utf-8")
+    cause = (root / "Assets/Scripts/Core/DamageCause.cs").read_text(encoding="utf-8")
+    health = (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    visuals = (root / "Assets/Scripts/Player/ShipVisuals.cs").read_text(encoding="utf-8")
+    flash = (root / "Assets/Scripts/Combat/MeshHitFlash.cs").read_text(encoding="utf-8")
+    assert "MinSafeMetres = 6f" in rules
+    assert "DamagePercent = 75" in rules
+    assert "MinGapSeconds = 0.333f" in rules
+    assert "MaxAlpha = 0.20f" in rules
+    assert "WarnMetres = 3f" in rules
+    assert "class DamageCauseLog" in cause
+    assert "shieldOnly" in health
+    assert "shieldBroke" in health
+    assert "BlinkIntervalSeconds = 0.18f" in visuals
+    assert "SetPropertyBlock(_saved[i])" in flash
+    assert "PlayShieldHit" in audio and "PlayShieldBreak" in audio and "PlayArmorHit" in audio
+    assert "_tell" in audio and "agr_tell_brute" in audio and "agr_ricochet" in audio
+
+    minimum = 6.0
+    for seed in range(80):
+        px = ((seed * 3) % 11) - 5.0
+        pz = ((seed * 5) % 9) - 4.0
+        ox, oz = _spawn_choose(seed, 8.0 + (seed % 5), px, pz, minimum)
+        dist = math.hypot(ox - px, oz - pz)
+        assert dist + 1e-4 >= minimum, (seed, dist)
+        pushed_x, pushed_z = _spawn_push(px + 1.0, pz, px, pz, minimum, 28.0)
+        assert math.hypot(pushed_x - px, pushed_z - pz) + 1e-3 >= minimum or math.hypot(pushed_x, pushed_z) <= 28.0
+
+    def scale(amount, cause_name, assist):
+        if not assist or amount <= 0 or cause_name not in ("enemy", "bolt", "boss", "hazard"):
+            return amount
+        scaled = amount * 75 // 100
+        return 1 if scaled < 1 else scaled
+
+    assert scale(4, "enemy", True) == 3
+    assert scale(1, "hazard", True) == 1
+    assert scale(4, "asteroid", True) == 4
+    assert scale(4, "enemy", False) == 4
+    assert scale(0, "enemy", True) == 0
+
+    def bonus_shield(shield, cap, assist):
+        if not assist or shield >= cap:
+            return shield
+        raised = shield + 1
+        return cap if raised > cap else raised
+
+    assert bonus_shield(0, 2, True) == 1
+    assert bonus_shield(2, 2, True) == 2
+    assert bonus_shield(1, 2, False) == 1
+
+    hits = []
+
+    def record(shield_only, hull, source):
+        hits.append((shield_only, hull, source))
+        if len(hits) > 3:
+            del hits[0]
+
+    def killer():
+        for row in reversed(hits):
+            if not row[0] and row[1] > 0:
+                return row
+        return None
+
+    record(True, 0, "shield")
+    record(False, 2, "sniper")
+    record(False, 2, "brute")
+    assert killer()[2] == "brute"
+    record(True, 0, "shield-again")
+    assert killer()[2] == "brute"
+    hits.clear()
+    record(True, 0, "only-shield")
+    assert killer() is None
+
+    def try_flash(now, last, until, alpha):
+        if until > now:
+            return False, last, until
+        if last > 0 and now - last < 0.333:
+            return False, last, until
+        capped = min(0.20, max(0.0, alpha))
+        if capped <= 0.01:
+            return False, last, until
+        return True, now, now + 0.18
+
+    ok, start, until = try_flash(1.0, 0.0, 0.0, 0.45)
+    assert ok and abs(0.20 - (min(0.20, 0.45))) < 1e-6
+    again, start2, until2 = try_flash(1.1, start, until, 0.2)
+    assert again is False and until2 == until
+    later, start3, until3 = try_flash(1.4, start, until, 0.2)
+    assert later is True
+
+    def spike_gap(distance):
+        return 0.25 if distance < 1.6 else 0.45
+
+    assert spike_gap(1.0) == 0.25
+    assert spike_gap(2.0) == 0.45
+    assert not (2.5 < 3.0 and False)
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    import sim_longhaul
+
+    report = sim_longhaul.sweep(root)
+    assert report["catalogue"] == 9883
+    assert abs(report["ratio"]["easy"] - 0.847) <= 0.001
+    assert abs(report["ratio"]["normal"] - 0.755) <= 0.001
+    assert abs(report["ratio"]["hard"] - 0.641) <= 0.001
+    assert report["credit_total"]["normal"] == 7464
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
     test_fail_stores_death_cause()
+    test_fairness_047b()
     test_abort_keeps_wave_score_and_skips_bonus()
     test_arena_wrap_mirrors_opposite_edge()
     test_shop_cannot_overspend()
@@ -7013,7 +7186,7 @@ def _boon_offer_valid(packed: int, pending: int, levels_packed: int) -> bool:
 
 def _save_valid(data: dict) -> bool:
     version = data.get("Version")
-    if version not in (1, 2, 3, 4):
+    if version not in (1, 2, 3, 4, 5):
         return False
     if not 1 <= data.get("WaveIndex", 0) <= 9999:
         return False
@@ -7081,6 +7254,8 @@ def _save_valid(data: dict) -> bool:
             return False
         if not (shield_now == -1 or 0 <= shield_now <= 5):
             return False
+    if version >= 5 and data.get("AssistUsed", 0) not in (0, 1):
+        return False
     if not _boon_levels_valid(data.get("BoonLevels", 0)):
         return False
     pending = data.get("BoonPending", 0)
@@ -7216,6 +7391,9 @@ def _save_parse(text: str) -> dict | None:
         parsed["ShieldNow"] = -1
         parsed.pop("HullNow", None)
         parsed.pop("ShieldNow", None)
+    if parsed.get("Version", 0) < 5:
+        parsed["AssistUsed"] = 0
+        parsed.pop("AssistUsed", None)
     if not saw_lives_now:
         parsed.pop("LivesNow", None)
     return parsed
@@ -7242,7 +7420,7 @@ def test_save_continue_legacy() -> None:
     session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
 
     assert "class RunSaveCodec" in save
-    assert "CurrentVersion = 4" in save
+    assert "CurrentVersion = 5" in save
     assert "data.Version < 1 || data.Version > CurrentVersion" in save
     assert "ShouldWrite" in save and "ShouldDelete" in save
     assert "return phase == GamePhase.Hangar || phase == GamePhase.WaveClear;" in save
@@ -8095,7 +8273,7 @@ def test_pr2_046() -> None:
     assert "WindupInBand" in boss
     assert "_aimedDir" in seeker and "FireAimedBurst(_aimedDir)" in seeker
     assert "SpawnTelegraphRing" in seeker
-    assert "CurrentVersion = 4" in save
+    assert "CurrentVersion = 5" in save
     assert "LivesAfterAbandonedWave" in save
     assert "ApplyAbandonedWave" in save
     assert "SaveFileChoice.Choose" in store

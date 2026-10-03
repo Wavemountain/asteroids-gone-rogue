@@ -36,6 +36,16 @@ namespace AsteroidsGoneRogue
         private Vector3 _aimedDir;
         private bool _aimedWinding;
         private float _bossBaseScale;
+        private float _windupUntil;
+        private float _boltWindupUntil;
+        private Vector3 _boltAim;
+        private bool _nestTold;
+        private float _harmAt;
+
+        public bool CanHarm
+        {
+            get { return Time.time >= _harmAt; }
+        }
 
         public EnemyKind Kind
         {
@@ -122,9 +132,32 @@ namespace AsteroidsGoneRogue
             _factory = Object.FindAnyObjectByType<ContentFactory>();
             _presence = GetComponent<MonsterPresence>();
             _nextShot = Time.time + 0.85f;
+            if (kind == EnemyKind.Sniper || kind == EnemyKind.Gunner)
+            {
+                _nextShot = Time.time + 0.85f - EnemyCatalog.BoltWindupSeconds;
+            }
+
             _nextSpawn = Time.time + 1.6f;
             _chargeUntil = 0f;
             _restUntil = 0f;
+            _windupUntil = 0f;
+            _boltWindupUntil = 0f;
+            _nestTold = false;
+            _harmAt = 0f;
+        }
+
+        public void BeginSpawnGrace()
+        {
+            _harmAt = Time.time + SpawnClearance.SpawnGraceSeconds;
+            if (_factory != null)
+            {
+                _factory.SpawnTelegraphRing(
+                    transform.position,
+                    UiTheme.Secondary,
+                    SpawnClearance.SpawnGraceSeconds,
+                    TelegraphShape.DoubleRing,
+                    transform.forward);
+            }
         }
 
         public void ConfigureTraining(int hp, float speedScale)
@@ -204,7 +237,22 @@ namespace AsteroidsGoneRogue
             }
 
             _dead = true;
-            CombatJuice.ThreatDamaged(transform, true);
+            if (_boss)
+            {
+                if (AudioCues.Instance != null)
+                {
+                    AudioCues.Instance.PlayBossFinale(transform.position);
+                }
+                else
+                {
+                    CombatJuice.HeavyKill(transform.position, CombatJuice.ExplosionShake);
+                }
+            }
+            else
+            {
+                CombatJuice.ThreatDamaged(transform, true);
+            }
+
             if (_factory != null)
             {
                 _factory.SpawnVfx("Vfx_Explosion_Lowpoly", transform.position, 0.45f);
@@ -220,7 +268,7 @@ namespace AsteroidsGoneRogue
                 _waves.NotifyDestroyed(this, EnemyCatalog.Score(_kind));
             }
 
-            if (AudioCues.Instance != null)
+            if (!_boss && AudioCues.Instance != null)
             {
                 AudioCues.Instance.PlayEnemyDeath(_kind);
             }
@@ -314,6 +362,33 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (_windupUntil > 0f && now < _windupUntil)
+            {
+                speed = 0f;
+                turn = 480f;
+                if (_presence != null)
+                {
+                    _presence.SetCharging(true);
+                }
+
+                return;
+            }
+
+            if (_windupUntil > 0f && now >= _windupUntil)
+            {
+                _windupUntil = 0f;
+                _chargeUntil = now + EnemyCatalog.BruteChargeSeconds;
+                _restUntil = _chargeUntil + EnemyCatalog.BruteRestSeconds;
+                speed = EnemyCatalog.BruteChargeSpeed;
+                turn = EnemyCatalog.BruteChargeTurn;
+                if (_presence != null)
+                {
+                    _presence.SetCharging(true);
+                }
+
+                return;
+            }
+
             if (_presence != null)
             {
                 _presence.SetCharging(false);
@@ -327,13 +402,27 @@ namespace AsteroidsGoneRogue
 
             if (distance < EnemyCatalog.BruteChargeRange && distance > 2.2f)
             {
-                _chargeUntil = now + EnemyCatalog.BruteChargeSeconds;
-                _restUntil = _chargeUntil + EnemyCatalog.BruteRestSeconds;
-                speed = EnemyCatalog.BruteChargeSpeed;
-                turn = EnemyCatalog.BruteChargeTurn;
+                _windupUntil = now + EnemyCatalog.BruteWindupSeconds;
+                speed = 0f;
+                turn = 480f;
                 if (_presence != null)
                 {
                     _presence.SetCharging(true);
+                }
+
+                if (_factory != null)
+                {
+                    _factory.SpawnTelegraphRing(
+                        transform.position,
+                        UiTheme.Danger,
+                        EnemyCatalog.BruteWindupSeconds,
+                        TelegraphShape.Ring,
+                        transform.forward);
+                }
+
+                if (AudioCues.Instance != null)
+                {
+                    AudioCues.Instance.PlayBruteTell();
                 }
             }
         }
@@ -348,6 +437,24 @@ namespace AsteroidsGoneRogue
             if (Time.time > _nextSpawn - 0.7f && Time.time < _nextSpawn)
             {
                 _presence.PulseNest();
+                if (!_nestTold)
+                {
+                    _nestTold = true;
+                    if (_factory != null)
+                    {
+                        _factory.SpawnTelegraphRing(
+                            transform.position,
+                            UiTheme.Secondary,
+                            0.7f,
+                            TelegraphShape.DoubleRing,
+                            transform.forward);
+                    }
+
+                    if (AudioCues.Instance != null)
+                    {
+                        AudioCues.Instance.PlayNestTell();
+                    }
+                }
             }
         }
 
@@ -365,15 +472,21 @@ namespace AsteroidsGoneRogue
             }
 
             _nextSpawn = Time.time + EnemyCatalog.NestSpawnSeconds;
+            _nestTold = false;
             float angle = Random.Range(0f, Mathf.PI * 2f);
             Vector3 pos = transform.position + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * 1.6f;
             pos.y = 0f;
+            if (_target != null)
+            {
+                pos = SpawnClearance.Place(pos, _target.position, WaveManager.ArenaRadius - 1.5f);
+            }
+
             if (_presence != null)
             {
                 _presence.PulseNest();
             }
 
-            _factory.SpawnTelegraphRing(pos, new Color(0.12f, 0.88f, 1f), 0.55f);
+            _factory.SpawnTelegraphRing(pos, UiTheme.Secondary, 0.55f, TelegraphShape.Ring, transform.forward);
             EnemySeeker minion = _factory.CreateEnemy(pos, _target, _waves, EnemyCatalog.VisualName(EnemyKind.Swarmling));
             if (minion != null)
             {
@@ -395,7 +508,24 @@ namespace AsteroidsGoneRogue
 
         private void TryFireBolt(Vector3 toPlayerDir)
         {
-            if (!EnemyCatalog.FiresBolts(_kind) || _factory == null || Time.time < _nextShot)
+            if (!EnemyCatalog.FiresBolts(_kind) || _factory == null || !CanHarm)
+            {
+                return;
+            }
+
+            if (_boltWindupUntil > 0f)
+            {
+                if (Time.time < _boltWindupUntil)
+                {
+                    return;
+                }
+
+                _boltWindupUntil = 0f;
+                FireBolt(_boltAim.sqrMagnitude > 0.01f ? _boltAim : toPlayerDir);
+                return;
+            }
+
+            if (Time.time < _nextShot)
             {
                 return;
             }
@@ -408,24 +538,65 @@ namespace AsteroidsGoneRogue
             float cooldown = EnemyCatalog.FireCooldown(_kind);
             int firePercent = _fireRatePercent < 100 ? 100 : _fireRatePercent;
             cooldown = cooldown * 100f / firePercent;
+            bool aimedGun = _kind == EnemyKind.Sniper || _kind == EnemyKind.Gunner;
+            if (aimedGun)
+            {
+                float windup = EnemyCatalog.BoltWindupSeconds;
+                if (windup > cooldown)
+                {
+                    windup = cooldown;
+                }
+
+                _boltAim = toPlayerDir;
+                _boltWindupUntil = Time.time + windup;
+                _nextShot = _boltWindupUntil + (cooldown - windup);
+                Vector3 far = transform.position + transform.forward * 18f;
+                _factory.SpawnTelegraphLaser(transform.position, far, UiTheme.Danger, 0.35f, windup);
+                if (AudioCues.Instance != null)
+                {
+                    AudioCues.Instance.PlayGunnerTell();
+                }
+
+                return;
+            }
+
             _nextShot = Time.time + cooldown;
+            FireBolt(transform.forward);
+        }
+
+        private void FireBolt(Vector3 direction)
+        {
             int boltDamage = 1;
             if (_waves != null)
             {
                 boltDamage = DifficultyCurve.ScaleOutgoingDamage(1, _waves.ActiveWave);
             }
 
-            Vector3 origin = transform.position + transform.forward * 1.15f;
-            _factory.SpawnEnemyProjectile(origin, transform.forward, EnemyCatalog.BoltSpeed(_kind), boltDamage, _kind);
+            Vector3 aim = direction.sqrMagnitude > 0.01f ? direction.normalized : transform.forward;
+            Vector3 origin = transform.position + aim * 1.15f;
+            Projectile shot = _factory.SpawnEnemyProjectile(origin, aim, EnemyCatalog.BoltSpeed(_kind), boltDamage, _kind);
+            NoteShot(shot);
             if (AudioCues.Instance != null)
             {
                 AudioCues.Instance.PlayEnemyShoot();
             }
         }
 
+        private void NoteShot(Projectile shot)
+        {
+            if (shot == null)
+            {
+                return;
+            }
+
+            int waveNumber = _waves != null ? _waves.ActiveWave : 1;
+            string eliteName = _elite ? WaveModifier.NameForWave(waveNumber) : string.Empty;
+            shot.NoteHostileSource(_boss, _elite, eliteName);
+        }
+
         private void TickBoss(Vector3 toPlayerDir)
         {
-            if (_factory == null)
+            if (_factory == null || !CanHarm)
             {
                 return;
             }
@@ -491,20 +662,30 @@ namespace AsteroidsGoneRogue
                 _aimedFireAt = now + BossRules.AimedWindupSeconds;
                 _aimedWinding = true;
                 Vector3 windOrigin = transform.position + _aimedDir * 2.4f;
-                _factory.SpawnTelegraphRing(windOrigin, new Color(1f, 0.82f, 0.2f), BossRules.AimedWindupSeconds);
+                _factory.SpawnTelegraphRing(
+                    windOrigin,
+                    UiTheme.Focus,
+                    BossRules.AimedWindupSeconds,
+                    TelegraphShape.Wedge,
+                    _aimedDir);
                 if (AudioCues.Instance != null)
                 {
-                    AudioCues.Instance.PlayEnemyShoot();
+                    AudioCues.Instance.PlayBossAimedTell();
                 }
 
                 return;
             }
 
             Vector3 telegraphAt = transform.position;
-            _factory.SpawnTelegraphRing(telegraphAt, new Color(1f, 0.45f, 0.12f), BossRules.TelegraphSeconds);
+            _factory.SpawnTelegraphRing(
+                telegraphAt,
+                UiTheme.Danger,
+                BossRules.TelegraphSeconds,
+                TelegraphShape.Spokes,
+                transform.forward);
             if (AudioCues.Instance != null)
             {
-                AudioCues.Instance.PlayEnemyShoot();
+                AudioCues.Instance.PlayBossRadialTell();
             }
 
             _radialAt = now + BossRules.TelegraphSeconds;
@@ -524,7 +705,8 @@ namespace AsteroidsGoneRogue
                 }
 
                 Vector3 burstOrigin = transform.position + shotDir.normalized * 1.8f;
-                _factory.SpawnEnemyProjectile(burstOrigin, shotDir.normalized, burstSpeed, burstDamage, _kind);
+                Projectile burstShot = _factory.SpawnEnemyProjectile(burstOrigin, shotDir.normalized, burstSpeed, burstDamage, _kind);
+                NoteShot(burstShot);
             }
 
             if (AudioCues.Instance != null)
@@ -543,7 +725,8 @@ namespace AsteroidsGoneRogue
                 float spokeAngle = (Mathf.PI * 2f * spoke) / ringCount;
                 Vector3 spokeDir = new Vector3(Mathf.Cos(spokeAngle), 0f, Mathf.Sin(spokeAngle));
                 Vector3 ringOrigin = transform.position + spokeDir * 2.2f;
-                _factory.SpawnEnemyProjectile(ringOrigin, spokeDir, ringSpeed, ringDamage, _kind);
+                Projectile ringShot = _factory.SpawnEnemyProjectile(ringOrigin, spokeDir, ringSpeed, ringDamage, _kind);
+                NoteShot(ringShot);
             }
 
             if (AudioCues.Instance != null)
