@@ -15,7 +15,9 @@ namespace AsteroidsGoneRogue
         RailCharge = 32,
         Storm = 64,
         OverchargeLance = 128,
-        TwinSeek = 256
+        TwinSeek = 256,
+        DeepOrbit = 512,
+        FarDrift = 1024
     }
 
     public static class AchievementCatalog
@@ -31,6 +33,8 @@ namespace AsteroidsGoneRogue
         public const string StormTitle = "Storm";
         public const string OverchargeLanceTitle = "Overcharge Lance";
         public const string TwinSeekTitle = "Twin Seek";
+        public const string DeepOrbitTitle = "Deep Orbit";
+        public const string FarDriftTitle = "Far Drift";
 
         public static readonly AchievementId[] All =
         {
@@ -42,7 +46,9 @@ namespace AsteroidsGoneRogue
             AchievementId.RailCharge,
             AchievementId.Storm,
             AchievementId.OverchargeLance,
-            AchievementId.TwinSeek
+            AchievementId.TwinSeek,
+            AchievementId.DeepOrbit,
+            AchievementId.FarDrift
         };
 
         public static string Title(AchievementId id)
@@ -65,6 +71,10 @@ namespace AsteroidsGoneRogue
                     return Loc.T("ach.overcharge", OverchargeLanceTitle);
                 case AchievementId.TwinSeek:
                     return Loc.T("ach.twinseek", TwinSeekTitle);
+                case AchievementId.DeepOrbit:
+                    return Loc.T("ach.deep", DeepOrbitTitle);
+                case AchievementId.FarDrift:
+                    return Loc.T("ach.far", FarDriftTitle);
                 default:
                     return Loc.T("ach.first", FirstClearTitle);
             }
@@ -90,6 +100,10 @@ namespace AsteroidsGoneRogue
                     return "AGR_OVERCHARGE_LANCE";
                 case AchievementId.TwinSeek:
                     return "AGR_TWIN_SEEK";
+                case AchievementId.DeepOrbit:
+                    return "AGR_DEEP_ORBIT";
+                case AchievementId.FarDrift:
+                    return "AGR_FAR_DRIFT";
                 default:
                     return "AGR_FIRST_CLEAR";
             }
@@ -173,6 +187,22 @@ namespace AsteroidsGoneRogue
         public static bool ShouldUnlockHardClear(int clearedWave, DifficultyGrade grade)
         {
             return CampaignCap.IsFinalWave(clearedWave) && grade == DifficultyGrade.Hard;
+        }
+
+        /// <summary>
+        /// Deep Orbit unlocks once wave 6 is reached (World 2 entry). Later waves stay idempotent.
+        /// </summary>
+        public static bool ShouldUnlockDeepOrbit(int wave)
+        {
+            return wave >= 6;
+        }
+
+        /// <summary>
+        /// Far Drift unlocks on the wave 10 clear, not when the run used to stop at wave 5.
+        /// </summary>
+        public static bool ShouldUnlockFarDrift(int clearedWave)
+        {
+            return clearedWave >= MedalCatalog.FarDriftClearsAtWave;
         }
 
         public static bool ShouldUnlockExtraLifeStreak(int streak)

@@ -47,6 +47,80 @@ namespace AsteroidsGoneRogue
             return Loc.T("ui.start_wave", "Start Wave");
         }
 
+        public const float PrimaryMinWidth = 900f;
+        public const float PrimaryMinHeight = 48f;
+        public const int PrimaryFont = 20;
+
+        public static string ContinueSubtitle(int waveIndex)
+        {
+            string line = WorldCatalog.ContinueSubtitle(waveIndex);
+            int loopNumber = WorldCatalog.LoopForWave(waveIndex);
+            if (loopNumber > WorldCatalog.FirstLoop)
+            {
+                line += "  ·  " + Loc.Tf("world.loop", "Loop {0}", loopNumber);
+            }
+
+            return line;
+        }
+
+        public static bool LineFits(string text, float boxWidth, int fontSize)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return true;
+            }
+
+            if (boxWidth <= 0f || fontSize <= 0)
+            {
+                return false;
+            }
+
+            float width = text.Length * 10f * fontSize / 18f;
+            return width <= boxWidth;
+        }
+
+        /// <summary>
+        /// Second line on Continue-to-World. Skip when the label plus subtitle
+        /// would leave the button (narrowest hangar CTA is about 900×48).
+        /// </summary>
+        public static bool PrimarySubtitleFits(string label, string subtitle)
+        {
+            if (string.IsNullOrEmpty(subtitle))
+            {
+                return false;
+            }
+
+            if (!LineFits(label, PrimaryMinWidth, PrimaryFont))
+            {
+                return false;
+            }
+
+            if (!LineFits(subtitle, PrimaryMinWidth, PrimaryFont))
+            {
+                return false;
+            }
+
+            return PrimaryFont * 2f <= PrimaryMinHeight;
+        }
+
+        public static string ReachedLine(int wave)
+        {
+            int shownWave = wave < 1 ? 1 : wave;
+            int worldNumber = WorldCatalog.NumberForWave(shownWave);
+            string line = Loc.Tf(
+                "run.reached",
+                "Reached World {0}, wave {1}",
+                worldNumber,
+                shownWave);
+            int loopNumber = WorldCatalog.LoopForWave(shownWave);
+            if (loopNumber > WorldCatalog.FirstLoop)
+            {
+                line += "  ·  " + Loc.Tf("world.loop", "Loop {0}", loopNumber);
+            }
+
+            return line;
+        }
+
         public static string Title(GamePhase phase, string failReason)
         {
             if (phase == GamePhase.Failed)
@@ -174,7 +248,7 @@ namespace AsteroidsGoneRogue
                 return true;
             }
 
-            return phase == GamePhase.WaveClear && lastResolvedWave >= 1 && lastResolvedWave <= 9;
+            return phase == GamePhase.WaveClear && lastResolvedWave >= 1;
         }
 
         public static bool ShowFailContinue(GamePhase phase)
@@ -289,6 +363,14 @@ namespace AsteroidsGoneRogue
                     : tease;
             }
 
+            if (lastResolvedWave >= 10)
+            {
+                string reached = ReachedLine(lastResolvedWave);
+                return next != null
+                    ? reached + "  ·  " + Loc.Tf("run.buy", "Buy {0}", next.Title)
+                    : reached;
+            }
+
             string buy = next != null
                 ? Loc.Tf("run.buy", "Buy {0}", next.Title)
                 : Loc.T("run.push_best", "Push for a new best.");
@@ -364,6 +446,14 @@ namespace AsteroidsGoneRogue
                 return phase == GamePhase.WaveClear || phase == GamePhase.Failed;
             }
 
+            if (lastResolvedWave == MedalCatalog.MineFieldsClearsAtWave
+                || lastResolvedWave == MedalCatalog.CrossGatesClearsAtWave
+                || lastResolvedWave == MedalCatalog.DebrisIslandsClearsAtWave
+                || lastResolvedWave == MedalCatalog.SpokeRingClearsAtWave)
+            {
+                return phase == GamePhase.WaveClear;
+            }
+
             return false;
         }
 
@@ -400,6 +490,13 @@ namespace AsteroidsGoneRogue
             if (lastResolvedWave == World3StartsAtWave)
             {
                 return MedalCatalog.World3HangarLine();
+            }
+
+            MedalId clearedMedal;
+            if (MedalCatalog.TryForClearedWave(lastResolvedWave, out clearedMedal)
+                && lastResolvedWave >= MedalCatalog.MineFieldsClearsAtWave)
+            {
+                return MedalCatalog.AwardLine(clearedMedal);
             }
 
             return string.Empty;
@@ -486,6 +583,11 @@ namespace AsteroidsGoneRogue
                         + MedalCatalog.ScoutWingClearsAtWave,
                     MedalCatalog.Title(MedalId.ScoutWing),
                     MedalCatalog.ScoutWingClearsAtWave);
+            }
+
+            if (lastResolvedWave >= World2StartsAtWave)
+            {
+                return ReachedLine(lastResolvedWave);
             }
 
             return Loc.Tf("run.world2_at", "World 2 at wave {0}", World2StartsAtWave);

@@ -33,7 +33,7 @@ namespace AsteroidsGoneRogue
         public static int NextWorldIndex(int clearedWave)
         {
             int upcoming = clearedWave < 1 ? 1 : clearedWave + 1;
-            return ArenaLayout.WorldIndexForWave(upcoming);
+            return WorldCatalog.NumberForWave(upcoming);
         }
 
         public static bool IsWon(int lastResolvedWave, GamePhase phase)

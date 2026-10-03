@@ -52,7 +52,7 @@ class Session:
         self.score += bonus
         self.credits += credits
         self.last_run_score = self.score
-        self.world_cleared = _world_index(self.wave) if _is_world_boundary(self.wave) else 0
+        self.world_cleared = _world_number(self.wave) if _is_world_boundary(self.wave) else 0
         self.wave += 1
         self.phase = Phase.WAVE_CLEAR
 
@@ -5653,8 +5653,233 @@ def main() -> int:
     test_confirm_restart()
     test_pad_nav_source()
     test_world_continue_and_hangar_readability()
+    test_worlds_intro_medals()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
+
+
+def _world_number(wave: int) -> int:
+    shown = 1 if wave < 1 else wave
+    return ((shown - 1) // 5) + 1
+
+
+def _loop_number(wave: int) -> int:
+    return ((_world_number(wave) - 1) // 7) + 1
+
+
+def _layout_world(wave: int) -> int:
+    return ((_world_number(wave) - 1) % 7) + 1
+
+
+def _hp_percent(world: int) -> int:
+    steps = world - 1
+    if steps < 0:
+        steps = 0
+    if steps > 6:
+        steps = 6
+    return 100 + 15 * steps
+
+
+def _medal_on_wave(wave: int) -> str:
+    """Mirrors MedalCatalog.AwardsOnWave. Wave 11 is a beat, not a medal."""
+    if wave == 6:
+        return "DeepOrbit"
+    if wave == 3:
+        return "ScoutWing"
+    if wave == 10:
+        return "FarDrift"
+    if wave == 20:
+        return "MineFields"
+    if wave == 25:
+        return "CrossGates"
+    if wave == 30:
+        return "DebrisIslands"
+    if wave == 35:
+        return "SpokeRing"
+    return ""
+
+
+def _world_name(world: int) -> str:
+    names = {
+        1: "Launch Belt",
+        2: "Deep Orbit",
+        3: "Far Drift",
+        4: "Mine Fields",
+        5: "Cross Gates",
+        6: "Debris Islands",
+        7: "Spoke Ring",
+    }
+    return names[_layout_world_number(world)]
+
+
+def _layout_world_number(world: int) -> int:
+    number = 1 if world < 1 else world
+    return ((number - 1) % 7) + 1
+
+
+def _sv_keys(loc_text: str) -> set[str]:
+    import re
+
+    swedish = loc_text.split("private static readonly Dictionary")[1].split("};")[0]
+    return set(re.findall(r'\{\s*"([^"]+)"\s*,', swedish))
+
+
+def test_worlds_intro_medals() -> None:
+    """World names, looped identity, capped HP, and medals past wave 5."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    catalog = (root / "Assets/Scripts/Core/WorldCatalog.cs").read_text(encoding="utf-8")
+    medals = (root / "Assets/Scripts/Core/MedalCatalog.cs").read_text(encoding="utf-8")
+    ach = (root / "Assets/Scripts/Core/AchievementCatalog.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
+    diff = (root / "Assets/Scripts/Core/DifficultySettings.cs").read_text(encoding="utf-8")
+    seeker = (root / "Assets/Scripts/Combat/EnemySeeker.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    cap = (root / "Assets/Scripts/Core/CampaignCap.cs").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+
+    assert "class WorldCatalog" in catalog
+    assert "using UnityEngine" not in catalog
+    assert "NumberForWave" in catalog and "LoopForWave" in catalog
+    assert "IntroBanner" in catalog and "HpSteps" in catalog
+    assert "Launch Belt" in catalog and "Utskjutningsbältet" in loc
+    assert "Deep Orbit" in catalog and "Far Drift" in catalog
+    assert "Mine Fields" in catalog and "Spoke Ring" in catalog
+    assert 'Loc.T("world.launch"' in catalog
+    assert 'Loc.Tf("world.banner", "World {0} - {1}"' in catalog
+    assert 'Loc.Tf("world.loop", "Loop {0}"' in catalog
+    assert 'Loc.Tf("world.next", "Next: World {0} - {1}"' in catalog
+
+    previous = 0
+    for wave in range(1, 81):
+        number = _world_number(wave)
+        loop = _loop_number(wave)
+        layout = _layout_world(wave)
+        percent = _hp_percent(number)
+        assert number >= 1
+        assert loop >= 1
+        assert 1 <= layout <= 7
+        assert percent >= previous
+        assert percent <= 190
+        previous = percent
+        assert _world_name(number)
+    assert _world_number(5) == 1 and _loop_number(5) == 1
+    assert _world_number(6) == 2 and _loop_number(6) == 1
+    assert _world_number(35) == 7 and _loop_number(35) == 1 and _layout_world(35) == 7
+    assert _world_number(36) == 8 and _loop_number(36) == 2 and _layout_world(36) == 1
+    assert _world_number(40) == 8 and _loop_number(40) == 2 and _layout_world(40) == 1
+    assert _hp_percent(1) == 100
+    assert _hp_percent(2) == 115
+    assert _hp_percent(7) == 190
+    assert _hp_percent(8) == 190
+    assert _hp_percent(40) == 190
+    assert "return WorldCatalog.HpSteps" in diff
+    assert "WorldCatalog.NumberForWave(waves.ActiveWave)" in seeker
+    assert "ArenaLayout.WorldIndexForWave(waves.ActiveWave)" not in seeker
+    assert "WorldCatalog.NumberForWave(clearedWave)" in session
+
+    assert _medal_on_wave(6) == "DeepOrbit"
+    assert _medal_on_wave(10) == "FarDrift"
+    assert _medal_on_wave(11) == ""
+    assert _medal_on_wave(20) == "MineFields"
+    assert _medal_on_wave(25) == "CrossGates"
+    assert _medal_on_wave(30) == "DebrisIslands"
+    assert _medal_on_wave(35) == "SpokeRing"
+    assert "MineFieldsClearsAtWave = 20" in medals
+    assert "CrossGatesClearsAtWave = 25" in medals
+    assert "DebrisIslandsClearsAtWave = 30" in medals
+    assert "SpokeRingClearsAtWave = 35" in medals
+    assert "WorldClearBoard" in medals
+    assert "AwardsOnWave" in medals
+    world_entry = medals.split("public static bool TryForWorldEntry")[1].split("public static")[0]
+    assert "MedalId.DeepOrbit" in world_entry
+    assert "MedalId.FarDrift" not in world_entry
+    assert "ShouldUnlockDeepOrbit" in ach and "wave >= 6" in ach
+    assert "ShouldUnlockFarDrift" in ach
+    assert "AchievementId.DeepOrbit" in ach and "AchievementId.FarDrift" in ach
+    assert "AGR_DEEP_ORBIT" in ach and "AGR_FAR_DRIFT" in ach
+    assert "ShouldUnlockDeepOrbit" in manager and "ShouldUnlockFarDrift" in manager
+    show_hint = summary.split("public static bool ShowContinueHint")[1].split("public static")[0]
+    assert "<= 9" not in show_hint
+    assert "<= 10" not in show_hint
+    assert 'Loc.Tf(\n                "run.reached"' in summary or '"run.reached"' in summary
+    assert "Reached World {0}, wave {1}" in summary
+    assert "PrimarySubtitleFits" in summary
+    assert "ContinueSubtitle" in summary
+    assert "IntroBanner" in ui
+    assert "ApplyPrimaryCaption" in ui
+    assert "WorldClearBoard" in ui
+    assert "AnnounceWorldChange(waveIndex)" in factory
+    assert "LAYOUT SWAP" in ui
+    for stale in (
+        "World 1 complete - New Run",
+        "World 1 complete  ·  New Run",
+        "World 1 complete - New Run from the hangar",
+    ):
+        assert stale not in summary
+        assert stale not in cap
+        assert stale not in ui
+        assert stale not in readme
+
+    swedish = _sv_keys(loc)
+    en_keys = set(re.findall(r'Loc\.Tf?\(\s*"([^"]+)"', "\n".join((catalog, medals, ach, summary, ui))))
+    missing = sorted(key for key in en_keys if key not in swedish and not key.endswith("."))
+    assert not missing, missing
+    for key in (
+        "world.launch",
+        "world.deep",
+        "world.far",
+        "world.mines",
+        "world.cross",
+        "world.islands",
+        "world.spokes",
+        "world.banner",
+        "world.loop",
+        "world.next",
+        "world.tip.1",
+        "world.tip.2",
+        "world.tip.3",
+        "world.tip.4",
+        "world.tip.5",
+        "world.tip.6",
+        "world.tip.7",
+        "run.reached",
+        "ach.deep",
+        "ach.far",
+    ):
+        assert key in swedish, key
+
+    resolutions = ((1280, 800), (1600, 900), (1920, 1080), (2560, 1440), (3440, 1440))
+    boards = (
+        "ACHIEVEMENTS  ★ 0/11\n○ Mine Fields  ·  ○ Cross Gates\n○ Debris Islands  ·  ○ Spoke Ring",
+        "PRESTATIONER  ★ 11/11\n★ Minfält  ·  ★ Korsportar\n★ Skrotöar  ·  ★ Ekring",
+    )
+    for width, height in resolutions:
+        scale = _canvas_scale(width, height)
+        box_w = 0.123 * (width / scale)
+        box_h = 0.045 * (height / scale)
+        for board in boards:
+            lines = _wrapped_line_count(board, box_w, 12)
+            assert lines <= 3, (width, board, lines, box_w)
+            assert lines * 12 * 1.2 * 0.85 <= box_h, (width, lines, box_h)
+
+    subtitles = (
+        "Next: World 2 - Deep Orbit",
+        "Next: World 8 - Launch Belt  ·  Loop 2",
+        "Nästa: Värld 8 - Utskjutningsbältet  ·  Varv 2",
+    )
+    labels = ("Continue to World 8", "Fortsätt till värld 14")
+    for subtitle in subtitles:
+        for label in labels:
+            assert _estimate_width(label, 20) <= 900
+            assert _estimate_width(subtitle, 20) <= 900
+            assert 20 * 2 <= 48
 
 
 def _is_world_boundary(wave: int) -> bool:

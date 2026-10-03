@@ -164,9 +164,9 @@ Exact files and licenses are in **[CREDITS.md](CREDITS.md)**. Mute / SFX / Music
 
 ## What is stubbed
 
-- **Content-cap (0.44 steam-slice):** World 1 waves 1–5 is the finished loop. Clear wave 5 (Brute) → **SECTOR CLEAR** + HIT07 → **New Run**. World 2–7 layout code stays (not spawned in this slice). Achievements are local unlocks with a Steamworks-ready API surface (no Steam SDK in Packages).
+- **Content-cap (0.44 steam-slice):** World 1 still has a sector-clear beat at wave 5 (Hard Clear, HIT07). The run continues with **Continue to World N+1**; loadout and credits stay. Only a failed run is **New Run (reset)**. Worlds 1–7 have names, then loop (wave 36 is World 8 on the World 1 look) while enemy HP keeps the unwrapped cap. Achievements are local unlocks with a Steamworks-ready API surface (no Steam SDK in Packages).
 - **Meshes** come from `Assets/Art/Import/` FBX on Press Play (`ArtImport` loads by path — no Inspector mesh swap). Primitive fallbacks stay if an FBX is missing.
-- **Arena World 2–7** meshes **do spawn** if you lift the cap — after every 5 cleared waves the floor swaps `Arena_AstroFloor_v2` … This slice stops after World 1.
+- **Arena World 2–7** meshes spawn as the run continues — after every 5 cleared waves the floor swaps `Arena_AstroFloor_v2` … Later loops reuse those looks. World 8 is World 1's Launch Belt layout again.
 - **Hangar only:** `Ship_Complete` v5 (parked bay display / store capsule 3/4). **Not in Play:** `Ship_Complete_Upgrade01`, **`Ship_Body_Upgrade02`** (imported only, not warmed). Shop **Hull Plate 02** / Nose 03 / Engine 03 reuse the prior meshes.
 - Combat juice: hit spark + kill bloom (`JuiceBurst`) + screen flash + camera shake. Extra-life heart is a must-pick (beacon, pip, timeout pulse). Player death stays quiet on flash/shake; fail plays `GameOver` + `lowDown` (`phaserDown3` fallback).
 - **Ship_*** part slots share origin `0,0,0` so Rapid Fire / Nose Hardpoint / Body Upgrade stay a SetActive swap.

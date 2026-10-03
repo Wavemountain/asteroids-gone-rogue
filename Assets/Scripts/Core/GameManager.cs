@@ -177,6 +177,11 @@ namespace AsteroidsGoneRogue
             _ship.SetInputEnabled(true);
             int world = ContentFactory.WorldIndexForWave(_session.WaveIndex);
             TryAwardWorldMedal(world);
+            if (AchievementCatalog.ShouldUnlockDeepOrbit(_session.WaveIndex))
+            {
+                TryUnlockAchievement(AchievementId.DeepOrbit);
+            }
+
             _waves.SpawnWave(_session.WaveIndex);
             string beat = MedalCatalog.WorldEntryBeat(world);
             if (!string.IsNullOrEmpty(beat) && _ui != null)
@@ -494,6 +499,16 @@ namespace AsteroidsGoneRogue
             {
                 TryUnlockAchievement(AchievementId.HardClear);
             }
+
+            if (AchievementCatalog.ShouldUnlockDeepOrbit(clearedWave))
+            {
+                TryUnlockAchievement(AchievementId.DeepOrbit);
+            }
+
+            if (AchievementCatalog.ShouldUnlockFarDrift(clearedWave))
+            {
+                TryUnlockAchievement(AchievementId.FarDrift);
+            }
         }
 
         public void NotifyDoctrinePicked(DoctrineId id)
@@ -582,7 +597,7 @@ namespace AsteroidsGoneRogue
                 Best = LocalBest.Load();
             }
 
-            int world = ContentFactory.WorldIndexForWave(wave);
+            int world = WorldCatalog.NumberForWave(wave);
             if (SessionBest == null)
             {
                 SessionBest = new LocalBest();

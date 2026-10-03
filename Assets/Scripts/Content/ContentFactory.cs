@@ -238,7 +238,7 @@ namespace AsteroidsGoneRogue
 
                 if (GameUi.Instance != null)
                 {
-                    GameUi.Instance.AnnounceWorldChange(WorldIndexForWave(waveIndex));
+                    GameUi.Instance.AnnounceWorldChange(waveIndex);
                 }
             }
         }

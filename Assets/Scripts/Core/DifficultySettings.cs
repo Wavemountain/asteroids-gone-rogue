@@ -188,7 +188,8 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// Grade scale, then +15% enemy HP per world after world 1, capped at world 7.
+        /// Grade scale, then +15% enemy HP per unwrapped world after world 1.
+        /// Steps stay capped (<see cref="MaxWorldHpSteps"/>); world 8 does not drop to world 1.
         /// </summary>
         public static int ScaleEnemyHpForWorld(int hp, int worldIndex)
         {
@@ -221,18 +222,7 @@ namespace AsteroidsGoneRogue
 
         public static int WorldHpSteps(int worldIndex)
         {
-            int steps = worldIndex - 1;
-            if (steps < 0)
-            {
-                steps = 0;
-            }
-
-            if (steps > MaxWorldHpSteps)
-            {
-                steps = MaxWorldHpSteps;
-            }
-
-            return steps;
+            return WorldCatalog.HpSteps(worldIndex);
         }
 
         public static int ApplyWorldHp(int hp, int worldIndex)
