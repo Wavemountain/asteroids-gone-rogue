@@ -174,6 +174,9 @@ namespace AsteroidsGoneRogue
             get { return Current == DifficultyGrade.Hard ? 1 : 0; }
         }
 
+        public const int WorldHpPercent = 15;
+        public const int MaxWorldHpSteps = 6;
+
         public static int ScaleEnemyHp(int hp)
         {
             return ScaleEnemyHpFor(hp, Current);
@@ -181,20 +184,66 @@ namespace AsteroidsGoneRogue
 
         public static int ScaleEnemyHpFor(int hp, DifficultyGrade grade)
         {
+            return ScaleEnemyHpFor(hp, grade, 1);
+        }
+
+        /// <summary>
+        /// Grade scale, then +15% enemy HP per world after world 1, capped at world 7.
+        /// </summary>
+        public static int ScaleEnemyHpForWorld(int hp, int worldIndex)
+        {
+            return ScaleEnemyHpFor(hp, Current, worldIndex);
+        }
+
+        public static int ScaleEnemyHpFor(int hp, DifficultyGrade grade, int worldIndex)
+        {
             if (hp < 1)
             {
                 hp = 1;
             }
 
+            int graded;
             switch (grade)
             {
                 case DifficultyGrade.Easy:
-                    return Math.Max(1, (hp * 4) / 5);
+                    graded = Math.Max(1, (hp * 4) / 5);
+                    break;
                 case DifficultyGrade.Hard:
-                    return Math.Max(hp + 1, (hp * 5) / 4);
+                    graded = Math.Max(hp + 1, (hp * 5) / 4);
+                    break;
                 default:
-                    return hp;
+                    graded = hp;
+                    break;
             }
+
+            return ApplyWorldHp(graded, worldIndex);
+        }
+
+        public static int WorldHpSteps(int worldIndex)
+        {
+            int steps = worldIndex - 1;
+            if (steps < 0)
+            {
+                steps = 0;
+            }
+
+            if (steps > MaxWorldHpSteps)
+            {
+                steps = MaxWorldHpSteps;
+            }
+
+            return steps;
+        }
+
+        public static int ApplyWorldHp(int hp, int worldIndex)
+        {
+            if (hp < 1)
+            {
+                hp = 1;
+            }
+
+            int steps = WorldHpSteps(worldIndex);
+            return Math.Max(1, hp * (100 + WorldHpPercent * steps) / 100);
         }
 
         public static int ScaleIncomingDamage(int amount, DamageCause cause)

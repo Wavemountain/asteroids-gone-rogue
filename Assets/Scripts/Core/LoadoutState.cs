@@ -574,6 +574,36 @@ namespace AsteroidsGoneRogue
             return copy;
         }
 
+        public bool HasPurchase()
+        {
+            if (ShieldCharges > 0 || ShieldMatrix || Doctrine != DoctrineId.None)
+            {
+                return true;
+            }
+
+            return BodyUpgrade01
+                || BodyUpgrade02
+                || NoseHardpoint
+                || NoseUpgrade02
+                || NoseUpgrade03
+                || RapidFire
+                || EngineUpgrade02
+                || EngineUpgrade03
+                || Overcharger
+                || Afterburner
+                || SpreadBolt
+                || Pierce
+                || TwinGuns
+                || Seeker
+                || Ricochet
+                || Rail
+                || FlakFeed
+                || Storm
+                || OverchargeLance
+                || SeekerCadence
+                || TwinSeek;
+        }
+
         public bool Owns(UpgradeId id)
         {
             switch (id)

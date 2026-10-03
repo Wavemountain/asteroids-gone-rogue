@@ -82,10 +82,6 @@ namespace AsteroidsGoneRogue
         private Text _hullHeader;
         private Text _weaponsHeader;
         private Text _defenseHeader;
-        private GameObject _langPanel;
-        private Text _langTitle;
-        private Image _enBezel;
-        private Image _svBezel;
         private GameObject _diffPanel;
         private Text _diffTitle;
         private Image _easyBezel;
@@ -179,7 +175,6 @@ namespace AsteroidsGoneRogue
         private static readonly Color UiHull = UiTheme.Primary;
         private static readonly Color UiShield = UiTheme.Secondary;
 
-        public const float LanguageFlagScale = 0.48f;
         // Hangar left column: bottom matches LOADOUT frame (ShipPreviewMin.y 0.080);
         // top stays under the full-width top bar (0.905) so WAVE CLEAR / shop never sit on chrome.
         public static readonly Vector2 HangarPanelMin = new Vector2(0.014f, 0.080f);
@@ -189,6 +184,15 @@ namespace AsteroidsGoneRogue
         // Gear stays on the top-right. Mute / SFX / Music live in the settings panel.
         public static readonly Vector2 SettingsGearMin = new Vector2(0.900f, 0.905f);
         public static readonly Vector2 SettingsGearMax = new Vector2(0.988f, 0.995f);
+        public static readonly Vector2 DifficultyMin = new Vector2(0.748f, 0.905f);
+        public static readonly Vector2 DifficultyMax = new Vector2(0.888f, 0.995f);
+        public static readonly Vector2 FirstFlightMin = new Vector2(0.02f, 0.800f);
+        public static readonly Vector2 FirstFlightMax = new Vector2(0.98f, 0.995f);
+        public const float FailedPreviewMaxY = 0.468f;
+        public static readonly Vector2 FailedHealthMin = new Vector2(0.562f, 0.480f);
+        public static readonly Vector2 FailedHealthMax = new Vector2(0.986f, 0.596f);
+        public static readonly Vector2 ToastMin = new Vector2(0.500f, 0.912f);
+        public static readonly Vector2 ToastMax = new Vector2(0.735f, 0.988f);
         public static readonly Vector2 SettingsPanelMin = new Vector2(0.30f, 0.12f);
         public static readonly Vector2 SettingsPanelMax = new Vector2(0.70f, 0.88f);
         public static readonly Vector2 ShipPreviewMin = new Vector2(0.562f, 0.080f);
@@ -342,11 +346,6 @@ namespace AsteroidsGoneRogue
                 }
             }
 
-            if (_langPanel != null)
-            {
-                _langPanel.SetActive(!playing);
-            }
-
             if (_diffPanel != null)
             {
                 _diffPanel.SetActive(!playing);
@@ -384,23 +383,30 @@ namespace AsteroidsGoneRogue
                 _credits.gameObject.SetActive(false);
             }
 
+            int nextWorld = ArenaLayout.WorldIndexForWave(_session.WaveIndex);
             switch (_session.Phase)
             {
                 case GamePhase.WaveClear:
                     _statusBase = string.Empty;
-                    _primaryLabel.text = Loc.T("ui.next_wave", "Next Wave");
+                    _primaryLabel.text = RunSummary.PrimaryActionLabel(
+                        GamePhase.WaveClear,
+                        _session.WorldCleared,
+                        nextWorld);
                     break;
                 case GamePhase.CampaignClear:
                     _statusBase = string.Empty;
-                    _primaryLabel.text = Loc.T("ui.new_run", "New Run");
+                    _primaryLabel.text = RunSummary.PrimaryActionLabel(
+                        GamePhase.WaveClear,
+                        CampaignCap.FinalWorld,
+                        CampaignCap.NextWorldIndex(CampaignCap.FinalWave));
                     break;
                 case GamePhase.Failed:
                     _statusBase = string.Empty;
-                    _primaryLabel.text = Loc.T("ui.retry_hangar", "RETRY  ·  NEW RUN");
+                    _primaryLabel.text = RunSummary.PrimaryActionLabel(GamePhase.Failed, 0, 1);
                     break;
                 default:
                     _statusBase = string.Empty;
-                    _primaryLabel.text = Loc.T("ui.start_wave", "Start Wave");
+                    _primaryLabel.text = RunSummary.PrimaryActionLabel(GamePhase.Hangar, 0, 1);
                     break;
             }
 
@@ -568,7 +574,8 @@ namespace AsteroidsGoneRogue
             BuildRunSummary(display, body);
 
             _achievementToast = CreateText("AchievementToast", transform, display, 18, TextAnchor.UpperCenter, FontStyle.Bold);
-            Stretch(_achievementToast.rectTransform, new Vector2(0.18f, 0.52f), new Vector2(0.82f, 0.60f));
+            Stretch(_achievementToast.rectTransform, ToastMin, ToastMax);
+            ClampOneLine(_achievementToast);
             _achievementToast.color = UiAmber;
             _achievementToast.gameObject.SetActive(false);
             AddReadability(_achievementToast, true);
@@ -617,7 +624,6 @@ namespace AsteroidsGoneRogue
             BuildDoctrine(display, body);
             BuildShop(display, body);
             BuildSettingsGear(body);
-            BuildLanguagePicker(display, body);
             BuildDifficultyPicker(display, body);
             BuildFirstHangarHint(display, body);
             BuildEndCredits(display, body);
@@ -735,9 +741,23 @@ namespace AsteroidsGoneRogue
                 _previewViewport = raw;
             }
 
-            Stretch(_previewRoot.GetComponent<RectTransform>(), ShipPreviewMin, ShipPreviewMax);
+            ApplyShipPreviewAnchors();
             _previewRoot.transform.SetAsLastSibling();
             ForcePreviewChrome();
+        }
+
+        private void ApplyShipPreviewAnchors()
+        {
+            if (_previewRoot == null)
+            {
+                return;
+            }
+
+            bool failed = _session != null && _session.Phase == GamePhase.Failed;
+            Vector2 max = failed
+                ? new Vector2(ShipPreviewMax.x, FailedPreviewMaxY)
+                : ShipPreviewMax;
+            Stretch(_previewRoot.GetComponent<RectTransform>(), ShipPreviewMin, max);
         }
 
         private void ForcePreviewChrome()
@@ -760,7 +780,7 @@ namespace AsteroidsGoneRogue
             {
                 _previewRoot.SetActive(show);
                 _previewRoot.transform.SetAsLastSibling();
-                Stretch(_previewRoot.GetComponent<RectTransform>(), ShipPreviewMin, ShipPreviewMax);
+                ApplyShipPreviewAnchors();
                 Image plate = _previewRoot.GetComponent<Image>();
                 if (plate != null)
                 {
@@ -861,12 +881,28 @@ namespace AsteroidsGoneRogue
                 BindShopHover(button, item);
                 _buyButtons[i] = button;
                 _buyLabels[i] = button.GetComponentInChildren<Text>();
-                _buyLabels[i].fontSize = UiTheme.BodyMin;
-                _buyLabels[i].fontStyle = FontStyle.Bold;
-                _buyLabels[i].horizontalOverflow = HorizontalWrapMode.Wrap;
-                _buyLabels[i].verticalOverflow = VerticalWrapMode.Truncate;
+                FitShopLabel(_buyLabels[i], item.Group);
                 UiTheme.ApplyButton(button, false, false, true);
+                button.transform.SetAsLastSibling();
             }
+        }
+
+        private static void FitShopLabel(Text label, ShopGroup group)
+        {
+            if (label == null)
+            {
+                return;
+            }
+
+            int size = group == ShopGroup.Hull ? UiTheme.ShopHullSize : UiTheme.ShopNameSize;
+            label.font = UiFonts.Body();
+            label.fontSize = size;
+            label.fontStyle = FontStyle.Normal;
+            label.lineSpacing = UiTheme.ShopLineSpacing;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+            label.verticalOverflow = VerticalWrapMode.Truncate;
+            label.color = UiTheme.Accent;
         }
 
         private static void ShopButtonRect(
@@ -919,7 +955,7 @@ namespace AsteroidsGoneRogue
 
         private Text BuildGroupHeader(Font font, string label, Vector2 min, Vector2 max)
         {
-            Text header = CreateText("Group_" + label, _menuRoot.transform, font, 14, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Text header = CreateText("Group_" + label, _menuRoot.transform, font, UiTheme.ShopHeaderSize, TextAnchor.MiddleLeft, FontStyle.Bold);
             Stretch(header.rectTransform, min, max);
             header.color = UiAmber;
             header.text = label;
@@ -1056,27 +1092,29 @@ namespace AsteroidsGoneRogue
             _summaryRule = _summaryRoot.transform.Find("RunSummaryCardRule").GetComponent<Image>();
 
             _summaryTitle = CreateText("SummaryTitle", _summaryRoot.transform, display, UiTheme.HeaderMin, TextAnchor.MiddleCenter, FontStyle.Bold);
-            // r1 WAVE CLEAR — stretch, zero offset, one line so copy cannot cover NEXT WAVE.
-            Stretch(_summaryTitle.rectTransform, new Vector2(0.03f, 0.90f), new Vector2(0.97f, 0.995f));
+            // r1 headline. One line, left of the medal chip, so EN/SV cannot cover NEXT WAVE.
+            Stretch(_summaryTitle.rectTransform, new Vector2(0.03f, 0.62f), new Vector2(0.70f, 0.96f));
             _summaryTitle.color = UiTheme.Primary;
             ClampOneLine(_summaryTitle);
 
             _summaryBody = CreateText("SummaryBody", _summaryRoot.transform, body, UiTheme.BodyMin, TextAnchor.MiddleCenter, FontStyle.Normal);
             // r2 SCORE · WAVE · WORLD · CREDITS (+delta). One line, truncate.
-            Stretch(_summaryBody.rectTransform, new Vector2(0.03f, 0.855f), new Vector2(0.97f, 0.90f));
+            Stretch(_summaryBody.rectTransform, new Vector2(0.03f, 0.36f), new Vector2(0.97f, 0.58f));
             _summaryBody.color = UiTheme.Accent;
             ClampOneLine(_summaryBody);
 
             _waveMedal = CreateText("WaveMedal", _summaryRoot.transform, display, 14, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Stretch(_waveMedal.rectTransform, new Vector2(0.72f, 0.90f), new Vector2(0.97f, 0.995f));
+            Stretch(_waveMedal.rectTransform, new Vector2(0.72f, 0.62f), new Vector2(0.97f, 0.96f));
             _waveMedal.color = UiTheme.Primary;
             ClampOneLine(_waveMedal);
 
-            _continueHint = CreateText("ContinueHint", _summaryRoot.transform, body, UiTheme.BodyMin, TextAnchor.MiddleLeft, FontStyle.Bold);
-            // r3 upgrades / short status. Truncate; controls hint stays on the screen-bottom row.
-            Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.82f), new Vector2(0.97f, 0.855f));
+            _continueHint = CreateText("ContinueHint", _summaryRoot.transform, body, UiTheme.ShopHeaderSize, TextAnchor.MiddleLeft, FontStyle.Normal);
+            _continueHint.lineSpacing = UiTheme.ShopLineSpacing;
+            // r3 upgrades or the run-over explanation. Wrap inside the card; do not cover NEXT WAVE.
+            Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.06f), new Vector2(0.97f, 0.34f));
             _continueHint.color = UiTheme.Secondary;
-            ClampOneLine(_continueHint);
+            _continueHint.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _continueHint.verticalOverflow = VerticalWrapMode.Truncate;
             _summaryRoot.SetActive(false);
         }
 
@@ -1091,7 +1129,8 @@ namespace AsteroidsGoneRogue
                 && (_session.Phase == GamePhase.WaveClear
                     || _session.Phase == GamePhase.Failed
                     || _session.Phase == GamePhase.CampaignClear);
-            _summaryRoot.SetActive(!playing);
+            bool firstFlightOpen = _tutorialRoot != null && _tutorialRoot.activeSelf;
+            _summaryRoot.SetActive(!playing && !firstFlightOpen);
             if (_credits != null)
             {
                 _credits.gameObject.SetActive(false);
@@ -1113,7 +1152,15 @@ namespace AsteroidsGoneRogue
                 _summaryTitle.fontSize = UiTheme.HeaderMin;
             }
 
-            if (summaryPhase)
+            if (_session.Phase == GamePhase.Failed)
+            {
+                _summaryTitle.text = RunSummary.RunOverTitle(wave);
+            }
+            else if (_session.Phase == GamePhase.WaveClear && _session.WorldCleared > 0)
+            {
+                _summaryTitle.text = CampaignCap.SectorClearTitle(_session.WorldCleared);
+            }
+            else if (summaryPhase)
             {
                 _summaryTitle.text = RunSummary.Title(_session.Phase, FailReasonText());
             }
@@ -1159,7 +1206,11 @@ namespace AsteroidsGoneRogue
             string row3 = summaryPhase
                 ? RunSummary.UpgradesLine(loadout)
                 : HangarReadyStatus();
-            if (summaryPhase)
+            if (failed && summaryPhase)
+            {
+                row3 = RunSummary.RunOverExplain();
+            }
+            else if (summaryPhase)
             {
                 LocalBest sessionBest = _game != null ? _game.SessionBest : null;
                 if (sessionBest != null)
@@ -1283,13 +1334,13 @@ namespace AsteroidsGoneRogue
         {
             _tutorialDismissed = PlayerPrefs.GetInt(FirstHangarHintKey, 0) == 1;
             _doctrineIntroDismissed = PlayerPrefs.GetInt(DoctrineHintKey, 0) == 1;
-            // First-flight card occupies the WAVE-CLEAR strip zone (not the shop grid).
+            // First-flight card sits in the wave-clear strip inside the hangar, above Start Wave.
             _tutorialRoot = UiTheme.BuildPanel(
                 "FirstHangarHint",
-                transform,
-                new Vector2(0.018f, 0.730f),
-                new Vector2(0.545f, 0.888f),
-                0.94f);
+                _menuRoot.transform,
+                FirstFlightMin,
+                FirstFlightMax,
+                0.72f);
 
             _firstFlightTitle = CreateText("HintTitle", _tutorialRoot.transform, display, 16, TextAnchor.UpperCenter, FontStyle.Bold);
             Stretch(_firstFlightTitle.rectTransform, new Vector2(0.06f, 0.86f), new Vector2(0.94f, 0.97f));
@@ -1297,7 +1348,7 @@ namespace AsteroidsGoneRogue
             _firstFlightTitle.text = "First flight";
 
             _firstFlightBody = CreateText("HintBody", _tutorialRoot.transform, body, UiTheme.HintSize(Screen.width), TextAnchor.UpperLeft, FontStyle.Normal);
-            Stretch(_firstFlightBody.rectTransform, new Vector2(0.07f, 0.15f), new Vector2(0.93f, 0.85f));
+            Stretch(_firstFlightBody.rectTransform, new Vector2(0.07f, 0.14f), new Vector2(0.93f, 0.85f));
             _firstFlightBody.color = UiTheme.Accent;
             _firstFlightBody.text = HangarHintBody;
 
@@ -1535,64 +1586,6 @@ namespace AsteroidsGoneRogue
             }
         }
 
-        private void BuildLanguagePicker(Font display, Font body)
-        {
-            // Top-bar center-right: LANG flags. Same top-bar row as difficulty. The gear sits further right.
-            _langPanel = UiTheme.BuildPanel(
-                "LanguagePanel",
-                transform,
-                new Vector2(0.635f, 0.905f),
-                new Vector2(0.728f, 0.995f),
-                0.02f,
-                UiTheme.HeaderWash,
-                UiTheme.HeaderRule,
-                UiTheme.WithAlpha(UiTheme.Surface, 0.88f));
-
-            _langTitle = CreateText("LangTitle", _langPanel.transform, display, 10, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Stretch(_langTitle.rectTransform, new Vector2(0.06f, 0.78f), new Vector2(0.94f, 0.98f));
-            _langTitle.color = UiTheme.Primary;
-
-            Vector2 flagMin;
-            Vector2 flagMax;
-            LanguageFlagRect(true, out flagMin, out flagMax);
-            _enBezel = CreateFlagButton(
-                "UsFlag",
-                _langPanel.transform,
-                flagMin,
-                flagMax,
-                () => OnPickLanguage(GameLanguage.English));
-            BuildUsFlag(_enBezel.transform);
-
-            LanguageFlagRect(false, out flagMin, out flagMax);
-            _svBezel = CreateFlagButton(
-                "SvFlag",
-                _langPanel.transform,
-                flagMin,
-                flagMax,
-                () => OnPickLanguage(GameLanguage.Swedish));
-            BuildSwedishFlag(_svBezel.transform);
-
-            Text enCaption = CreateText("EnCaption", _langPanel.transform, body, 9, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Stretch(enCaption.rectTransform, new Vector2(0.10f, 0.04f), new Vector2(0.46f, 0.22f));
-            enCaption.color = UiTheme.Accent;
-            enCaption.text = "EN";
-
-            Text svCaption = CreateText("SvCaption", _langPanel.transform, body, 9, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Stretch(svCaption.rectTransform, new Vector2(0.54f, 0.04f), new Vector2(0.90f, 0.22f));
-            svCaption.color = UiTheme.Accent;
-            svCaption.text = "SV";
-        }
-
-        private static void LanguageFlagRect(bool english, out Vector2 min, out Vector2 max)
-        {
-            float width = 0.40f * LanguageFlagScale / 0.60f;
-            float height = 0.50f * LanguageFlagScale / 0.60f;
-            float midX = english ? 0.28f : 0.72f;
-            float midY = 0.50f;
-            min = new Vector2(midX - width * 0.5f, midY - height * 0.5f);
-            max = new Vector2(midX + width * 0.5f, midY + height * 0.5f);
-        }
-
         private static Image CreateFlagButton(
             string name,
             Transform parent,
@@ -1617,40 +1610,6 @@ namespace AsteroidsGoneRogue
             return image;
         }
 
-        private static void BuildUsFlag(Transform parent)
-        {
-            Color red = new Color(0.55f, 0.12f, 0.16f, 0.78f);
-            Color white = UiTheme.WithAlpha(UiTheme.Secondary, 0.72f);
-            Color blue = new Color(0.10f, 0.14f, 0.32f, 0.78f);
-            const int Stripes = 7;
-            for (int i = 0; i < Stripes; i++)
-            {
-                float y1 = 1f - (i / (float)Stripes);
-                float y0 = 1f - ((i + 1) / (float)Stripes);
-                CreateFill("UsStripe" + i, parent, i % 2 == 0 ? red : white, new Vector2(0.06f, y0 + 0.04f), new Vector2(0.94f, y1 - 0.02f));
-            }
-
-            CreateFill("UsCanton", parent, blue, new Vector2(0.06f, 0.46f), new Vector2(0.46f, 0.96f));
-            for (int row = 0; row < 3; row++)
-            {
-                for (int col = 0; col < 3; col++)
-                {
-                    float x = 0.12f + col * 0.1f;
-                    float y = 0.56f + row * 0.12f;
-                    CreateFill("UsStar" + row + col, parent, white, new Vector2(x, y), new Vector2(x + 0.045f, y + 0.055f));
-                }
-            }
-        }
-
-        private static void BuildSwedishFlag(Transform parent)
-        {
-            Color blue = new Color(0.08f, 0.36f, 0.52f, 0.78f);
-            Color yellow = UiTheme.WithAlpha(UiTheme.Primary, 0.78f);
-            CreateFill("SvField", parent, blue, new Vector2(0.06f, 0.06f), new Vector2(0.94f, 0.94f));
-            CreateFill("SvCrossH", parent, yellow, new Vector2(0.06f, 0.38f), new Vector2(0.94f, 0.62f));
-            CreateFill("SvCrossV", parent, yellow, new Vector2(0.30f, 0.06f), new Vector2(0.50f, 0.94f));
-        }
-
         private void OnPickLanguage(GameLanguage language)
         {
             Loc.SetLanguage(language);
@@ -1665,12 +1624,12 @@ namespace AsteroidsGoneRogue
 
         private void BuildDifficultyPicker(Font display, Font body)
         {
-            // Top-bar center: DIFFICULTY chips. Same y as LANG / audio so they never sit on WAVE CLEAR.
+            // Top bar, just left of the gear. Language lives in the settings panel.
             _diffPanel = UiTheme.BuildPanel(
                 "DifficultyPanel",
                 transform,
-                new Vector2(0.478f, 0.905f),
-                new Vector2(0.628f, 0.995f),
+                DifficultyMin,
+                DifficultyMax,
                 0.02f,
                 UiTheme.HeaderWash,
                 UiTheme.HeaderRule,
@@ -1785,8 +1744,6 @@ namespace AsteroidsGoneRogue
         {
             EventSystem es = EventSystem.current;
             GameObject selected = es != null ? es.currentSelectedGameObject : null;
-            PaintChip(_enBezel, Loc.Language == GameLanguage.English, selected);
-            PaintChip(_svBezel, Loc.Language == GameLanguage.Swedish, selected);
             PaintChip(_settingsEnBezel, Loc.Language == GameLanguage.English, selected);
             PaintChip(_settingsSvBezel, Loc.Language == GameLanguage.Swedish, selected);
             if (_settingsLanguageValue != null)
@@ -1843,11 +1800,6 @@ namespace AsteroidsGoneRogue
             if (_gotItLabel != null)
             {
                 _gotItLabel.text = Loc.T("ui.got_it", "Got it");
-            }
-
-            if (_langTitle != null)
-            {
-                _langTitle.text = Loc.T("ui.lang", "LANG");
             }
 
             if (_diffTitle != null)
@@ -2460,16 +2412,6 @@ namespace AsteroidsGoneRogue
                 return BezelButton(_hardBezel);
             }
 
-            if (slot == HangarPadNav.LangEnSlot)
-            {
-                return BezelButton(_enBezel);
-            }
-
-            if (slot == HangarPadNav.LangSvSlot)
-            {
-                return BezelButton(_svBezel);
-            }
-
             if (slot == HangarPadNav.GotItSlot)
             {
                 if (_tutorialRoot != null && _tutorialRoot.activeSelf)
@@ -2572,16 +2514,6 @@ namespace AsteroidsGoneRogue
             if (_hardBezel != null && go == _hardBezel.gameObject)
             {
                 return HangarPadNav.HardSlot;
-            }
-
-            if (_enBezel != null && go == _enBezel.gameObject)
-            {
-                return HangarPadNav.LangEnSlot;
-            }
-
-            if (_svBezel != null && go == _svBezel.gameObject)
-            {
-                return HangarPadNav.LangSvSlot;
             }
 
             if (_gotItButton != null && go == _gotItButton.gameObject)
@@ -2794,13 +2726,15 @@ namespace AsteroidsGoneRogue
             }
 
             int price = _loadout.State.EffectiveCost(item);
+            bool runOver = GameSession.ShopLockedForPhase(_session.Phase);
             bool owned = _loadout.State.Owns(item.Id);
             bool canApply = _loadout.State.CanApply(item.Id);
-            bool locked = !owned && !canApply;
-            bool tooPoor = !owned && canApply && _session.Credits < price;
+            bool locked = runOver || (!owned && !canApply);
+            bool tooPoor = !runOver && !owned && canApply && _session.Credits < price;
             bool weapon = WeaponSlots.IsWeapon(item.Id);
             bool equipped = owned && weapon && _loadout.State.IsEquipped(item.Id);
-            _buyButtons[index].interactable = _session.ShopOpen
+            _buyButtons[index].interactable = !runOver
+                && _session.ShopOpen
                 && ((owned && weapon) || (!owned && !locked && !tooPoor));
 
             bool offPath = _loadout.State.IsOffPath(item.Id);
@@ -2842,7 +2776,11 @@ namespace AsteroidsGoneRogue
                 costLine = Loc.Tf("ui.cost_cr", "{0} cr", price);
             }
 
-            if (offPath)
+            if (runOver)
+            {
+                costLine = Loc.T("ui.run_over", "Run is over");
+            }
+            else if (offPath)
             {
                 costLine = Loc.T("ui.off_path", "off-path") + "  ·  " + costLine;
             }
@@ -3304,8 +3242,9 @@ namespace AsteroidsGoneRogue
             RectTransform rt = _healthRoot.GetComponent<RectTransform>();
             if (failed)
             {
-                Stretch(rt, new Vector2(0.008f, 0.33f), new Vector2(0.178f, 0.62f));
+                Stretch(rt, FailedHealthMin, FailedHealthMax);
                 _healthRoot.transform.SetAsLastSibling();
+                ApplyShipPreviewAnchors();
                 return;
             }
 
@@ -3487,9 +3426,10 @@ namespace AsteroidsGoneRogue
             bool other = state.Doctrine != DoctrineId.None && !chosen;
             bool gate = state.GateMet(id);
             int cost = state.DoctrinePickCost(id);
-            bool tooPoor = !chosen && !other && gate && cost > 0 && _session.Credits < cost;
-            bool locked = other || !gate;
-            bool action = DoctrineRules.CardIsAction(_session.ShopOpen, chosen, other, gate, tooPoor);
+            bool runOver = GameSession.ShopLockedForPhase(_session.Phase);
+            bool tooPoor = !runOver && !chosen && !other && gate && cost > 0 && _session.Credits < cost;
+            bool locked = runOver || other || !gate;
+            bool action = !runOver && DoctrineRules.CardIsAction(_session.ShopOpen, chosen, other, gate, tooPoor);
             button.interactable = action;
             Image plate = button.targetGraphic as Image;
             if (plate != null)
@@ -3497,7 +3437,10 @@ namespace AsteroidsGoneRogue
                 plate.raycastTarget = action;
             }
             UiTheme.PaintShopPlate(plate, label, chosen, locked, tooPoor);
-            label.text = DoctrineLabel(id) + "\n" + DoctrineBlurb(id) + "\n" + DoctrineStatusLine(id, gate, cost, chosen, other, tooPoor);
+            string statusLine = runOver
+                ? Loc.T("ui.run_over", "Run is over")
+                : DoctrineStatusLine(id, gate, cost, chosen, other, tooPoor);
+            label.text = DoctrineLabel(id) + "\n" + DoctrineBlurb(id) + "\n" + statusLine;
         }
 
         private static void FitDoctrineLabel(Text label)
@@ -3507,7 +3450,10 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            label.fontSize = UiTheme.BodyMin;
+            label.font = UiFonts.Body();
+            label.fontSize = UiTheme.DoctrineCardSize;
+            label.fontStyle = FontStyle.Normal;
+            label.lineSpacing = UiTheme.ShopLineSpacing;
             label.alignment = TextAnchor.UpperCenter;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             label.verticalOverflow = VerticalWrapMode.Truncate;
@@ -4758,6 +4704,7 @@ namespace AsteroidsGoneRogue
             _confirmBody.color = UiTheme.Accent;
             _confirmBody.horizontalOverflow = HorizontalWrapMode.Wrap;
             _confirmBody.verticalOverflow = VerticalWrapMode.Truncate;
+            _confirmBody.lineSpacing = UiTheme.ShopLineSpacing;
 
             _confirmYes = CreateButton(
                 "ConfirmYes",
@@ -4817,7 +4764,12 @@ namespace AsteroidsGoneRogue
             }
             EnsureSettings();
             request.ConfirmInPlay = _settings.ConfirmRestartInPlay;
-            request.ConfirmNewRun = _settings.ConfirmRestartNewRun;
+            bool anyPurchase = _loadout != null && _loadout.State != null && _loadout.State.HasPurchase();
+            int progressWave = _session != null ? _session.WaveIndex : 1;
+            int progressScore = _session != null ? _session.Score : 0;
+            int progressCredits = _session != null ? _session.Credits : 0;
+            bool hasProgress = GameSession.HasRunProgress(progressWave, progressScore, progressCredits, anyPurchase);
+            request.ConfirmNewRun = GameSession.ShouldConfirmNewRun(_settings.ConfirmRestartNewRun, hasProgress);
             request.Escape = Input.GetKeyDown(KeyCode.Escape);
             request.Start = GamepadInput.PausePressed() && !request.Escape;
             request.Cancel = GamepadInput.CancelPressed() && !request.Escape;
@@ -5050,9 +5002,22 @@ namespace AsteroidsGoneRogue
 
             if (_confirmBody != null)
             {
-                _confirmBody.text = newRun
-                    ? Loc.T("ui.confirm.new_run_body", "Restart from wave 1?")
-                    : Loc.T("ui.confirm.abort_body", "Return to the hangar?");
+                if (newRun)
+                {
+                    int wave = _session != null ? _session.WaveIndex : 1;
+                    int score = _session != null ? _session.Score : 0;
+                    int credits = _session != null ? _session.Credits : 0;
+                    _confirmBody.text = Loc.Tf(
+                        "ui.confirm.new_run_body",
+                        "Start over from wave 1? You reach wave {0}, score {1}, credits {2} are lost.",
+                        wave,
+                        score,
+                        credits);
+                }
+                else
+                {
+                    _confirmBody.text = Loc.T("ui.confirm.abort_body", "Return to the hangar?");
+                }
             }
 
             if (_confirmYesLabel != null)

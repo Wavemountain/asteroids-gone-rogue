@@ -13,6 +13,40 @@ namespace AsteroidsGoneRogue
         public const int AlmostHadItMax = 3;
         public const string Wave3MedalTitle = "Scout Wing";
 
+        public static string RunOverTitle(int wave)
+        {
+            int shown = wave < 1 ? 1 : wave;
+            return Loc.Tf("run.over_title", "RUN OVER - out of lives (wave {0})", shown);
+        }
+
+        public static string RunOverExplain()
+        {
+            return Loc.T(
+                "run.over_explain",
+                "Your ship, upgrades and credits reset on New Run.");
+        }
+
+        public static string PrimaryActionLabel(GamePhase phase, int worldCleared, int nextWorld)
+        {
+            if (phase == GamePhase.Failed)
+            {
+                return Loc.T("ui.new_run_reset", "New Run (reset)");
+            }
+
+            if (phase == GamePhase.WaveClear && worldCleared > 0)
+            {
+                int world = nextWorld < 1 ? worldCleared + 1 : nextWorld;
+                return Loc.Tf("ui.continue_world", "Continue to World {0}", world);
+            }
+
+            if (phase == GamePhase.WaveClear || phase == GamePhase.CampaignClear)
+            {
+                return Loc.T("ui.next_wave", "Next Wave");
+            }
+
+            return Loc.T("ui.start_wave", "Start Wave");
+        }
+
         public static string Title(GamePhase phase, string failReason)
         {
             if (phase == GamePhase.Failed)
@@ -27,7 +61,7 @@ namespace AsteroidsGoneRogue
 
             if (phase == GamePhase.CampaignClear)
             {
-                return CampaignCap.WinLine();
+                return CampaignCap.SectorClearTitle(CampaignCap.FinalWorld);
             }
 
             if (phase == GamePhase.WaveClear)
@@ -150,7 +184,7 @@ namespace AsteroidsGoneRogue
 
         public static string CampaignWinHint()
         {
-            return CampaignCap.HangarWinHint();
+            return CampaignCap.SectorClearTitle(CampaignCap.FinalWorld);
         }
 
         public static string FailContinueHint(string failReason, int waveIndex)
@@ -312,7 +346,7 @@ namespace AsteroidsGoneRogue
 
             if (lastResolvedWave == CampaignCap.FinalWave)
             {
-                return phase == GamePhase.CampaignClear;
+                return phase == GamePhase.WaveClear;
             }
 
             if (lastResolvedWave == World2StartsAtWave)
@@ -348,7 +382,7 @@ namespace AsteroidsGoneRogue
 
             if (lastResolvedWave == CampaignCap.FinalWave)
             {
-                return CampaignCap.WinLine();
+                return CampaignCap.SectorClearTitle(ArenaLayout.WorldIndexForWave(lastResolvedWave));
             }
 
             if (lastResolvedWave == World2StartsAtWave)
@@ -390,7 +424,7 @@ namespace AsteroidsGoneRogue
             {
                 return Loc.Tf(
                     "run.next_sector",
-                    "Next  ·  SECTOR CLEAR at wave {0}",
+                    "Next  ·  World 2 after wave {0}",
                     CampaignCap.FinalWave);
             }
 

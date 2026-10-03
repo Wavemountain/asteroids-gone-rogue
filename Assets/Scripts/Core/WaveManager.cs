@@ -19,6 +19,12 @@ namespace AsteroidsGoneRogue
         private GameManager _game;
         private Transform _player;
         private float _allStrandedSeconds;
+        private int _activeWave = 1;
+
+        public int ActiveWave
+        {
+            get { return _activeWave < 1 ? 1 : _activeWave; }
+        }
 
         public int RemainingThreats
         {
@@ -34,6 +40,7 @@ namespace AsteroidsGoneRogue
 
         public void SpawnWave(int waveIndex)
         {
+            _activeWave = waveIndex < 1 ? 1 : waveIndex;
             DespawnAll();
             _allStrandedSeconds = 0f;
             _factory.ApplyArenaForWave(waveIndex);

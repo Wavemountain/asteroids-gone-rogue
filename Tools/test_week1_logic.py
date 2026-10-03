@@ -28,6 +28,7 @@ class Session:
         self.campaign_won = False
         self.wave_took_hit = False
         self.extra_life_streak = 0
+        self.world_cleared = 0
 
     @property
     def can_start(self) -> bool:
@@ -38,6 +39,7 @@ class Session:
         self.fail_reason = ""
         self.campaign_won = False
         self.wave_took_hit = False
+        self.world_cleared = 0
         self.phase = Phase.PLAYING
 
     def add_score(self, amount: int) -> None:
@@ -50,6 +52,7 @@ class Session:
         self.score += bonus
         self.credits += credits
         self.last_run_score = self.score
+        self.world_cleared = _world_index(self.wave) if _is_world_boundary(self.wave) else 0
         self.wave += 1
         self.phase = Phase.WAVE_CLEAR
 
@@ -75,6 +78,7 @@ class Session:
         self.last_resolved_wave = self.wave
         self.last_credits_awarded = 0
         self.last_run_score = self.score
+        self.world_cleared = 0
         self.phase = Phase.FAILED
 
     def hangar(self) -> None:
@@ -2136,10 +2140,10 @@ def test_localization_040() -> None:
     assert "LAYOUTBYTE" in loc
     assert "Spejarvinge" in loc
 
-    assert "UsFlag" in ui and "SvFlag" in ui
-    assert "BuildUsFlag" in ui and "BuildSwedishFlag" in ui
+    assert "UsFlag" not in ui and "SvFlag" not in ui
+    assert "BuildUsFlag" not in ui and "BuildSwedishFlag" not in ui
+    assert "LanguagePanel" not in ui
     assert "OnPickLanguage" in ui
-    assert "LanguagePanel" in ui
     assert "Loc.SetLanguage" in ui
     assert "ApplyLocalizedStaticLabels" in ui
 
@@ -2387,8 +2391,8 @@ def test_fair_death_042() -> None:
     assert "ApplyFailChrome" in ui
     assert "LayoutHealthRack" in ui
     assert "GamePhase.Failed" in ui.split("private void RefreshHealthBar()")[1].split("private void")[0]
-    assert "0.008f, 0.33f" in ui
-    assert "0.178f, 0.62f" in ui
+    assert "FailedHealthMin = new Vector2(0.562f, 0.480f)" in ui
+    assert "FailedHealthMax = new Vector2(0.986f, 0.596f)" in ui
     assert "UiTheme.Danger" in ui.split("private void ApplyFailChrome")[1].split("private void")[0]
     assert "UiFonts.Display()" in ui
     chrome = ui.split("private void ApplyFailChrome")[1].split("public void FlashHit")[0]
@@ -2783,14 +2787,15 @@ def test_hotfix_042_flags_colliders() -> None:
     manifest = (root / "Packages/manifest.json").read_text(encoding="utf-8")
     lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
 
-    assert "LanguageFlagScale = 0.48f" in ui
-    assert "LanguageFlagRect" in ui
-    assert "0.635f, 0.905f" in ui
+    assert "LanguageFlagScale" not in ui
+    assert "LanguageFlagRect" not in ui
+    assert "BuildUsFlag" not in ui and "BuildSwedishFlag" not in ui
+    assert "0.635f, 0.905f" not in ui
+    assert "DifficultyMin = new Vector2(0.748f, 0.905f)" in ui
+    assert "SettingsGearMin = new Vector2(0.900f, 0.905f)" in ui
     assert "0.548f, 0.778f" not in ui
     assert "0.475f, 0.72f" not in ui
-    assert "raycastTarget = true" in ui.split("private static Image CreateFlagButton")[1].split("private static void")[0]
-    assert "0.55f, 0.12f, 0.16f, 0.78f" in ui
-    assert "0.08f, 0.36f, 0.52f, 0.78f" in ui
+    assert "OnPickLanguage" in ui
 
     assert "ColliderCenter" in enemies
     assert "ColliderRadialKeep" not in enemies
@@ -2990,13 +2995,16 @@ def test_campaign_cap_and_session_best() -> None:
     s.begin()
     s.wave = 5
     s.add_score(400)
-    s.complete_campaign()
-    assert s.phase == "CampaignClear"
-    assert s.wave == 5
-    assert s.campaign_won is True
+    loadout_mark = "spread"
+    s.complete()
+    assert s.phase == "WaveClear"
+    assert s.wave == 6
+    assert s.campaign_won is False
+    assert s.world_cleared == 1
     assert s.last_resolved_wave == 5
     assert s.score == 500
     assert s.credits == 150
+    assert loadout_mark == "spread"
     s.note_extra_life()
     s.note_extra_life()
     assert s.extra_life_streak == 2
@@ -3044,8 +3052,10 @@ def test_steam_slice_044() -> None:
     assert "ExtraLifeStreak" in session
     assert "MarkWaveHit" in session
     assert "GamePhase.CampaignClear" in session
-    assert "CampaignCap.IsFinalWave" in manager
-    assert "CompleteCampaign" in manager
+    assert "CampaignCap.IsFinalWave" in ach
+    assert "ShouldUnlockHardClear" in manager
+    assert "CompleteCampaign" not in manager
+    assert "_session.CompleteWave" in manager
     assert "TryUnlockAchievement" in manager
     assert "SessionBest" in manager
     assert "AchievementPersist" in manager
@@ -3068,7 +3078,9 @@ def test_steam_slice_044() -> None:
     assert "LayoutSelfCheck" in padnav
     assert "Step(PrimarySlot, 0, 1) == ShopSlot(1)" in padnav
     assert "Step(PrimarySlot, 0, -1) == NormalSlot" in padnav
-    assert "LangEnSlot" in padnav and "SettingsSlot" in padnav and "GotItSlot" in padnav
+    assert "LangEnSlot" not in padnav and "SettingsSlot" in padnav and "GotItSlot" in padnav
+    assert "Step(HardSlot, 1, 0) == SettingsSlot" in padnav
+    assert "Step(SettingsSlot, -1, 0) == HardSlot" in padnav
     assert "PadDpadX" in pad and "PadDpadY" in pad
     assert "UiNavDpad" in pad
     assert "UiNavCombined" in pad
@@ -3093,11 +3105,12 @@ def test_steam_slice_044() -> None:
     assert "AnnounceAchievement" in ui
     assert "SessionBest" in ui
     assert "DeathRetryLine" in ui and "DeathRetryLine" in best
-    assert "RETRY" in ui or "retry_hangar" in loc
+    assert "RETRY" in summary
     assert "CampaignClear" in ui
     assert "New Run" in ui
     assert "SECTOR CLEAR" in cap
-    assert "CampaignCap.WinLine" in summary
+    assert "CampaignCap.SectorClearTitle" in summary
+    assert "HangarWinHint" not in cap and "HangarWinHint" not in summary
     assert "run.next_sector" in summary
     assert "run.fail_retry" in loc
     assert "session.card" in loc and "ach.first" in loc
@@ -3220,7 +3233,7 @@ def test_juice_firstrun_044() -> None:
     assert "FirstWaveCoach" in ui
     assert "NavigateHangarPad" in ui
     assert "UiNavStick" in pad
-    assert "interactable = _session.ShopOpen" in ui
+    assert "interactable = !runOver" in ui and "_session.ShopOpen" in ui
     assert "ShowcaseScale = 1.25f" in preview
     assert "CameraFov = 40f" in preview
     assert "new Vector3(0.2f, 4.55f, -10f)" in preview
@@ -3300,16 +3313,12 @@ def test_ui_theme_pad_menus_044() -> None:
     toast = ui.split("private void PulseAchievementToast()")[1].split("private void")[0]
     assert "UiTheme.Primary" in toast and "UiTheme.Focus" in toast
     assert "1f, 0.92f, 0.62f" not in toast
-    us_flag = ui.split("private static void BuildUsFlag")[1].split("private static void")[0]
-    sv_flag = ui.split("private static void BuildSwedishFlag")[1].split("private void")[0]
-    assert "UiTheme.Secondary" in us_flag
-    assert "UiTheme.Primary" in sv_flag
-    assert "0.88f, 0.88f, 0.86f" not in us_flag
-    assert "0.83f, 0.70f, 0.22f" not in sv_flag
+    assert "BuildUsFlag" not in ui and "BuildSwedishFlag" not in ui
     assert "PaintLanguageChip" in ui or "PaintChip" in ui
     assert "InactiveDesat" in theme
     assert 'Loc.T("ui.owned", "OWNED") + UiTheme.OwnedCheck' in ui
-    assert "_buyButtons[index].interactable = _session.ShopOpen" in ui
+    assert "ShopLockedForPhase" in ui
+    assert "!runOver" in ui and "_session.ShopOpen" in ui
     assert "owned && weapon" in ui
     assert "!owned && !locked && !tooPoor" in ui
     assert "ShipPreviewFrame" in ui
@@ -3317,7 +3326,8 @@ def test_ui_theme_pad_menus_044() -> None:
     assert "StepActivePad" not in ui
     assert "HangarPadNav.StepSelectable(fromSlot, dx, dy, padMask)" in ui
     assert "HangarPadNav.EasySlot" in ui
-    assert "HangarPadNav.LangEnSlot" in ui
+    assert "HangarPadNav.LangEnSlot" not in ui
+    assert "HangarPadNav.HardSlot" in ui or "HangarPadNav.SettingsSlot" in ui
     assert "HangarPadNav.SettingsSlot" in ui
     assert "HangarPadNav.CreditsSlot" in ui
     assert "HangarPadNav.GotItSlot" in ui
@@ -3328,7 +3338,7 @@ def test_ui_theme_pad_menus_044() -> None:
     assert "CancelPressed" in pad
     assert "PausePressed" in pad
     assert "JoystickButton1" in ui or "CancelPressed" in ui
-    assert "LangEnSlot" in padnav
+    assert "LangEnSlot" not in padnav
     assert "Step(PrimarySlot, 0, -1) == NormalSlot" in padnav
     assert "DominantStepY(0f, -1f, Flick) == 1" in padnav
     assert "DominantStepY(0f, 1f, Flick) == -1" in padnav
@@ -3381,8 +3391,7 @@ def test_hangar_wave_clear_layout() -> None:
     hint = (0.14, 0.008, 0.86, 0.072)
     credits_btn = (0.014, 0.010, 0.128, 0.070)
     gear = (0.900, 0.905, 0.988, 0.995)
-    lang = (0.635, 0.905, 0.728, 0.995)
-    diff = (0.478, 0.905, 0.628, 0.995)
+    diff = (0.748, 0.905, 0.888, 0.995)
     assert not _overlap(top_bar, hangar_panel)
     assert not _overlap(preview, doctrine)
     assert not _overlap(doctrine, top_bar)
@@ -3391,11 +3400,10 @@ def test_hangar_wave_clear_layout() -> None:
     assert doctrine[3] < top_bar[1]
     assert not _overlap(hint, hangar_panel)
     assert not _overlap(credits_btn, hangar_panel)
-    assert not _overlap(gear, lang)
+    assert not _overlap(gear, diff)
     assert not _overlap(gear, hangar_panel)
-    assert not _overlap(lang, hangar_panel)
     assert not _overlap(diff, hangar_panel)
-    assert gear[2] > lang[2]
+    assert gear[0] > diff[2]
     assert "AudioPanel" not in ui and "BuildAudioControls" not in ui
     assert abs(hangar_panel[1] - preview[1]) < 0.0001
     assert hangar_panel[3] < top_bar[1]
@@ -3831,7 +3839,7 @@ def _card_is_action(shop_open, chosen, other_path, gate_met, too_poor):
 
 
 def _primary_restarts(phase):
-    return phase in ("Failed", "CampaignClear")
+    return phase == "Failed"
 
 
 def test_hangar_next_wave_always_selectable() -> None:
@@ -3892,8 +3900,12 @@ def test_hangar_next_wave_always_selectable() -> None:
     assert "PrimaryRestartsRun" in start_wave
     assert "Lives <= 0" not in start_wave
     assert "PrimaryRestartsRun" in session
-    assert 'Loc.T("ui.next_wave", "Next Wave")' in ui
-    assert 'Loc.T("ui.new_run", "New Run")' in ui
+    assert 'Loc.T("ui.next_wave", "Next Wave")' in loc or 'Loc.T("ui.next_wave", "Next Wave")' in (
+        root / "Assets/Scripts/Core/RunSummary.cs"
+    ).read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    assert 'Loc.T("ui.new_run_reset", "New Run (reset)")' in summary
+    assert 'Loc.T("ui.next_wave", "Next Wave")' in summary
     assert "B / Esc Next Wave" in ui
     assert "B / Esc nästa våg" in loc
 
@@ -3936,7 +3948,8 @@ def test_hangar_next_wave_always_selectable() -> None:
     assert _primary_restarts("Hangar") is False
     assert _primary_restarts("Playing") is False
     assert _primary_restarts("Failed") is True
-    assert _primary_restarts("CampaignClear") is True
+    assert _primary_restarts("CampaignClear") is False
+    assert _primary_restarts("WaveClear") is False
 
     wave = _map_anchors(0.014, 0.080, 0.55, 0.888, 0.03, 0.735, 0.97, 0.800)
     strip = _map_anchors(0.014, 0.080, 0.55, 0.888, 0.02, 0.82, 0.98, 0.995)
@@ -3944,7 +3957,7 @@ def test_hangar_next_wave_always_selectable() -> None:
     blockers = (
         strip,
         headers,
-        (0.018, 0.730, 0.545, 0.888),
+        _map_anchors(0.014, 0.080, 0.55, 0.888, 0.02, 0.800, 0.98, 0.995),
         (0.562, 0.608, 0.986, 0.898),
         (0.562, 0.080, 0.986, 0.596),
         (0.012, 0.905, 0.988, 0.995),
@@ -3992,9 +4005,7 @@ _PAD_CREDITS = _PAD_SHOP0 + _PAD_N
 _PAD_EASY = _PAD_CREDITS + 1
 _PAD_NORMAL = _PAD_CREDITS + 2
 _PAD_HARD = _PAD_CREDITS + 3
-_PAD_EN = _PAD_CREDITS + 4
-_PAD_SV = _PAD_CREDITS + 5
-_PAD_GOTIT = _PAD_CREDITS + 6
+_PAD_GOTIT = _PAD_CREDITS + 4
 _PAD_BARRAGE = _PAD_GOTIT + 1
 _PAD_LANCE = _PAD_GOTIT + 2
 _PAD_HUNTER = _PAD_GOTIT + 3
@@ -4040,10 +4051,6 @@ def _pad_coord(slot: int, legacy: bool) -> tuple[int, int]:
         return 1, -3
     if slot == _PAD_HARD:
         return 2, -3
-    if slot == _PAD_EN:
-        return 3, -3
-    if slot == _PAD_SV:
-        return 4, -3
     if slot == _PAD_GOTIT:
         return 0, -4
     if slot == _PAD_BARRAGE:
@@ -4055,7 +4062,7 @@ def _pad_coord(slot: int, legacy: bool) -> tuple[int, int]:
     if slot == _PAD_HINT:
         return 8, -1
     if slot == _PAD_SETTINGS:
-        return 6, -3
+        return 3, -3
     hull = weapon = defense = doctrine = 0
     shop_index = slot - _PAD_SHOP0
     for index, (_name, group, _cost) in enumerate(_PAD_ITEMS):
@@ -4221,7 +4228,7 @@ def _pad_shop_mask(owned: frozenset[str], shield: int, doctrine: str, credits: i
     """Selectable hangar controls. Got it / doctrine intro stay out of the pad order."""
     mask = [False] * _PAD_SLOTS
     mask[0] = True
-    for slot in (_PAD_CREDITS, _PAD_EASY, _PAD_NORMAL, _PAD_HARD, _PAD_EN, _PAD_SV, _PAD_SETTINGS):
+    for slot in (_PAD_CREDITS, _PAD_EASY, _PAD_NORMAL, _PAD_HARD, _PAD_SETTINGS):
         mask[slot] = True
     if doctrine == "None":
         gates = (
@@ -4455,13 +4462,13 @@ def test_doctrine_rows_pad_reachable() -> None:
     pick_missing, pick_trapped, _pick_far = _pad_closures(picking, fixed_step)
     assert _PAD_BARRAGE not in pick_missing and not pick_trapped
 
-    # Gear sits to the right of the language flags. Up then right from Next Wave reaches it.
-    assert _pad_coord(_PAD_SETTINGS, False) == (6, -3)
-    assert _pad_coord(_PAD_SV, False) == (4, -3)
+    # Gear sits one step right of Hard. Up then right from Next Wave reaches it.
+    assert _pad_coord(_PAD_SETTINGS, False) == (3, -3)
+    assert _pad_coord(_PAD_HARD, False) == (2, -3)
     gear_mask = _pad_shop_mask(frozenset({"SpreadBolt"}), 0, "Barrage", 160)
-    assert gear_mask[_PAD_SETTINGS] and gear_mask[0] and gear_mask[_PAD_SV]
-    assert fixed_step(_PAD_SV, 1, 0, gear_mask) == _PAD_SETTINGS
-    assert fixed_step(_PAD_SETTINGS, -1, 0, gear_mask) == _PAD_SV
+    assert gear_mask[_PAD_SETTINGS] and gear_mask[0] and gear_mask[_PAD_HARD]
+    assert fixed_step(_PAD_HARD, 1, 0, gear_mask) == _PAD_SETTINGS
+    assert fixed_step(_PAD_SETTINGS, -1, 0, gear_mask) == _PAD_HARD
     gear_missing, gear_trapped, _gear_far = _pad_closures(gear_mask, fixed_step)
     assert _PAD_SETTINGS not in gear_missing and _PAD_SETTINGS not in gear_trapped
     assert 0 not in gear_missing
@@ -4558,7 +4565,7 @@ def _settings_default() -> dict:
         "hint_mode": 2,
         "hint_size": 1,
         "confirm_in_play": True,
-        "confirm_new_run": False,
+        "confirm_new_run": True,
         "pad_nav": 2,
     }
 
@@ -4671,20 +4678,21 @@ def _normalize_pad_nav(value: int) -> int:
 
 def _settings_from_ints(version, shake, hint, size, in_play, new_run, pad) -> dict:
     state = _settings_default()
-    if version != 1:
+    if version not in (1, 2):
         return state
     state["screen_shake"] = shake != 0
     state["hint_mode"] = _normalize_hint_mode(hint)
     state["hint_size"] = _clamp_hint_size(size)
     state["confirm_in_play"] = in_play != 0
-    state["confirm_new_run"] = new_run != 0
+    # Version 1 stored confirm-off as the old default. Treat that bit as unset.
+    state["confirm_new_run"] = True if version == 1 else new_run != 0
     state["pad_nav"] = _normalize_pad_nav(pad)
     return state
 
 
 def _settings_capture(state: dict) -> tuple:
     return (
-        1,
+        2,
         1 if state["screen_shake"] else 0,
         _normalize_hint_mode(state["hint_mode"]),
         _clamp_hint_size(state["hint_size"]),
@@ -4863,13 +4871,13 @@ def test_settings_shell() -> None:
     inputs = (root / "ProjectSettings/InputManager.asset").read_text(encoding="utf-8")
 
     assert "class SettingsState" in state
-    assert "CurrentVersion = 1" in state
+    assert "CurrentVersion = 2" in state
     assert "DefaultHintSizeStep = 1" in state
     assert "MaxHintSizeStep = 2" in state
     assert "ScreenShake = true" in state
     assert "HintMode.HangarFooter" in state
     assert "ConfirmRestartInPlay = true" in state
-    assert "ConfirmRestartNewRun = false" in state
+    assert "ConfirmRestartNewRun = true" in state
     assert "PadNavSource.Both" in state
     assert "enum HintMode" in state and "Off = 0" in state and "SettingsOnly = 1" in state and "HangarFooter = 2" in state and "On = 3" in state
     assert "HintPxSmall = 14" in state and "HintPxMedium = 18" in state and "HintPxLarge = 22" in state
@@ -4885,7 +4893,7 @@ def test_settings_shell() -> None:
     assert fresh["hint_mode"] == 2
     assert fresh["hint_size"] == 1
     assert fresh["confirm_in_play"] is True
-    assert fresh["confirm_new_run"] is False
+    assert fresh["confirm_new_run"] is True
     assert fresh["pad_nav"] == 2
     assert _clamp_hint_size(-4) == 0 and _clamp_hint_size(9) == 2 and _clamp_hint_size(1) == 1
     assert _normalize_hint_mode(99) == 2 and _normalize_hint_mode(0) == 0 and _normalize_hint_mode(3) == 3 and _normalize_hint_mode(1) == 1
@@ -4933,6 +4941,10 @@ def test_settings_shell() -> None:
     assert clamped["confirm_new_run"] is True
     assert clamped["pad_nav"] == 2
     assert _settings_from_ints(0, 0, 0, 0, 0, 1, 0) == fresh
+    migrated = _settings_from_ints(1, 1, 2, 1, 1, 0, 2)
+    assert migrated["confirm_new_run"] is True
+    turned_off = _settings_from_ints(2, 1, 2, 1, 1, 0, 2)
+    assert turned_off["confirm_new_run"] is False
     dirty = {
         "screen_shake": False,
         "hint_mode": 0,
@@ -5054,8 +5066,9 @@ def test_settings_shell() -> None:
     assert _settings_route({"credits": True, "escape": True}) == "credits"
 
     assert "SettingsSlot" in padnav
-    assert "Step(LangSvSlot, 1, 0) == SettingsSlot" in padnav
-    assert "Step(SettingsSlot, -1, 0) == LangSvSlot" in padnav
+    assert "Step(HardSlot, 1, 0) == SettingsSlot" in padnav
+    assert "Step(SettingsSlot, -1, 0) == HardSlot" in padnav
+    assert "LangSvSlot" not in padnav and "LangEnSlot" not in padnav
     assert "MuteSlot" not in padnav
     assert "x = 6" in padnav and "y = -3" in padnav
     assert "SettingsGear" in ui and "SettingsPanel" in ui and "SettingsScrim" in ui
@@ -5080,7 +5093,7 @@ def test_settings_shell() -> None:
     assert "\u2699" not in ui and "\u2699" not in loc
     assert "A Select · Start Launch wave · Select = Settings" in ui
     assert "A Välj · Start Starta våg · Select = Inställningar" in loc
-    assert "new Vector2(0.07f, 0.15f)" in ui and "new Vector2(0.93f, 0.85f)" in ui
+    assert "new Vector2(0.07f, 0.14f)" in ui and "new Vector2(0.93f, 0.85f)" in ui
     assert 'Loc.T("ui.settings", "Settings")' in ui
     assert 'Loc.T("ui.settings.language", "Language")' in ui
     assert 'Loc.T("ui.settings.close", "Close")' in ui
@@ -5147,8 +5160,7 @@ def test_settings_shell() -> None:
 
     gear = (0.900, 0.905, 0.988, 0.995)
     panel = (0.30, 0.12, 0.70, 0.88)
-    lang = (0.635, 0.905, 0.728, 0.995)
-    diff = (0.478, 0.905, 0.628, 0.995)
+    diff = (0.748, 0.905, 0.888, 0.995)
     doctrine = (0.562, 0.608, 0.986, 0.898)
     wave = _map_anchors(0.014, 0.080, 0.55, 0.888, 0.03, 0.735, 0.97, 0.800)
     assert panel == (0.30, 0.12, 0.70, 0.88)
@@ -5163,7 +5175,7 @@ def test_settings_shell() -> None:
 
         gear_px = px(gear)
         panel_px = px(panel)
-        for other in (wave, doctrine, lang, diff):
+        for other in (wave, doctrine, diff):
             assert not _overlap(gear_px, px(other)), (width, height, other)
         assert not _overlap(panel_px, gear_px), (width, height)
 
@@ -5212,8 +5224,10 @@ def test_settings_shell() -> None:
                 assert _wrapped_line_count(line, hint_w, size) == 1
                 assert size * 1.15 <= hint_h, (width, height, size, hint_h)
 
-        card_w = (0.93 - 0.07) * (0.545 - 0.018) * canvas_w
-        card_h = (0.85 - 0.15) * (0.888 - 0.730) * (height / scale)
+        flight = _map_anchors(0.014, 0.080, 0.55, 0.888, 0.02, 0.800, 0.98, 0.995)
+        body = _map_anchors(flight[0], flight[1], flight[2], flight[3], 0.07, 0.14, 0.93, 0.85)
+        card_w = (body[2] - body[0]) * canvas_w
+        card_h = (body[3] - body[1]) * (height / scale)
         card_en = (
             "LS / WASD fly  ·  RT / LMB shoot  ·  LT / E utility\n"
             "Start = launch wave  ·  B / Esc = focus Next Wave\n"
@@ -5378,7 +5392,8 @@ def test_confirm_restart() -> None:
         assert _confirm_route(flagged) == "none"
     phases = {
         "failed": {"playing": False, "restart_screen": True},
-        "campaign_clear": {"playing": False, "restart_screen": True},
+        "campaign_clear": {"playing": False, "restart_screen": False},
+        "wave_clear": {"playing": False, "restart_screen": False},
         "hangar": {"playing": False, "restart_screen": False},
         "playing": {"playing": True, "restart_screen": False},
     }
@@ -5439,7 +5454,7 @@ def test_confirm_restart() -> None:
     assert "CancelCharge" not in paused and "linearVelocity" not in paused
     assert "SetInputEnabled(false)" in (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
     assert "ConfirmRestartInPlay = true" in state
-    assert "ConfirmRestartNewRun = false" in state
+    assert "ConfirmRestartNewRun = true" in state
     label = "Confirm abort (Esc/Start) during wave"
     label_sv = "Bekräfta avbrott (Esc/Start) under våg"
     for width, height in ((1280, 800), (1600, 900), (1920, 1080), (2560, 1440), (3440, 1440)):
@@ -5637,8 +5652,359 @@ def main() -> int:
     test_settings_shell()
     test_confirm_restart()
     test_pad_nav_source()
+    test_world_continue_and_hangar_readability()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
+
+
+def _is_world_boundary(wave: int) -> bool:
+    if wave < 5:
+        return False
+    return wave % 5 == 0
+
+
+def _world_index(wave: int) -> int:
+    shown = 1 if wave < 1 else wave
+    return ((shown - 1) // 5 % 7) + 1
+
+
+def _layout_for_wave(wave: int) -> str:
+    names = (
+        "Open",
+        "PylonRing",
+        "SplitTrench",
+        "MineBelt",
+        "CrossGates",
+        "DebrisIslands",
+        "SpokeRing",
+    )
+    world = _world_index(wave)
+    index = (world - 1) % 7
+    return names[index]
+
+
+def _arena_visual(wave: int) -> str:
+    names = (
+        "Arena_Blockout",
+        "Arena_World2_Blockout",
+        "Arena_World3_Blockout",
+        "Arena_World4_Blockout",
+        "Arena_World5_Blockout",
+        "Arena_World6_Blockout",
+    )
+    index = (_world_index(wave) - 1) % len(names)
+    return names[index]
+
+
+def _scale_enemy_hp(hp: int, grade: str, world: int) -> int:
+    if hp < 1:
+        hp = 1
+    if grade == "easy":
+        graded = max(1, (hp * 4) // 5)
+    elif grade == "hard":
+        graded = max(hp + 1, (hp * 5) // 4)
+    else:
+        graded = hp
+    steps = world - 1
+    if steps < 0:
+        steps = 0
+    if steps > 6:
+        steps = 6
+    return max(1, graded * (100 + 15 * steps) // 100)
+
+
+def _primary_label(phase: str, world_cleared: int, next_world: int) -> str:
+    if phase == "Failed":
+        return "New Run (reset)"
+    if phase == "WaveClear" and world_cleared > 0:
+        world = world_cleared + 1 if next_world < 1 else next_world
+        return f"Continue to World {world}"
+    if phase in ("WaveClear", "CampaignClear"):
+        return "Next Wave"
+    return "Start Wave"
+
+
+def _hex_rgb(value: str) -> tuple[float, float, float]:
+    text = value.lstrip("#")
+    return tuple(int(text[i : i + 2], 16) / 255.0 for i in (0, 2, 4))
+
+
+def _channel_lum(channel: float) -> float:
+    if channel <= 0.04045:
+        return channel / 12.92
+    return ((channel + 0.055) / 1.055) ** 2.4
+
+
+def _rel_lum(rgb: tuple[float, float, float]) -> float:
+    r, g, b = rgb
+    return 0.2126 * _channel_lum(r) + 0.7152 * _channel_lum(g) + 0.0722 * _channel_lum(b)
+
+
+def _contrast(text_hex: str, plate_hex: str) -> float:
+    lighter = max(_rel_lum(_hex_rgb(text_hex)), _rel_lum(_hex_rgb(plate_hex)))
+    darker = min(_rel_lum(_hex_rgb(text_hex)), _rel_lum(_hex_rgb(plate_hex)))
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+def _contains(outer, inner) -> bool:
+    return outer[0] <= inner[0] and outer[1] <= inner[1] and outer[2] >= inner[2] and outer[3] >= inner[3]
+
+
+def _has_run_progress(wave: int, score: int, credits: int, purchase: bool) -> bool:
+    return wave > 1 or score > 0 or credits > 0 or purchase
+
+
+def _should_confirm_new_run(setting_on: bool, has_progress: bool) -> bool:
+    return setting_on and has_progress
+
+
+def test_world_continue_and_hangar_readability() -> None:
+    """Wave 5 continues the run. Hangar chrome does not overlap. Shop text stays readable."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
+    cap = (root / "Assets/Scripts/Core/CampaignCap.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    diff = (root / "Assets/Scripts/Core/DifficultySettings.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+    layout = (root / "Assets/Scripts/Core/ArenaLayout.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    theme = (root / "Assets/Scripts/UI/UiTheme.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    ach = (root / "Assets/Scripts/Core/AchievementCatalog.cs").read_text(encoding="utf-8")
+
+    assert "IsWorldBoundary" in cap
+    assert "WorldCleared" in session
+    assert "return phase == GamePhase.Failed" in session
+    assert "CompleteCampaign" not in manager
+    assert "ShouldUnlockHardClear" in ach and "IsFinalWave" in ach
+    assert "WorldHpPercent = 15" in diff and "MaxWorldHpSteps = 6" in diff
+    assert "Mathf.Clamp(waveIndex, 1, 10)" in waves
+    assert "ArenaWorlds" in factory
+
+    run = Session()
+    run.credits = 40
+    run.begin()
+    run.wave = 5
+    run.add_score(80)
+    run.complete()
+    assert run.phase == "WaveClear"
+    assert run.wave == 6
+    assert run.score == 180
+    assert run.credits == 190
+    assert run.world_cleared == 1
+    assert _primary_restarts(run.phase) is False
+    assert _primary_restarts("Hangar") is False
+    assert _primary_restarts("Failed") is True
+    assert _primary_label("WaveClear", 1, 2) == "Continue to World 2"
+    assert _primary_label("WaveClear", 0, 2) == "Next Wave"
+    assert _primary_label("Failed", 0, 1) == "New Run (reset)"
+    assert _primary_label("Hangar", 0, 1) == "Start Wave"
+    failed = Session()
+    failed.begin()
+    failed.wave = 4
+    failed.add_score(20)
+    failed.credits = 30
+    failed.fail("hull")
+    assert failed.phase == "Failed"
+    assert failed.wave == 4
+    assert failed.score == 20
+    assert _primary_restarts(failed.phase) is True
+
+    for wave in (5, 10, 15, 20, 25, 30, 35):
+        assert _is_world_boundary(wave)
+    for wave in (1, 4, 6, 9, 11, 14):
+        assert not _is_world_boundary(wave)
+    assert _world_index(1) == 1 and _world_index(5) == 1 and _world_index(6) == 2
+    assert _world_index(10) == 2 and _world_index(11) == 3 and _world_index(35) == 7
+    assert _world_index(36) == 1
+    for wave in range(1, 41):
+        world = _world_index(wave)
+        assert 1 <= world <= 7
+        assert _layout_for_wave(wave)
+        assert _arena_visual(wave).startswith("Arena_")
+    assert _arena_visual(1) == "Arena_Blockout"
+    assert _arena_visual(31) == "Arena_Blockout"
+    assert _layout_for_wave(31) == "SpokeRing"
+    assert _scale_enemy_hp(10, "normal", 1) == 10
+    assert _scale_enemy_hp(10, "normal", 2) == 11
+    assert _scale_enemy_hp(10, "normal", 7) == 19
+    assert _scale_enemy_hp(10, "normal", 8) == 19
+    assert _scale_enemy_hp(10, "easy", 1) == 8
+    assert "WavesPerLayout = 5" in layout and "LayoutCount = 7" in layout
+    assert 'Loc.Tf("run.sector_world", "SECTOR CLEAR - World {0} complete"' in cap
+    assert 'Loc.Tf("ui.continue_world", "Continue to World {0}"' in summary
+    assert 'Loc.Tf("run.over_title", "RUN OVER - out of lives (wave {0})"' in summary
+    assert "HangarWinHint" not in cap
+
+    assert _should_confirm_new_run(True, True) is True
+    assert _should_confirm_new_run(True, False) is False
+    assert _should_confirm_new_run(False, True) is False
+    assert _has_run_progress(1, 0, 0, False) is False
+    assert _has_run_progress(2, 0, 0, False) is True
+    assert _has_run_progress(1, 1, 0, False) is True
+    assert _has_run_progress(1, 0, 1, False) is True
+    assert _has_run_progress(1, 0, 0, True) is True
+    assert "ShouldConfirmNewRun" in session and "HasRunProgress" in session
+
+    accent, surface2 = "#C8CED6", "#141C28"
+    assert _contrast(accent, surface2) >= 4.5
+    assert _contrast("#6AA8C8", surface2) >= 4.5
+    assert _contrast("#A8B2BC", "#3A4450") >= 4.5
+    assert _contrast("#F0C8A8", "#3A4450") >= 4.5
+    assert "ShopHullSize = 14" in theme and "ShopNameSize = 18" in theme
+    assert "DoctrineCardSize = 16" in theme and "ShopLineSpacing = 1.1f" in theme
+    assert "ContrastRatio" in theme
+
+    hangar = (0.014, 0.080, 0.55, 0.888)
+    resolutions = ((1280, 800), (1600, 900), (1920, 1080), (2560, 1440), (3440, 1440))
+    hull_en = (
+        "Body Upgrade",
+        "Hull Plate 02",
+        "Nose Hardpoint",
+        "Nose Upgrade 02",
+        "Nose Upgrade 03",
+        "Rapid Fire",
+        "Engine Upgrade 02",
+        "Engine Upgrade 03",
+        "Overcharger",
+        "Afterburner",
+    )
+    hull_sv = (
+        "Skrovbyte",
+        "Skrovplatta 02",
+        "Noshårdpunkt",
+        "Nos 02",
+        "Nos 03",
+        "Snabbeld",
+        "Motor 02",
+        "Motor 03",
+        "Överladdare",
+        "Efterbrännare",
+    )
+    wide_en = ("Spread", "Pierce", "Twin Guns", "Seeker", "Ricochet", "Shield", "Matrix", "Tvillingkanoner")
+    wide_sv = ("Spridbult", "Pierce", "Tvillingkanoner", "Sökare", "Rikoschett", "Sköldcell", "Sköldmatris")
+    headlines = (
+        "SECTOR CLEAR - World 1 complete",
+        "SECTOR CLEAR - World 7 complete",
+        "SEKTOR KLAR - Värld 1 klar",
+        "RUN OVER - out of lives (wave 12)",
+        "SLUT - inga liv kvar (våg 12)",
+        "Continue to World 2",
+        "Fortsätt till värld 2",
+        "Next Wave",
+        "Nästa våg",
+        "New Run (reset)",
+        "Ny runda (nollställ)",
+        "Your ship, upgrades and credits reset on New Run.",
+        "Skepp, uppgraderingar och kredit nollställs vid Ny runda.",
+    )
+    for width, height in resolutions:
+        scale = _canvas_scale(width, height)
+        canvas_w = width / scale
+        hull_w = 0.110 * (hangar[2] - hangar[0]) * canvas_w
+        weapon_w = (0.735 - 0.51) * (hangar[2] - hangar[0]) * canvas_w
+        for name in hull_en + hull_sv:
+            assert _wrapped_line_count(name, hull_w, 14) <= 2, (width, name)
+            for word in name.split(" "):
+                assert _estimate_width(word, 14) <= hull_w, (width, word, hull_w)
+        for name in wide_en + wide_sv:
+            assert _estimate_width(name, 18) <= weapon_w, (width, name, weapon_w)
+        summary_box = _map_anchors(*hangar, 0.02, 0.82, 0.98, 0.995)
+        title_box = _map_anchors(*summary_box, 0.03, 0.62, 0.70, 0.96)
+        title_w = (title_box[2] - title_box[0]) * canvas_w
+        primary = _map_anchors(*hangar, 0.03, 0.735, 0.97, 0.800)
+        primary_w = (primary[2] - primary[0]) * canvas_w
+        explain = _map_anchors(*summary_box, 0.03, 0.06, 0.97, 0.34)
+        explain_w = (explain[2] - explain[0]) * canvas_w
+        explain_h = (explain[3] - explain[1]) * (height / scale)
+        for line in headlines:
+            if line.startswith("SECTOR") or line.startswith("SEKTOR") or line.startswith("RUN") or line.startswith("SLUT"):
+                assert _estimate_width(line, 28) <= title_w, (width, line, title_w)
+            elif line.startswith("Continue") or line.startswith("Fortsätt") or line in ("Next Wave", "Nästa våg", "New Run (reset)", "Ny runda (nollställ)"):
+                assert _estimate_width(line, 20) <= primary_w, (width, line, primary_w)
+            else:
+                lines = _wrapped_line_count(line, explain_w, 16)
+                assert lines * 16 * 1.1 <= explain_h, (width, line, lines, explain_h)
+
+        flight = summary_box
+        preview = (0.562, 0.080, 0.986, 0.596)
+        failed_preview = (0.562, 0.080, 0.986, 0.468)
+        doctrine = (0.562, 0.608, 0.986, 0.898)
+        gear = (0.900, 0.905, 0.988, 0.995)
+        difficulty = (0.748, 0.905, 0.888, 0.995)
+        toast = (0.500, 0.912, 0.735, 0.988)
+        hint = (0.14, 0.008, 0.86, 0.072)
+        credits = (0.014, 0.010, 0.128, 0.070)
+        title = (0.012, 0.905, 0.205, 0.995)
+        world = (0.205, 0.905, 0.355, 0.995)
+        medals = (0.355, 0.950, 0.478, 0.995)
+        ladder = (0.355, 0.905, 0.478, 0.950)
+        health = (0.562, 0.480, 0.986, 0.596)
+        primary_screen = primary
+        shop_headers = (
+            _map_anchors(*hangar, 0.02, 0.675, 0.49, 0.728),
+            _map_anchors(*hangar, 0.51, 0.704, 0.735, 0.728),
+            _map_anchors(*hangar, 0.755, 0.675, 0.98, 0.728),
+        )
+        cells = []
+        row_step = 0.094 + 0.016
+        for col in range(4):
+            for row in range(3):
+                if row == 2 and col > 1:
+                    continue
+                x0 = 0.02 + col * 0.1175
+                top = 0.665 - row * row_step
+                cells.append(_map_anchors(*hangar, x0, top - 0.094, x0 + 0.110, top))
+        for index in range(5):
+            top = 0.665 - index * row_step
+            cells.append(_map_anchors(*hangar, 0.51, top - 0.094, 0.735, top))
+        for index in range(2):
+            top = 0.665 - index * row_step
+            cells.append(_map_anchors(*hangar, 0.755, top - 0.094, 0.98, top))
+
+        def visible(name_rects):
+            pairs = list(name_rects.items())
+            for i, (left_name, left) in enumerate(pairs):
+                for right_name, right in pairs[i + 1 :]:
+                    if _contains(left, right) or _contains(right, left):
+                        continue
+                    assert not _overlap(left, right), (width, height, left_name, right_name)
+
+        shared = {
+            "hangar": hangar,
+            "primary": primary_screen,
+            "preview": preview,
+            "gear": gear,
+            "difficulty": difficulty,
+            "toast": toast,
+            "hint": hint,
+            "credits": credits,
+            "title": title,
+            "world": world,
+            "medals": medals,
+            "ladder": ladder,
+        }
+        for cell_index, cell in enumerate(cells):
+            shared[f"cell{cell_index}"] = cell
+        for header_index, header in enumerate(shop_headers):
+            shared[f"header{header_index}"] = header
+        first = dict(shared)
+        first["flight"] = _map_anchors(*hangar, 0.02, 0.800, 0.98, 0.995)
+        visible(first)
+        with_doctrine = dict(shared)
+        with_doctrine["summary"] = flight
+        with_doctrine["doctrine"] = doctrine
+        visible(with_doctrine)
+        failed_screen = dict(shared)
+        failed_screen["preview"] = failed_preview
+        failed_screen["summary"] = flight
+        failed_screen["health"] = health
+        visible(failed_screen)
+        boundary = dict(with_doctrine)
+        visible(boundary)
 
 
 if __name__ == "__main__":
