@@ -838,7 +838,13 @@ namespace AsteroidsGoneRogue
             GameObject root = new GameObject(visualName);
             root.tag = GameTags.Enemy;
             root.transform.SetParent(_threatRoot, false);
-            root.transform.position = position;
+            Vector3 cleared = position;
+            if (player != null)
+            {
+                cleared = SpawnClearance.Place(position, player.position, WaveManager.ArenaRadius - 1.5f);
+            }
+
+            root.transform.position = cleared;
 
             Rigidbody body = root.AddComponent<Rigidbody>();
             body.useGravity = false;
@@ -907,6 +913,7 @@ namespace AsteroidsGoneRogue
 
             EnemySeeker seeker = root.AddComponent<EnemySeeker>();
             seeker.Initialize(player, waves, kind);
+            seeker.BeginSpawnGrace();
             if (AudioCues.Instance != null)
             {
                 if (kind == EnemyKind.SwarmPod)
@@ -949,7 +956,7 @@ namespace AsteroidsGoneRogue
                 }
 
                 Material eliteMat = new Material(eliteRenderer.sharedMaterial);
-                eliteMat.color = new Color(1f, 0.78f, 0.28f);
+                eliteMat.color = UiTheme.Focus;
                 if (eliteMat.HasProperty("_EmissionColor"))
                 {
                     eliteMat.SetColor("_EmissionColor", new Color(1f, 0.55f, 0.12f) * 1.6f);
@@ -961,7 +968,7 @@ namespace AsteroidsGoneRogue
             MonsterPresence elitePresence = root.GetComponent<MonsterPresence>();
             if (elitePresence != null)
             {
-                elitePresence.Configure(new Color(1f, 0.72f, 0.22f), elitePresence.AuraRange);
+                elitePresence.Configure(UiTheme.Focus, elitePresence.AuraRange);
             }
 
             if (_accentHot != null)
@@ -1026,6 +1033,15 @@ namespace AsteroidsGoneRogue
             EnemyKind kind,
             FireMode style)
         {
+            if (hostile)
+            {
+                GameObject playerGo = GameObject.FindGameObjectWithTag(GameTags.Player);
+                if (playerGo != null)
+                {
+                    origin = SpawnClearance.Place(origin, playerGo.transform.position, WaveManager.ArenaRadius - 1.5f);
+                }
+            }
+
             GameObject root = new GameObject(hostile ? "EnemyProjectile" : "Projectile");
             root.tag = GameTags.Projectile;
             root.transform.SetParent(_projectileRoot, false);
@@ -1319,10 +1335,22 @@ namespace AsteroidsGoneRogue
 
         public void SpawnTelegraphRing(Vector3 position, Color color, float seconds)
         {
+            SpawnTelegraphRing(position, color, seconds, TelegraphShape.Ring, Vector3.forward);
+        }
+
+        public void SpawnTelegraphRing(Vector3 position, Color color, float seconds, TelegraphShape shape, Vector3 forward)
+        {
             GameObject root = new GameObject("TelegraphRing");
             root.transform.position = new Vector3(position.x, 0.04f, position.z);
             TelegraphRing ring = root.AddComponent<TelegraphRing>();
-            ring.Play(color, seconds);
+            ring.Play(color, seconds, shape, forward);
+        }
+
+        public void SpawnTelegraphLaser(Vector3 from, Vector3 to, Color color, float alpha, float seconds)
+        {
+            GameObject root = new GameObject("TelegraphLaser");
+            TelegraphLaser laser = root.AddComponent<TelegraphLaser>();
+            laser.Show(from, to, color, alpha, seconds);
         }
 
         public void MaybeDropPickup(Vector3 position)
@@ -1944,7 +1972,14 @@ namespace AsteroidsGoneRogue
         {
             GameObject root = new GameObject(damaging ? "Arena_Hazard_Spike" : "Arena_Pylon_Spike");
             root.transform.SetParent(parent, false);
-            root.transform.position = position;
+            Vector3 clearedHazard = position;
+            GameObject playerGo = GameObject.FindGameObjectWithTag(GameTags.Player);
+            if (playerGo != null)
+            {
+                clearedHazard = SpawnClearance.Place(position, playerGo.transform.position, WaveManager.ArenaRadius - 1.5f);
+            }
+
+            root.transform.position = clearedHazard;
             root.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
             GameObject visual;
             if (!TryVisual("Arena_Hazard_Spike", root.transform, _hazardSpike, out visual))

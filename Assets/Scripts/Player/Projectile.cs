@@ -18,6 +18,9 @@ namespace AsteroidsGoneRogue
         private bool _seeker;
         private int _bounces;
         private EnemyKind _enemyKind = EnemyKind.Mid01;
+        private DamageCause _playerCause = DamageCause.EnemyBolt;
+        private bool _eliteSource;
+        private string _sourceModifier = string.Empty;
         private float _seekerTurn = SeekerTurnDegrees;
         private int _pierceBonus;
         private bool _struck;
@@ -62,6 +65,9 @@ namespace AsteroidsGoneRogue
             _seeker = seeker;
             _bounces = ricochetBounces;
             _enemyKind = enemyKind;
+            _playerCause = hostile ? DamageCause.EnemyBolt : DamageCause.Unknown;
+            _eliteSource = false;
+            _sourceModifier = string.Empty;
             _hitIds.Clear();
             float life = Lifetime;
             if (seeker)
@@ -79,6 +85,17 @@ namespace AsteroidsGoneRogue
             _railShooter = null;
             _dieAt = Time.time + life;
             transform.rotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
+        }
+
+        public void NoteHostileSource(bool bossBolt, bool elite, string modifier)
+        {
+            if (bossBolt)
+            {
+                _playerCause = DamageCause.BossBolt;
+            }
+
+            _eliteSource = elite;
+            _sourceModifier = modifier == null ? string.Empty : modifier;
         }
 
         public void SetSeekerTurn(float degrees)
@@ -244,7 +261,7 @@ namespace AsteroidsGoneRogue
             ShipHealth health = damageable as ShipHealth;
             if (health != null)
             {
-                health.ApplyDamage(_damage, DamageCause.EnemyContact, _enemyKind);
+                health.ApplyDamage(_damage, _playerCause, _enemyKind, _eliteSource, _sourceModifier);
             }
             else
             {
@@ -326,7 +343,7 @@ namespace AsteroidsGoneRogue
             ShipHealth health = chosen as ShipHealth;
             if (health != null)
             {
-                health.ApplyDamage(_damage, DamageCause.EnemyContact, _enemyKind);
+                health.ApplyDamage(_damage, _playerCause, _enemyKind, _eliteSource, _sourceModifier);
             }
             else
             {

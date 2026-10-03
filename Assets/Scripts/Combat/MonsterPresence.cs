@@ -199,8 +199,8 @@ namespace AsteroidsGoneRogue
             float alpha;
             if (_charging)
             {
-                scale = 2.35f + Mathf.Sin(_phase) * 0.55f;
-                alpha = 0.55f;
+                scale = 2.4f;
+                alpha = 0.7f;
             }
             else if (nest)
             {
@@ -218,9 +218,10 @@ namespace AsteroidsGoneRogue
             _ring.localScale = new Vector3(scale, 0.035f, scale);
             if (_ringMat != null)
             {
-                Color col = new Color(AuraColor.r, AuraColor.g, AuraColor.b, alpha);
+                Color tint = _charging ? UiTheme.Danger : (nest ? UiTheme.Secondary : AuraColor);
+                Color col = new Color(tint.r, tint.g, tint.b, alpha);
                 _ringMat.color = col;
-                _ringMat.SetColor("_EmissionColor", AuraColor * (1.4f + alpha));
+                _ringMat.SetColor("_EmissionColor", new Color(tint.r * alpha, tint.g * alpha, tint.b * alpha, 1f));
             }
         }
     }

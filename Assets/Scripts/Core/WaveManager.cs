@@ -78,7 +78,7 @@ namespace AsteroidsGoneRogue
             for (int rock = 0; rock < largeCount; rock++)
             {
                 float rockAngle = (Mathf.PI * 2f * rock) / largeCount + 0.35f;
-                Vector3 rockPos = RingPoint(rockAngle, ScaledRing(14f + (rock % 2) * 2.5f));
+                Vector3 rockPos = ClearSpawn(RingPoint(rockAngle, ScaledRing(14f + (rock % 2) * 2.5f)));
                 Register(_factory.CreateLargeAsteroid(rockPos, this));
             }
 
@@ -116,7 +116,7 @@ namespace AsteroidsGoneRogue
                 float rosterAngle = waveIndex * 0.55f
                     + (Mathf.PI * 2f * spawned) / Mathf.Max(1, roster.Length)
                     + 1.1f;
-                Vector3 rosterPos = RingPoint(rosterAngle, ScaledRing(16.5f - (spawned % 2) * 1.4f));
+                Vector3 rosterPos = ClearSpawn(RingPoint(rosterAngle, ScaledRing(16.5f - (spawned % 2) * 1.4f)));
                 Register(_factory.CreateEnemy(rosterPos, _player, this, EnemyCatalog.VisualName(roster[rosterIndex])));
                 spawned++;
             }
@@ -129,7 +129,7 @@ namespace AsteroidsGoneRogue
                 }
 
                 float extraAngle = waveIndex * 0.31f + 2.4f + extraIndex * 0.9f;
-                Vector3 extraPos = RingPoint(extraAngle, ScaledRing(15.2f));
+                Vector3 extraPos = ClearSpawn(RingPoint(extraAngle, ScaledRing(15.2f)));
                 Register(_factory.CreateEnemy(extraPos, _player, this, EnemyCatalog.VisualName(EnemyKind.Mid01)));
                 spawned++;
             }
@@ -192,7 +192,7 @@ namespace AsteroidsGoneRogue
         private void SpawnEliteBrute(int waveIndex)
         {
             float eliteAngle = waveIndex * 0.2f + Mathf.PI;
-            Vector3 elitePos = RingPoint(eliteAngle, ScaledRing(18f));
+            Vector3 elitePos = ClearSpawn(RingPoint(eliteAngle, ScaledRing(18f)));
             EnemySeeker elite = _factory.CreateEnemy(
                 elitePos,
                 _player,
@@ -221,7 +221,7 @@ namespace AsteroidsGoneRogue
         private void SpawnBoss(int waveIndex)
         {
             float bossAngle = waveIndex * 0.2f + 0.4f;
-            Vector3 bossPos = RingPoint(bossAngle, ScaledRing(12f));
+            Vector3 bossPos = ClearSpawn(RingPoint(bossAngle, ScaledRing(12f)));
             EnemySeeker boss = _factory.CreateEnemy(
                 bossPos,
                 _player,
@@ -537,6 +537,16 @@ namespace AsteroidsGoneRogue
             }
 
             component.transform.position = wrapped;
+        }
+
+        private Vector3 ClearSpawn(Vector3 spawn)
+        {
+            if (_player == null)
+            {
+                return spawn;
+            }
+
+            return SpawnClearance.Place(spawn, _player.position, ArenaRadius - 1.5f);
         }
 
         public static float ScaledRing(float designRadius)

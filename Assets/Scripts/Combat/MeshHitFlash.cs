@@ -3,7 +3,8 @@ using UnityEngine;
 namespace AsteroidsGoneRogue
 {
     /// <summary>
-    /// Brief renderer tint via MaterialPropertyBlock. Does not spawn named VFX objects.
+    /// Brief renderer tint via MaterialPropertyBlock. The block that was on the
+    /// renderer before the flash is restored, so per-enemy emission survives.
     /// </summary>
     public sealed class MeshHitFlash : MonoBehaviour
     {
@@ -16,8 +17,17 @@ namespace AsteroidsGoneRogue
 
         private float _until;
         private Renderer[] _renderers;
+        private MaterialPropertyBlock[] _saved;
+        private Color _tint = FlashColor;
+        private Color _emission = FlashEmission;
+        private MaterialPropertyBlock _flashBlock;
 
         public static void Play(Transform target)
+        {
+            Play(target, FlashColor, Duration);
+        }
+
+        public static void Play(Transform target, Color tint, float seconds)
         {
             if (target == null)
             {
@@ -30,13 +40,26 @@ namespace AsteroidsGoneRogue
                 flash = target.gameObject.AddComponent<MeshHitFlash>();
             }
 
-            flash.Begin();
+            flash.Begin(tint, seconds);
         }
 
-        public void Begin()
+        public void Begin(Color tint, float seconds)
         {
             _renderers = GetComponentsInChildren<Renderer>(false);
-            _until = Time.time + Duration;
+            if (seconds < 0.02f)
+            {
+                seconds = 0.02f;
+            }
+
+            bool fresh = _until <= Time.time;
+            _until = Time.time + seconds;
+            _tint = tint;
+            _emission = tint * 1.15f;
+            if (fresh)
+            {
+                Capture();
+            }
+
             Apply(true);
         }
 
@@ -60,6 +83,26 @@ namespace AsteroidsGoneRogue
             _until = 0f;
         }
 
+        private void Capture()
+        {
+            if (_renderers == null)
+            {
+                return;
+            }
+
+            _saved = new MaterialPropertyBlock[_renderers.Length];
+            for (int i = 0; i < _renderers.Length; i++)
+            {
+                MaterialPropertyBlock saved = new MaterialPropertyBlock();
+                if (_renderers[i] != null)
+                {
+                    _renderers[i].GetPropertyBlock(saved);
+                }
+
+                _saved[i] = saved;
+            }
+        }
+
         private void Apply(bool flashing)
         {
             if (_renderers == null)
@@ -67,18 +110,28 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            MaterialPropertyBlock block = flashing ? new MaterialPropertyBlock() : null;
-            if (flashing)
+            if (flashing && _flashBlock == null)
             {
-                block.SetColor(ColorId, FlashColor);
-                block.SetColor(EmissionId, FlashEmission);
+                _flashBlock = new MaterialPropertyBlock();
             }
 
             for (int i = 0; i < _renderers.Length; i++)
             {
-                if (_renderers[i] != null)
+                if (_renderers[i] == null)
                 {
-                    _renderers[i].SetPropertyBlock(block);
+                    continue;
+                }
+
+                if (flashing)
+                {
+                    _flashBlock.Clear();
+                    _flashBlock.SetColor(ColorId, _tint);
+                    _flashBlock.SetColor(EmissionId, _emission);
+                    _renderers[i].SetPropertyBlock(_flashBlock);
+                }
+                else if (_saved != null && i < _saved.Length && _saved[i] != null)
+                {
+                    _renderers[i].SetPropertyBlock(_saved[i]);
                 }
             }
         }

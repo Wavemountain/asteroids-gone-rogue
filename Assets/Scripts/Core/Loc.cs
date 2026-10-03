@@ -60,6 +60,8 @@ namespace AsteroidsGoneRogue
             { "ui.settings.on", "På" },
             { "ui.settings.off", "Av" },
             { "ui.settings.shake", "Skärmskak" },
+            { "ui.settings.assist", "Assistläge: extra sköld, mindre fiendeskada" },
+            { "ui.hud.assist", "Assist" },
             { "ui.settings.hint", "Tipsrad" },
             { "ui.settings.hint.hangar", "Bara hangaren" },
             { "ui.settings.hint.panel", "Bara inställningar" },
@@ -275,6 +277,16 @@ namespace AsteroidsGoneRogue
             { "fail.enemy_kind", "Fiendekontakt ({0})" },
             { "fail.hazard", "Arenafara" },
             { "fail.unknown", "Okänd orsak" },
+            { "fail.bolt", "Fiendebult" },
+            { "fail.boss_bolt", "Bossväktarens bult" },
+            { "fail.killed", "Dödad av: {0} (våg {1}, värld {2}) — skrov {3}" },
+            { "fail.last_hits", "Senaste träffar: {0}" },
+            { "fail.src.asteroid", "Asteroid" },
+            { "fail.src.spike", "Spik" },
+            { "fail.src.boss_bolt", "Bossväktarens bult" },
+            { "fail.src.bolt", "{0}-bult" },
+            { "fail.src.charge", "{0}-rusning" },
+            { "fail.src.elite", "{0}  ·  {1}" },
             { "fail.fault", "{0} — det var du. En gång till, eller Ny runda separat." },
             { "fail.almost_one", "En kvar. Nästan!" },
             { "fail.almost_n", "Nästan — {0} kvar." },
@@ -300,7 +312,8 @@ namespace AsteroidsGoneRogue
             { "best.empty", "Bäst —" },
             { "best.card", "Bäst {0}  ·  Våg {1}  ·  Värld {2}" },
             { "best.slash", " / Bäst {0}" },
-            { "credits.body", "Ljud\nKenney.nl + yd\n\n"
+            { "credits.body", "Ljud\nKenney.nl + yd\n"
+                + "SFX 0.47 Kenney CC0: sköld, pansar, plock, tells, agr_ricochet, svärmdöd.\n\n"
                 + "Musik\nJuhani Junkala, Kenney, MintoDog, HydroGene (CC0)\n\n"
                 + "Typsnitt\nKenney Future\n\n"
                 + "Team\nSpelPM / GameBot / BlenderBot / AtmosBot / Speltest" },

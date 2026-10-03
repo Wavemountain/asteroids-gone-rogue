@@ -94,7 +94,9 @@ namespace AsteroidsGoneRogue
         private string _statusBase = string.Empty;
         private ShopItem _hoveredItem;
         private float _hitFlashUntil;
+        private float _hitFlashStart;
         private float _hitFlashStrength;
+        private Color _hitFlashColor = new Color(0.722f, 0.353f, 0.157f, 1f);
         private GameObject _endCreditsRoot;
         private Text _endCreditsBody;
         private Button _creditsButton;
@@ -189,6 +191,8 @@ namespace AsteroidsGoneRogue
         private Text _settingsMuteLabel;
         private Text _settingsMuteValue;
         private Text _settingsShakeLabel;
+        private Text _settingsAssistLabel;
+        private Text _settingsAssistValue;
         private Text _settingsShakeValue;
         private Text _settingsHintModeLabel;
         private Text _settingsHintModeValue;
@@ -1495,6 +1499,16 @@ namespace AsteroidsGoneRogue
             string stats = RunSummary.StatsLine(_session.Score, wave, world)
                 + "  ·  "
                 + RunSummary.CreditsLine(_session.Credits, summaryPhase ? _session.LastCreditsAwarded : 0);
+            if (failed && summaryPhase && _session != null && !string.IsNullOrEmpty(_session.DeathCard))
+            {
+                stats = _session.DeathCard.Replace("\n", "  ·  ") + "  ·  " + stats;
+            }
+
+            if (_session != null && _session.AssistUsed)
+            {
+                stats += "  ·  " + Loc.T("ui.hud.assist", "Assist");
+            }
+
             if (failed && summaryPhase)
             {
                 string doctrineLine = RunSummary.DoctrineRunLine(
@@ -1657,8 +1671,31 @@ namespace AsteroidsGoneRogue
 
         public void FlashHit(float strength)
         {
-            _hitFlashStrength = Mathf.Max(_hitFlashStrength, Mathf.Clamp01(strength));
-            _hitFlashUntil = Time.unscaledTime + 0.12f;
+            FlashHit(strength, UiTheme.Danger, HitFlashLimiter.DefaultDecay);
+        }
+
+        public void FlashHit(float strength, Color color, float decay)
+        {
+            float alpha;
+            float start;
+            float until;
+            if (!HitFlashLimiter.TryBegin(
+                Time.unscaledTime,
+                _hitFlashStart,
+                _hitFlashUntil,
+                strength,
+                decay,
+                out alpha,
+                out start,
+                out until))
+            {
+                return;
+            }
+
+            _hitFlashStrength = alpha;
+            _hitFlashStart = start;
+            _hitFlashUntil = until;
+            _hitFlashColor = color;
             ApplyHitFlash();
         }
 
@@ -1671,13 +1708,19 @@ namespace AsteroidsGoneRogue
 
             if (Time.unscaledTime >= _hitFlashUntil || _hitFlashStrength <= 0.01f)
             {
-                _hitFlash.color = new Color(1f, 0.96f, 0.92f, 0f);
+                _hitFlash.color = new Color(_hitFlashColor.r, _hitFlashColor.g, _hitFlashColor.b, 0f);
                 _hitFlashStrength = 0f;
                 return;
             }
 
-            float pulse = Mathf.Clamp01((_hitFlashUntil - Time.unscaledTime) / 0.12f);
-            _hitFlash.color = new Color(1f, 0.96f, 0.92f, _hitFlashStrength * pulse);
+            float span = _hitFlashUntil - _hitFlashStart;
+            if (span < 0.05f)
+            {
+                span = 0.05f;
+            }
+
+            float pulse = Mathf.Clamp01((_hitFlashUntil - Time.unscaledTime) / span);
+            _hitFlash.color = new Color(_hitFlashColor.r, _hitFlashColor.g, _hitFlashColor.b, _hitFlashStrength * pulse);
         }
 
         private void BuildFirstHangarHint(Font display, Font body)
@@ -2073,7 +2116,16 @@ namespace AsteroidsGoneRogue
 
         public void AnnounceLifeLost(int livesLeft)
         {
+            AnnounceLifeLost(livesLeft, string.Empty);
+        }
+
+        public void AnnounceLifeLost(int livesLeft, string deathCard)
+        {
             string lives = Loc.Tf("ui.life_lost", "LIFE LOST  ·  {0} left", livesLeft);
+            if (!string.IsNullOrEmpty(deathCard))
+            {
+                lives = deathCard.Replace("\n", "  ·  ") + "  ·  " + lives;
+            }
             LocalBest session = _game != null ? _game.SessionBest : null;
             if (session != null && _session != null)
             {
@@ -2247,6 +2299,7 @@ namespace AsteroidsGoneRogue
 
             RefreshSettingsAudio();
             RefreshSettingsShake();
+            RefreshSettingsAssist();
             RefreshSettingsHint();
             RefreshSettingsConfirm();
             RefreshSettingsPadNav();
@@ -3877,6 +3930,10 @@ namespace AsteroidsGoneRogue
             int lives = _session != null ? _session.Lives : DifficultySettings.StartLives;
             int maxLives = _session != null ? _session.MaxLives : DifficultySettings.MaxLives;
             string livesLine = "\n" + Loc.Tf("ui.hud_lives", "Lives {0} / {1}", lives, maxLives);
+            if (SettingsState.AssistEnabled || (_session != null && _session.AssistUsed))
+            {
+                livesLine += "  ·  " + Loc.T("ui.hud.assist", "Assist");
+            }
             string hangarBest = playing ? string.Empty : "\n" + BestCardLine();
             return scoreLine
                 + "\n" + Loc.Tf("ui.hud_hull", "Hull {0}   ·   Shield {1}", hull, shield)
@@ -4938,6 +4995,12 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (rowId == SettingsRowId.AssistMode)
+            {
+                BuildSettingsAssistRow(rowIndex, body, y0, y1);
+                return;
+            }
+
             if (rowId == SettingsRowId.HintMode)
             {
                 BuildSettingsHintModeRow(rowIndex, body, y0, y1);
@@ -5105,6 +5168,40 @@ namespace AsteroidsGoneRogue
             Stretch(_settingsShakeValue.rectTransform, new Vector2(0.64f, 0.12f), new Vector2(0.96f, 0.88f));
             _settingsShakeValue.color = UiTheme.Primary;
             _settingsShakeValue.raycastTarget = false;
+        }
+
+        private void BuildSettingsAssistRow(int rowIndex, Font body, float y0, float y1)
+        {
+            Button row = CreateButton(
+                "SettingsAssist",
+                _settingsPanel.transform,
+                body,
+                new Vector2(SettingsMeasure.RowMinX, y0),
+                new Vector2(SettingsMeasure.RowMaxX, y1));
+            _settingsRowButtons[rowIndex] = row;
+            row.onClick.AddListener(ToggleAssistMode);
+            UiTheme.ApplyButton(row, false, false, false);
+
+            _settingsAssistLabel = row.GetComponentInChildren<Text>();
+            _settingsAssistLabel.fontSize = 12;
+            _settingsAssistLabel.alignment = TextAnchor.MiddleLeft;
+            _settingsAssistLabel.fontStyle = FontStyle.Bold;
+            _settingsAssistLabel.color = UiTheme.Accent;
+            _settingsAssistLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _settingsAssistLabel.verticalOverflow = VerticalWrapMode.Truncate;
+            _settingsAssistLabel.raycastTarget = false;
+            Stretch(_settingsAssistLabel.rectTransform, new Vector2(0.03f, 0.06f), new Vector2(0.78f, 0.94f));
+
+            _settingsAssistValue = CreateText(
+                "SettingsAssistValue",
+                row.transform,
+                body,
+                12,
+                TextAnchor.MiddleRight,
+                FontStyle.Bold);
+            Stretch(_settingsAssistValue.rectTransform, new Vector2(0.78f, 0.12f), new Vector2(0.97f, 0.88f));
+            _settingsAssistValue.color = UiTheme.Primary;
+            _settingsAssistValue.raycastTarget = false;
         }
 
         private void BuildSettingsHintModeRow(int rowIndex, Font body, float y0, float y1)
@@ -5567,6 +5664,44 @@ namespace AsteroidsGoneRogue
             }
 
             _settingsShakeValue.text = enabled
+                ? Loc.T("ui.settings.on", "On")
+                : Loc.T("ui.settings.off", "Off");
+        }
+
+        private void ToggleAssistMode()
+        {
+            EnsureSettings();
+            _settings.AssistMode = !_settings.AssistMode;
+            _settings.Save();
+            if (_settings.AssistMode && _game != null && _session != null && _session.Phase == GamePhase.Playing)
+            {
+                _game.NoteAssistUsed();
+            }
+
+            RefreshSettingsAssist();
+            Refresh();
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+        }
+
+        private void RefreshSettingsAssist()
+        {
+            if (_settingsAssistLabel != null)
+            {
+                _settingsAssistLabel.text = Loc.T(
+                    "ui.settings.assist",
+                    "Assist mode: extra shield, less enemy damage");
+            }
+
+            if (_settingsAssistValue == null)
+            {
+                return;
+            }
+
+            bool enabled = _settings != null && _settings.AssistMode;
+            _settingsAssistValue.text = enabled
                 ? Loc.T("ui.settings.on", "On")
                 : Loc.T("ui.settings.off", "Off");
         }
@@ -6349,6 +6484,12 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (rowId == SettingsRowId.AssistMode)
+            {
+                ToggleAssistMode();
+                return;
+            }
+
             if (rowId == SettingsRowId.HintMode)
             {
                 StepHintMode(direction);
@@ -6397,6 +6538,12 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.ScreenShake)
             {
                 ToggleScreenShake();
+                return;
+            }
+
+            if (rowId == SettingsRowId.AssistMode)
+            {
+                ToggleAssistMode();
                 return;
             }
 
@@ -6466,9 +6613,7 @@ namespace AsteroidsGoneRogue
 
         public void FlashRetry()
         {
-            _hitFlashStrength = Mathf.Max(_hitFlashStrength, 0.45f);
-            _hitFlashUntil = Time.unscaledTime + 0.18f;
-            ApplyHitFlash();
+            FlashHit(0.20f, new Color(1f, 0.96f, 0.92f, 1f), 0.18f);
         }
 
         private void BuildFirstStart(Font display, Font body)

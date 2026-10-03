@@ -28,7 +28,7 @@ namespace AsteroidsGoneRogue
         public static void KillBloom(Vector3 position, bool heavy)
         {
             Color color = heavy
-                ? new Color(1f, 0.62f, 0.22f)
+                ? UiTheme.Primary
                 : new Color(0.95f, 0.88f, 0.72f);
             float end = heavy ? 2.45f : 1.55f;
             float start = heavy ? 0.38f : 0.22f;
@@ -38,6 +38,11 @@ namespace AsteroidsGoneRogue
         public static void HeartBloom(Vector3 position)
         {
             Spawn(position, new Color(1f, 0.22f, 0.38f), HeartSeconds, 0.42f, 2.25f);
+        }
+
+        public static void ColoredBloom(Vector3 position, Color color, float seconds, float startScale, float endScale)
+        {
+            Spawn(position, color, seconds, startScale, endScale);
         }
 
         private static void Spawn(Vector3 position, Color color, float seconds, float startScale, float endScale)

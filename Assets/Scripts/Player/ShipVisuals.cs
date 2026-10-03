@@ -30,7 +30,7 @@ namespace AsteroidsGoneRogue
         public GameObject AfterburnerGlow;
         public Material PreviewGhostMaterial;
 
-        public const float BlinkIntervalSeconds = 0.09f;
+        public const float BlinkIntervalSeconds = 0.18f;
 
         private float _blinkUntil;
         private float _nextToggle;
