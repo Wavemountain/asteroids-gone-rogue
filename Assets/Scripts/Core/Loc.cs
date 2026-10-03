@@ -60,7 +60,6 @@ namespace AsteroidsGoneRogue
             { "ui.settings.on", "På" },
             { "ui.settings.off", "Av" },
             { "ui.settings.shake", "Skärmskak" },
-            { "ui.settings.reduce", "Minska effekter: mindre skärmskak, blixtar och partiklar" },
             { "ui.settings.assist", "Assistläge: extra sköld, mindre fiendeskada" },
             { "ui.hud.assist", "Assist" },
             { "ui.settings.hint", "Tipsrad" },

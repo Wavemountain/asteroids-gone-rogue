@@ -192,8 +192,6 @@ namespace AsteroidsGoneRogue
         private Text _settingsMuteLabel;
         private Text _settingsMuteValue;
         private Text _settingsShakeLabel;
-        private Text _settingsReduceLabel;
-        private Text _settingsReduceValue;
         private Text _settingsAssistLabel;
         private Text _settingsAssistValue;
         private Text _settingsShakeValue;
@@ -1798,18 +1796,12 @@ namespace AsteroidsGoneRogue
             float alpha;
             float start;
             float until;
-            float maxAlpha;
-            float minGap;
-            float usedDecay;
-            EffectScale.FlashWindow(SettingsState.ReduceEffectsEnabled, decay, out maxAlpha, out minGap, out usedDecay);
             if (!HitFlashLimiter.TryBegin(
                 Time.unscaledTime,
                 _hitFlashStart,
                 _hitFlashUntil,
                 strength,
-                usedDecay,
-                maxAlpha,
-                minGap,
+                decay,
                 out alpha,
                 out start,
                 out until))
@@ -2424,7 +2416,6 @@ namespace AsteroidsGoneRogue
 
             RefreshSettingsAudio();
             RefreshSettingsShake();
-            RefreshSettingsReduce();
             RefreshSettingsAssist();
             RefreshSettingsHint();
             RefreshSettingsConfirm();
@@ -3050,9 +3041,7 @@ namespace AsteroidsGoneRogue
             {
                 if (!string.IsNullOrEmpty(_eliteBanner))
                 {
-                    float elitePulse = EffectScale.UiPulse(
-                        SettingsState.ReduceEffectsEnabled,
-                        Mathf.PingPong(Time.unscaledTime * 3.2f, 1f));
+                    float elitePulse = Mathf.PingPong(Time.unscaledTime * 3.2f, 1f);
                     _world.fontSize = 22 + (int)(4f * elitePulse);
                     _world.color = Color.Lerp(UiTheme.Danger, UiTheme.Brighten(UiTheme.Danger, 0.18f), elitePulse);
                     _world.text = _eliteBanner;
@@ -5147,12 +5136,6 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (rowId == SettingsRowId.ReduceEffects)
-            {
-                BuildSettingsReduceRow(rowIndex, body, y0, y1);
-                return;
-            }
-
             if (rowId == SettingsRowId.AssistMode)
             {
                 BuildSettingsAssistRow(rowIndex, body, y0, y1);
@@ -5220,10 +5203,10 @@ namespace AsteroidsGoneRogue
             caption.raycastTarget = false;
             Stretch(caption.rectTransform, new Vector2(0.04f, 0.08f), new Vector2(0.36f, 0.92f));
 
-            float initial = MixCurve.DefaultSfxSlider;
+            float initial = AudioCues.DefaultSfxVolume;
             if (music)
             {
-                initial = AudioCues.Instance != null ? AudioCues.Instance.MusicVolume : MixCurve.DefaultMusicSlider;
+                initial = AudioCues.Instance != null ? AudioCues.Instance.MusicVolume : AudioCues.DefaultMusicVolume;
             }
             else if (AudioCues.Instance != null)
             {
@@ -5326,40 +5309,6 @@ namespace AsteroidsGoneRogue
             Stretch(_settingsShakeValue.rectTransform, new Vector2(0.64f, 0.12f), new Vector2(0.96f, 0.88f));
             _settingsShakeValue.color = UiTheme.Primary;
             _settingsShakeValue.raycastTarget = false;
-        }
-
-        private void BuildSettingsReduceRow(int rowIndex, Font body, float y0, float y1)
-        {
-            Button row = CreateButton(
-                "SettingsReduce",
-                _settingsPanel.transform,
-                body,
-                new Vector2(SettingsMeasure.RowMinX, y0),
-                new Vector2(SettingsMeasure.RowMaxX, y1));
-            _settingsRowButtons[rowIndex] = row;
-            row.onClick.AddListener(ToggleReduceEffects);
-            UiTheme.ApplyButton(row, false, false, false);
-
-            _settingsReduceLabel = row.GetComponentInChildren<Text>();
-            _settingsReduceLabel.fontSize = 12;
-            _settingsReduceLabel.alignment = TextAnchor.MiddleLeft;
-            _settingsReduceLabel.fontStyle = FontStyle.Bold;
-            _settingsReduceLabel.color = UiTheme.Accent;
-            _settingsReduceLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
-            _settingsReduceLabel.verticalOverflow = VerticalWrapMode.Truncate;
-            _settingsReduceLabel.raycastTarget = false;
-            Stretch(_settingsReduceLabel.rectTransform, new Vector2(0.03f, 0.06f), new Vector2(0.78f, 0.94f));
-
-            _settingsReduceValue = CreateText(
-                "SettingsReduceValue",
-                row.transform,
-                body,
-                12,
-                TextAnchor.MiddleRight,
-                FontStyle.Bold);
-            Stretch(_settingsReduceValue.rectTransform, new Vector2(0.78f, 0.12f), new Vector2(0.97f, 0.88f));
-            _settingsReduceValue.color = UiTheme.Primary;
-            _settingsReduceValue.raycastTarget = false;
         }
 
         private void BuildSettingsAssistRow(int rowIndex, Font body, float y0, float y1)
@@ -5714,11 +5663,11 @@ namespace AsteroidsGoneRogue
             float current;
             if (music)
             {
-                current = AudioCues.Instance != null ? AudioCues.Instance.MusicVolume : MixCurve.DefaultMusicSlider;
+                current = AudioCues.Instance != null ? AudioCues.Instance.MusicVolume : AudioCues.DefaultMusicVolume;
             }
             else
             {
-                current = AudioCues.Instance != null ? AudioCues.Instance.SfxVolume : MixCurve.DefaultSfxSlider;
+                current = AudioCues.Instance != null ? AudioCues.Instance.SfxVolume : AudioCues.DefaultSfxVolume;
             }
 
             float next = SettingsRows.StepVolume(current, direction);
@@ -5856,38 +5805,6 @@ namespace AsteroidsGoneRogue
             }
 
             _settingsShakeValue.text = enabled
-                ? Loc.T("ui.settings.on", "On")
-                : Loc.T("ui.settings.off", "Off");
-        }
-
-        private void ToggleReduceEffects()
-        {
-            EnsureSettings();
-            _settings.ReduceEffects = !_settings.ReduceEffects;
-            _settings.Save();
-            RefreshSettingsReduce();
-            if (AudioCues.Instance != null)
-            {
-                AudioCues.Instance.PlayUiClick();
-            }
-        }
-
-        private void RefreshSettingsReduce()
-        {
-            if (_settingsReduceLabel != null)
-            {
-                _settingsReduceLabel.text = Loc.T(
-                    "ui.settings.reduce",
-                    "Reduce effects: less screen shake, flashes and particles");
-            }
-
-            if (_settingsReduceValue == null)
-            {
-                return;
-            }
-
-            bool enabled = _settings != null && _settings.ReduceEffects;
-            _settingsReduceValue.text = enabled
                 ? Loc.T("ui.settings.on", "On")
                 : Loc.T("ui.settings.off", "Off");
         }
@@ -6063,8 +5980,8 @@ namespace AsteroidsGoneRogue
                     : Loc.T("ui.settings.off", "Off");
             }
 
-            float musicVolume = AudioCues.Instance != null ? AudioCues.Instance.MusicVolume : MixCurve.DefaultMusicSlider;
-            float sfxVolume = AudioCues.Instance != null ? AudioCues.Instance.SfxVolume : MixCurve.DefaultSfxSlider;
+            float musicVolume = AudioCues.Instance != null ? AudioCues.Instance.MusicVolume : AudioCues.DefaultMusicVolume;
+            float sfxVolume = AudioCues.Instance != null ? AudioCues.Instance.SfxVolume : AudioCues.DefaultSfxVolume;
             if (_settingsMusicSlider != null)
             {
                 _settingsMusicSlider.SetValueWithoutNotify(musicVolume);
@@ -6708,12 +6625,6 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (rowId == SettingsRowId.ReduceEffects)
-            {
-                ToggleReduceEffects();
-                return;
-            }
-
             if (rowId == SettingsRowId.AssistMode)
             {
                 ToggleAssistMode();
@@ -6768,12 +6679,6 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.ScreenShake)
             {
                 ToggleScreenShake();
-                return;
-            }
-
-            if (rowId == SettingsRowId.ReduceEffects)
-            {
-                ToggleReduceEffects();
                 return;
             }
 
@@ -7310,9 +7215,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            float shopPulse = EffectScale.UiPulse(
-                SettingsState.ReduceEffectsEnabled,
-                Mathf.PingPong(Time.unscaledTime * 2.2f, 1f));
+            float shopPulse = Mathf.PingPong(Time.unscaledTime * 2.2f, 1f);
             shopRing.effectColor = Color.Lerp(UiTheme.Secondary, UiTheme.Focus, shopPulse);
             shopRing.enabled = true;
         }
