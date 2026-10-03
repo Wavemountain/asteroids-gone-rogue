@@ -26,6 +26,12 @@ namespace AsteroidsGoneRogue
         public bool WaveTookHit { get; private set; }
         public int ExtraLifeStreak { get; private set; }
 
+        /// <summary>
+        /// World index just completed when the latest clear was a world boundary
+        /// (waves 5, 10, 15, …). Zero on a normal wave clear, fail, or a fresh run.
+        /// </summary>
+        public int WorldCleared { get; private set; }
+
         public bool CanStartWave
         {
             get
@@ -38,12 +44,49 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// The hangar primary control restarts the run only after death or the campaign cap.
-        /// Wave-clear stays "Next Wave". Hangar stays "Start Wave".
+        /// The hangar primary control restarts the run only after all lives are lost.
+        /// Wave clear, including a world boundary, keeps the run. Hangar starts the next wave.
         /// </summary>
         public static bool PrimaryRestartsRun(GamePhase phase)
         {
-            return phase == GamePhase.Failed || phase == GamePhase.CampaignClear;
+            return phase == GamePhase.Failed;
+        }
+
+        /// <summary>
+        /// Shop buys on the fail screen would vanish on New Run, so those buttons stay inert.
+        /// </summary>
+        public static bool ShopLockedForPhase(GamePhase phase)
+        {
+            return phase == GamePhase.Failed;
+        }
+
+        public static bool HasRunProgress(int waveIndex, int score, int credits, bool anyPurchase)
+        {
+            if (waveIndex > 1)
+            {
+                return true;
+            }
+
+            if (score > 0)
+            {
+                return true;
+            }
+
+            if (credits > 0)
+            {
+                return true;
+            }
+
+            return anyPurchase;
+        }
+
+        /// <summary>
+        /// Confirm New Run only when the setting is on and the player would lose something.
+        /// A fresh hangar (wave 1, no score, no credits, no purchases) starts immediately.
+        /// </summary>
+        public static bool ShouldConfirmNewRun(bool settingOn, bool hasProgress)
+        {
+            return settingOn && hasProgress;
         }
 
         public bool ShopOpen
@@ -66,6 +109,7 @@ namespace AsteroidsGoneRogue
             LastCreditsAwarded = 0;
             CampaignWon = false;
             WaveTookHit = false;
+            WorldCleared = 0;
             if (Lives <= 0)
             {
                 ResetLives(DifficultySettings.StartLives);
@@ -104,6 +148,7 @@ namespace AsteroidsGoneRogue
             CampaignWon = false;
             WaveTookHit = false;
             ExtraLifeStreak = 0;
+            WorldCleared = 0;
             ResetLives(DifficultySettings.StartLives);
             Phase = GamePhase.Hangar;
         }
@@ -165,11 +210,15 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            LastResolvedWave = WaveIndex;
+            int clearedWave = WaveIndex;
+            LastResolvedWave = clearedWave;
             LastCreditsAwarded = credits;
             Score += bonusScore;
             Credits += credits;
             LastRunScore = Score;
+            WorldCleared = CampaignCap.IsWorldBoundary(clearedWave)
+                ? ArenaLayout.WorldIndexForWave(clearedWave)
+                : 0;
             WaveIndex += 1;
             Phase = GamePhase.WaveClear;
         }
@@ -219,6 +268,7 @@ namespace AsteroidsGoneRogue
             LastResolvedWave = WaveIndex;
             LastCreditsAwarded = 0;
             LastRunScore = Score;
+            WorldCleared = 0;
             Phase = GamePhase.Failed;
         }
 
@@ -244,6 +294,7 @@ namespace AsteroidsGoneRogue
             LastResolvedWave = WaveIndex;
             LastCreditsAwarded = 0;
             LastRunScore = Score;
+            WorldCleared = 0;
             Phase = GamePhase.Failed;
         }
 

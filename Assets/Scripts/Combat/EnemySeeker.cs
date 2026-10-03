@@ -40,7 +40,13 @@ namespace AsteroidsGoneRogue
             _target = target;
             _waves = waves;
             _kind = kind;
-            _hp = DifficultySettings.ScaleEnemyHp(EnemyCatalog.HitPoints(kind));
+            int worldIndex = 1;
+            if (waves != null)
+            {
+                worldIndex = ArenaLayout.WorldIndexForWave(waves.ActiveWave);
+            }
+
+            _hp = DifficultySettings.ScaleEnemyHpForWorld(EnemyCatalog.HitPoints(kind), worldIndex);
             _speed = EnemyCatalog.Speed(kind);
             _turn = EnemyCatalog.TurnDegreesPerSecond(kind);
             _dead = false;

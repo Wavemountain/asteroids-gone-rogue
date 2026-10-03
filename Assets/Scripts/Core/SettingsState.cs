@@ -123,7 +123,7 @@ namespace AsteroidsGoneRogue
     /// </summary>
     public sealed class SettingsState
     {
-        public const int CurrentVersion = 1;
+        public const int CurrentVersion = 2;
         public const int DefaultHintSizeStep = 1;
         public const int MaxHintSizeStep = 2;
 
@@ -149,7 +149,7 @@ namespace AsteroidsGoneRogue
             state.HintMode = AsteroidsGoneRogue.HintMode.HangarFooter;
             state.HintSizeStep = DefaultHintSizeStep;
             state.ConfirmRestartInPlay = true;
-            state.ConfirmRestartNewRun = false;
+            state.ConfirmRestartNewRun = true;
             state.PadNavSource = AsteroidsGoneRogue.PadNavSource.Both;
             return state;
         }
@@ -562,7 +562,7 @@ namespace AsteroidsGoneRogue
             int confirmRestartNewRun,
             int padNavSource)
         {
-            if (version != CurrentVersion)
+            if (version != CurrentVersion && version != 1)
             {
                 return CreateDefault();
             }
@@ -572,7 +572,8 @@ namespace AsteroidsGoneRogue
             state.HintMode = NormalizeHintMode(hintMode);
             state.HintSizeStep = ClampHintSize(hintSizeStep);
             state.ConfirmRestartInPlay = confirmRestartInPlay != 0;
-            state.ConfirmRestartNewRun = confirmRestartNewRun != 0;
+            // Version 1 stored the old default (off). Treat that saved value as unset.
+            state.ConfirmRestartNewRun = version == 1 || confirmRestartNewRun != 0;
             state.PadNavSource = NormalizePadNavSource(padNavSource);
             return state;
         }
@@ -598,7 +599,7 @@ namespace AsteroidsGoneRogue
                 UnityEngine.PlayerPrefs.GetInt(HintModeKey, (int)AsteroidsGoneRogue.HintMode.HangarFooter),
                 UnityEngine.PlayerPrefs.GetInt(HintSizeStepKey, DefaultHintSizeStep),
                 UnityEngine.PlayerPrefs.GetInt(ConfirmRestartInPlayKey, 1),
-                UnityEngine.PlayerPrefs.GetInt(ConfirmRestartNewRunKey, 0),
+                UnityEngine.PlayerPrefs.GetInt(ConfirmRestartNewRunKey, 1),
                 UnityEngine.PlayerPrefs.GetInt(PadNavSourceKey, (int)AsteroidsGoneRogue.PadNavSource.Both));
             Publish(state);
             if (version != CurrentVersion)

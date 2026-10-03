@@ -14,12 +14,12 @@ Short checklist for Unity Hub / Speltest on `main`. No VR/XR Continue dialog.
 
 - First-flight card on first session (Got it / Start Wave / B).
 - Shop left, LOADOUT preview right (diagonal cam, idle spin). WAVE CLEAR strip under the top bar; NEXT WAVE full-width left column; shop 3 columns share cell height. Hint row is screen-bottom only.
-- D-pad **and** LS move Start Wave / Continue ↔ hull 4-col ↔ weapons ↔ defense (ghost preview on LOCKED) **and** Easy/Normal/Hard, LANG, Settings gear, Credits, Got it. **Down moves down.** Mute, music, and SFX live in the Settings panel.
+- D-pad **and** LS move Start Wave / Continue ↔ hull 4-col ↔ weapons ↔ defense (ghost preview on LOCKED) **and** Easy/Normal/Hard, Settings gear, Credits, Got it. **Down moves down.** Language, mute, music, and SFX live in the Settings panel.
 - **A** confirm, **B** back, **Start** pause. Focus-ring on pad-selected shop rows. D-pad is **not** fly (not aliased onto Horizontal).
 - HUD plates (`HudPlate` / `HealthRack`) share surface `#0E1520` @ 0.72 + primary header rules. Fail = danger header; wave-clear / win = primary. Abort = danger-tint.
-- LANG chips: inactive desat 40%, selected secondary ring, pad focus-ring.
+- Settings language chips: inactive desat 40%, selected secondary ring, pad focus-ring.
 - HUD: Session highscore + Best. ACHIEVEMENTS ladder under medals.
-- LANG + difficulty (Easy/Normal/Hard) + Settings gear + Credits. Mute is inside Settings.
+- Difficulty (Easy/Normal/Hard) + Settings gear + Credits. Language and mute are inside Settings.
 
 ## Play
 

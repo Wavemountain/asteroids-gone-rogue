@@ -31,6 +31,14 @@ namespace AsteroidsGoneRogue
         public const int HeaderMax = 46;
         public const int BodyMin = 14;
         public const int BodyMax = 22;
+        public const int ShopHullSize = 14;
+        public const int ShopNameSize = 18;
+        public const int DoctrineCardSize = 16;
+        public const int ShopHeaderSize = 16;
+        public const float ShopLineSpacing = 1.1f;
+        public const string ShopLockedTextHex = "#A8B2BC";
+        public const string ShopPoorTextHex = "#F0C8A8";
+        public const string ShopLockedPlateHex = "#3A4450";
         /// <summary>
         /// Floor for the bottom hint, first-hangar card, and first-wave coach.
         /// Steam Deck and other narrow widths (Screen.width &lt;= 1280) use 18;
@@ -53,6 +61,9 @@ namespace AsteroidsGoneRogue
         public static readonly Color Danger = Parse(DangerHex);
         public static readonly Color DisabledRgb = Parse(DisabledHex);
         public static readonly Color Focus = Parse(FocusHex);
+        public static readonly Color ShopLockedText = Parse(ShopLockedTextHex);
+        public static readonly Color ShopPoorText = Parse(ShopPoorTextHex);
+        public static readonly Color ShopLockedPlate = Parse(ShopLockedPlateHex);
 
         public static Color Disabled
         {
@@ -116,7 +127,7 @@ namespace AsteroidsGoneRogue
 
         public static Color ShopLocked
         {
-            get { return WithAlpha(DisabledRgb, 0.55f); }
+            get { return WithAlpha(ShopLockedPlate, 0.92f); }
         }
 
         /// <summary>
@@ -378,20 +389,46 @@ namespace AsteroidsGoneRogue
 
             if (owned)
             {
-                label.color = Desaturate(Secondary, 0.25f);
+                label.color = Secondary;
             }
             else if (locked)
             {
-                label.color = WithAlpha(Accent, 0.45f);
+                label.color = ShopLockedText;
             }
             else if (tooPoor)
             {
-                label.color = WithAlpha(Accent, DisabledAlpha);
+                label.color = ShopPoorText;
             }
             else
             {
                 label.color = Accent;
             }
+        }
+
+        public static float ChannelLuminance(float channel)
+        {
+            if (channel <= 0.04045f)
+            {
+                return channel / 12.92f;
+            }
+
+            return Mathf.Pow((channel + 0.055f) / 1.055f, 2.4f);
+        }
+
+        public static float RelativeLuminance(Color color)
+        {
+            return (0.2126f * ChannelLuminance(color.r))
+                + (0.7152f * ChannelLuminance(color.g))
+                + (0.0722f * ChannelLuminance(color.b));
+        }
+
+        public static float ContrastRatio(Color text, Color background)
+        {
+            float textLum = RelativeLuminance(text);
+            float backgroundLum = RelativeLuminance(background);
+            float lighter = textLum > backgroundLum ? textLum : backgroundLum;
+            float darker = textLum > backgroundLum ? backgroundLum : textLum;
+            return (lighter + 0.05f) / (darker + 0.05f);
         }
 
         public static void PaintOffPathCue(Image plate, Text label)

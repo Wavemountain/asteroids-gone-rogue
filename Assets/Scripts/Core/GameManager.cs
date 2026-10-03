@@ -456,14 +456,7 @@ namespace AsteroidsGoneRogue
             bool noHit = _session != null && !_session.WaveTookHit;
             _ship.SetInputEnabled(false);
             _waves.DespawnAll();
-            if (CampaignCap.IsFinalWave(clearedWave))
-            {
-                _session.CompleteCampaign(ScoreValues.WaveClearBonus, DifficultySettings.WaveClearCredits);
-            }
-            else
-            {
-                _session.CompleteWave(ScoreValues.WaveClearBonus, DifficultySettings.WaveClearCredits);
-            }
+            _session.CompleteWave(ScoreValues.WaveClearBonus, DifficultySettings.WaveClearCredits);
 
             RecordBest(clearedWave);
             TryUnlockWaveAchievements(clearedWave, noHit);

@@ -1739,7 +1739,10 @@ def main() -> int:
     if "OnPrimary" in escape_fn:
         err("Esc in the hangar must not launch Next Wave / New Run")
     if "PrimaryRestartsRun" not in read(ROOT / "Assets/Scripts/Core/GameSession.cs"):
-        err("primary New Run must be limited to fail and campaign clear")
+        err("primary New Run must be limited to the fail screen")
+    session_src = read(ROOT / "Assets/Scripts/Core/GameSession.cs")
+    if "return phase == GamePhase.Failed" not in session_src:
+        err("PrimaryRestartsRun must be true only for Failed")
     if "CardIsAction" not in read(ROOT / "Assets/Scripts/Core/DoctrineRules.cs"):
         err("doctrine 'New Run to swap' must not be an action")
 
@@ -1750,8 +1753,8 @@ def main() -> int:
         err("SettingsState must clamp and round-trip versioned prefs")
     if "ScreenShake = true" not in settings_state or "ConfirmRestartInPlay = true" not in settings_state:
         err("SettingsState defaults must keep shake and in-play restart confirm on")
-    if "ConfirmRestartNewRun = false" not in settings_state or "HintMode.HangarFooter" not in settings_state:
-        err("SettingsState defaults must keep new-run confirm off and the hangar footer hint")
+    if "ConfirmRestartNewRun = true" not in settings_state or "HintMode.HangarFooter" not in settings_state:
+        err("SettingsState defaults must keep new-run confirm on and the hangar footer hint")
     if "PadNavSource.Both" not in settings_state or "DefaultHintSizeStep = 1" not in settings_state:
         err("SettingsState must default pad nav to Both and hint size step to 1")
     if "invert" in settings_state.lower():
