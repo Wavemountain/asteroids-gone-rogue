@@ -32,6 +32,30 @@ namespace AsteroidsGoneRogue
 
         public AchievementPersist Achievements { get; private set; }
 
+        public MetaData Meta { get; private set; }
+
+        public RunSaveData PendingContinue { get; private set; }
+
+        public int ActiveRunId { get; private set; }
+
+        private bool _runLaunched;
+
+        private bool _legacyApplied;
+
+        public bool HasContinueOffer
+        {
+            get { return PendingContinue != null; }
+        }
+
+        public bool LegacyShopOpen
+        {
+            get
+            {
+                GamePhase phase = _session != null ? _session.Phase : GamePhase.Hangar;
+                return LegacyProgress.ShopVisible(phase, HasContinueOffer, _runLaunched);
+            }
+        }
+
         public void Initialize(
             GameSession session,
             PlayerLoadout loadout,
@@ -54,6 +78,13 @@ namespace AsteroidsGoneRogue
             SessionBest = new LocalBest();
             Persist = HangarPersist.Load();
             Achievements = AchievementPersist.Load();
+            Meta = RunSaveStore.LoadMeta();
+            RunSaveData loaded;
+            if (RunSaveStore.TryLoadRun(out loaded))
+            {
+                PendingContinue = loaded;
+            }
+
             LastRunWasNewBest = false;
         }
 
@@ -63,6 +94,11 @@ namespace AsteroidsGoneRogue
             if (_session.Lives <= 0)
             {
                 ResetFullRun();
+            }
+            else if (PendingContinue == null)
+            {
+                EnsureRunId();
+                ApplyLegacyToNewRun();
             }
 
             _session.ReturnToHangar();
@@ -171,6 +207,7 @@ namespace AsteroidsGoneRogue
                 _hangarPreview.SetActive(false);
             }
 
+            _runLaunched = true;
             _session.BeginWave();
             _ship.ResetForWave(_loadout.State);
             _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
@@ -375,11 +412,133 @@ namespace AsteroidsGoneRogue
             }
 
             RecordBest(_session.WaveIndex);
+            AwardLegacy(true);
+            PendingContinue = null;
+            RunSaveStore.DeleteRun();
             RaiseStateChanged();
+        }
+
+        public void AcceptContinue()
+        {
+            if (PendingContinue == null || _session == null || _loadout == null || _loadout.State == null)
+            {
+                return;
+            }
+
+            RunSaveData data = PendingContinue;
+            PendingContinue = null;
+            ActiveRunId = data.RunId;
+            _runLaunched = true;
+            _legacyApplied = true;
+            DifficultyGrade grade = DifficultyGrade.Normal;
+            if (data.Difficulty == (int)DifficultyGrade.Easy)
+            {
+                grade = DifficultyGrade.Easy;
+            }
+            else if (data.Difficulty == (int)DifficultyGrade.Hard)
+            {
+                grade = DifficultyGrade.Hard;
+            }
+
+            DifficultySettings.SetGrade(grade);
+            _loadout.State.RestoreSnapshot(
+                data.UpgradeMask,
+                data.Shield,
+                data.Doctrine,
+                data.PrimaryMode,
+                data.UtilityMode,
+                data.HasUtility,
+                data.LegacyHull,
+                data.FirstDiscount,
+                data.FirstDiscountUsed);
+            _session.RestoreHangar(
+                data.WaveIndex,
+                data.Score,
+                data.Credits,
+                data.Lives,
+                data.LastResolvedWave,
+                data.LastRunScore,
+                data.LastCreditsAwarded,
+                data.ExtraLifeStreak);
+            if (_ship != null)
+            {
+                _ship.SetInputEnabled(false);
+                _ship.ResetForWave(_loadout.State);
+                if (_factory != null)
+                {
+                    _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
+                }
+            }
+
+            RaiseStateChanged();
+        }
+
+        public void AbandonSavedRun()
+        {
+            RunSaveData pending = PendingContinue;
+            if (pending != null)
+            {
+                int worldsCleared;
+                int highestWave;
+                LegacyProgress.ProgressOf(pending.WaveIndex, false, out worldsCleared, out highestWave);
+                if (Meta == null)
+                {
+                    Meta = MetaData.Fresh();
+                }
+
+                LegacyProgress.TryAward(Meta, pending.RunId, worldsCleared, highestWave);
+                if (highestWave > 0)
+                {
+                    int worldNumber = WorldCatalog.NumberForWave(highestWave);
+                    LegacyProgress.TryRecordBest(Meta, pending.Difficulty, pending.Score, highestWave, worldNumber);
+                }
+
+                RunSaveStore.TrySaveMeta(Meta);
+            }
+
+            PendingContinue = null;
+            RunSaveStore.DeleteRun();
+            ResetFullRun();
+            if (_ship != null)
+            {
+                _ship.SetInputEnabled(false);
+                _ship.ResetForWave(_loadout.State);
+                if (_factory != null)
+                {
+                    _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
+                }
+            }
+
+            RaiseStateChanged();
+        }
+
+        public bool TryBuyLegacy(int perk)
+        {
+            if (Meta == null || !LegacyShopOpen)
+            {
+                return false;
+            }
+
+            if (!LegacyProgress.TryBuy(Meta, perk))
+            {
+                return false;
+            }
+
+            RunSaveStore.TrySaveMeta(Meta);
+            if (FreshEnoughToReinit())
+            {
+                ReapplyLegacy();
+            }
+
+            RaiseStateChanged();
+            return true;
         }
 
         private void ResetFullRun()
         {
+            _runLaunched = false;
+            _legacyApplied = false;
+            ActiveRunId = 0;
             if (_loadout != null && _loadout.State != null)
             {
                 _loadout.State.Reset();
@@ -389,6 +548,9 @@ namespace AsteroidsGoneRogue
             {
                 _session.ResetRun();
             }
+
+            EnsureRunId();
+            ApplyLegacyToNewRun();
         }
 
         public void NotifyLoadoutChanged()
@@ -609,6 +771,161 @@ namespace AsteroidsGoneRogue
             {
                 Best.Save();
             }
+
+            if (Meta == null)
+            {
+                Meta = MetaData.Fresh();
+            }
+
+            if (LegacyProgress.TryRecordBest(Meta, (int)DifficultySettings.Current, _session.Score, wave, world))
+            {
+                RunSaveStore.TrySaveMeta(Meta);
+            }
+        }
+
+        private void EnsureRunId()
+        {
+            if (ActiveRunId > 0)
+            {
+                return;
+            }
+
+            if (Meta == null)
+            {
+                Meta = MetaData.Fresh();
+            }
+
+            ActiveRunId = LegacyProgress.TakeRunId(Meta);
+            RunSaveStore.TrySaveMeta(Meta);
+        }
+
+        private void ApplyLegacyToNewRun()
+        {
+            if (_legacyApplied || Meta == null || _session == null || _loadout == null || _loadout.State == null)
+            {
+                return;
+            }
+
+            _legacyApplied = true;
+            int bonusCredits = LegacyProgress.StartingCredits(Meta);
+            if (bonusCredits > 0)
+            {
+                _session.GrantCredits(bonusCredits);
+            }
+
+            LoadoutState state = _loadout.State;
+            int bonusShield = LegacyProgress.StartingShield(Meta);
+            int shieldIndex = 0;
+            while (shieldIndex < bonusShield && state.CanApply(UpgradeId.ShieldCell))
+            {
+                state.Apply(UpgradeId.ShieldCell);
+                shieldIndex += 1;
+            }
+
+            state.SetLegacyBonuses(LegacyProgress.HullBonus(Meta), LegacyProgress.DiscountPercent(Meta));
+        }
+
+        private void AwardLegacy(bool diedOnWave)
+        {
+            if (Meta == null || _session == null || ActiveRunId < 1)
+            {
+                return;
+            }
+
+            int worldsCleared;
+            int highestWave;
+            LegacyProgress.ProgressOf(_session.WaveIndex, diedOnWave, out worldsCleared, out highestWave);
+            if (LegacyProgress.TryAward(Meta, ActiveRunId, worldsCleared, highestWave) >= 0)
+            {
+                RunSaveStore.TrySaveMeta(Meta);
+            }
+        }
+
+        private bool FreshEnoughToReinit()
+        {
+            if (_runLaunched || PendingContinue != null || _session == null || _loadout == null || _loadout.State == null)
+            {
+                return false;
+            }
+
+            if (_session.Phase != GamePhase.Hangar || _session.WaveIndex > 1 || _session.Score > 0)
+            {
+                return false;
+            }
+
+            LoadoutState state = _loadout.State;
+            if (state.FirstDiscountUsed)
+            {
+                return false;
+            }
+
+            if (RunSaveCodec.PackUpgrades(state) != 0)
+            {
+                return false;
+            }
+
+            int perkShield = Meta != null ? LegacyProgress.StartingShield(Meta) : 0;
+            if (state.ShieldCharges > perkShield)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private void ReapplyLegacy()
+        {
+            _legacyApplied = false;
+            if (_loadout != null && _loadout.State != null)
+            {
+                _loadout.State.Reset();
+            }
+
+            if (_session != null)
+            {
+                int keptLives = _session.Lives;
+                _session.ResetRun();
+                _session.ResetLives(keptLives);
+            }
+
+            ApplyLegacyToNewRun();
+            if (_ship != null && _loadout != null)
+            {
+                _ship.ResetForWave(_loadout.State);
+                if (_factory != null)
+                {
+                    _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
+                }
+            }
+        }
+
+        private void MaybeWriteRun()
+        {
+            if (_session == null || _loadout == null || _loadout.State == null || PendingContinue != null)
+            {
+                return;
+            }
+
+            if (!RunSaveCodec.ShouldWrite(_session.Phase))
+            {
+                return;
+            }
+
+            bool purchased = _loadout.State != null && _loadout.State.HasPurchase();
+            if (!GameSession.HasRunProgress(_session.WaveIndex, _session.Score, _session.Credits, purchased))
+            {
+                return;
+            }
+
+            EnsureRunId();
+            string stamp = System.DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture);
+            RunSaveData data = RunSaveCodec.Capture(_session, _loadout.State, (int)DifficultySettings.Current, ActiveRunId, stamp);
+            if (!RunSaveCodec.IsValid(data))
+            {
+                return;
+            }
+
+            RunSaveStore.TrySaveRun(data);
         }
 
         private void RaiseStateChanged()
@@ -653,6 +970,8 @@ namespace AsteroidsGoneRogue
             {
                 _follow.SetHangarFraming(hangar);
             }
+
+            MaybeWriteRun();
         }
     }
 }

@@ -22,6 +22,10 @@ namespace AsteroidsGoneRogue
         private GameObject _menuRoot;
         private Button _primary;
         private Text _primaryLabel;
+        private Button _newRunButton;
+        private Text _newRunLabel;
+        private Button[] _legacyButtons;
+        private Text[] _legacyLabels;
         private Button[] _buyButtons;
         private Text[] _buyLabels;
         private Button _abortButton;
@@ -358,6 +362,7 @@ namespace AsteroidsGoneRogue
             ApplyLocalizedStaticLabels();
             RefreshLanguageChrome();
             RefreshDifficultyChrome();
+            RefreshContinueChrome();
 
             ApplyBottomHint(playing);
             RefreshWorldBadge();
@@ -398,7 +403,7 @@ namespace AsteroidsGoneRogue
                         CampaignCap.FinalWave + 1);
                     break;
                 case GamePhase.Failed:
-                    _statusBase = string.Empty;
+                    _statusBase = LegacyBalanceText();
                     ApplyPrimaryCaption(GamePhase.Failed, 0, _session.WaveIndex);
                     break;
                 default:
@@ -446,6 +451,26 @@ namespace AsteroidsGoneRogue
 
             // Controls hint lives only in the screen-bottom row, never in WAVE CLEAR / shop.
             return waveLine + extra;
+        }
+
+        private string LegacyBalanceText()
+        {
+            int points = 0;
+            int bestScore = 0;
+            int bestWave = 0;
+            int bestWorld = 0;
+            if (_game != null && _game.Meta != null)
+            {
+                points = _game.Meta.LegacyPoints;
+                LegacyProgress.ReadBest(
+                    _game.Meta,
+                    (int)DifficultySettings.Current,
+                    out bestScore,
+                    out bestWave,
+                    out bestWorld);
+            }
+
+            return LegacyProgress.HangarLine(points, bestScore, bestWave, bestWorld);
         }
 
         private void ApplyStatusText()
@@ -627,11 +652,124 @@ namespace AsteroidsGoneRogue
             BuildShipPreviewFrame(display);
             BuildSettingsPanel(display, body);
             BuildConfirmDialog(display, body);
+            BuildContinueAndLegacy(body);
             ApplyLocalizedStaticLabels();
             RefreshLanguageChrome();
             RefreshDifficultyChrome();
             ApplyFooterHintSize();
             EnsurePrimaryClickable();
+        }
+
+        private void BuildContinueAndLegacy(Font body)
+        {
+            _newRunButton = CreateButton(
+                "NewRun",
+                _summaryRoot.transform,
+                body,
+                new Vector2(0.72f, 0.55f),
+                new Vector2(0.97f, 0.94f));
+            _newRunLabel = _newRunButton.GetComponentInChildren<Text>();
+            _newRunLabel.fontSize = UiTheme.BodyMin;
+            _newRunLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _newRunLabel.verticalOverflow = VerticalWrapMode.Truncate;
+            _newRunButton.onClick.AddListener(RequestAbandonSavedRun);
+            LockButtonNavigation(_newRunButton);
+            _newRunButton.gameObject.SetActive(false);
+
+            _legacyButtons = new Button[LegacyProgress.PerkCount];
+            _legacyLabels = new Text[LegacyProgress.PerkCount];
+            for (int perkIndex = 0; perkIndex < LegacyProgress.PerkCount; perkIndex++)
+            {
+                int capturedPerk = perkIndex;
+                float column = 0.02f + (capturedPerk * 0.245f);
+                Button perkButton = CreateButton(
+                    "LegacyPerk" + capturedPerk,
+                    _menuRoot.transform,
+                    body,
+                    new Vector2(column, 0.092f),
+                    new Vector2(column + 0.23f, 0.126f));
+                Text perkLabel = perkButton.GetComponentInChildren<Text>();
+                perkLabel.fontSize = UiTheme.BodyMin;
+                perkLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
+                perkLabel.verticalOverflow = VerticalWrapMode.Truncate;
+                perkButton.onClick.AddListener(() => OnLegacyPerk(capturedPerk));
+                LockButtonNavigation(perkButton);
+                perkButton.gameObject.SetActive(false);
+                _legacyButtons[capturedPerk] = perkButton;
+                _legacyLabels[capturedPerk] = perkLabel;
+            }
+        }
+
+        private void OnLegacyPerk(int perk)
+        {
+            if (_game == null)
+            {
+                return;
+            }
+
+            if (_game.TryBuyLegacy(perk) && AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayHangarPurchase();
+            }
+        }
+
+        private void RequestAbandonSavedRun()
+        {
+            ConfirmRequest request = ReadConfirmRequest();
+            request.AbandonClick = true;
+            request.NewRunClick = false;
+            request.AbortClick = false;
+            request.Escape = false;
+            request.Start = false;
+            request.Submit = false;
+            request.Cancel = false;
+            request.Scrim = false;
+            request.FocusDelta = 0;
+            RunSaveData pending = _game != null ? _game.PendingContinue : null;
+            bool savedPurchase = pending != null && (pending.UpgradeMask != 0 || pending.Doctrine != 0 || pending.Shield > 0);
+            int savedWave = pending != null ? pending.WaveIndex : 1;
+            int savedScore = pending != null ? pending.Score : 0;
+            int savedCredits = pending != null ? pending.Credits : 0;
+            bool savedProgress = GameSession.HasRunProgress(savedWave, savedScore, savedCredits, savedPurchase);
+            EnsureSettings();
+            request.ConfirmNewRun = GameSession.ShouldConfirmNewRun(_settings.ConfirmRestartNewRun, savedProgress);
+            ApplyConfirmRoute(ConfirmDialogRouter.Route(request), request);
+            ApplyConfirmClock();
+        }
+
+        private void RefreshContinueChrome()
+        {
+            bool playing = _session != null && _session.Phase == GamePhase.Playing;
+            bool offer = !playing && _game != null && _game.HasContinueOffer;
+            if (_newRunButton != null)
+            {
+                _newRunButton.gameObject.SetActive(offer);
+                if (_newRunLabel != null)
+                {
+                    _newRunLabel.text = Loc.T("ui.new_run", "New Run");
+                }
+            }
+
+            bool showLegacy = !playing && _game != null && _game.LegacyShopOpen;
+            if (_legacyButtons == null)
+            {
+                return;
+            }
+
+            for (int perkIndex = 0; perkIndex < _legacyButtons.Length; perkIndex++)
+            {
+                Button perkButton = _legacyButtons[perkIndex];
+                if (perkButton == null)
+                {
+                    continue;
+                }
+
+                perkButton.gameObject.SetActive(showLegacy);
+                if (showLegacy && _legacyLabels != null && perkIndex < _legacyLabels.Length && _legacyLabels[perkIndex] != null)
+                {
+                    _legacyLabels[perkIndex].text = LegacyProgress.PerkLabel(_game.Meta, perkIndex);
+                }
+            }
         }
 
         private void OnDisable()
@@ -1017,6 +1155,12 @@ namespace AsteroidsGoneRogue
                 }
             }
 
+            if (_game.HasContinueOffer)
+            {
+                _game.AcceptContinue();
+                return;
+            }
+
             _game.StartWave();
         }
 
@@ -1151,23 +1295,24 @@ namespace AsteroidsGoneRogue
 
             if (_session.Phase == GamePhase.Failed)
             {
+                _summaryTitle.fontSize = UiTheme.HeaderMin;
                 _summaryTitle.text = RunSummary.RunOverTitle(wave);
             }
             else if (_session.Phase == GamePhase.WaveClear && _session.WorldCleared > 0)
             {
+                _summaryTitle.fontSize = UiTheme.HeaderMin;
                 _summaryTitle.text = CampaignCap.SectorClearTitle(_session.WorldCleared);
             }
             else if (summaryPhase)
             {
+                _summaryTitle.fontSize = UiTheme.HeaderMin;
                 _summaryTitle.text = RunSummary.Title(_session.Phase, FailReasonText());
             }
             else
             {
-                _summaryTitle.text = string.Empty;
-                if (_summaryTitle != null)
-                {
-                    _summaryTitle.color = UiTheme.Primary;
-                }
+                _summaryTitle.fontSize = UiTheme.BodyMin;
+                _summaryTitle.color = UiTheme.Secondary;
+                _summaryTitle.text = LegacyBalanceText();
             }
 
             string stats = RunSummary.StatsLine(_session.Score, wave, world)
@@ -1913,6 +2058,17 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (_game != null && _game.HasContinueOffer && _game.PendingContinue != null)
+            {
+                RunSaveData pending = _game.PendingContinue;
+                int savedWorld = WorldCatalog.NumberForWave(pending.WaveIndex);
+                _primaryLabel.text = RunSummary.ContinueRunLabel(savedWorld, pending.WaveIndex);
+                _primaryLabel.lineSpacing = 1f;
+                _primaryLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
+                _primaryLabel.verticalOverflow = VerticalWrapMode.Truncate;
+                return;
+            }
+
             int nextNumber = WorldCatalog.NumberForWave(upcomingWave);
             string actionLabel = RunSummary.PrimaryActionLabel(phase, worldCleared, nextNumber);
             string nextSubtitle = string.Empty;
@@ -2491,6 +2647,22 @@ namespace AsteroidsGoneRogue
                 return ButtonIfActive(_settingsGear);
             }
 
+            if (slot == HangarPadNav.NewRunSlot)
+            {
+                return ButtonIfActive(_newRunButton);
+            }
+
+            if (slot >= HangarPadNav.LegacySlot0 && slot < HangarPadNav.LegacySlot0 + HangarPadNav.LegacyPerkSlots)
+            {
+                int legacyIndex = slot - HangarPadNav.LegacySlot0;
+                if (_legacyButtons != null && legacyIndex >= 0 && legacyIndex < _legacyButtons.Length)
+                {
+                    return ButtonIfActive(_legacyButtons[legacyIndex]);
+                }
+
+                return null;
+            }
+
             if (slot <= HangarPadNav.PrimarySlot)
             {
                 return _primary;
@@ -2588,6 +2760,23 @@ namespace AsteroidsGoneRogue
             if (_settingsGear != null && go == _settingsGear.gameObject)
             {
                 return HangarPadNav.SettingsSlot;
+            }
+
+            if (_newRunButton != null && go == _newRunButton.gameObject)
+            {
+                return HangarPadNav.NewRunSlot;
+            }
+
+            if (_legacyButtons != null)
+            {
+                for (int legacyIndex = 0; legacyIndex < _legacyButtons.Length; legacyIndex++)
+                {
+                    Button legacyButton = _legacyButtons[legacyIndex];
+                    if (legacyButton != null && go == legacyButton.gameObject)
+                    {
+                        return HangarPadNav.LegacySlot0 + legacyIndex;
+                    }
+                }
             }
 
             if (_buyButtons != null)
@@ -4932,7 +5121,14 @@ namespace AsteroidsGoneRogue
                 CloseConfirm();
                 if (chosen == ConfirmKind.NewRun)
                 {
-                    OnPrimary();
+                    if (_game != null && _game.HasContinueOffer)
+                    {
+                        _game.AbandonSavedRun();
+                    }
+                    else
+                    {
+                        OnPrimary();
+                    }
                 }
                 else
                 {
@@ -4943,6 +5139,11 @@ namespace AsteroidsGoneRogue
 
         private static ConfirmKind KindForRequest(ConfirmRequest request)
         {
+            if (request.AbandonClick)
+            {
+                return ConfirmKind.NewRun;
+            }
+
             bool abort = request.Playing && (request.Escape || request.Start || request.AbortClick);
             if (abort)
             {
@@ -5064,6 +5265,14 @@ namespace AsteroidsGoneRogue
                     int wave = _session != null ? _session.WaveIndex : 1;
                     int score = _session != null ? _session.Score : 0;
                     int credits = _session != null ? _session.Credits : 0;
+                    if (_game != null && _game.HasContinueOffer && _game.PendingContinue != null)
+                    {
+                        RunSaveData pendingSave = _game.PendingContinue;
+                        wave = pendingSave.WaveIndex;
+                        score = pendingSave.Score;
+                        credits = pendingSave.Credits;
+                    }
+
                     _confirmBody.text = Loc.Tf(
                         "ui.confirm.new_run_body",
                         "Start over from wave 1? You reach wave {0}, score {1}, credits {2} are lost.",

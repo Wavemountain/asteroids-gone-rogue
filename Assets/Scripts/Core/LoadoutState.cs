@@ -60,6 +60,14 @@ namespace AsteroidsGoneRogue
         public bool TwinSeek { get; private set; }
         public DoctrineId Doctrine { get; private set; }
 
+        /// <summary>Permanent hull from the legacy shop. Applied on a new run only.</summary>
+        public int LegacyHullBonus { get; private set; }
+
+        /// <summary>Percent off the next purchase. Zero once that purchase lands.</summary>
+        public int FirstDiscountPercent { get; private set; }
+
+        public bool FirstDiscountUsed { get; private set; }
+
         /// <summary>Equipped primary. Default Bolt. Cycle LB/RB among owned primaries.</summary>
         public FireMode PrimaryMode { get; private set; }
 
@@ -97,6 +105,9 @@ namespace AsteroidsGoneRogue
             PrimaryMode = FireMode.Bolt;
             UtilityMode = FireMode.Bolt;
             HasUtility = false;
+            LegacyHullBonus = 0;
+            FirstDiscountPercent = 0;
+            FirstDiscountUsed = false;
         }
 
         public int CurrentMaxShield
@@ -119,6 +130,7 @@ namespace AsteroidsGoneRogue
                     hull += BodyUpgradeHullBonus;
                 }
 
+                hull += LegacyHullBonus;
                 return hull;
             }
         }
@@ -293,7 +305,136 @@ namespace AsteroidsGoneRogue
                 return 0;
             }
 
-            return DoctrineRules.PenalizedCost(item.Cost, IsOffPath(item.Id));
+            return MaybeDiscount(DoctrineRules.PenalizedCost(item.Cost, IsOffPath(item.Id)));
+        }
+
+        public int MaybeDiscount(int cost)
+        {
+            if (cost <= 0 || FirstDiscountUsed || FirstDiscountPercent <= 0)
+            {
+                return cost;
+            }
+
+            return LegacyProgress.ApplyDiscount(cost, FirstDiscountPercent);
+        }
+
+        public void ConsumeFirstDiscount()
+        {
+            if (FirstDiscountPercent > 0)
+            {
+                FirstDiscountUsed = true;
+            }
+        }
+
+        public void SetLegacyBonuses(int hullBonus, int discountPercent)
+        {
+            if (hullBonus < 0)
+            {
+                hullBonus = 0;
+            }
+
+            if (hullBonus > LegacyProgress.HullBonusCap)
+            {
+                hullBonus = LegacyProgress.HullBonusCap;
+            }
+
+            if (discountPercent < 0)
+            {
+                discountPercent = 0;
+            }
+
+            if (discountPercent > LegacyProgress.DiscountCapPercent)
+            {
+                discountPercent = LegacyProgress.DiscountCapPercent;
+            }
+
+            LegacyHullBonus = hullBonus;
+            FirstDiscountPercent = discountPercent;
+            FirstDiscountUsed = false;
+        }
+
+        public void RestoreSnapshot(
+            int upgradeMask,
+            int shieldCharges,
+            int doctrine,
+            int primaryMode,
+            int utilityMode,
+            int hasUtility,
+            int legacyHull,
+            int firstDiscount,
+            int firstDiscountUsed)
+        {
+            Reset();
+            RapidFire = BitOn(upgradeMask, 0);
+            NoseHardpoint = BitOn(upgradeMask, 1);
+            BodyUpgrade01 = BitOn(upgradeMask, 2);
+            BodyUpgrade02 = BitOn(upgradeMask, 3);
+            NoseUpgrade02 = BitOn(upgradeMask, 4);
+            NoseUpgrade03 = BitOn(upgradeMask, 5);
+            EngineUpgrade02 = BitOn(upgradeMask, 6);
+            EngineUpgrade03 = BitOn(upgradeMask, 7);
+            SpreadBolt = BitOn(upgradeMask, 8);
+            Pierce = BitOn(upgradeMask, 9);
+            TwinGuns = BitOn(upgradeMask, 10);
+            Seeker = BitOn(upgradeMask, 11);
+            Ricochet = BitOn(upgradeMask, 12);
+            ShieldMatrix = BitOn(upgradeMask, 13);
+            Overcharger = BitOn(upgradeMask, 14);
+            Afterburner = BitOn(upgradeMask, 15);
+            FlakFeed = BitOn(upgradeMask, 16);
+            Storm = BitOn(upgradeMask, 17);
+            Rail = BitOn(upgradeMask, 18);
+            OverchargeLance = BitOn(upgradeMask, 19);
+            SeekerCadence = BitOn(upgradeMask, 20);
+            TwinSeek = BitOn(upgradeMask, 21);
+            int shieldCap = CurrentMaxShield;
+            if (shieldCharges < 0)
+            {
+                shieldCharges = 0;
+            }
+
+            if (shieldCharges > shieldCap)
+            {
+                shieldCharges = shieldCap;
+            }
+
+            ShieldCharges = shieldCharges;
+            if (doctrine < 0 || doctrine > (int)DoctrineId.Hunter)
+            {
+                doctrine = 0;
+            }
+
+            Doctrine = (DoctrineId)doctrine;
+            if (primaryMode < 0 || primaryMode >= RunSaveCodec.FireModeCount)
+            {
+                primaryMode = 0;
+            }
+
+            PrimaryMode = (FireMode)primaryMode;
+            if (!OwnsMode(PrimaryMode))
+            {
+                PrimaryMode = FireMode.Bolt;
+            }
+
+            if (utilityMode < 0 || utilityMode >= RunSaveCodec.FireModeCount)
+            {
+                utilityMode = 0;
+            }
+
+            UtilityMode = (FireMode)utilityMode;
+            HasUtility = hasUtility != 0 && OwnsMode(UtilityMode) && UtilityMode != FireMode.Bolt;
+            if (!HasUtility)
+            {
+                UtilityMode = FireMode.Bolt;
+            }
+
+            SetLegacyBonuses(legacyHull, firstDiscount);
+            FirstDiscountUsed = firstDiscountUsed != 0;
+        }
+
+        private static bool BitOn(int mask, int bit)
+        {
+            return (mask & (1 << bit)) != 0;
         }
 
         public bool GateMet(DoctrineId id)
@@ -316,11 +457,11 @@ namespace AsteroidsGoneRogue
             switch (id)
             {
                 case DoctrineId.Barrage:
-                    return DoctrineRules.BarrageGateCost;
+                    return MaybeDiscount(DoctrineRules.BarrageGateCost);
                 case DoctrineId.Lance:
-                    return DoctrineRules.LanceGateCost;
+                    return MaybeDiscount(DoctrineRules.LanceGateCost);
                 case DoctrineId.Hunter:
-                    return DoctrineRules.HunterGateCost;
+                    return MaybeDiscount(DoctrineRules.HunterGateCost);
                 default:
                     return 0;
             }
@@ -560,6 +701,9 @@ namespace AsteroidsGoneRogue
             copy.PrimaryMode = PrimaryMode;
             copy.UtilityMode = UtilityMode;
             copy.HasUtility = HasUtility;
+            copy.LegacyHullBonus = LegacyHullBonus;
+            copy.FirstDiscountPercent = FirstDiscountPercent;
+            copy.FirstDiscountUsed = FirstDiscountUsed;
             return copy;
         }
 

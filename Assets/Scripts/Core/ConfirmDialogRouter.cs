@@ -33,6 +33,7 @@ namespace AsteroidsGoneRogue
         public bool Submit;
         public bool AbortClick;
         public bool NewRunClick;
+        public bool AbandonClick;
         public bool Scrim;
         public int FocusDelta;
     }
@@ -124,6 +125,16 @@ namespace AsteroidsGoneRogue
 
             bool newRun = request.RestartScreen && (request.NewRunClick || request.Start);
             if (newRun)
+            {
+                if (request.ConfirmNewRun)
+                {
+                    return ConfirmAction.Open;
+                }
+
+                return ConfirmAction.Yes;
+            }
+
+            if (request.AbandonClick)
             {
                 if (request.ConfirmNewRun)
                 {
