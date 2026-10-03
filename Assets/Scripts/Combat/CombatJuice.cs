@@ -19,12 +19,12 @@ namespace AsteroidsGoneRogue
 
         public static void PlayerDamaged(bool lethal)
         {
+            PlayerHullHit();
             if (lethal)
             {
+                FlashScreen(HeavyKillFlash, UiTheme.Primary, HitFlashLimiter.DefaultDecay, true);
                 return;
             }
-
-            PlayerHullHit();
         }
 
         public static void PlayerHullHit()

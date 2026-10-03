@@ -6377,17 +6377,30 @@ def test_fairness_047b() -> None:
         pushed_x, pushed_z = _spawn_push(px + 1.0, pz, px, pz, minimum, 28.0)
         assert _clearance_distance(pushed_x, pushed_z, px, pz, 29.5) + 1e-3 >= minimum
 
-    def scale(amount, cause_name, assist):
+    def scale(amount, cause_name, assist, remainder=0):
         if not assist or amount <= 0 or cause_name not in ("enemy", "bolt", "boss", "hazard"):
-            return amount
-        scaled = amount * 75 // 100
-        return 1 if scaled < 1 else scaled
+            return amount, remainder
+        if remainder < 0:
+            remainder = 0
+        pool = (amount * 75) + remainder
+        return pool // 100, pool % 100
 
-    assert scale(4, "enemy", True) == 3
-    assert scale(1, "hazard", True) == 1
-    assert scale(4, "asteroid", True) == 4
-    assert scale(4, "enemy", False) == 4
-    assert scale(0, "enemy", True) == 0
+    dealt, rem = scale(4, "enemy", True)
+    assert dealt == 3 and rem == 0
+    dealt, rem = scale(1, "hazard", True)
+    assert dealt == 0 and rem == 75
+    dealt, rem = scale(4, "asteroid", True)
+    assert dealt == 4
+    dealt, rem = scale(4, "enemy", False)
+    assert dealt == 4 and rem == 0
+    dealt, rem = scale(0, "enemy", True)
+    assert dealt == 0
+    total = 0
+    carry = 0
+    for _hit in range(100):
+        dealt, carry = scale(1, "enemy", True, carry)
+        total += dealt
+    assert total == 75 and carry == 0
 
     def bonus_shield(shield, cap, assist):
         if not assist or shield >= cap:
@@ -10897,6 +10910,37 @@ def test_part_c_047() -> None:
     assert "DefaultSfxVolume = 0.8f" in audio and "DefaultMusicVolume = 0.28f" in audio
     assert "BossMusicScale" in audio
     assert "TelegraphShape.Wedge" in seekers and "TelegraphShape.Spokes" in seekers
+    assert "TelegraphShape.DoubleRing" in seekers
+    ring = (root / "Assets/Scripts/Combat/TelegraphRing.cs").read_text(encoding="utf-8")
+    assert "enum TelegraphShape" in ring
+    assert "Wedge = 1" in ring and "Spokes = 2" in ring and "DoubleRing = 3" in ring
+    assert "AimWedge" in ring and '"Spokes"' in ring and '"DoubleRing"' in ring
+    ring_update = ring.split("void Update()")[1].split("void EnsureMesh")[0]
+    assert "EffectScale.Telegraph" in ring_update
+    assert ring_update.index("EffectScale.Telegraph") < ring_update.index("TelegraphShape.Wedge")
+    assert "TelegraphShape.Spokes" in ring_update and "TelegraphShape.DoubleRing" in ring_update
+    telegraph_fn = effect.split("public static void Telegraph(")[1].split("public static float AuraMul")[0]
+    assert "pulseScale = 0" in telegraph_fn
+    assert "TelegraphShape" not in telegraph_fn
+    nest_before = seekers.split("TelegraphShape.DoubleRing")[0][-180:]
+    nest_after = seekers.split("TelegraphShape.DoubleRing", 1)[1][:80]
+    assert "Secondary" in nest_before
+    aimed_before = seekers.split("TelegraphShape.Wedge")[0][-180:]
+    aimed_after = seekers.split("TelegraphShape.Wedge", 1)[1][:80]
+    assert "Focus" in aimed_before and "_aimedDir" in aimed_after
+    radial_before = seekers.split("TelegraphShape.Spokes")[0][-180:]
+    radial_after = seekers.split("TelegraphShape.Spokes", 1)[1][:80]
+    assert "Danger" in radial_before and "transform.forward" in radial_after
+    assert "DoubleRing" in nest_after or "transform.forward" in nest_after
+
+    juice = (root / "Assets/Scripts/Combat/CombatJuice.cs").read_text(encoding="utf-8")
+    lethal = juice.split("public static void PlayerDamaged(bool lethal)")[1].split("public static void")[0]
+    assert lethal.index("PlayerHullHit()") < lethal.index("FlashScreen(")
+    assert ", true)" in lethal
+    health = (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
+    assert "ScaleIncoming(amount, cause, assist, ref _assistRemainder)" in health
+    fairness = (root / "Assets/Scripts/Core/FairnessRules.cs").read_text(encoding="utf-8")
+    assert "ref int remainder" in fairness
     legacy3 = _settings_from_ints(3, 1, 2, 1, 1, 1, 2, 1, 1)
     assert legacy3["assist"] is True and legacy3["reduce_effects"] is False
     reduced = _settings_from_ints(4, 0, 2, 1, 1, 1, 2, 0, 1)

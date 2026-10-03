@@ -18,6 +18,7 @@ namespace AsteroidsGoneRogue
         private DamageCause _lastCause = DamageCause.Unknown;
         private EnemyKind _lastEnemyKind = EnemyKind.Mid01;
         private bool _invulnCueArmed;
+        private int _assistRemainder;
         private readonly DamageCauseLog _hits = new DamageCauseLog();
 
         public DamageCauseLog Hits
@@ -274,7 +275,7 @@ namespace AsteroidsGoneRogue
 
             amount = DifficultySettings.ScaleIncomingDamage(amount, cause);
             bool assist = SettingsState.AssistEnabled;
-            amount = AssistRules.ScaleIncoming(amount, cause, assist);
+            amount = AssistRules.ScaleIncoming(amount, cause, assist, ref _assistRemainder);
             if (assist && _game != null)
             {
                 _game.NoteAssistUsed();
