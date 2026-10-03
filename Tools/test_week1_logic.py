@@ -2629,7 +2629,7 @@ def test_difficulty_economy_043() -> None:
     assert "LivesPips" in ui
     assert "LivesHud" in ui
     assert "BuildDifficultyPicker" in ui
-    assert "Svår" in loc and "Easy" in loc
+    assert "Svår" in loc and "Lätt" in loc
     assert "LIV FÖRLORAT" in loc
     assert "DifficultySettings.EnsureLoaded" in bootstrap
     assert "ResetLives(DifficultySettings.StartLives)" in bootstrap
@@ -6178,6 +6178,8 @@ def main() -> int:
     test_long_haul_difficulty_046()
     test_world_flavour_and_boons()
     test_longhaul_balance_046e()
+    test_sector_chip_differs_from_title()
+    test_upgrades_line_fits_card()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -7582,7 +7584,7 @@ def test_world_flavour_and_boons() -> None:
         "Splt x3",
         "Skad x3",
         "Skld x3",
-        "Util x3",
+        "Verk x3",
     )
     rows = (
         "Bonuses  " + " · ".join(en_tags),
@@ -7636,6 +7638,193 @@ def test_world_flavour_and_boons() -> None:
             for label in labels:
                 assert _estimate_width(label, 20) <= 900
                 assert _estimate_width(subtitle, 20) <= 900
+
+
+def _loc_values(loc_text: str) -> dict[str, str]:
+    import re
+
+    swedish = loc_text.split("private static readonly Dictionary")[1].split("};")[0]
+    found: dict[str, str] = {}
+    for match in re.finditer(r'\{\s*"([^"]+)"\s*,\s*"((?:\\.|[^"\\])*)"', swedish):
+        found[match.group(1)] = match.group(2)
+    return found
+
+
+def _summary_card_explain(width: int, height: int) -> tuple[float, float]:
+    scale = _canvas_scale(width, height)
+    hangar = (0.014, 0.080, 0.55, 0.888)
+    summary = _map_anchors(*hangar, 0.02, 0.82, 0.98, 0.995)
+    explain = _map_anchors(*summary, 0.03, 0.06, 0.97, 0.34)
+    box_w = (explain[2] - explain[0]) * (width / scale)
+    box_h = (explain[3] - explain[1]) * (height / scale)
+    return box_w, box_h
+
+
+def test_sector_chip_differs_from_title() -> None:
+    """World-boundary headline and medal chip must not be the same string."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    catalog = (root / "Assets/Scripts/Core/WorldCatalog.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    swedish = _loc_values(loc)
+
+    medal_fn = summary.split("public static string WaveMedal")[1].split("public static string")[0]
+    final_branch = medal_fn.split("CampaignCap.FinalWave")[1].split("World2StartsAtWave")[0]
+    assert "WorldCatalog.ClearedMedal" in final_branch
+    assert "SectorClearTitle" not in final_branch
+    assert "CampaignCap.SectorClearTitle(_session.WorldCleared)" in ui
+    assert 'Loc.Tf("run.world_cleared", "{0} cleared"' in catalog
+    assert "run.world_cleared" in swedish
+
+    world_en = {
+        1: "Launch Belt",
+        2: "Deep Orbit",
+        3: "Far Drift",
+        4: "Mine Fields",
+        5: "Cross Gates",
+        6: "Debris Islands",
+        7: "Spoke Ring",
+    }
+    world_key = {
+        1: "world.launch",
+        2: "world.deep",
+        3: "world.far",
+        4: "world.mines",
+        5: "world.cross",
+        6: "world.islands",
+        7: "world.spokes",
+    }
+
+    def world_name(world: int, lang: str) -> str:
+        if lang == "sv":
+            return swedish[world_key[world]]
+        return world_en[world]
+
+    def sector_title(world: int, lang: str) -> str:
+        fmt = swedish["run.sector_world"] if lang == "sv" else "SECTOR CLEAR - World {0} complete"
+        return fmt.format(world)
+
+    def wave_chip(wave: int, lang: str) -> str:
+        if wave == 5:
+            cleared = swedish["run.world_cleared"] if lang == "sv" else "{0} cleared"
+            return "★ " + cleared.format(world_name(1, lang))
+        if wave == 10:
+            name = swedish["medal.far"] if lang == "sv" else "Far Drift"
+            at = swedish["run.world3_at"] if lang == "sv" else "World 3 at wave {0}"
+            return "★ " + name + "  ·  " + at.format(11)
+        if wave == 15:
+            return ""
+        medal_world = {20: 4, 25: 5, 30: 6, 35: 7}[wave]
+        return "★ " + world_name(medal_world, lang)
+
+    for wave in (5, 10, 15, 20, 25, 30, 35):
+        world = _world_number(wave)
+        for lang in ("en", "sv"):
+            title = sector_title(world, lang)
+            chip = wave_chip(wave, lang)
+            assert title != chip, (wave, lang, title, chip)
+            assert "★ ★" not in chip
+        assert wave_chip(wave, "en").startswith("★") or wave == 15
+        assert wave_chip(5, "en") == "★ Launch Belt cleared"
+        assert wave_chip(5, "sv") == "★ " + swedish["world.launch"] + " rensad"
+
+
+def test_upgrades_line_fits_card() -> None:
+    """A fully upgraded wave 20 / 35 line stays inside the hangar card."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    swedish = _loc_values(loc)
+    method = summary.split("public static string UpgradesLine")[1].split("private static void NoteOwned")[0]
+    cap = int(re.search(r"UpgradesLineMaxShown = (\d+)", summary).group(1))
+    assert "run.upgrades_more" in method
+    assert "ClampOneLine(_continueHint)" not in ui
+    refresh = ui.split("_continueHint.text = row3;")[1].split("private void")[0]
+    assert "HorizontalWrapMode.Wrap" in refresh
+    assert "VerticalWrapMode.Truncate" in refresh
+    legacy = ui.split("private void BuildContinueAndLegacy")[1].split("private void")[0]
+    assert "BuildBoonModal(UiFonts.Display(), body)" in legacy
+    assert "BuildBoonModal(display, body)" not in legacy
+
+    order = [
+        "up.Body",
+        "up.Hull02",
+        "up.Nose",
+        "up.Nose02",
+        "up.Nose03",
+        "up.Rapid",
+        "up.Engine02",
+        "up.Engine03",
+        "up.Overcharger",
+        "up.Afterburner",
+        "up.Spread",
+        "up.Pierce",
+        "up.Twin",
+        "up.Seeker",
+        "up.Ricochet",
+        "up.Rail",
+        "up.FlakFeed",
+        "up.Storm",
+        "up.Overcharge",
+        "up.Cadence",
+        "up.TwinSeek",
+        "up.Shield",
+        "up.Matrix",
+    ]
+    cursor = 0
+    fallback: dict[str, str] = {}
+    for match in re.finditer(r'Loc\.Tf?\(\s*"(up\.[^"]+|run\.upgrades(?:_more)?)"\s*,\s*"([^"]*)"', method):
+        fallback[match.group(1)] = match.group(2)
+    for key in order:
+        found = method.find(f'"{key}"', cursor)
+        assert found > cursor, key
+        cursor = found
+        assert key in fallback
+
+    def names_for(lang: str) -> list[str]:
+        labels = []
+        for key in order:
+            label = swedish[key] if lang == "sv" else fallback[key]
+            if key == "up.Shield":
+                label = label.format(3)
+            labels.append(label)
+        return labels
+
+    def render(lang: str, limit: int | None) -> str:
+        labels = names_for(lang)
+        hidden = 0
+        if limit is not None and len(labels) > limit:
+            hidden = len(labels) - limit
+            labels = labels[:limit]
+        body = "  ·  ".join(labels)
+        if hidden:
+            more = swedish["run.upgrades_more"] if lang == "sv" else fallback["run.upgrades_more"]
+            body += "  ·  " + more.format(hidden)
+        prefix = swedish["run.upgrades"] if lang == "sv" else "Upgrades  {0}"
+        return prefix.format(body)
+
+    max_lines = 2
+    resolutions = ((1280, 800), (1600, 900), (1920, 1080), (2560, 1440), (3440, 1440))
+    for wave in (20, 35):
+        assert wave >= 20
+        for lang in ("en", "sv"):
+            limited = render(lang, cap)
+            open_line = render(lang, None)
+            assert "+%d" % (len(order) - cap) in limited or str(len(order) - cap) in limited
+            for width, height in resolutions:
+                box_w, box_h = _summary_card_explain(width, height)
+                lines = _wrapped_line_count(limited, box_w, 16)
+                assert lines <= max_lines, (wave, lang, width, lines, limited)
+                assert lines * 16 * 1.1 <= box_h, (wave, lang, width, lines, box_h)
+                assert _wrapped_line_count(open_line, box_w, 16) > max_lines
 
 
 if __name__ == "__main__":

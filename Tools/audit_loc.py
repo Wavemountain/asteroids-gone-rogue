@@ -43,6 +43,28 @@ BUTTON_KEYS = {
 
 BUTTON_LIMIT = 28
 _FILL = ("12", "120", "9999", "99")
+
+# SV values that are allowed to equal the EN value.
+# Proper names and loanwords (Hangar, Session, Brute), control labels (D-pad, Analog),
+# weapon names kept in both languages (Rail, Pierce, Spread, Storm), and the
+# difficulty word Normal. Legacy is listed so a value that is only that word
+# stays allowed. Numbers and glyph-only strings are not listed: they have
+# fewer than 4 letters and the equality check skips them.
+SAME_LANGUAGE_ALLOW = {
+    "Normal",
+    "Rail",
+    "Legacy",
+    "Hangar",
+    "Analog",
+    "D-pad",
+    "Pierce",
+    "Spread",
+    "Storm",
+    "Brute",
+    "Session —",
+    "Session {0}",
+    " / Sess {0}",
+}
 _CALL = re.compile(
     r'Loc\.T(f)?\(\s*"([^"]+)"\s*,\s*"((?:\\.|[^"\\])*)"',
     re.S,
@@ -74,6 +96,33 @@ def _filled(template: str) -> str:
     for index, sample in enumerate(_FILL):
         text = text.replace("{" + str(index) + "}", sample)
     return text
+
+
+def _letters(text: str) -> int:
+    return sum(1 for char in text if char.isalpha())
+
+
+def _dynamic_english(root: Path) -> dict[str, str]:
+    """EN for keys built at runtime: shop title/desc, enemy kind, fire mode."""
+    scripts = root / "Assets" / "Scripts"
+    found: dict[str, str] = {}
+    shop = (scripts / "Core" / "ShopCatalog.cs").read_text(encoding="utf-8")
+    item = re.compile(
+        r'UpgradeId\.(\w+)\s*,\s*"((?:\\.|[^"\\])*)"\s*,\s*"((?:\\.|[^"\\])*)"'
+    )
+    for match in item.finditer(shop):
+        found["shop.title." + match.group(1)] = _unescape(match.group(2))
+        found["shop.desc." + match.group(1)] = _unescape(match.group(3))
+
+    def enum_names(path: Path, enum_name: str) -> list[str]:
+        body = path.read_text(encoding="utf-8").split(f"enum {enum_name}")[1].split("}")[0]
+        return re.findall(r"^\s*([A-Z][A-Za-z0-9_]*)\s*,?\s*$", body, re.M)
+
+    for name in enum_names(scripts / "Combat" / "EnemyKind.cs", "EnemyKind"):
+        found["enemy." + name] = name
+    for name in enum_names(scripts / "Player" / "FireMode.cs", "FireMode"):
+        found["mode." + name] = name
+    return found
 
 
 def _glyphs(text: str) -> list[str]:
@@ -166,6 +215,23 @@ def check(root: Path) -> list[str]:
         for label in texts:
             if len(_filled(label)) > BUTTON_LIMIT:
                 errors.append(f"button {key} EN is long: {label}")
+
+    dynamic = _dynamic_english(root)
+    for key, values in swedish.items():
+        english_values = set(english.get(key, []))
+        english_values.update(fallbacks.get(key, set()))
+        if key in dynamic:
+            english_values.add(dynamic[key])
+        if not english_values:
+            continue
+        for value in values:
+            if value not in english_values:
+                continue
+            if _letters(value) < 4:
+                continue
+            if value in SAME_LANGUAGE_ALLOW:
+                continue
+            errors.append(f"SV {key} matches EN ({value!r}); translate it or add it to SAME_LANGUAGE_ALLOW")
 
     return errors
 

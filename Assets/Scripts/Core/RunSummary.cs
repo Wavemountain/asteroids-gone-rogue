@@ -11,6 +11,13 @@ namespace AsteroidsGoneRogue
         public const int World2StartsAtWave = 6;
         public const int World3StartsAtWave = 11;
         public const int AlmostHadItMax = 3;
+
+        /// <summary>
+        /// Names shown on the wave-clear upgrades row before "+K more".
+        /// Twelve keeps a fully upgraded EN/SV line inside two wrapped lines
+        /// of the hangar card from 1280x800 through 3440x1440.
+        /// </summary>
+        public const int UpgradesLineMaxShown = 12;
         public const string Wave3MedalTitle = "Scout Wing";
 
         public static string RunOverTitle(int wave)
@@ -250,37 +257,60 @@ namespace AsteroidsGoneRogue
             }
 
             string names = string.Empty;
-            AppendOwned(ref names, loadout.BodyUpgrade01, Loc.T("up.Body", "Body"));
-            AppendOwned(ref names, loadout.BodyUpgrade02, Loc.T("up.Hull02", "Hull 02"));
-            AppendOwned(ref names, loadout.NoseHardpoint, Loc.T("up.Nose", "Nose"));
-            AppendOwned(ref names, loadout.NoseUpgrade02, Loc.T("up.Nose02", "Nose 02"));
-            AppendOwned(ref names, loadout.NoseUpgrade03, Loc.T("up.Nose03", "Nose 03"));
-            AppendOwned(ref names, loadout.RapidFire, Loc.T("up.Rapid", "Rapid Fire"));
-            AppendOwned(ref names, loadout.EngineUpgrade02, Loc.T("up.Engine02", "Engine 02"));
-            AppendOwned(ref names, loadout.EngineUpgrade03, Loc.T("up.Engine03", "Engine 03"));
-            AppendOwned(ref names, loadout.Overcharger, Loc.T("up.Overcharger", "Overcharger"));
-            AppendOwned(ref names, loadout.Afterburner, Loc.T("up.Afterburner", "Afterburner"));
-            AppendOwned(ref names, loadout.SpreadBolt, Loc.T("up.Spread", "Spread"));
-            AppendOwned(ref names, loadout.Pierce, Loc.T("up.Pierce", "Pierce"));
-            AppendOwned(ref names, loadout.TwinGuns, Loc.T("up.Twin", "Twin"));
-            AppendOwned(ref names, loadout.Seeker, Loc.T("up.Seeker", "Seeker"));
-            AppendOwned(ref names, loadout.Ricochet, Loc.T("up.Ricochet", "Ricochet"));
-            AppendOwned(ref names, loadout.Rail, Loc.T("up.Rail", "Rail"));
-            AppendOwned(ref names, loadout.FlakFeed, Loc.T("up.FlakFeed", "Flak Feed"));
-            AppendOwned(ref names, loadout.Storm, Loc.T("up.Storm", "Storm"));
-            AppendOwned(ref names, loadout.OverchargeLance, Loc.T("up.Overcharge", "Overcharge Lance"));
-            AppendOwned(ref names, loadout.SeekerCadence, Loc.T("up.Cadence", "Seeker Cadence"));
-            AppendOwned(ref names, loadout.TwinSeek, Loc.T("up.TwinSeek", "Twin Seek"));
+            int shown = 0;
+            int hidden = 0;
+            NoteOwned(ref names, ref shown, ref hidden, loadout.BodyUpgrade01, Loc.T("up.Body", "Body"));
+            NoteOwned(ref names, ref shown, ref hidden, loadout.BodyUpgrade02, Loc.T("up.Hull02", "Hull 02"));
+            NoteOwned(ref names, ref shown, ref hidden, loadout.NoseHardpoint, Loc.T("up.Nose", "Nose"));
+            NoteOwned(ref names, ref shown, ref hidden, loadout.NoseUpgrade02, Loc.T("up.Nose02", "Nose 02"));
+            NoteOwned(ref names, ref shown, ref hidden, loadout.NoseUpgrade03, Loc.T("up.Nose03", "Nose 03"));
+            NoteOwned(ref names, ref shown, ref hidden, loadout.RapidFire, Loc.T("up.Rapid", "Rapid Fire"));
+            NoteOwned(ref names, ref shown, ref hidden, loadout.EngineUpgrade02, Loc.T("up.Engine02", "Engine 02"));
+            NoteOwned(ref names, ref shown, ref hidden, loadout.EngineUpgrade03, Loc.T("up.Engine03", "Engine 03"));
+            NoteOwned(ref names, ref shown, ref hidden, loadout.Overcharger, Loc.T("up.Overcharger", "Overcharger"));
+            NoteOwned(ref names, ref shown, ref hidden, loadout.Afterburner, Loc.T("up.Afterburner", "Afterburner"));
+            NoteOwned(ref names, ref shown, ref hidden, loadout.SpreadBolt, Loc.T("up.Spread", "Spread"));
+            NoteOwned(ref names, ref shown, ref hidden, loadout.Pierce, Loc.T("up.Pierce", "Pierce"));
+            NoteOwned(ref names, ref shown, ref hidden, loadout.TwinGuns, Loc.T("up.Twin", "Twin"));
+            NoteOwned(ref names, ref shown, ref hidden, loadout.Seeker, Loc.T("up.Seeker", "Seeker"));
+            NoteOwned(ref names, ref shown, ref hidden, loadout.Ricochet, Loc.T("up.Ricochet", "Ricochet"));
+            NoteOwned(ref names, ref shown, ref hidden, loadout.Rail, Loc.T("up.Rail", "Rail"));
+            NoteOwned(ref names, ref shown, ref hidden, loadout.FlakFeed, Loc.T("up.FlakFeed", "Flak Feed"));
+            NoteOwned(ref names, ref shown, ref hidden, loadout.Storm, Loc.T("up.Storm", "Storm"));
+            NoteOwned(ref names, ref shown, ref hidden, loadout.OverchargeLance, Loc.T("up.Overcharge", "Overcharge Lance"));
+            NoteOwned(ref names, ref shown, ref hidden, loadout.SeekerCadence, Loc.T("up.Cadence", "Seeker Cadence"));
+            NoteOwned(ref names, ref shown, ref hidden, loadout.TwinSeek, Loc.T("up.TwinSeek", "Twin Seek"));
             if (loadout.ShieldCharges > 0)
             {
-                AppendOwned(ref names, true, Loc.Tf("up.Shield", "Shield x{0}", loadout.ShieldCharges));
+                NoteOwned(ref names, ref shown, ref hidden, true, Loc.Tf("up.Shield", "Shield x{0}", loadout.ShieldCharges));
             }
 
-            AppendOwned(ref names, loadout.ShieldMatrix, Loc.T("up.Matrix", "Matrix"));
+            NoteOwned(ref names, ref shown, ref hidden, loadout.ShieldMatrix, Loc.T("up.Matrix", "Matrix"));
+            if (hidden > 0)
+            {
+                AppendOwned(ref names, true, Loc.Tf("run.upgrades_more", "+{0} more", hidden));
+            }
 
             return string.IsNullOrEmpty(names)
                 ? Loc.T("run.upgrades_none", "Upgrades —")
                 : Loc.Tf("run.upgrades", "Upgrades  {0}", names);
+        }
+
+        private static void NoteOwned(ref string names, ref int shown, ref int hidden, bool owned, string label)
+        {
+            if (!owned)
+            {
+                return;
+            }
+
+            if (shown >= UpgradesLineMaxShown)
+            {
+                hidden += 1;
+                return;
+            }
+
+            AppendOwned(ref names, true, label);
+            shown += 1;
         }
 
         public static bool ShowAfterWave1Hint(int lastResolvedWave, GamePhase phase)
@@ -519,7 +549,7 @@ namespace AsteroidsGoneRogue
 
             if (lastResolvedWave == CampaignCap.FinalWave)
             {
-                return CampaignCap.SectorClearTitle(ArenaLayout.WorldIndexForWave(lastResolvedWave));
+                return WorldCatalog.ClearedMedal(WorldCatalog.NumberForWave(lastResolvedWave));
             }
 
             if (lastResolvedWave == World2StartsAtWave)
