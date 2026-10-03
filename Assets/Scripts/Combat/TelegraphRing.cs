@@ -58,7 +58,10 @@ namespace AsteroidsGoneRogue
             }
 
             float t = 1f - Mathf.Clamp01(remain / _life);
-            float scale = Mathf.Lerp(0.7f, 3.4f, t);
+            float alphaGate;
+            int pulseScale;
+            EffectScale.Telegraph(SettingsState.ReduceEffectsEnabled, t, _life, out alphaGate, out pulseScale);
+            float scale = pulseScale != 0 ? Mathf.Lerp(0.7f, 3.4f, t) : 1.8f;
             _mesh.localScale = new Vector3(scale, 0.04f, scale);
             if (_extra != null)
             {
@@ -79,7 +82,7 @@ namespace AsteroidsGoneRogue
 
             if (_mat != null)
             {
-                float alpha = 0.55f * (1f - t);
+                float alpha = alphaGate;
                 _mat.color = new Color(_color.r, _color.g, _color.b, alpha);
                 _mat.SetColor("_EmissionColor", new Color(_color.r * alpha, _color.g * alpha, _color.b * alpha, 1f));
             }

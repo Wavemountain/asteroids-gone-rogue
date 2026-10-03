@@ -63,7 +63,9 @@ namespace AsteroidsGoneRogue
         void Update()
         {
             _phase += Time.deltaTime * (_charging ? 7.4f : 2.6f);
-            float pulse = 0.78f + Mathf.Sin(_phase) * (_charging ? ChargePulse : IdlePulse);
+            float pulseBase = ReadabilityPalette.BrutePulseBase;
+            float pulseAmp = _charging ? ReadabilityPalette.BruteChargeAmp : ReadabilityPalette.BruteIdleAmp;
+            float pulse = EffectScale.AuraMul(SettingsState.ReduceEffectsEnabled, pulseBase, pulseAmp, Mathf.Sin(_phase));
             Color emit = AuraColor * pulse;
 
             if (_renderers != null)
@@ -197,6 +199,7 @@ namespace AsteroidsGoneRogue
 
             float scale;
             float alpha;
+            bool freezeRing = EffectScale.FreezePulse(SettingsState.ReduceEffectsEnabled);
             if (_charging)
             {
                 scale = 2.4f;
@@ -205,14 +208,14 @@ namespace AsteroidsGoneRogue
             else if (nest)
             {
                 float t = 1f - Mathf.Clamp01((_nestUntil - now) / 0.72f);
-                scale = Mathf.Lerp(1.1f, 2.6f, t);
+                scale = freezeRing ? 1.8f : Mathf.Lerp(1.1f, 2.6f, t);
                 alpha = 0.48f;
             }
             else
             {
                 float t = 1f - Mathf.Clamp01((_burstUntil - now) / 0.62f);
-                scale = Mathf.Lerp(0.55f, 3.1f, t);
-                alpha = 0.5f * (1f - t);
+                scale = freezeRing ? 1.8f : Mathf.Lerp(0.55f, 3.1f, t);
+                alpha = freezeRing ? EffectScale.TelegraphFloor : 0.5f * (1f - t);
             }
 
             _ring.localScale = new Vector3(scale, 0.035f, scale);

@@ -46,15 +46,12 @@ namespace AsteroidsGoneRogue
         public void Begin(Color tint, float seconds)
         {
             _renderers = GetComponentsInChildren<Renderer>(false);
-            if (seconds < 0.02f)
-            {
-                seconds = 0.02f;
-            }
-
+            bool reduce = SettingsState.ReduceEffectsEnabled;
+            seconds = EffectScale.MeshSeconds(reduce, seconds);
             bool fresh = _until <= Time.time;
             _until = Time.time + seconds;
             _tint = tint;
-            _emission = tint * 1.15f;
+            _emission = tint * EffectScale.MeshEmission(reduce);
             if (fresh)
             {
                 Capture();

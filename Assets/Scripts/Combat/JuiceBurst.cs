@@ -78,11 +78,13 @@ namespace AsteroidsGoneRogue
             }
 
             float t = 1f - Mathf.Clamp01(remain / _life);
-            float scale = Mathf.Lerp(_startScale, _endScale, t);
+            bool reduce = SettingsState.ReduceEffectsEnabled;
+            float endScale = EffectScale.BurstEnd(reduce, _endScale);
+            float scale = Mathf.Lerp(_startScale, endScale, t);
             _mesh.localScale = new Vector3(scale, scale, scale);
             if (_mat != null)
             {
-                float alpha = 0.7f * (1f - t);
+                float alpha = EffectScale.BurstAlpha(reduce, 0.7f * (1f - t));
                 Color tint = new Color(_color.r, _color.g, _color.b, alpha);
                 _mat.color = tint;
                 _mat.SetColor("_EmissionColor", _color * (1.35f + alpha));
