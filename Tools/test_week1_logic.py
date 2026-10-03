@@ -6766,6 +6766,221 @@ def test_decor_depth_047b() -> None:
     assert raw6 < rules["MinCameraDistance"]
 
 
+def _shop_hex_consts(text: str) -> dict:
+    import re
+
+    found = {}
+    for name, value in re.findall(r'public const string (\w+) = "(#[0-9A-Fa-f]{6})";', text):
+        found[name] = value.upper()
+    return found
+
+
+def _shop_layout_consts(text: str) -> dict:
+    import re
+
+    consts = {}
+    for name, value in re.findall(r"public const float (\w+) = ([0-9.]+)f;", text):
+        consts[name] = float(value)
+    for name, value in re.findall(r"public const int (\w+) = (\d+);", text):
+        consts[name] = int(value)
+    return consts
+
+
+def _shop_states(chrome: dict) -> dict:
+    return {
+        "normal": (chrome["NormalFillHex"], chrome["NormalTextHex"]),
+        "hovered": (chrome["HoverFillHex"], chrome["HoverTextHex"]),
+        "pressed": (chrome["PressedFillHex"], chrome["PressedTextHex"]),
+        "focused": (chrome["FocusFillHex"], chrome["FocusTextHex"]),
+        "locked": (chrome["LockedFillHex"], chrome["LockedTextHex"]),
+        "poor": (chrome["PoorFillHex"], chrome["PoorTextHex"]),
+        "owned": (chrome["OwnedFillHex"], chrome["OwnedTextHex"]),
+        "equipped": (chrome["EquippedFillHex"], chrome["EquippedTextHex"]),
+        "offpath": (chrome["OffPathFillHex"], chrome["OffPathTextHex"]),
+    }
+
+
+def _shop_screen(local, layout):
+    panel_w = layout["HangarMaxX"] - layout["HangarMinX"]
+    panel_h = layout["HangarMaxY"] - layout["HangarMinY"]
+    return (
+        layout["HangarMinX"] + (local[0] * panel_w),
+        layout["HangarMinY"] + (local[1] * panel_h),
+        layout["HangarMinX"] + (local[2] * panel_w),
+        layout["HangarMinY"] + (local[3] * panel_h),
+    )
+
+
+def _shop_grid_screen(layout):
+    row_step = layout["CellHeight"] + layout["CellGutter"]
+    local_min_y = layout["GridTop"] - ((layout["DefenseRows"] - 1) * row_step) - layout["CellHeight"]
+    return _shop_screen(
+        (layout["HullOriginX"], local_min_y, layout["DefenseMaxX"], layout["GridTop"]),
+        layout,
+    )
+
+
+def _shop_preview_screen(layout):
+    return (
+        layout["PreviewMinX"],
+        layout["PreviewMinY"],
+        layout["PreviewMaxX"],
+        layout["PreviewMaxY"],
+    )
+
+
+def _shop_hull_cell(index, layout):
+    row_step = layout["CellHeight"] + layout["CellGutter"]
+    col = index % layout["HullColumns"]
+    row = index // layout["HullColumns"]
+    x0 = layout["HullOriginX"] + (col * layout["HullStepX"])
+    top = layout["GridTop"] - (row * row_step)
+    return _shop_screen((x0, top - layout["CellHeight"], x0 + layout["HullCellW"], top), layout)
+
+
+def test_shop_tiles_and_preview_b10() -> None:
+    """Shop tiles keep readable text in every state, and the preview cannot cover the grid."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    chrome_src = (root / "Assets/Scripts/UI/ShopTileChrome.cs").read_text(encoding="utf-8")
+    layout_src = (root / "Assets/Scripts/UI/ShopGridLayout.cs").read_text(encoding="utf-8")
+    theme = (root / "Assets/Scripts/UI/UiTheme.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    preview = (root / "Assets/Scripts/Hangar/HangarShipPreview.cs").read_text(encoding="utf-8")
+    pad = (root / "Assets/Scripts/Core/HangarPadNav.cs").read_text(encoding="utf-8")
+    chrome = _shop_hex_consts(chrome_src)
+    layout = _shop_layout_consts(layout_src)
+
+    assert "class ShopTileChrome" in chrome_src
+    assert "MinContrast = 4.5f" in chrome_src
+    assert "enum ShopTileState" in chrome_src
+    states = _shop_states(chrome)
+    assert len(states) == 9
+    for name, pair in states.items():
+        fill, text = pair
+        assert fill != text, name
+        assert _contrast(text, fill) >= 4.5, (name, text, fill, _contrast(text, fill))
+    assert states["owned"][0] != "#6AA8C8"
+    assert _contrast("#6AA8C8", "#6AA8C8") < 4.5
+    assert "ShopButtonColors" in theme
+    shop_colors = theme.split("public static ColorBlock ShopButtonColors()")[1].split("public static GameObject BuildPanel")[0]
+    assert shop_colors.count("Color.white") >= 5
+    assert "colors.disabledColor = Color.white" in shop_colors
+    assert "colors.highlightedColor = Color.white" in shop_colors
+    assert "colors.selectedColor = Color.white" in shop_colors
+    assert "colors.pressedColor = Color.white" in shop_colors
+    assert "shop ? ShopButtonColors() : MenuButtonColors()" in theme
+    assert "ShopTileChrome.FromFlags" in theme
+    assert "ShopTileChrome.Fill" in theme
+    assert "ShopTileChrome.Text" in theme
+    assert "label.enabled = true" in theme
+
+    assert "using UnityEngine" not in layout_src
+    assert layout["ShopSortOrder"] > layout["PreviewSortOrder"]
+    assert layout["PreviewSortOrder"] == 80
+    assert layout["ShopSortOrder"] < 200
+    assert "ShipPreviewSortOrder = 80" in ui
+    assert "ShopGridLayout.ShopSortOrder" in ui
+    assert "RectMask2D" in ui
+    assert "ClipPreviewToFrame" in ui
+    assert "RaiseShopAbovePreview" in ui
+    assert "ShopTileChrome.Column" in ui
+    assert "_buyLabels[index].enabled = true" in ui
+    assert 'item.Title + "\\n" + costLine' in ui
+    assert "ShopTileState.Equipped" in ui
+    assert "shopPlate.color" not in ui
+    assert "BoonCard" not in pad
+    assert "ShopGridLayout" not in pad
+    assert "_savedPlayCull" in preview and "_savedDecorCull" in preview
+    assert "DecorCameraStack.CameraName" in preview
+    assert "_savedCull" not in preview
+
+    preview_rect = _shop_preview_screen(layout)
+    grid_rect = _shop_grid_screen(layout)
+    assert _shop_inside(preview_rect)
+    assert _shop_inside(grid_rect)
+    assert not _overlap(preview_rect, grid_rect)
+    assert preview_rect[0] > grid_rect[2]
+    for index in range(10):
+        cell = _shop_hull_cell(index, layout)
+        assert _shop_inside(cell)
+        assert not _overlap(cell, preview_rect)
+        assert cell[0] >= grid_rect[0] - 1e-6 and cell[2] <= grid_rect[2] + 1e-6
+
+    resolutions = ((1280, 800), (1440, 900), (1920, 1080), (2560, 1440), (3440, 1440))
+    hull_en = (
+        "Body Upgrade\nOWNED +",
+        "Hull Plate 02\nOWNED +",
+        "Nose Hardpoint\n120 cr",
+        "Nose Upgrade 02\nLOCKED",
+        "Nose Upgrade 03\nMk II  396 cr",
+        "Rapid Fire\n100 cr",
+        "Engine Upgrade 02\nMk II  396 cr",
+        "Engine Upgrade 03\nLOCKED",
+        "Overcharger\noff-path  ·  LOCKED",
+        "Afterburner\n230 cr",
+        "Bank credits\n500 cr",
+    )
+    hull_sv = (
+        "Skrovbyte\nKÖPT +",
+        "Skrovplatta 02\nKÖPT +",
+        "Noshårdpunkt\n120 kr",
+        "Nos 02\nLÅST",
+        "Nos 03\nMk II  396 kr",
+        "Snabbeld\n100 kr",
+        "Motor 02\nMk II  396 kr",
+        "Motor 03\nLÅST",
+        "Överladdare\nav vägen  ·  LÅST",
+        "Efterbrännare\n230 kr",
+        "Bankera kredit\n500 kr",
+    )
+    wide_en = (
+        "Spread Bolt\n110 cr",
+        "Twin Guns\n140 cr",
+        "Ricochet\n170 cr",
+        "Shield Matrix\nLOCKED",
+        "Hull repair\nneed 80 cr",
+        "Shield refill\n80 cr",
+    )
+    wide_sv = (
+        "Spridbult\n110 kr",
+        "Tvillingkanoner\n140 kr",
+        "Rikoschett\n170 kr",
+        "Sköldmatris\nLÅST",
+        "Skrovreparation\nbehöver 80 kr",
+        "Sköldpåfyllning\n80 kr",
+    )
+    for width, height in resolutions:
+        assert not _overlap(preview_rect, grid_rect), (width, height)
+        assert preview_rect[0] * width < width and grid_rect[2] * width < preview_rect[0] * width
+        for language, hull_lines, wide_lines in (
+            ("en", hull_en, wide_en),
+            ("sv", hull_sv, wide_sv),
+        ):
+            assert _shop_labels_fit(width, height, hull_lines, layout["HullCellW"], layout["HullFont"], layout)
+            wide_frac = layout["WeaponsMaxX"] - layout["WeaponsMinX"]
+            assert _shop_labels_fit(width, height, wide_lines, wide_frac, layout["NameFont"], layout), language
+
+
+def _shop_inside(rect) -> bool:
+    return rect[0] >= 0.0 and rect[1] >= 0.0 and rect[2] <= 1.0 and rect[3] <= 1.0 and rect[2] > rect[0]
+
+
+def _shop_labels_fit(width, height, lines, frac, font, layout) -> bool:
+    scale = _canvas_scale(width, height)
+    panel_w = (layout["HangarMaxX"] - layout["HangarMinX"]) * (width / scale)
+    panel_h = (layout["HangarMaxY"] - layout["HangarMinY"]) * (height / scale)
+    box_w = frac * panel_w
+    box_h = layout["CellHeight"] * panel_h
+    line_h = font * layout["LineSpacing"]
+    for text in lines:
+        count = _wrapped_line_count(text, box_w, font)
+        if count * line_h > box_h + 0.5:
+            return False
+    return True
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -6826,6 +7041,7 @@ def main() -> int:
     test_world_flavour_and_boons()
     test_boon_card_layout()
     test_decor_depth_047b()
+    test_shop_tiles_and_preview_b10()
     test_longhaul_balance_046e()
     test_sector_chip_differs_from_title()
     test_upgrades_line_fits_card()

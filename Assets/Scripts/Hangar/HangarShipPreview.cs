@@ -38,7 +38,8 @@ namespace AsteroidsGoneRogue
         private Light _key;
         private Light _fill;
         private Light _rim;
-        private int _savedCull = -1;
+        private int _savedPlayCull = -1;
+        private int _savedDecorCull = -1;
         private bool _layersPreview;
 
         public void Bind(Transform slots)
@@ -410,20 +411,40 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            bool decorCam = world.gameObject.name == DecorCameraStack.CameraName;
             if (hangar)
             {
-                if (_savedCull < 0)
+                if (decorCam)
                 {
-                    _savedCull = world.cullingMask;
+                    if (_savedDecorCull < 0)
+                    {
+                        _savedDecorCull = world.cullingMask;
+                    }
+
+                    world.cullingMask = _savedDecorCull & ~(1 << PreviewLayer);
+                }
+                else
+                {
+                    if (_savedPlayCull < 0)
+                    {
+                        _savedPlayCull = world.cullingMask;
+                    }
+
+                    world.cullingMask = _savedPlayCull & ~(1 << PreviewLayer);
                 }
 
-                world.cullingMask = _savedCull & ~(1 << PreviewLayer);
                 return;
             }
 
-            if (_savedCull >= 0)
+            if (decorCam && _savedDecorCull >= 0)
             {
-                world.cullingMask = _savedCull;
+                world.cullingMask = _savedDecorCull;
+                return;
+            }
+
+            if (!decorCam && _savedPlayCull >= 0)
+            {
+                world.cullingMask = _savedPlayCull;
             }
         }
     }

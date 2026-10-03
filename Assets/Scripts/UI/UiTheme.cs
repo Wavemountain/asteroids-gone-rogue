@@ -205,6 +205,24 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
+        /// Shop plates paint their own state colour. A ColorBlock tint would
+        /// multiply that plate (hover and selection are two tiles at once) and
+        /// the disabled alpha would turn a light fill into the label colour.
+        /// </summary>
+        public static ColorBlock ShopButtonColors()
+        {
+            ColorBlock colors = ColorBlock.defaultColorBlock;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = Color.white;
+            colors.pressedColor = Color.white;
+            colors.selectedColor = Color.white;
+            colors.disabledColor = Color.white;
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0f;
+            return colors;
+        }
+
+        /// <summary>
         /// Shared panel template: surface plate, header wash, amber rule, optional
         /// title + footer hint. List content is parented by the caller.
         /// </summary>
@@ -266,7 +284,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            button.colors = MenuButtonColors();
+            button.colors = shop ? ShopButtonColors() : MenuButtonColors();
             Navigation nav = button.navigation;
             nav.mode = Navigation.Mode.None;
             button.navigation = nav;
@@ -281,9 +299,18 @@ namespace AsteroidsGoneRogue
                 {
                     plate.color = PrimaryCta;
                 }
+                else if (shop)
+                {
+                    plate.color = ShopTileChrome.Fill(ShopTileState.Normal);
+                }
                 else
                 {
-                    plate.color = shop ? ShopIdle : Surface2;
+                    plate.color = Surface2;
+                }
+
+                if (shop)
+                {
+                    plate.canvasRenderer.SetColor(Color.white);
                 }
             }
 
@@ -360,26 +387,15 @@ namespace AsteroidsGoneRogue
 
         public static void PaintShopPlate(Image plate, Text label, bool owned, bool locked, bool tooPoor)
         {
-            if (plate == null)
-            {
-                return;
-            }
+            ApplyShopState(plate, label, ShopTileChrome.FromFlags(owned, locked, tooPoor));
+        }
 
-            if (owned)
+        public static void ApplyShopState(Image plate, Text label, ShopTileState state)
+        {
+            if (plate != null)
             {
-                plate.color = ShopOwned;
-            }
-            else if (locked)
-            {
-                plate.color = ShopLocked;
-            }
-            else if (tooPoor)
-            {
-                plate.color = Disabled;
-            }
-            else
-            {
-                plate.color = ShopIdle;
+                plate.color = ShopTileChrome.Fill(state);
+                plate.canvasRenderer.SetColor(Color.white);
             }
 
             if (label == null)
@@ -387,22 +403,8 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (owned)
-            {
-                label.color = Secondary;
-            }
-            else if (locked)
-            {
-                label.color = ShopLockedText;
-            }
-            else if (tooPoor)
-            {
-                label.color = ShopPoorText;
-            }
-            else
-            {
-                label.color = Accent;
-            }
+            label.color = ShopTileChrome.Text(state);
+            label.enabled = true;
         }
 
         public static float ChannelLuminance(float channel)
@@ -433,15 +435,7 @@ namespace AsteroidsGoneRogue
 
         public static void PaintOffPathCue(Image plate, Text label)
         {
-            if (plate != null)
-            {
-                plate.color = OffPathTint;
-            }
-
-            if (label != null)
-            {
-                label.color = Secondary;
-            }
+            ApplyShopState(plate, label, ShopTileState.OffPath);
         }
 
         public static void PaintLanguageChip(Image bezel, bool selected, bool focused)

@@ -652,6 +652,7 @@ namespace AsteroidsGoneRogue
                 HangarPanelMin,
                 HangarPanelMax,
                 0.962f);
+            RaiseShopAbovePreview();
             CreateFill("HangarInner", _menuRoot.transform, UiTheme.InnerWash,
                 new Vector2(0.012f, 0.018f), new Vector2(0.988f, 0.948f));
 
@@ -1004,6 +1005,7 @@ namespace AsteroidsGoneRogue
             {
                 _previewRoot.SetActive(show);
                 _previewRoot.transform.SetAsLastSibling();
+                ClipPreviewToFrame();
                 ApplyShipPreviewAnchors();
                 Image plate = _previewRoot.GetComponent<Image>();
                 if (plate != null)
@@ -1034,7 +1036,57 @@ namespace AsteroidsGoneRogue
                 }
             }
 
+            RaiseShopAbovePreview();
             RaiseBoonModal();
+        }
+
+        private void RaiseShopAbovePreview()
+        {
+            if (_menuRoot == null)
+            {
+                return;
+            }
+
+            Canvas shopCanvas = _menuRoot.GetComponent<Canvas>();
+            if (shopCanvas == null)
+            {
+                shopCanvas = _menuRoot.AddComponent<Canvas>();
+            }
+
+            shopCanvas.overrideSorting = true;
+            shopCanvas.sortingOrder = ShopGridLayout.ShopSortOrder;
+            GraphicRaycaster shopCaster = _menuRoot.GetComponent<GraphicRaycaster>();
+            if (shopCaster == null)
+            {
+                _menuRoot.AddComponent<GraphicRaycaster>();
+            }
+
+            Image hangarPlate = _menuRoot.GetComponent<Image>();
+            if (hangarPlate != null)
+            {
+                Color opaquePlate = hangarPlate.color;
+                opaquePlate.a = 1f;
+                hangarPlate.color = opaquePlate;
+            }
+        }
+
+        private void ClipPreviewToFrame()
+        {
+            if (_previewRoot == null)
+            {
+                return;
+            }
+
+            if (_previewRoot.GetComponent<RectMask2D>() == null)
+            {
+                _previewRoot.AddComponent<RectMask2D>();
+            }
+
+            Transform previewWell = _previewRoot.transform.Find("PreviewWell");
+            if (previewWell != null && previewWell.GetComponent<RectMask2D>() == null)
+            {
+                previewWell.gameObject.AddComponent<RectMask2D>();
+            }
         }
 
         private void EnsureBoonModalCanvas()
@@ -1117,11 +1169,11 @@ namespace AsteroidsGoneRogue
 
             float rowStep = ShopCellHeight + ShopCellGutter;
             float gridBottom = ShopGridTop - 4f * rowStep - ShopCellHeight;
-            CreateFill("HullCol", _menuRoot.transform, UiTheme.InnerWash,
+            CreateFill("HullCol", _menuRoot.transform, ShopTileChrome.Column,
                 new Vector2(0.02f, gridBottom), new Vector2(0.49f, ShopGridTop));
-            CreateFill("WeaponsCol", _menuRoot.transform, UiTheme.InnerWash,
+            CreateFill("WeaponsCol", _menuRoot.transform, ShopTileChrome.Column,
                 new Vector2(0.51f, gridBottom), new Vector2(0.735f, ShopGridTop));
-            CreateFill("DefenseCol", _menuRoot.transform, UiTheme.InnerWash,
+            CreateFill("DefenseCol", _menuRoot.transform, ShopTileChrome.Column,
                 new Vector2(0.755f, gridBottom), new Vector2(0.98f, ShopGridTop));
 
             // Slot readout sits in the WEAPONS header band (0.675–0.728), not on shop cells.
@@ -3886,13 +3938,9 @@ namespace AsteroidsGoneRogue
             bool offPath = _loadout.State.IsOffPath(item.Id);
             Image plate = _buyButtons[index].targetGraphic as Image;
             UiTheme.PaintShopPlate(plate, _buyLabels[index], owned, locked, tooPoor);
-            if (equipped && plate != null)
+            if (equipped)
             {
-                plate.color = UiTheme.WithAlpha(UiTheme.Primary, 0.34f);
-            }
-            if (equipped && _buyLabels[index] != null)
-            {
-                _buyLabels[index].color = UiTheme.Primary;
+                UiTheme.ApplyShopState(plate, _buyLabels[index], ShopTileState.Equipped);
             }
             if (offPath)
             {
@@ -3935,6 +3983,7 @@ namespace AsteroidsGoneRogue
                 costLine = Loc.T("ui.off_path", "off-path") + "  ·  " + costLine;
             }
 
+            _buyLabels[index].enabled = true;
             _buyLabels[index].text = item.Title + "\n" + costLine;
         }
 
@@ -4685,10 +4734,12 @@ namespace AsteroidsGoneRogue
             bool locked = runOver || other || !gate;
             bool action = !runOver && DoctrineRules.CardIsAction(_session.ShopOpen, chosen, other, gate, tooPoor);
             button.interactable = action;
+            button.colors = UiTheme.ShopButtonColors();
             Image plate = button.targetGraphic as Image;
             if (plate != null)
             {
                 plate.raycastTarget = action;
+                plate.canvasRenderer.SetColor(Color.white);
             }
             UiTheme.PaintShopPlate(plate, label, chosen, locked, tooPoor);
             string statusLine = runOver
@@ -7187,14 +7238,15 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            Image shopPlate = shopButton.targetGraphic as Image;
-            if (shopPlate == null)
+            Outline shopRing = shopButton.GetComponent<Outline>();
+            if (shopRing == null)
             {
                 return;
             }
 
             float shopPulse = Mathf.PingPong(Time.unscaledTime * 2.2f, 1f);
-            shopPlate.color = Color.Lerp(UiTheme.PrimaryCta, UiTheme.Brighten(UiTheme.Primary, 0.22f), shopPulse);
+            shopRing.effectColor = Color.Lerp(UiTheme.Secondary, UiTheme.Focus, shopPulse);
+            shopRing.enabled = true;
         }
     }
 }
