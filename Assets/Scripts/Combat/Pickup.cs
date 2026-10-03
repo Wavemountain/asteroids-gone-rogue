@@ -106,11 +106,18 @@ namespace AsteroidsGoneRogue
             {
                 float remain = _expires ? (_expireAt - Time.time) : ExtraLifeUrgentSeconds;
                 bool urgent = remain < ExtraLifeUrgentSeconds;
-                float hz = urgent ? ExtraLifePulseHz + 3.2f : ExtraLifePulseHz;
-                pulse = 1.18f + Mathf.Sin(Time.time * hz) * (urgent ? 0.28f : 0.2f);
-                if (urgent)
+                if (EffectScale.FreezePulse(SettingsState.ReduceEffectsEnabled))
                 {
-                    pulse *= 0.72f + Mathf.PingPong(Time.time * 2f, 0.4f);
+                    pulse = 1.18f;
+                }
+                else
+                {
+                    float hz = urgent ? ExtraLifePulseHz + 3.2f : ExtraLifePulseHz;
+                    pulse = 1.18f + Mathf.Sin(Time.time * hz) * (urgent ? 0.28f : 0.2f);
+                    if (urgent)
+                    {
+                        pulse *= 0.72f + Mathf.PingPong(Time.time * 2f, 0.4f);
+                    }
                 }
 
                 PulseBeacon(urgent);
@@ -257,6 +264,22 @@ namespace AsteroidsGoneRogue
 
         private void PulseBeacon(bool urgent)
         {
+            if (EffectScale.FreezePulse(SettingsState.ReduceEffectsEnabled))
+            {
+                if (_beacon != null)
+                {
+                    _beacon.intensity = 1.8f;
+                    _beacon.range = urgent ? 9f : 7.5f;
+                }
+
+                if (_pip != null)
+                {
+                    _pip.localPosition = new Vector3(0f, 1.15f, 0f);
+                }
+
+                return;
+            }
+
             if (_beacon != null)
             {
                 float pulse = 1.8f + Mathf.Sin(Time.time * (urgent ? 14f : 8f)) * 0.85f;
