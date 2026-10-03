@@ -424,6 +424,9 @@ namespace AsteroidsGoneRogue
             { "ui.hud_fire", "\nFire {0}" },
             { "ui.slot_primary", "PRIMARY" },
             { "ui.unmute", "Unmute" },
+            { "ui.locked", "LOCKED" },
+            { "ui.mk2", "Mk II" },
+            { "ui.off_path", "off-path" },
         };
 
         private static bool _loaded;

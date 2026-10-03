@@ -3927,64 +3927,35 @@ namespace AsteroidsGoneRogue
                 : _loadout.State.EffectiveCost(item, shopWorld);
             bool runOver = GameSession.ShopLockedForPhase(_session.Phase);
             bool canApply = _loadout.State.CanApply(item.Id);
-            bool locked = runOver || (!owned && !canApply);
-            bool tooPoor = !runOver && ((mk2Offer && _session.Credits < price) || (!owned && canApply && _session.Credits < price));
             bool weapon = WeaponSlots.IsWeapon(item.Id);
             bool equipped = owned && weapon && _loadout.State.IsEquipped(item.Id);
-            _buyButtons[index].interactable = !runOver
-                && _session.ShopOpen
-                && ((mk2Offer && !tooPoor) || (owned && weapon) || (!owned && !locked && !tooPoor));
-
             bool offPath = _loadout.State.IsOffPath(item.Id);
-            Image plate = _buyButtons[index].targetGraphic as Image;
-            UiTheme.PaintShopPlate(plate, _buyLabels[index], owned, locked, tooPoor);
-            if (equipped)
-            {
-                UiTheme.ApplyShopState(plate, _buyLabels[index], ShopTileState.Equipped);
-            }
-            if (offPath)
-            {
-                UiTheme.PaintOffPathCue(plate, _buyLabels[index]);
-            }
             EventSystem es = EventSystem.current;
             bool focused = es != null
                 && es.currentSelectedGameObject != null
                 && es.currentSelectedGameObject == _buyButtons[index].gameObject;
-            UiTheme.SetPadFocus(_buyButtons[index].gameObject, focused, true);
-
-            string costLine;
-            if (mk2Offer)
-            {
-                costLine = Loc.T("ui.mk2", "Mk II") + "  " + Loc.Tf("ui.cost_cr", "{0} cr", price);
-            }
-            else if (owned)
-            {
-                costLine = Loc.T("ui.owned", "OWNED") + UiTheme.OwnedCheck;
-            }
-            else if (locked)
-            {
-                costLine = Loc.T("ui.locked", "LOCKED");
-            }
-            else if (tooPoor)
-            {
-                costLine = Loc.Tf("ui.need_cr", "need {0} cr", price);
-            }
-            else
-            {
-                costLine = Loc.Tf("ui.cost_cr", "{0} cr", price);
-            }
-
-            if (runOver)
-            {
-                costLine = Loc.T("ui.run_over", "Run is over");
-            }
-            else if (offPath)
-            {
-                costLine = Loc.T("ui.off_path", "off-path") + "  ·  " + costLine;
-            }
-
+            ShopTileInput spec = new ShopTileInput();
+            spec.Title = item.Title;
+            spec.Price = price;
+            spec.Credits = _session != null ? _session.Credits : 0;
+            spec.Owned = owned;
+            spec.Mk2Owned = _loadout.State.OwnsMk2(item.Id);
+            spec.Mk2Offer = mk2Offer;
+            spec.CanApply = canApply;
+            spec.OffPath = offPath;
+            spec.Weapon = weapon;
+            spec.Equipped = equipped;
+            spec.RunOver = runOver;
+            spec.ShopOpen = _session != null && _session.ShopOpen;
+            spec.Focused = focused;
+            spec.Swedish = Loc.IsSwedish;
+            ShopTileModel tileModel = ShopTileView.Build(spec);
+            Image plate = _buyButtons[index].targetGraphic as Image;
+            UiTheme.ApplyShopHex(plate, _buyLabels[index], tileModel.FillHex, tileModel.TextHex);
+            _buyButtons[index].interactable = tileModel.Interactable;
             _buyLabels[index].enabled = true;
-            _buyLabels[index].text = item.Title + "\n" + costLine;
+            _buyLabels[index].text = tileModel.Label;
+            UiTheme.PlaceShopFocus(_buyButtons[index].gameObject, _buyLabels[index], tileModel.Focused);
         }
 
         private void RefreshServiceButtons()
