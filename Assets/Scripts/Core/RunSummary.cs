@@ -462,12 +462,16 @@ namespace AsteroidsGoneRogue
             {
                 if (next != null && next.Id == UpgradeId.Seeker)
                 {
-                    return Loc.T("run.buy_seeker_lt", "Buy Seeker > hold LT");
+                    return PromptText.Flatten(
+                        Loc.T("run.buy_seeker_lt", "Buy Seeker > hold {utility}"),
+                        InputSchemeDriver.Current);
                 }
 
                 if (loadout != null && loadout.Seeker)
                 {
-                    return Loc.T("run.hold_lt", "Hold LT to fire utility");
+                    return PromptText.Flatten(
+                        Loc.T("run.hold_lt", "Hold {utility} to fire utility"),
+                        InputSchemeDriver.Current);
                 }
 
                 return Loc.T("run.first_upgrade", "Spend credits on your first upgrade");

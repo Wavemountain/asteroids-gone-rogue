@@ -1454,6 +1454,92 @@ def check_canvas_sort(scripts: list[Path]) -> None:
             err(f"{path.relative_to(ROOT)}:{index} canvas sortingOrder must use a CanvasOrder constant")
 
 
+def _prompt_cell_present(cell: str) -> bool:
+    text = cell.strip()
+    if text in ("", "-", "–", "—"):
+        return False
+    if text.startswith("-") or text.startswith("–") or text.startswith("—"):
+        return False
+    return True
+
+
+def check_input_prompts() -> None:
+    """Every spec glyph is on disk, and every InputPrompts PNG has a sprite .meta."""
+    spec_path = ROOT / "Docs/0.47/E_input_prompts_spec.md"
+    if not spec_path.is_file():
+        err("missing Docs/0.47/E_input_prompts_spec.md")
+        return
+
+    section = read(spec_path).split("## 2.")[1].split("## 3.")[0]
+    schemes = ("xbox", "playstation", "deck", "keyboard")
+    expected: list[tuple[str, str]] = []
+    for line in section.splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) < 5:
+            continue
+        action = cells[0].strip("`").split()[0]
+        if not re.fullmatch(r"[a-z][a-z0-9_]*", action):
+            continue
+        for scheme, cell in zip(schemes, cells[1:5]):
+            if _prompt_cell_present(cell):
+                expected.append((scheme, action))
+
+    if len(expected) < 40:
+        err(f"Input Prompts spec mapping parsed too few actions ({len(expected)})")
+
+    root = ROOT / "Assets/Resources/UI/InputPrompts"
+    seen: set[Path] = set()
+    for scheme, action in expected:
+        for folder in (scheme, f"{scheme}/hi"):
+            relative = root / folder / f"{action}.png"
+            seen.add(relative)
+            if not relative.is_file():
+                err(f"missing prompt glyph {relative.relative_to(ROOT)}")
+                continue
+            meta = Path(str(relative) + ".meta")
+            if not meta.is_file():
+                err(f"missing prompt meta {meta.relative_to(ROOT)}")
+                continue
+            meta_text = meta.read_text(encoding="utf-8")
+            for token in (
+                "textureType: 8",
+                "enableMipMap: 0",
+                "alphaIsTransparency: 1",
+                "filterMode: 1",
+                "textureCompression: 0",
+                "spriteMode: 1",
+            ):
+                if token not in meta_text:
+                    err(f"{meta.relative_to(ROOT)} missing {token}")
+
+    if root.is_dir():
+        for png in root.rglob("*.png"):
+            meta = Path(str(png) + ".meta")
+            if not meta.is_file():
+                err(f"InputPrompts PNG missing .meta: {png.relative_to(ROOT)}")
+            if png not in seen:
+                err(f"InputPrompts PNG is not in the spec mapping: {png.relative_to(ROOT)}")
+
+    importer = ROOT / "Assets/Editor/InputPromptsImporter.cs"
+    if not importer.is_file():
+        err("missing Assets/Editor/InputPromptsImporter.cs")
+    else:
+        importer_text = read(importer)
+        for token in (
+            "TextureImporterType.Sprite",
+            "mipmapEnabled = false",
+            "alphaIsTransparency = true",
+            "FilterMode.Bilinear",
+            "TextureImporterCompression.Uncompressed",
+        ):
+            if token not in importer_text:
+                err(f"InputPromptsImporter missing {token}")
+        if "Assets/Editor" not in str(importer):
+            err("InputPromptsImporter must live under Assets/Editor")
+
+
 def main() -> int:
     require(ROOT / "Packages/manifest.json")
     require(ROOT / "ProjectSettings/ProjectVersion.txt")
@@ -1804,19 +1890,19 @@ def main() -> int:
         err("GameUi must keep Start as the launch shortcut and doctrine swap text passive")
     loc_src = read(ROOT / "Assets/Scripts/Core/Loc.cs")
     theme_src = read(ROOT / "Assets/Scripts/UI/UiTheme.cs")
-    if "Start launch wave" not in game_ui or "LS move · {0}" not in game_ui:
-        err("hangar footer must include Start launch wave on the one-line hint")
-    if "Start starta våg" not in loc_src or "LS styr · {0}" not in loc_src:
-        err("Swedish hangar footer must include Start starta våg")
+    if "{pause} Launch wave" not in game_ui or "{move} move · {0}" not in game_ui:
+        err("hangar footer must include the pause launch-wave token on the one-line hint")
+    if "{pause} Starta våg" not in loc_src or "{move} styr · {0}" not in loc_src:
+        err("Swedish hangar footer must include the pause starta-våg token")
     hangar_card = game_ui.split("HangarHintBody")[1].split("FirstWaveCoach")[0]
-    if "Abort (Esc)" in hangar_card or "Start = launch wave" not in hangar_card:
-        err("first-hangar card must say Start launches the wave, not Abort (Esc)")
-    if "B / Esc = focus Next Wave" not in hangar_card:
-        err("first-hangar card must say B / Esc focuses Next Wave")
-    if "Esc / Start = back to hangar" not in game_ui:
-        err("play hint must say Esc / Start = back to hangar")
-    if "Esc / Start returns to hangar" not in game_ui:
-        err("first-wave coach must say Esc / Start returns to hangar")
+    if "Abort (Esc)" in hangar_card or "{pause} = launch wave" not in hangar_card:
+        err("first-hangar card must say the pause token launches the wave, not Abort (Esc)")
+    if "{cancel} = focus Next Wave" not in hangar_card:
+        err("first-hangar card must say the cancel token focuses Next Wave")
+    if "{pause} = back to hangar" not in game_ui:
+        err("play hint must say the pause token returns to the hangar")
+    if "{pause} returns to hangar" not in game_ui:
+        err("first-wave coach must say the pause token returns to hangar")
     if "HintMin = 18" not in theme_src or "HintSize(int screenWidth)" not in theme_src:
         err("UiTheme.HintMin must be 18 and HintSize(int screenWidth) must exist")
     if "screenWidth <= 1280" not in theme_src or "return HintMin" not in theme_src:
@@ -1906,7 +1992,7 @@ def main() -> int:
         err("HintMode.On and the 22px hint step must stay stable")
     if "ShowsPlayHint" not in game_ui or "ShowsHangarFooter" not in game_ui or "EffectiveHintSize" not in game_ui:
         err("GameUi hint refresh must read hint mode and effective hint size")
-    if "ui.hint_footer" not in game_ui or "A Select · Start Launch wave" not in game_ui:
+    if "ui.hint_footer" not in game_ui or "{confirm} Select · {pause} Launch wave" not in game_ui:
         err("hangar footer must use the short hint line")
     follow = read(ROOT / "Assets/Scripts/Player/FollowCamera.cs")
     if "SettingsState.ScreenShakeEnabled" not in follow or "SettingsState.ShakeAmplitude" not in follow:
@@ -1977,6 +2063,8 @@ def main() -> int:
             err(f"Packages/manifest.json must not list {blocked} (Hub Continue / unused builtin)")
         if f'"{blocked}"' in lock:
             err(f"Packages/packages-lock.json must not list {blocked}")
+
+    check_input_prompts()
 
     if ERRORS:
         print("Week 1 validation FAILED:")

@@ -123,7 +123,7 @@ namespace AsteroidsGoneRogue
     /// </summary>
     public sealed class SettingsState
     {
-        public const int CurrentVersion = 5;
+        public const int CurrentVersion = 6;
         public const int DefaultHintSizeStep = 1;
         public const int MaxHintSizeStep = 2;
 
@@ -141,6 +141,7 @@ namespace AsteroidsGoneRogue
         public const string ResolutionHeightKey = "agr.settings.resolutionH";
         public const string VSyncKey = "agr.settings.vSync";
         public const string FpsCapKey = "agr.settings.fpsCap";
+        public const string PromptSchemeKey = "agr.settings.promptScheme";
 
         public bool ScreenShake;
         public bool AssistMode;
@@ -155,6 +156,7 @@ namespace AsteroidsGoneRogue
         public int ResolutionHeight;
         public bool VSync;
         public int FpsCap;
+        public int PromptScheme;
 
         public static SettingsState CreateDefault()
         {
@@ -172,6 +174,7 @@ namespace AsteroidsGoneRogue
             state.ResolutionHeight = DisplaySettings.DefaultHeight;
             state.VSync = DisplaySettings.DefaultVSync != 0;
             state.FpsCap = DisplaySettings.DefaultFpsCap;
+            state.PromptScheme = (int)InputSchemePreference.Auto;
             return state;
         }
 
@@ -183,6 +186,8 @@ namespace AsteroidsGoneRogue
         private static bool _assistReady;
         private static bool _reduceCached;
         private static bool _reduceReady;
+        private static int _promptSchemeCached;
+        private static bool _promptSchemeReady;
 
         public static bool AssistEnabled
         {
@@ -267,6 +272,27 @@ namespace AsteroidsGoneRogue
             _assistReady = true;
             _reduceCached = source.ReduceEffects;
             _reduceReady = true;
+            _promptSchemeCached = source.PromptScheme;
+            _promptSchemeReady = true;
+        }
+
+        /// <summary>
+        /// Cached prompt-icon override. Auto follows the last device.
+        /// Missing or pre-v6 saves stay on Auto.
+        /// </summary>
+        public static InputSchemePreference PromptPreference
+        {
+            get
+            {
+                if (!_promptSchemeReady)
+                {
+                    int stored = UnityEngine.PlayerPrefs.GetInt(PromptSchemeKey, (int)InputSchemePreference.Auto);
+                    _promptSchemeCached = (int)InputSchemeRules.Normalize(stored);
+                    _promptSchemeReady = true;
+                }
+
+                return (InputSchemePreference)_promptSchemeCached;
+            }
         }
 
         /// <summary>
@@ -600,6 +626,7 @@ namespace AsteroidsGoneRogue
             PadNavSource = NormalizePadNavSource((int)PadNavSource);
             WindowMode = DisplaySettings.NormalizeWindow(WindowMode);
             FpsCap = DisplaySettings.NormalizeFps(FpsCap);
+            PromptScheme = (int)InputSchemeRules.Normalize(PromptScheme);
             ResolutionWidth = DisplaySettings.ClampDimension(
                 ResolutionWidth,
                 DisplaySettings.MinWidth,
@@ -628,6 +655,7 @@ namespace AsteroidsGoneRogue
             prefs.ResolutionHeight = ResolutionHeight;
             prefs.VSync = VSync ? 1 : 0;
             prefs.FpsCap = FpsCap;
+            prefs.PromptScheme = PromptScheme;
             return prefs;
         }
 
@@ -699,7 +727,8 @@ namespace AsteroidsGoneRogue
                 DisplaySettings.DefaultWidth,
                 DisplaySettings.DefaultHeight,
                 DisplaySettings.DefaultVSync,
-                DisplaySettings.DefaultFpsCap);
+                DisplaySettings.DefaultFpsCap,
+                0);
         }
 
         public static SettingsState FromInts(
@@ -716,7 +745,8 @@ namespace AsteroidsGoneRogue
             int resolutionWidth,
             int resolutionHeight,
             int vSync,
-            int fpsCap)
+            int fpsCap,
+            int promptScheme)
         {
             if (version < 1 || version > CurrentVersion)
             {
@@ -749,6 +779,12 @@ namespace AsteroidsGoneRogue
                 state.FpsCap = DisplaySettings.NormalizeFps(fpsCap);
             }
 
+            // Versions before 6 have no icon-scheme key. Stay on Auto.
+            if (version >= 6)
+            {
+                state.PromptScheme = (int)InputSchemeRules.Normalize(promptScheme);
+            }
+
             return state;
         }
 
@@ -768,7 +804,8 @@ namespace AsteroidsGoneRogue
                 prefs.ResolutionWidth,
                 prefs.ResolutionHeight,
                 prefs.VSync,
-                prefs.FpsCap);
+                prefs.FpsCap,
+                prefs.PromptScheme);
         }
 
         public static SettingsState Load()
@@ -788,7 +825,8 @@ namespace AsteroidsGoneRogue
                 UnityEngine.PlayerPrefs.GetInt(ResolutionWidthKey, DisplaySettings.DefaultWidth),
                 UnityEngine.PlayerPrefs.GetInt(ResolutionHeightKey, DisplaySettings.DefaultHeight),
                 UnityEngine.PlayerPrefs.GetInt(VSyncKey, DisplaySettings.DefaultVSync),
-                UnityEngine.PlayerPrefs.GetInt(FpsCapKey, DisplaySettings.DefaultFpsCap));
+                UnityEngine.PlayerPrefs.GetInt(FpsCapKey, DisplaySettings.DefaultFpsCap),
+                UnityEngine.PlayerPrefs.GetInt(PromptSchemeKey, (int)InputSchemePreference.Auto));
             Publish(state);
             if (version != CurrentVersion)
             {
@@ -815,6 +853,7 @@ namespace AsteroidsGoneRogue
             UnityEngine.PlayerPrefs.SetInt(ResolutionHeightKey, prefs.ResolutionHeight);
             UnityEngine.PlayerPrefs.SetInt(VSyncKey, prefs.VSync);
             UnityEngine.PlayerPrefs.SetInt(FpsCapKey, prefs.FpsCap);
+            UnityEngine.PlayerPrefs.SetInt(PromptSchemeKey, prefs.PromptScheme);
             UnityEngine.PlayerPrefs.Save();
             Publish(this);
         }
@@ -836,5 +875,6 @@ namespace AsteroidsGoneRogue
         public int ResolutionHeight;
         public int VSync;
         public int FpsCap;
+        public int PromptScheme;
     }
 }

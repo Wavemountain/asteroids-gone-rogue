@@ -83,7 +83,10 @@ SAME_LANGUAGE_ALLOW = {
     "Mk II",
     "Session {0}",
     " / Sess {0}",
+    "Xbox",
+    "PlayStation",
 }
+_TOKEN = re.compile(r"\{[a-z0-9_]+\}")
 _CALL = re.compile(
     r'Loc\.T(f)?\(\s*"([^"]+)"\s*,\s*"((?:\\.|[^"\\])*)"',
     re.S,
@@ -195,7 +198,7 @@ def check(root: Path) -> list[str]:
                 for glyph in _glyphs(value, allowed):
                     errors.append(f"{table_name} {key} contains {glyph}")
                 if table_name == "SV":
-                    lowered = value.casefold()
+                    lowered = _TOKEN.sub(" ", value).casefold()
                     for word in ("primary", "utility"):
                         if word in lowered:
                             errors.append(f"SV {key} contains English {word}")

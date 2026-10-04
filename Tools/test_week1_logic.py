@@ -328,11 +328,11 @@ def test_factory_wires_import_fbx() -> None:
     assert "agr.ui.firstHangarHint" in ui
     assert "First flight" in ui
     assert "Clear a wave to earn credits and upgrades." in ui
-    assert "Start = launch wave" in ui
+    assert "{pause} = launch wave" in ui
     assert "Abort (Esc)" not in ui.split("HangarHintBody")[1].split("FirstWaveCoach")[0]
-    assert "LT utility" in ui
-    assert "LB cycle primary" in ui
-    assert "RT fire" in ui
+    assert "{utility} utility" in ui
+    assert "{cycle} cycle primary" in ui
+    assert "{fire} fire" in ui
     assert "Got it" in ui
     assert "DismissFirstHangarHint" in ui
     assert "HULL / NOSE / ENGINE" in ui or "HullHeader" in catalog
@@ -1923,7 +1923,7 @@ def test_weapons_upgrades_040b() -> None:
     assert "OverchargerDamageBonus" in loadout
     assert "HasAltFire" in loadout and "HasAltFire" in ui and "HasAltFire" in shooter
     assert "hullIndex % 4" in ui
-    assert "LB cycle primary" in ui
+    assert "{cycle} cycle primary" in ui
     assert '"Body Upgrade"' in catalog
     shield_cell = catalog.split("UpgradeId.ShieldCell")[1].split("new ShopItem")[0]
     assert "80," in shield_cell
@@ -3501,9 +3501,9 @@ def test_dual_fire_v1() -> None:
     assert "GetMouseButtonDown(1)" not in pad
     assert "KeyCode.JoystickButton5" in pad
     assert "m_Name: UtilityTrigger" in inputs
-    assert "LT utility · LB cycle primary · RT fire" in ui
-    assert "LT verktyg · LB cykla primär · RT skjut" in loc
-    assert "Buy Seeker > hold LT" in summary
+    assert "{utility} utility · {cycle} cycle primary · {fire} fire" in ui
+    assert "{utility} verktyg · {cycle} cykla primär · {fire} skjut" in loc
+    assert "Buy Seeker > hold {utility}" in summary
     assert "PRIMARY {0}" in ui and "UTILITY {0}" in ui
     assert "ui.hud_empty" in loc and "tom" in loc
     assert "UtilityHud" in ui and "Radial360" in ui
@@ -3912,8 +3912,8 @@ def test_hangar_next_wave_always_selectable() -> None:
     summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
     assert 'Loc.T("ui.new_run_reset", "New Run (reset)")' in summary
     assert 'Loc.T("ui.next_wave", "Next Wave")' in summary
-    assert "B / Esc Next Wave" in ui
-    assert "B / Esc nästa våg" in loc
+    assert "{cancel} Next Wave" in ui
+    assert "{cancel} nästa våg" in loc
 
     # Invalid / fully locked shop snaps to Next Wave and does not consume the stick step.
     calls = {"n": 0}
@@ -4483,19 +4483,18 @@ def test_doctrine_rows_pad_reachable() -> None:
     assert up_right, "gear must be reachable from Next Wave with up/right"
     assert down_left, "Next Wave must be reachable from the gear"
 
-    en_hint = "LS move · LT utility · LB cycle · A confirm · B / Esc Next Wave · Start launch wave"
-    sv_hint = "LS styr · LT verktyg · LB cykla · A bekräfta · B / Esc nästa våg · Start starta våg"
-    assert "LS move · {0}" in ui
-    assert "LT utility · LB cycle · A confirm · B / Esc Next Wave · Start launch wave" in ui
-    assert "LS styr · {0}" in loc
-    assert "LT verktyg · LB cykla · A bekräfta · B / Esc nästa våg · Start starta våg" in loc
-    # Footer is one line in (0.14, 0.008)–(0.86, 0.072). At 18px, Kenney Future
-    # Narrow is about 10px/char and the 1280px hint box is 922px, so stay <= 90.
-    hint_box = (0.86 - 0.14) * 1280
-    assert len(en_hint) <= 90 and len(sv_hint) <= 90
-    assert len(en_hint) * 10 < hint_box
-    assert len(sv_hint) * 10 < hint_box
-    assert len(sv_hint) < 165
+    en_hint = "{move} move · {utility} utility · {cycle} cycle · {confirm} confirm · {cancel} Next Wave · {pause} launch wave"
+    sv_hint = "{move} styr · {utility} verktyg · {cycle} cykla · {confirm} bekräfta · {cancel} nästa våg · {pause} starta våg"
+    assert "{move} move · {0}" in ui
+    assert "{utility} utility · {cycle} cycle · {confirm} confirm · {cancel} Next Wave · {pause} launch wave" in ui
+    assert "{move} styr · {0}" in loc
+    assert "{utility} verktyg · {cycle} cykla · {confirm} bekräfta · {cancel} nästa våg · {pause} starta våg" in loc
+    # Footer is one line in (0.14, 0.008)–(0.86, 0.072). Icons replace the tokens.
+    for width, height in ((1280, 800), (1920, 1080), (3440, 1440)):
+        scale = _canvas_scale(width, height)
+        hint_w = (0.86 - 0.14) * (width / scale)
+        assert _prompt_line_width(en_hint, 18, scale) <= hint_w, (width, en_hint)
+        assert _prompt_line_width(sv_hint, 18, scale) <= hint_w, (width, sv_hint)
 
 
 def test_hangar_footer_launch_and_hint_size() -> None:
@@ -4519,31 +4518,30 @@ def test_hangar_footer_launch_and_hint_size() -> None:
         assert f'"{key}"' in swedish, key
         assert f'"{key}"' in ui, key
 
-    en_hangar = "LS move · LT utility · LB cycle · A confirm · B / Esc Next Wave · Start launch wave"
-    sv_hangar = "LS styr · LT verktyg · LB cykla · A bekräfta · B / Esc nästa våg · Start starta våg"
-    assert "Start launch wave" in en_hangar and "Start launch wave" in ui
-    assert "Start starta våg" in sv_hangar and "Start starta våg" in loc
-    assert "LS move · {0}" in ui and "LS styr · {0}" in loc
-    assert len(en_hangar) <= 90 and len(sv_hangar) <= 90
-    hint_box = (0.86 - 0.14) * 1280
-    assert len(en_hangar) * 10 < hint_box
-    assert len(sv_hangar) * 10 < hint_box
-
-    en_play = "WASD/LS move · Mouse/RS aim · LMB/RT fire · E/LT utility · Q/LB cycle · Esc / Start = back to hangar"
-    sv_play = "WASD/LS styr · Mus/RS sikte · VMB/RT skjut · E/LT verktyg · Q/LB cykla · Esc/Start = tillbaka till hangaren"
+    en_hangar = "{move} move · {utility} utility · {cycle} cycle · {confirm} confirm · {cancel} Next Wave · {pause} launch wave"
+    sv_hangar = "{move} styr · {utility} verktyg · {cycle} cykla · {confirm} bekräfta · {cancel} nästa våg · {pause} starta våg"
+    assert "{pause} launch wave" in en_hangar and "{pause} launch wave" in ui
+    assert "{pause} starta våg" in sv_hangar and "{pause} starta våg" in loc
+    assert "{move} move · {0}" in ui and "{move} styr · {0}" in loc
+    en_play = "{move} move · {aim} aim · {fire} fire · {utility} utility · {cycle} cycle · {pause} = back to hangar"
+    sv_play = "{move} styr · {aim} sikte · {fire} skjut · {utility} verktyg · {cycle} cykla · {pause} = tillbaka till hangaren"
     assert en_play in ui and sv_play in loc
     assert "Esc / Start abort" not in ui
     assert "Esc / Start avbryt" not in loc
-    assert len(en_play) <= 125 and len(sv_play) <= 125
+    for width, height in ((1280, 800), (1920, 1080), (3440, 1440)):
+        scale = _canvas_scale(width, height)
+        hint_w = (0.86 - 0.14) * (width / scale)
+        for line in (en_hangar, sv_hangar, en_play, sv_play):
+            assert _prompt_line_width(line, 22, scale) <= hint_w, (width, line)
 
     card = ui.split("HangarHintBody")[1].split("FirstWaveCoach")[0]
     assert "Abort (Esc)" not in card
-    assert "Start = launch wave" in card
-    assert "B / Esc = focus Next Wave" in card
+    assert "{pause} = launch wave" in card
+    assert "{cancel} = focus Next Wave" in card
     assert "Avbryt (Esc)" not in loc
-    assert "B / Esc = fokusera Nästa våg" in loc
-    assert "Esc / Start returns to hangar" in ui
-    assert "Esc / Start återvänder till hangaren" in loc
+    assert "{cancel} = fokusera Nästa våg" in loc
+    assert "{pause} returns to hangar" in ui
+    assert "{pause} återvänder till hangaren" in loc
     assert "Abort (Start)" not in ui
 
     assert "HintMin = 18" in theme
@@ -4555,7 +4553,7 @@ def test_hangar_footer_launch_and_hint_size() -> None:
     assert "_hint.fontSize = footerSize" in ui
     assert "_firstFlightBody.fontSize = footerSize" in ui
     assert "ui.hint_footer" in ui
-    assert "A Select · Start Launch wave · Select = Settings" in ui
+    assert "{confirm} Select · {pause} Launch wave · {settings} Settings" in ui
 
     def hint_size(screen_width: int) -> int:
         return 18 if screen_width <= 1280 else 16
@@ -4580,6 +4578,7 @@ def _settings_default() -> dict:
         "resolution_h": 1080,
         "vsync": False,
         "fps_cap": 60,
+        "prompt_scheme": 0,
     }
 
 
@@ -4722,9 +4721,10 @@ def _settings_from_ints(
     res_h=1080,
     vsync=0,
     fps=60,
+    prompt_scheme=0,
 ) -> dict:
     state = _settings_default()
-    if version not in (1, 2, 3, 4, 5):
+    if version not in (1, 2, 3, 4, 5, 6):
         return state
     state["screen_shake"] = shake != 0
     state["hint_mode"] = _normalize_hint_mode(hint)
@@ -4742,12 +4742,15 @@ def _settings_from_ints(
         state["resolution_h"] = _clamp_resolution(res_h, 480, 1080)
         state["vsync"] = vsync != 0
         state["fps_cap"] = _normalize_fps(fps)
+    if version >= 6:
+        scheme = prompt_scheme
+        state["prompt_scheme"] = scheme if scheme in (0, 1, 2, 3, 4) else 0
     return state
 
 
 def _settings_capture(state: dict) -> tuple:
     return (
-        5,
+        6,
         1 if state["screen_shake"] else 0,
         _normalize_hint_mode(state["hint_mode"]),
         _clamp_hint_size(state["hint_size"]),
@@ -4761,6 +4764,7 @@ def _settings_capture(state: dict) -> tuple:
         _clamp_resolution(state.get("resolution_h", 1080), 480, 1080),
         1 if state.get("vsync") else 0,
         _normalize_fps(state.get("fps_cap", 60)),
+        state.get("prompt_scheme", 0) if state.get("prompt_scheme", 0) in (0, 1, 2, 3, 4) else 0,
     )
 
 
@@ -4802,6 +4806,7 @@ def _settings_blocks_pad(flags: dict) -> bool:
 
 def _settings_roles() -> tuple[str, ...]:
     return (
+        "value",
         "value",
         "value",
         "value",
@@ -4884,6 +4889,61 @@ def _step_volume(current: float, direction: int) -> float:
     delta = 0.1 if direction > 0 else (-0.1 if direction < 0 else 0.0)
     nxt = min(1.0, max(0.0, current + delta))
     return round(nxt * 1000.0) / 1000.0
+
+
+_PROMPT_TOKENS = {
+    "fire",
+    "fire_alt",
+    "utility",
+    "utility_alt",
+    "cycle",
+    "cycle_prev",
+    "cycle_alt",
+    "confirm",
+    "cancel",
+    "pause",
+    "move",
+    "aim",
+    "nav",
+    "settings",
+}
+
+
+def _prompt_line_width(line: str, font: int, scale: float) -> float:
+    """Icon tokens are 18 screen px. Literal runs use Kenney Future Narrow."""
+    icon = 18.0 / max(scale, 0.05)
+    gap = font * 0.12
+    width = 0.0
+    pieces = 0
+    text = ""
+
+    def flush() -> None:
+        nonlocal width, pieces, text
+        if not text:
+            return
+        if pieces:
+            width += gap
+        width += _kenney_narrow_width(text, font)
+        pieces += 1
+        text = ""
+
+    index = 0
+    while index < len(line):
+        if line[index] == "{":
+            end = line.find("}", index + 1)
+            token = line[index + 1 : end] if end > index else ""
+            if token in _PROMPT_TOKENS:
+                flush()
+                if pieces:
+                    width += gap
+                width += icon
+                pieces += 1
+                index = end + 1
+                continue
+        text += line[index]
+        index += 1
+    flush()
+    return width
 
 
 def _canvas_scale(width: float, height: float) -> float:
@@ -5048,7 +5108,7 @@ def test_settings_shell() -> None:
     inputs = (root / "ProjectSettings/InputManager.asset").read_text(encoding="utf-8")
 
     assert "class SettingsState" in state
-    assert "CurrentVersion = 5" in state
+    assert "CurrentVersion = 6" in state
     assert "DefaultHintSizeStep = 1" in state
     assert "MaxHintSizeStep = 2" in state
     assert "ScreenShake = true" in state
@@ -5136,6 +5196,7 @@ def test_settings_shell() -> None:
         "resolution_h": 1080,
         "vsync": False,
         "fps_cap": 60,
+        "prompt_scheme": 0,
     }
     packed = _settings_capture(dirty)
     assert _settings_from_ints(*packed) == dirty
@@ -5170,7 +5231,7 @@ def test_settings_shell() -> None:
     assert "SettingsRowId.PadNav" in order
     assert order.index("ConfirmNewRun") < order.index("PadNav") < order.index("Controls") < order.index("Close")
     assert order.index("PadNav") < order.index("AssistMode") < order.index("WindowMode")
-    assert order.index("WindowMode") < order.index("Resolution") < order.index("VSync") < order.index("FpsCap") < order.index("Controls")
+    assert order.index("WindowMode") < order.index("Resolution") < order.index("VSync") < order.index("FpsCap") < order.index("PromptScheme") < order.index("Controls")
     assert "IsNavigable" in rows and "IsValue" in rows and "RowBand" in rows and "Move(" in rows
     assert "IsSlider" in rows and "StepVolume" in rows and "VolumeStep = 0.1f" in rows
     assert "SliderMinX = 0.40f" in rows and "SliderMaxX = 0.96f" in rows
@@ -5179,7 +5240,7 @@ def test_settings_shell() -> None:
     assert "ContentTop = 0.86f" in rows and "ContentBottom = 0.05f" in rows
     assert "RowGap = 0.012f" in rows and "SectionWeight = 7.2f" in rows
     bands = _row_bands()
-    assert len(bands) == 18
+    assert len(bands) == 19
     for y0, y1 in bands:
         assert 0.05 - 1e-6 <= y0 < y1 <= 0.86 + 1e-6
     for left, right in zip(bands, bands[1:]):
@@ -5194,8 +5255,9 @@ def test_settings_shell() -> None:
     assert _settings_move(11, -1) == 10
     assert _settings_move(11, 1) == 12
     assert _settings_move(12, -1) == 11
-    assert _settings_move(15, 1) == 17
-    assert _settings_move(16, -1) == 14
+    assert _settings_move(15, 1) == 16
+    assert _settings_move(16, 1) == 18
+    assert _settings_move(17, -1) == 15
     assert _settings_move(10, -1) == 9
     assert _settings_move(0, 0) == 0
     assert SettingsState_shake(False, 0.4) == 0.0
@@ -5280,8 +5342,8 @@ def test_settings_shell() -> None:
     assert "WaveIndex == 1" in ui.split("private void ApplyBottomHint")[1].split("private static void ClampOneLine")[0]
     assert "_firstRunCoachUntil" not in ui
     assert "\u2699" not in ui and "\u2699" not in loc
-    assert "A Select · Start Launch wave · Select = Settings" in ui
-    assert "A Välj · Start Starta våg · Select = Inställningar" in loc
+    assert "{confirm} Select · {pause} Launch wave · {settings} Settings" in ui
+    assert "{confirm} Välj · {pause} Starta våg · {settings} Inställningar" in loc
     assert "new Vector2(0.07f, 0.14f)" in ui and "new Vector2(0.93f, 0.85f)" in ui
     assert 'Loc.T("ui.settings", "Settings")' in ui
     assert 'Loc.T("ui.settings.language", "Language")' in ui
@@ -5302,7 +5364,7 @@ def test_settings_shell() -> None:
     assert update.index("BlocksHangarPad") < update.index("NavigateHangarPad()")
     assert "NavigateHangarPad()" in update and "SyncHangarPadSelection()" in update
     assert "BuildSettingsRow" in ui and "SettingsRows.Order" in ui
-    assert "Start launch wave" in ui
+    assert "{pause} Launch wave" in ui
     swedish = loc.split("private static readonly Dictionary")[1].split("};")[0]
     for key in (
         "ui.settings",
@@ -5392,10 +5454,10 @@ def test_settings_shell() -> None:
         body_span = 0.26 - 0.05
         body_h = body_span * (0.88 - 0.12) * (height / scale)
         body_w = (0.92 - 0.08) * (0.70 - 0.30) * canvas_w
-        play_en = "WASD/LS move · Mouse/RS aim · LMB/RT fire · E/LT utility · Q/LB cycle · Esc / Start = back to hangar"
-        play_sv = "WASD/LS styr · Mus/RS sikte · VMB/RT skjut · E/LT verktyg · Q/LB cykla · Esc/Start = tillbaka till hangaren"
-        hang_en = "LS move · LT utility · LB cycle · A confirm · B / Esc Next Wave · Start launch wave"
-        hang_sv = "LS styr · LT verktyg · LB cykla · A bekräfta · B / Esc nästa våg · Start starta våg"
+        play_en = "{move} move · {aim} aim · {fire} fire · {utility} utility · {cycle} cycle · {pause} = back to hangar"
+        play_sv = "{move} styr · {aim} sikte · {fire} skjut · {utility} verktyg · {cycle} cykla · {pause} = tillbaka till hangaren"
+        hang_en = "{move} move · {utility} utility · {cycle} cycle · {confirm} confirm · {cancel} Next Wave · {pause} launch wave"
+        hang_sv = "{move} styr · {utility} verktyg · {cycle} cykla · {confirm} bekräfta · {cancel} nästa våg · {pause} starta våg"
         for block in (
             "Play\n" + play_en + "\nHangar\n" + hang_en,
             "Spel\n" + play_sv + "\nHangar\n" + hang_sv,
@@ -5413,18 +5475,16 @@ def test_settings_shell() -> None:
         assert _estimate_width("★ 9/9", 12) <= ladder_w
 
         hint_w = (0.86 - 0.14) * canvas_w
-        footer_en = "A Select · Start Launch wave · Select = Settings"
-        footer_sv = "A Välj · Start Starta våg · Select = Inställningar"
-        coach_en = "Shoot rocks  ·  Esc / Start returns to hangar"
-        coach_sv = "Skjut stenar  ·  Esc / Start återvänder till hangaren"
+        footer_en = "{confirm} Select · {pause} Launch wave · {settings} Settings"
+        footer_sv = "{confirm} Välj · {pause} Starta våg · {settings} Inställningar"
+        coach_en = "Shoot rocks  ·  {pause} returns to hangar"
+        coach_sv = "Skjut stenar  ·  {pause} återvänder till hangaren"
         for line in (footer_en, footer_sv, coach_en, coach_sv):
-            assert _estimate_width(line, 22) <= hint_w, (width, height, line, hint_w)
-            assert _wrapped_line_count(line, hint_w, 22) == 1
+            assert _prompt_line_width(line, 22, scale) <= hint_w, (width, height, line, hint_w)
         hint_h = (0.072 - 0.008) * (height / scale)
         for size in (14, 18, 22):
             for line in (play_en, play_sv, footer_en, footer_sv, coach_en, coach_sv):
-                assert _estimate_width(line, size) <= hint_w, (width, height, size, line, hint_w)
-                assert _wrapped_line_count(line, hint_w, size) == 1
+                assert _prompt_line_width(line, size, scale) <= hint_w, (width, height, size, line, hint_w)
                 assert size * 1.15 <= hint_h, (width, height, size, hint_h)
 
         flight = _map_anchors(0.014, 0.080, 0.55, 0.888, 0.02, 0.800, 0.98, 0.995)
@@ -5432,14 +5492,14 @@ def test_settings_shell() -> None:
         card_w = (body[2] - body[0]) * canvas_w
         card_h = (body[3] - body[1]) * (height / scale)
         card_en = (
-            "LS / WASD fly  ·  RT / LMB shoot  ·  LT / E utility\n"
-            "Start = launch wave  ·  B / Esc = focus Next Wave\n"
+            "{move} fly  ·  {fire} shoot  ·  {utility} utility\n"
+            "{pause} = launch wave  ·  {cancel} = focus Next Wave\n"
             "Clear a wave to earn credits and upgrades.\n"
             "Medal ladder (top-left): \u2022 Scout Wing at wave 3."
         )
         card_sv = (
-            "LS / WASD fly  ·  RT / VMB skjut  ·  LT / E verktyg\n"
-            "Start = starta våg  ·  B / Esc = fokusera Nästa våg\n"
+            "{move} flyg  ·  {fire} skjut  ·  {utility} verktyg\n"
+            "{pause} = starta våg  ·  {cancel} = fokusera Nästa våg\n"
             "Rensa en våg för kredit och uppgraderingar.\n"
             "Medaljstege (uppe till vänster): \u2022 Spejarvinge på våg 3."
         )
@@ -5575,7 +5635,7 @@ def test_confirm_restart() -> None:
     assert "_confirmOpenedFrame != Time.frameCount" in ui
     assert "ConfirmScrim" in ui and "ConfirmPanel" in ui
     assert "ConfirmYes" in ui and "ConfirmNo" in ui
-    assert "ui.settings.confirm_abort" in ui and "Confirm abort (Esc/Start) during wave" in ui
+    assert "ui.settings.confirm_abort" in ui and "Confirm abort ({pause}) during wave" in ui
     assert 'Loc.T("ui.settings.confirm_new_run", "Confirm New Run")' in ui
     assert 'Loc.T("ui.confirm.yes", "Yes")' in ui and 'Loc.T("ui.confirm.no", "No")' in ui
     assert "UiTheme.BuildPanel" in ui.split("BuildConfirmDialog")[1].split("private static void LockButtonNavigation")[0]
@@ -5658,8 +5718,8 @@ def test_confirm_restart() -> None:
     assert "SetInputEnabled(false)" in (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
     assert "ConfirmRestartInPlay = true" in state
     assert "ConfirmRestartNewRun = true" in state
-    label = "Confirm abort (Esc/Start) during wave"
-    label_sv = "Bekräfta avbrott (Esc/Start) under våg"
+    label = "Confirm abort ({pause}) during wave"
+    label_sv = "Bekräfta avbrott ({pause}) under våg"
     for width, height in ((1280, 800), (1600, 900), (1920, 1080), (2560, 1440), (3440, 1440)):
         scale = _canvas_scale(width, height)
         label_w = 0.72 * (0.94 - 0.06) * (0.70 - 0.30) * (width / scale)
@@ -7608,6 +7668,7 @@ def main() -> int:
     test_honest_fail_copy()
     test_part_c_047()
     test_display_047d()
+    test_input_prompts_047e()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -8872,7 +8933,7 @@ def test_world_flavour_and_boons() -> None:
     assert "class BoonPadNav" in boon_pad
     assert "PadNavSource.Both" in ui
     assert 'Loc.T("boon.pick", "Choose 1 bonus"' in ui
-    assert 'Loc.T("boon.pad", "A select' in ui
+    assert 'Loc.T("boon.pad", "{confirm} select' in ui
     assert "BoonPadNav.Step" in ui
     assert "0.03f, 0.801f" in ui and "0.97f, 0.819f" in ui
 
@@ -10327,7 +10388,7 @@ def test_first_minutes_047() -> None:
     assert "return phase == GamePhase.Failed;" in session
     assert "OneMoreTryLabel" in summary
     assert 'Loc.T("ui.new_run_reset", "New Run (reset)")' in summary
-    assert "Buy Seeker > hold LT" in summary
+    assert "Buy Seeker > hold {utility}" in summary
     assert "run.first_upgrade" in summary
     assert "RecommendedShopIndex" in summary
     assert "SpawnTutorial" in waves and "ConfigureTraining" in waves and "ConfigureTraining" in seeker
@@ -10380,20 +10441,16 @@ def test_first_minutes_047() -> None:
         "Den tänkta striden.": 16,
         "More rocks, harder hits.": 16,
         "Fler stenar, hårdare träffar.": 16,
-        "Fly with WASD. Dodge rocks.": 22,
-        "Flyg med WASD. Undvik stenar.": 22,
-        "Fly with the stick. Dodge rocks.": 22,
-        "Flyg med spaken. Undvik stenar.": 22,
-        "Fire with mouse or Space.": 22,
-        "Skjut med mus eller mellanslag.": 22,
-        "Fire with RT.": 22,
-        "Skjut med RT.": 22,
+        "Fly with {move}. Dodge rocks.": 22,
+        "Flyg med {move}. Undvik stenar.": 22,
+        "Fire with {fire}.": 22,
+        "Skjut med {fire}.": 22,
         "Grab the shield pickup.": 22,
         "Ta sköldplocket.": 22,
         "Clear the wave.": 22,
         "Rensa vågen.": 22,
-        "Skip tutorial  ·  Esc / Start": 22,
-        "Hoppa intro  ·  Esc / Start": 22,
+        "Skip tutorial  ·  {pause}": 22,
+        "Hoppa intro  ·  {pause}": 22,
         "Spend credits on your first upgrade": 16,
         "Lägg kredit på din första uppgradering": 16,
     }
@@ -11280,8 +11337,9 @@ def test_display_047d() -> None:
     ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
     doc = (root / "Docs/0.47/D_display.md").read_text(encoding="utf-8")
 
-    assert "CurrentVersion = 5" in state
+    assert "CurrentVersion = 6" in state
     assert "version >= 5" in state
+    assert "version >= 6" in state
     assert "DefaultWindowMode" in display and "Borderless" in display
     assert "DefaultFpsCap = 60" in display and "Uncapped = 0" in display
     assert "ModeWindowed = 3" in display and "ModeExclusive = 0" in display and "ModeBorderless = 1" in display
@@ -11412,6 +11470,153 @@ def test_display_047d() -> None:
     assert "FreezePulse" in effect and "UiPulse" in effect
     assert _mix_gain(0.5) == 0.25
     assert abs(_mix_gain(0.9) - 0.81) < 1e-9
+
+
+def _scheme_pad(name: str, steam_deck: bool) -> str:
+    lowered = (name or "").lower()
+    if any(needle in lowered for needle in ("wireless controller", "dualsense", "dualshock", "ps4", "ps5")):
+        return "playstation"
+    if steam_deck or "steamdeck" in lowered or "steam deck" in lowered:
+        return "deck"
+    return "xbox"
+
+
+def _scheme_decide(current: str, preference: str, sample: dict) -> str:
+    if preference != "auto":
+        return {"xbox": "xbox", "playstation": "playstation", "deck": "deck", "keyboard": "keyboard"}[preference]
+    next_scheme = current
+    if sample.get("key") or sample.get("mouse"):
+        next_scheme = "keyboard"
+    axis = sample.get("axis", 0.0)
+    pad = sample.get("button") or axis > 0.5
+    if not sample.get("button") and axis < 0.3:
+        pad = False
+    if pad and not sample.get("button") and not (axis > 0.5):
+        pad = False
+    if pad:
+        names = sample.get("names") or [sample.get("name", "")]
+        picked = "xbox"
+        deck_name = False
+        for name in names:
+            kind = _scheme_pad(name, False)
+            if kind == "playstation":
+                return "playstation"
+            if kind == "deck":
+                deck_name = True
+        if sample.get("steam") or deck_name:
+            picked = "deck"
+        next_scheme = picked
+    return next_scheme
+
+
+def _prompt_has(scheme: str, action: str) -> bool:
+    pad = {
+        "aim", "cancel", "confirm", "cycle", "cycle_alt", "cycle_prev",
+        "fire", "fire_alt", "move", "nav", "pause", "settings", "utility",
+    }
+    keyboard = pad - {"cycle_alt", "cycle_prev"} | {"utility_alt"}
+    keyboard.discard("cycle_alt")
+    keyboard.discard("cycle_prev")
+    table = keyboard if scheme == "keyboard" else pad
+    return action in table
+
+
+def _prompt_resolve(source: str, scheme: str) -> list[tuple]:
+    pieces = []
+    pending = ""
+    index = 0
+    while index < len(source):
+        if source[index] == "{":
+            end = source.find("}", index + 1)
+            token = source[index + 1 : end] if end > index else ""
+            if token in _PROMPT_TOKENS and end > index:
+                if _prompt_has(scheme, token):
+                    if pending:
+                        pieces.append(("text", pending))
+                        pending = ""
+                    pieces.append(("icon", token))
+                index = end + 1
+                continue
+        pending += source[index]
+        index += 1
+    if pending:
+        pieces.append(("text", pending))
+    return pieces
+
+
+def test_input_prompts_047e() -> None:
+    """0.47 Part E icons: scheme detection, catalog paths, token rows, settings v6."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    detector = (root / "Assets/Scripts/Core/InputSchemeDetector.cs").read_text(encoding="utf-8")
+    catalog = (root / "Assets/Scripts/Core/PromptCatalog.cs").read_text(encoding="utf-8")
+    text = (root / "Assets/Scripts/Core/PromptText.cs").read_text(encoding="utf-8")
+    layout = (root / "Assets/Scripts/Core/PromptLayout.cs").read_text(encoding="utf-8")
+    state = (root / "Assets/Scripts/Core/SettingsState.cs").read_text(encoding="utf-8")
+    credits = (root / "CREDITS.md").read_text(encoding="utf-8")
+    end = (root / "Assets/Scripts/Core/EndCredits.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+
+    assert "AxisNoise = 0.3f" in detector and "AxisEngage = 0.5f" in detector
+    assert "DualSense" in detector and "SteamDeck" in detector and "Wireless Controller" in detector
+    assert "HiScaleThreshold = 1.25f" in catalog
+    assert "TargetScreenPx = 18f" in layout and "MinScreenPx = 16f" in layout and "MaxScreenPx = 20f" in layout
+    assert "PromptSchemeKey" in state and "version >= 6" in state
+    assert "Input Prompts" in credits and "Input Prompts" in end
+    assert "Knappikoner" in loc and "Kenney Input Prompts" in loc
+
+    assert _scheme_decide("keyboard", "auto", {"axis": 0.2}) == "keyboard"
+    assert _scheme_decide("keyboard", "auto", {"axis": 0.4}) == "keyboard"
+    assert _scheme_decide("keyboard", "auto", {"axis": 0.6, "name": "Xbox 360 Controller"}) == "xbox"
+    assert _scheme_decide("xbox", "auto", {"key": True}) == "keyboard"
+    assert _scheme_decide("keyboard", "auto", {"mouse": True, "button": True, "name": "DualSense"}) == "playstation"
+    assert _scheme_decide("keyboard", "auto", {"button": True, "name": "Wireless Controller"}) == "playstation"
+    assert _scheme_decide("keyboard", "auto", {"axis": 0.8, "name": "Xbox 360", "steam": True}) == "deck"
+    assert _scheme_decide("keyboard", "auto", {"button": True, "names": ["Xbox 360", "DualShock 4"], "steam": True}) == "playstation"
+    assert _scheme_decide("keyboard", "auto", {"name": "Steam Deck", "button": True}) == "deck"
+    assert _scheme_decide("keyboard", "playstation", {"key": True}) == "playstation"
+    assert _scheme_pad("PS5 Controller", False) == "playstation"
+    assert _scheme_pad("something", False) == "xbox"
+
+    assert _prompt_has("keyboard", "fire") and not _prompt_has("keyboard", "cycle_prev")
+    assert _prompt_has("xbox", "cycle_prev") and not _prompt_has("xbox", "utility_alt")
+    resolved = _prompt_resolve("Hold {fire} now", "keyboard")
+    assert resolved == [("text", "Hold "), ("icon", "fire"), ("text", " now")]
+    missing = _prompt_resolve("{cycle_prev}", "keyboard")
+    assert missing == []
+    unknown = _prompt_resolve("keep {nope}", "xbox")
+    assert unknown == [("text", "keep {nope}")]
+    assert _prompt_resolve("{fire}{pause}", "deck")[0] == ("icon", "fire")
+
+    fresh = _settings_from_ints(5, 1, 2, 1, 1, 1, 2, 0, 0, 0, 1280, 800, 1, 0, 3)
+    assert fresh["prompt_scheme"] == 0 and fresh["resolution_w"] == 1280
+    applied = _settings_from_ints(6, 1, 2, 1, 1, 1, 2, 0, 0, 1, 1920, 1080, 0, 60, 2)
+    assert applied["prompt_scheme"] == 2 and applied["window_mode"] == 1
+    invalid = _settings_from_ints(6, 1, 2, 1, 1, 1, 2, 0, 0, 1, 1920, 1080, 0, 60, 9)
+    assert invalid["prompt_scheme"] == 0
+    assert _settings_from_ints(9, 0, 0, 0, 0, 0, 0)["prompt_scheme"] == 0
+
+    matrix = ((1280, 800), (1366, 768), (1920, 1080), (2560, 1440), (3440, 1440))
+    rows = (
+        "{move} move · {aim} aim · {fire} fire · {utility} utility · {cycle} cycle · {pause} = back to hangar",
+        "{move} styr · {aim} sikte · {fire} skjut · {utility} verktyg · {cycle} cykla · {pause} = tillbaka till hangaren",
+        "{confirm} Select · {pause} Launch wave · {settings} Settings",
+        "{confirm} Välj · {pause} Starta våg · {settings} Inställningar",
+        "Shoot rocks  ·  {pause} returns to hangar",
+        "Skjut stenar  ·  {pause} återvänder till hangaren",
+        "{utility} utility · {cycle} cycle primary · {fire} fire",
+        "{utility} verktyg · {cycle} cykla primär · {fire} skjut",
+    )
+    for width, height in matrix:
+        scale = _canvas_scale(width, height)
+        hint_w = (0.86 - 0.14) * (width / scale)
+        for line in rows:
+            assert _prompt_line_width(line, 18, scale) <= hint_w, (width, height, line)
+        icon = 18.0 / scale
+        assert 16.0 / scale - 0.01 <= icon <= 20.0 / scale + 0.01
+    assert _canvas_scale(3440, 1440) > 1.25
+    assert _canvas_scale(1920, 1080) <= 1.25
 
 
 if __name__ == "__main__":

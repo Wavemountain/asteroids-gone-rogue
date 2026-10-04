@@ -334,15 +334,15 @@ namespace AsteroidsGoneRogue
             if (prompt <= TutorialRun.PromptMove)
             {
                 return pad
-                    ? Loc.T("tut.move.pad", "Fly with the stick. Dodge rocks.")
-                    : Loc.T("tut.move.key", "Fly with WASD. Dodge rocks.");
+                    ? Loc.T("tut.move.pad", "Fly with {move}. Dodge rocks.")
+                    : Loc.T("tut.move.key", "Fly with {move}. Dodge rocks.");
             }
 
             if (prompt == TutorialRun.PromptFire)
             {
                 return pad
-                    ? Loc.T("tut.fire.pad", "Fire with RT.")
-                    : Loc.T("tut.fire.key", "Fire with mouse or Space.");
+                    ? Loc.T("tut.fire.pad", "Fire with {fire}.")
+                    : Loc.T("tut.fire.key", "Fire with {fire}.");
             }
 
             if (prompt == TutorialRun.PromptPickup)
@@ -355,7 +355,7 @@ namespace AsteroidsGoneRogue
 
         public static string SkipHint()
         {
-            return Loc.T("tut.skip_hint", "Skip tutorial  ·  Esc / Start");
+            return Loc.T("tut.skip_hint", "Skip tutorial  ·  {pause}");
         }
 
         public static string SkipTutorialLabel()

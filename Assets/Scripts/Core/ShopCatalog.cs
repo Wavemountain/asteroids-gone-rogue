@@ -23,7 +23,7 @@ namespace AsteroidsGoneRogue
 
         public string Description
         {
-            get { return Loc.T("shop.desc." + Id, _description); }
+            get { return PromptText.Flatten(Loc.T("shop.desc." + Id, _description), InputSchemeDriver.Current); }
         }
 
         public ShopItem(UpgradeId id, string title, string description, int cost, ShopGroup group)
@@ -107,13 +107,13 @@ namespace AsteroidsGoneRogue
             new ShopItem(
                 UpgradeId.SpreadBolt,
                 "Spread Bolt",
-                "Primary slot: 3 amber pellets. LB / Q to cycle. Distinct from cyan pierce.",
+                "Primary slot: 3 amber pellets. {cycle} to cycle. Distinct from cyan pierce.",
                 110,
                 ShopGroup.Weapons),
             new ShopItem(
                 UpgradeId.Pierce,
                 "Pierce",
-                "Primary slot: bolt goes through targets. LB / Q to cycle.",
+                "Primary slot: bolt goes through targets. {cycle} to cycle.",
                 155,
                 ShopGroup.Weapons),
             new ShopItem(
@@ -125,13 +125,13 @@ namespace AsteroidsGoneRogue
             new ShopItem(
                 UpgradeId.Seeker,
                 "Seeker",
-                "Utility slot: magenta missile. Hold LT / E. Own cooldown. Weaker homing, slower cadence, −1 damage.",
+                "Utility slot: magenta missile. Hold {utility}. Own cooldown. Weaker homing, slower cadence, −1 damage.",
                 125,
                 ShopGroup.Weapons),
             new ShopItem(
                 UpgradeId.Ricochet,
                 "Ricochet",
-                "Utility slot: lime bolt, 2 rim bounces. Hold LT / E. Wildcard on every doctrine. No capstone.",
+                "Utility slot: lime bolt, 2 rim bounces. Hold {utility}. Wildcard on every doctrine. No capstone.",
                 170,
                 ShopGroup.Weapons),
             new ShopItem(
@@ -149,7 +149,7 @@ namespace AsteroidsGoneRogue
             new ShopItem(
                 UpgradeId.Rail,
                 "Rail",
-                "Lance mid. Primary: hold RT 0.55s, release. Damage ×3, speed ×1.2, no pierce. CD ×1.6. Miss or cancel pays half.",
+                "Lance mid. Primary: hold {fire} 0.55s, release. Damage ×3, speed ×1.2, no pierce. CD ×1.6. Miss or cancel pays half.",
                 160,
                 ShopGroup.Doctrine),
             new ShopItem(
@@ -179,7 +179,7 @@ namespace AsteroidsGoneRogue
             new ShopItem(
                 UpgradeId.TwinSeek,
                 "Twin Seek",
-                "Hunter capstone. Hold LT for 2 seekers at 70% damage. Utility cooldown ×1.2.",
+                "Hunter capstone. Hold {utility} for 2 seekers at 70% damage. Utility cooldown ×1.2.",
                 225,
                 ShopGroup.Doctrine)
         };
