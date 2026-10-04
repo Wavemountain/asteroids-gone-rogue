@@ -16,6 +16,10 @@ namespace AsteroidsGoneRogue
         ConfirmNewRun = 10,
         PadNav = 11,
         AssistMode = 12,
+        WindowMode = 14,
+        Resolution = 15,
+        VSync = 16,
+        FpsCap = 17,
     }
 
     public enum SettingsRowRole
@@ -52,6 +56,10 @@ namespace AsteroidsGoneRogue
             SettingsRowId.ConfirmNewRun,
             SettingsRowId.PadNav,
             SettingsRowId.AssistMode,
+            SettingsRowId.WindowMode,
+            SettingsRowId.Resolution,
+            SettingsRowId.VSync,
+            SettingsRowId.FpsCap,
             SettingsRowId.Controls,
             SettingsRowId.Close,
         };
@@ -412,7 +420,7 @@ namespace AsteroidsGoneRogue
         {
             float bandTop;
             float bandBottom;
-            SettingsRows.RowBand(SettingsRows.IndexOf(SettingsRowId.Controls), out bandBottom, out bandTop);
+            SettingsScroll.ContentBand(SettingsRows.IndexOf(SettingsRowId.Controls), out bandBottom, out bandTop);
             float bodySpan = bandTop - ControlsHeaderInset - bandBottom;
             if (bodySpan < 0f)
             {

@@ -93,6 +93,7 @@ namespace AsteroidsGoneRogue
                 if (cam != null)
                 {
                     cam.fieldOfView = _captureFov;
+                    cam.rect = new Rect(0f, 0f, 1f, 1f);
                 }
 
                 return;
@@ -103,11 +104,13 @@ namespace AsteroidsGoneRogue
                 Vector3 desiredHangar = HangarLook + HangarOffset;
                 transform.position = Vector3.Lerp(transform.position, desiredHangar, 1f - Mathf.Exp(-Follow * Time.deltaTime));
                 transform.LookAt(HangarLook);
+                ApplyPlayViewport();
                 return;
             }
 
             if (_target == null)
             {
+                ApplyPlayViewport();
                 return;
             }
 
@@ -125,6 +128,27 @@ namespace AsteroidsGoneRogue
 
             transform.position = Vector3.Lerp(transform.position, desired, 1f - Mathf.Exp(-Follow * Time.deltaTime));
             transform.LookAt(_target.position);
+            ApplyPlayViewport();
+        }
+
+        /// <summary>
+        /// Pillarbox or letterbox so the 16:9 playfield is neither wider nor cropped.
+        /// Vertical FOV stays at ArenaFraming.BaseFov. UI is a screen-space overlay.
+        /// </summary>
+        private void ApplyPlayViewport()
+        {
+            Camera cam = GetComponent<Camera>();
+            if (cam == null)
+            {
+                return;
+            }
+
+            float viewX;
+            float viewY;
+            float viewW;
+            float viewH;
+            ArenaFraming.Viewport(Screen.width, Screen.height, out viewX, out viewY, out viewW, out viewH);
+            cam.rect = new Rect(viewX, viewY, viewW, viewH);
         }
     }
 }

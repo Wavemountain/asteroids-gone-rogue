@@ -914,7 +914,13 @@ namespace AsteroidsGoneRogue
             }
             else if (kind == EnemyKind.Mid01)
             {
-                DressMidMesh(root.transform);
+                int midWorld = 1;
+                if (waves != null)
+                {
+                    midWorld = WorldCatalog.NumberForWave(waves.ActiveWave);
+                }
+
+                DressMidMesh(root.transform, midWorld);
             }
             else if (kind == EnemyKind.Sniper)
             {
@@ -1286,6 +1292,7 @@ namespace AsteroidsGoneRogue
 
             FitAsteroidCollider(collider, root.transform);
             CenterAsteroidOnPlayOrigin(collider, root.transform);
+            ApplyWatchAsteroid(root.transform, rock, waves);
 
             Asteroid asteroid = root.AddComponent<Asteroid>();
             asteroid.Initialize(size, waves, this, drift);
@@ -1599,11 +1606,54 @@ namespace AsteroidsGoneRogue
             return ArtImport.TryInstantiate(assetName, parent, RemapImported, fallback, out instance);
         }
 
-        private void DressMidMesh(Transform root)
+        private void DressMidMesh(Transform root, int worldNumber)
         {
+            float midScale = ReadabilityPalette.MidEmissionFor(worldNumber);
             DressEnemyEmission(
                 root,
-                new Color(ReadabilityPalette.MidR, ReadabilityPalette.MidG, ReadabilityPalette.MidB) * ReadabilityPalette.MidEmissionScale);
+                new Color(ReadabilityPalette.MidR, ReadabilityPalette.MidG, ReadabilityPalette.MidB) * midScale);
+        }
+
+        /// <summary>
+        /// Worlds 3 and 4 multiply the shared asteroid albedo. Other worlds
+        /// keep the material colour. Only _Color is written so emission stays.
+        /// </summary>
+        private static void ApplyWatchAsteroid(Transform root, Material rock, WaveManager waves)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            int rockWorld = 1;
+            if (waves != null)
+            {
+                rockWorld = WorldCatalog.NumberForWave(waves.ActiveWave);
+            }
+
+            float albedoMul = ReadabilityPalette.AsteroidAlbedoMul(rockWorld);
+            if (albedoMul <= 1.001f)
+            {
+                return;
+            }
+
+            Color tint = Color.white;
+            if (rock != null)
+            {
+                tint = rock.color;
+            }
+
+            tint = new Color(tint.r * albedoMul, tint.g * albedoMul, tint.b * albedoMul, tint.a);
+            Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+            MaterialPropertyBlock block = new MaterialPropertyBlock();
+            block.SetColor("_Color", tint);
+            for (int rockIndex = 0; rockIndex < renderers.Length; rockIndex++)
+            {
+                if (renderers[rockIndex] != null)
+                {
+                    renderers[rockIndex].SetPropertyBlock(block);
+                }
+            }
         }
 
         private void DressSniperMesh(Transform root)

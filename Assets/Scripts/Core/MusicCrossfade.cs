@@ -82,6 +82,35 @@ namespace AsteroidsGoneRogue
             return (outWeight * outWeight) + (inWeight * inWeight);
         }
 
+        /// <summary>
+        /// Same clip that is playing, or paused/muted, is already settled.
+        /// A paused source reports isPlaying false; that must not restart it.
+        /// </summary>
+        public static bool KeepSameClip(bool sameClip, bool playing, bool pausedOrMuted)
+        {
+            if (!sameClip)
+            {
+                return false;
+            }
+
+            if (playing)
+            {
+                return true;
+            }
+
+            return pausedOrMuted;
+        }
+
+        public static bool SettledSame(bool notCrossfading, bool sameClip, bool playing, bool pausedOrMuted)
+        {
+            if (!notCrossfading)
+            {
+                return false;
+            }
+
+            return KeepSameClip(sameClip, playing, pausedOrMuted);
+        }
+
         public static MusicRetarget Begin(
             float outScale,
             float outPitch,

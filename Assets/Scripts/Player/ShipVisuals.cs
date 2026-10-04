@@ -316,10 +316,21 @@ namespace AsteroidsGoneRogue
 
             float dim = EffectScale.InvulnDim;
             Color tint = new Color(dim, dim, dim, 1f);
-            for (int index = 0; index < _blinkRenderers.Length; index++)
+            for (int rendererIndex = 0; rendererIndex < _blinkRenderers.Length; rendererIndex++)
             {
-                Renderer renderer = _blinkRenderers[index];
+                Renderer renderer = _blinkRenderers[rendererIndex];
                 if (renderer == null)
+                {
+                    continue;
+                }
+
+                string parentName = string.Empty;
+                if (renderer.transform.parent != null)
+                {
+                    parentName = renderer.transform.parent.name;
+                }
+
+                if (!ChargeGlowCompose.ShouldDim(renderer.gameObject.name, parentName))
                 {
                     continue;
                 }
@@ -341,12 +352,26 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            for (int index = 0; index < _blinkRenderers.Length; index++)
+            for (int rendererIndex = 0; rendererIndex < _blinkRenderers.Length; rendererIndex++)
             {
-                if (_blinkRenderers[index] != null)
+                Renderer renderer = _blinkRenderers[rendererIndex];
+                if (renderer == null)
                 {
-                    _blinkRenderers[index].SetPropertyBlock(null);
+                    continue;
                 }
+
+                string parentName = string.Empty;
+                if (renderer.transform.parent != null)
+                {
+                    parentName = renderer.transform.parent.name;
+                }
+
+                if (!ChargeGlowCompose.ShouldDim(renderer.gameObject.name, parentName))
+                {
+                    continue;
+                }
+
+                renderer.SetPropertyBlock(null);
             }
 
             _dimmed = false;

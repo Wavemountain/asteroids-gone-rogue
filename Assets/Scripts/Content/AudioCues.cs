@@ -1137,7 +1137,9 @@ namespace AsteroidsGoneRogue
             _inPitch = pitch;
             _inHangar = 0;
             _incomingClip = null;
-            if (_currentMusic == clip && _music.isPlaying)
+            bool sameClip = _currentMusic == clip;
+            bool pausedOrMuted = _muted || _musicHeld;
+            if (MusicCrossfade.KeepSameClip(sameClip, _music.isPlaying, pausedOrMuted))
             {
                 ApplyVolumes();
                 return;
@@ -1164,7 +1166,11 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            bool settledSame = !_crossfading && _currentMusic == clip && _music.isPlaying;
+            bool settledSame = MusicCrossfade.SettledSame(
+                !_crossfading,
+                _currentMusic == clip,
+                _music.isPlaying,
+                _muted || _musicHeld);
             bool sameAsIncoming = _crossfading && _incomingClip == clip;
             if (!MusicPlan.ShouldStartCrossfade(settledSame, sameAsIncoming))
             {

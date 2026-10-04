@@ -295,6 +295,22 @@ namespace AsteroidsGoneRogue
 
             if (amount <= 0)
             {
+                if (AssistRules.WasAbsorbed(amount, assist, cause))
+                {
+                    BeginInvulnerability();
+                    if (AudioCues.Instance != null)
+                    {
+                        AudioCues.Instance.PlayArmorHit();
+                    }
+
+                    CombatJuice.PlayerDamaged(false);
+                    if (_game != null)
+                    {
+                        _game.NotifyPlayerHit();
+                        _game.RefreshHud();
+                    }
+                }
+
                 return;
             }
 
