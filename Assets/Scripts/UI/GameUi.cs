@@ -36,6 +36,20 @@ namespace AsteroidsGoneRogue
         private Text _extraLifeLabel;
         private Text _shieldRefillLabel;
         private Text _bankLabel;
+        private Button _sinkEntry;
+        private Text _sinkEntryLabel;
+        private GameObject _sinkRoot;
+        private Button[] _sinkButtons;
+        private Text[] _sinkLabels;
+        private Button _sinkClose;
+        private Text _sinkHeader;
+        private Text _sinkBlurb;
+        private Text _sinkCloseLabel;
+        private bool _sinkOpen;
+        private int _sinkFocus;
+        private int _sinkOpenedFrame = -1;
+        private bool _sinkHeld;
+        private float _sinkRepeatAt;
         private Button _abortButton;
         private Text _abortLabel;
         private GameObject _tutorialRoot;
@@ -386,6 +400,7 @@ namespace AsteroidsGoneRogue
             RefreshHealthBar();
             RefreshBossBar();
             RefreshUtilityHud(playing);
+            RefreshSinkChrome(playing);
             if (_scrim != null)
             {
                 _scrim.SetActive(!playing);
@@ -726,6 +741,7 @@ namespace AsteroidsGoneRogue
 
             BuildDoctrine(display, body);
             BuildShop(display, body);
+            BuildSinkOverlay(display, body);
             BuildSettingsGear(body);
             BuildDifficultyPicker(display, body);
             BuildFirstHangarHint(display, body);
@@ -1281,6 +1297,370 @@ namespace AsteroidsGoneRogue
             UiTheme.ApplyButton(_extraLifeButton, false, false, true);
             UiTheme.ApplyButton(_shieldRefillButton, false, false, true);
             UiTheme.ApplyButton(_bankButton, false, false, true);
+            BuildSinkEntry(body);
+        }
+
+        private void BuildSinkEntry(Font body)
+        {
+            float entryMinX;
+            float entryMinY;
+            float entryMaxX;
+            float entryMaxY;
+            SinkShopLayout.EntryLocal(out entryMinX, out entryMinY, out entryMaxX, out entryMaxY);
+            _sinkEntry = CreateButton(
+                "SinkBay",
+                _menuRoot.transform,
+                body,
+                new Vector2(entryMinX, entryMinY),
+                new Vector2(entryMaxX, entryMaxY));
+            _sinkEntryLabel = _sinkEntry.GetComponentInChildren<Text>();
+            _sinkEntryLabel.fontSize = SinkShopLayout.Font;
+            _sinkEntryLabel.resizeTextForBestFit = false;
+            _sinkEntryLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _sinkEntryLabel.verticalOverflow = VerticalWrapMode.Truncate;
+            _sinkEntry.onClick.AddListener(OpenSinkShop);
+            LockButtonNavigation(_sinkEntry);
+            UiTheme.ApplyButton(_sinkEntry, false, false, true);
+        }
+
+        private void BuildSinkOverlay(Font display, Font body)
+        {
+            GameObject canvasGo = new GameObject("SinkShopCanvas");
+            Canvas canvas = canvasGo.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.pixelPerfect = false;
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = CanvasOrder.Overlay;
+            CanvasScaler scaler = canvasGo.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(ShopGridLayout.RefWidth, ShopGridLayout.RefHeight);
+            scaler.matchWidthOrHeight = ShopGridLayout.Match;
+            canvasGo.AddComponent<GraphicRaycaster>();
+            _sinkRoot = canvasGo;
+
+            GameObject plate = CreateFill(
+                "SinkPlate",
+                canvasGo.transform,
+                UiTheme.Surface,
+                new Vector2(SinkShopLayout.PanelMinX, SinkShopLayout.PanelMinY),
+                new Vector2(SinkShopLayout.PanelMaxX, SinkShopLayout.PanelMaxY));
+            Image plateImage = plate.GetComponent<Image>();
+            if (plateImage != null)
+            {
+                plateImage.raycastTarget = true;
+            }
+
+            float headerMinX;
+            float headerMinY;
+            float headerMaxX;
+            float headerMaxY;
+            SinkShopLayout.Header(out headerMinX, out headerMinY, out headerMaxX, out headerMaxY);
+            _sinkHeader = CreateText("SinkHeader", canvasGo.transform, display, SinkShopLayout.Font, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Stretch(_sinkHeader.rectTransform, new Vector2(headerMinX, headerMinY), new Vector2(headerMaxX, headerMaxY));
+            _sinkHeader.color = UiTheme.Primary;
+            _sinkHeader.text = SinkCopy.Title();
+
+            float blurbMinX;
+            float blurbMinY;
+            float blurbMaxX;
+            float blurbMaxY;
+            SinkShopLayout.Blurb(out blurbMinX, out blurbMinY, out blurbMaxX, out blurbMaxY);
+            _sinkBlurb = CreateText("SinkBlurb", canvasGo.transform, body, SinkShopLayout.Font, TextAnchor.MiddleLeft, FontStyle.Normal);
+            Stretch(_sinkBlurb.rectTransform, new Vector2(blurbMinX, blurbMinY), new Vector2(blurbMaxX, blurbMaxY));
+            _sinkBlurb.color = UiTheme.Accent;
+            _sinkBlurb.text = SinkCopy.Blurb();
+
+            _sinkButtons = new Button[ShopSinkCatalog.Count];
+            _sinkLabels = new Text[ShopSinkCatalog.Count];
+            for (int sinkIndex = 0; sinkIndex < ShopSinkCatalog.Count; sinkIndex++)
+            {
+                float tileMinX;
+                float tileMinY;
+                float tileMaxX;
+                float tileMaxY;
+                SinkShopLayout.Tile(sinkIndex, out tileMinX, out tileMinY, out tileMaxX, out tileMaxY);
+                int captured = sinkIndex;
+                Button tile = CreateButton(
+                    "SinkTile" + sinkIndex,
+                    canvasGo.transform,
+                    body,
+                    new Vector2(tileMinX, tileMinY),
+                    new Vector2(tileMaxX, tileMaxY));
+                Text tileLabel = tile.GetComponentInChildren<Text>();
+                tileLabel.fontSize = SinkShopLayout.Font;
+                tileLabel.resizeTextForBestFit = false;
+                tileLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
+                tileLabel.verticalOverflow = VerticalWrapMode.Truncate;
+                tile.onClick.AddListener(() => OnSinkTile(captured));
+                LockButtonNavigation(tile);
+                UiTheme.ApplyButton(tile, false, false, true);
+                _sinkButtons[sinkIndex] = tile;
+                _sinkLabels[sinkIndex] = tileLabel;
+            }
+
+            float closeMinX;
+            float closeMinY;
+            float closeMaxX;
+            float closeMaxY;
+            SinkShopLayout.CloseButton(out closeMinX, out closeMinY, out closeMaxX, out closeMaxY);
+            _sinkClose = CreateButton(
+                "SinkClose",
+                canvasGo.transform,
+                body,
+                new Vector2(closeMinX, closeMinY),
+                new Vector2(closeMaxX, closeMaxY));
+            _sinkCloseLabel = _sinkClose.GetComponentInChildren<Text>();
+            _sinkCloseLabel.fontSize = SinkShopLayout.Font;
+            _sinkCloseLabel.resizeTextForBestFit = false;
+            _sinkCloseLabel.text = SinkCopy.Close();
+            _sinkClose.onClick.AddListener(CloseSinkShop);
+            LockButtonNavigation(_sinkClose);
+            UiTheme.ApplyButton(_sinkClose, false, false, false);
+            canvasGo.SetActive(false);
+        }
+
+        private void RefreshSinkChrome(bool playing)
+        {
+            if (playing || _creditsVisible || FirstStartOpen())
+            {
+                CloseSinkShop();
+            }
+
+            if (_sinkEntry != null)
+            {
+                bool showEntry = !playing && !_creditsVisible && !FirstStartOpen();
+                _sinkEntry.gameObject.SetActive(showEntry);
+                if (_sinkEntryLabel != null)
+                {
+                    _sinkEntryLabel.text = SinkCopy.Entry();
+                }
+            }
+
+            if (_sinkHeader != null)
+            {
+                _sinkHeader.text = SinkCopy.Title();
+            }
+
+            if (_sinkBlurb != null)
+            {
+                _sinkBlurb.text = SinkCopy.Hint() + "\n" + SinkCopy.Blurb();
+            }
+
+            if (_sinkCloseLabel != null)
+            {
+                _sinkCloseLabel.text = SinkCopy.Close();
+            }
+
+            if (!_sinkOpen || _sinkLabels == null || _game == null || _session == null)
+            {
+                return;
+            }
+
+            SinkProfileData profile = _game.Sinks;
+            int credits = _session.Credits;
+            for (int sinkIndex = 0; sinkIndex < _sinkLabels.Length; sinkIndex++)
+            {
+                Text tileLabel = _sinkLabels[sinkIndex];
+                if (tileLabel == null)
+                {
+                    continue;
+                }
+
+                int state = SinkRules.TileState(profile, sinkIndex, credits);
+                int rank = SinkRank(profile, sinkIndex);
+                int price = ShopSinkCatalog.Price(sinkIndex, rank);
+                string name = SinkCopy.Name(sinkIndex);
+                string detail = SinkCopy.Detail(sinkIndex);
+                string status = SinkCopy.Status(state, price);
+                tileLabel.text = name + "\n" + status + "\n" + detail;
+            }
+
+            FocusSinkSlot(_sinkFocus);
+        }
+
+        private static int SinkRank(SinkProfileData profile, int sinkId)
+        {
+            if (profile == null)
+            {
+                return 0;
+            }
+
+            if (sinkId == ShopSinkCatalog.StartShield)
+            {
+                return profile.ShieldRank;
+            }
+
+            if (sinkId == ShopSinkCatalog.PickupReach)
+            {
+                return profile.ReachRank;
+            }
+
+            if (SinkProfileCodec.Owns(profile, sinkId))
+            {
+                return 1;
+            }
+
+            return 0;
+        }
+
+        private void OpenSinkShop()
+        {
+            if (_sinkRoot == null || _confirmOpen || _settingsOpen || _creditsVisible)
+            {
+                return;
+            }
+
+            if (_session == null || _session.Phase == GamePhase.Playing || FirstStartOpen())
+            {
+                return;
+            }
+
+            _sinkOpen = true;
+            _sinkFocus = 0;
+            _sinkHeld = false;
+            _sinkOpenedFrame = Time.frameCount;
+            _sinkRoot.SetActive(true);
+            HoldPreviewSpin(true);
+            RefreshSinkChrome(false);
+        }
+
+        private void CloseSinkShop()
+        {
+            bool wasOpen = _sinkOpen;
+            _sinkOpen = false;
+            _sinkHeld = false;
+            if (_sinkRoot != null)
+            {
+                _sinkRoot.SetActive(false);
+            }
+
+            if (wasOpen && _hoveredItem == null)
+            {
+                HoldPreviewSpin(false);
+            }
+        }
+
+        private void OnSinkTile(int sinkId)
+        {
+            if (_game == null)
+            {
+                return;
+            }
+
+            _game.TryBuySink(sinkId);
+            RefreshSinkChrome(false);
+        }
+
+        private void TickSinkShop()
+        {
+            if (!_sinkOpen)
+            {
+                return;
+            }
+
+            if (GamepadInput.CancelPressed() || GamepadInput.PausePressed())
+            {
+                CloseSinkShop();
+                return;
+            }
+
+            Vector2 sinkNav = GamepadInput.UiNavCombined();
+            int sinkDx = HangarPadNav.DominantStep(sinkNav.x, sinkNav.y, HangarPadNav.Flick);
+            int sinkDy = HangarPadNav.DominantStepY(sinkNav.x, sinkNav.y, HangarPadNav.Flick);
+            if (sinkDx != 0 || sinkDy != 0)
+            {
+                float sinkNow = Time.unscaledTime;
+                if (!_sinkHeld || sinkNow >= _sinkRepeatAt)
+                {
+                    _sinkFocus = SinkPadNav.Step(_sinkFocus, sinkDx, sinkDy);
+                    _sinkRepeatAt = sinkNow + (_sinkHeld ? HangarPadNav.RepeatNextSeconds : HangarPadNav.RepeatFirstSeconds);
+                    _sinkHeld = true;
+                    FocusSinkSlot(_sinkFocus);
+                }
+            }
+            else
+            {
+                _sinkHeld = false;
+            }
+
+            if (GamepadInput.ConfirmPressed() && _sinkOpenedFrame != Time.frameCount)
+            {
+                ActivateSinkSlot(_sinkFocus);
+            }
+        }
+
+        private void FocusSinkSlot(int slot)
+        {
+            if (_sinkButtons == null)
+            {
+                return;
+            }
+
+            for (int sinkIndex = 0; sinkIndex < _sinkButtons.Length; sinkIndex++)
+            {
+                Button tile = _sinkButtons[sinkIndex];
+                if (tile != null)
+                {
+                    UiTheme.SetPadFocus(tile.gameObject, sinkIndex == slot, true);
+                }
+            }
+
+            if (_sinkClose != null)
+            {
+                UiTheme.SetPadFocus(_sinkClose.gameObject, slot == SinkPadNav.CloseSlot, false);
+            }
+
+            EventSystem sinkEvents = EventSystem.current;
+            if (sinkEvents == null)
+            {
+                return;
+            }
+
+            Button sinkPick = SinkButton(slot);
+            if (sinkPick != null)
+            {
+                sinkEvents.SetSelectedGameObject(sinkPick.gameObject);
+            }
+        }
+
+        private Button SinkButton(int slot)
+        {
+            if (slot == SinkPadNav.CloseSlot)
+            {
+                return _sinkClose;
+            }
+
+            if (_sinkButtons == null || slot < 0 || slot >= _sinkButtons.Length)
+            {
+                return null;
+            }
+
+            return _sinkButtons[slot];
+        }
+
+        private void ActivateSinkSlot(int slot)
+        {
+            if (slot == SinkPadNav.CloseSlot)
+            {
+                CloseSinkShop();
+                return;
+            }
+
+            OnSinkTile(slot);
+        }
+
+        private void HoldPreviewSpin(bool hold)
+        {
+            if (_ship == null)
+            {
+                return;
+            }
+
+            HangarShipPreview previewHold = _ship.GetComponent<HangarShipPreview>();
+            if (previewHold != null)
+            {
+                previewHold.SetInteractionHold(hold);
+            }
         }
 
         private struct ServiceRect
@@ -2993,6 +3373,12 @@ namespace AsteroidsGoneRogue
             // In-wave Esc/Start is handled by the confirm router above.
             if (!_confirmOpen && confirmAction == ConfirmAction.None)
             {
+                if (_sinkOpen)
+                {
+                    TickSinkShop();
+                }
+                else
+                {
                 SettingsInputFlags settingsFlags = ReadSettingsFlags();
                 SettingsRoute settingsRoute = SettingsInputRouter.Route(settingsFlags);
                 if (settingsRoute == SettingsRoute.CloseSave)
@@ -3047,6 +3433,7 @@ namespace AsteroidsGoneRogue
                 {
                     NavigateHangarPad();
                     SyncHangarPadSelection();
+                }
                 }
             }
             }
@@ -3592,6 +3979,11 @@ namespace AsteroidsGoneRogue
                 return ButtonIfActive(_bankButton);
             }
 
+            if (slot == HangarPadNav.SinkSlot)
+            {
+                return ButtonIfActive(_sinkEntry);
+            }
+
             if (slot == HangarPadNav.TutorialSkipSlot)
             {
                 return ButtonIfActive(_gotItButton);
@@ -3762,6 +4154,11 @@ namespace AsteroidsGoneRogue
                 return HangarPadNav.BankSlot;
             }
 
+            if (_sinkEntry != null && go == _sinkEntry.gameObject)
+            {
+                return HangarPadNav.SinkSlot;
+            }
+
             if (_firstEasy != null && go == _firstEasy.gameObject)
             {
                 return HangarPadNav.FirstEasySlot;
@@ -3899,7 +4296,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            bool shop = go.name.StartsWith("Buy_");
+            bool shop = go.name.StartsWith("Buy_") || go.name == "SinkBay" || go.name.StartsWith("SinkTile");
             UiTheme.SetPadFocus(go, focused, shop);
         }
 
