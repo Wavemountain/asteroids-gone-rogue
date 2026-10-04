@@ -20,6 +20,7 @@ namespace AsteroidsGoneRogue
         Resolution = 15,
         VSync = 16,
         FpsCap = 17,
+        PromptScheme = 18,
     }
 
     public enum SettingsRowRole
@@ -60,6 +61,7 @@ namespace AsteroidsGoneRogue
             SettingsRowId.Resolution,
             SettingsRowId.VSync,
             SettingsRowId.FpsCap,
+            SettingsRowId.PromptScheme,
             SettingsRowId.Controls,
             SettingsRowId.Close,
         };

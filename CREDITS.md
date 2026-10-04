@@ -24,6 +24,10 @@ Trimmed, pitch-shifted, and level-baked derivatives (Ogg Vorbis) made for this p
 - `agr_ricochet` — Kenney Digital Audio `zap1` (level-baked)
 - `agr_swarm_death_0/1/2` — Kenney Digital Audio `zap1`, `spaceTrash1`, `spaceTrash2` (trimmed, level-baked)
 
+## Input prompts (0.47)
+
+Input prompts: "Input Prompts" 1.5A by Kenney (www.kenney.nl) — CC0 1.0. Used: Xbox Series, PlayStation Series, Steam Deck, Keyboard & Mouse sets; keyboard W/A/S/D composite and amber recolour of mouse buttons are derivatives made for this project.
+
 ## Sound effects
 
 Pack: **Kenney Sci-Fi Sounds** (CC0)  

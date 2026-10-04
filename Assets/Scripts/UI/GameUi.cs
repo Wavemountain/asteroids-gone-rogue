@@ -207,6 +207,8 @@ namespace AsteroidsGoneRogue
         private Text _settingsConfirmNewRunValue;
         private Text _settingsPadNavLabel;
         private Text _settingsPadNavValue;
+        private Text _settingsPromptLabel;
+        private Text _settingsPromptValue;
         private Text _settingsWindowLabel;
         private Text _settingsWindowValue;
         private Text _settingsResolutionLabel;
@@ -278,20 +280,20 @@ namespace AsteroidsGoneRogue
         public const string DoctrineHintBody =
             "Doctrines are open. Pick Barrage, Lance, or Hunter.";
         public const string HangarControlsHint =
-            "LT utility · LB cycle · A confirm · B / Esc Next Wave · Start launch wave";
+            "{utility} utility · {cycle} cycle · {confirm} confirm · {cancel} Next Wave · {pause} launch wave";
         public const string MedalLadderPrefix = "MEDALS";
         public const string HangarHintBody =
-            "LS / WASD fly  ·  RT / LMB shoot\n"
-            + "Start = launch wave  ·  B / Esc = focus Next Wave";
+            "{move} fly  ·  {fire} shoot  ·  {utility} utility\n"
+            + "{pause} = launch wave  ·  {cancel} = focus Next Wave";
         public const string HangarHintDetail =
             "Clear a wave to earn credits and upgrades.\n"
             + "Medal ladder (top-left): \u2022 Scout Wing at wave 3.";
-        public const string FirstWaveCoach = "Shoot rocks  ·  Esc / Start returns to hangar";
+        public const string FirstWaveCoach = "Shoot rocks  ·  {pause} returns to hangar";
         public const string HintPlay =
-            "WASD/LS move · Mouse/RS aim · LMB/RT fire · E/LT utility · Q/LB cycle · Esc / Start = back to hangar";
-        public const string HintFooter = "A Select · Start Launch wave · Select = Settings";
-        public const string HintDual = "LT utility · LB cycle primary · RT fire";
-        public const string HintRail = "Hold RT 0.55s, release — Rail. Miss or cancel pays half CD.";
+            "{move} move · {aim} aim · {fire} fire · {utility} utility · {cycle} cycle · {pause} = back to hangar";
+        public const string HintFooter = "{confirm} Select · {pause} Launch wave · {settings} Settings";
+        public const string HintDual = "{utility} utility · {cycle} cycle primary · {fire} fire";
+        public const string HintRail = "Hold {fire} 0.55s, release — Rail. Miss or cancel pays half CD.";
 
         public static GameUi Instance { get; private set; }
 
@@ -656,7 +658,7 @@ namespace AsteroidsGoneRogue
             // Screen-bottom, outside hangar panel (min.y 0.080). Never in WAVE CLEAR / shop.
             Stretch(_hint.rectTransform, new Vector2(0.14f, 0.008f), new Vector2(0.86f, 0.072f));
             _hint.color = UiTheme.FooterHint;
-            _hint.text = "WASD / LS move  ·  Mouse / RS aim  ·  LMB / Space / RT fire";
+            _hint.text = HintFooter;
             ClampOneLine(_hint);
             AddReadability(_hint, false);
 
@@ -1907,7 +1909,7 @@ namespace AsteroidsGoneRogue
             _firstFlightBody = CreateText("HintBody", _tutorialRoot.transform, body, UiTheme.HintSize(Screen.width), TextAnchor.UpperLeft, FontStyle.Normal);
             Stretch(_firstFlightBody.rectTransform, new Vector2(0.07f, 0.14f), new Vector2(0.93f, 0.85f));
             _firstFlightBody.color = UiTheme.Accent;
-            _firstFlightBody.text = HangarHintBody;
+            PaintPrompt(_firstFlightBody, HangarHintBody);
 
             _gotItButton = CreateButton("DismissHint", _tutorialRoot.transform, display,
                 new Vector2(0.12f, 0.02f), new Vector2(0.88f, 0.13f));
@@ -2371,7 +2373,7 @@ namespace AsteroidsGoneRogue
 
             if (_firstFlightBody != null)
             {
-                _firstFlightBody.text = Loc.T("ui.hangar_hint_body", HangarHintBody);
+                PaintPrompt(_firstFlightBody, Loc.T("ui.hangar_hint_body", HangarHintBody));
             }
 
             if (_gotItLabel != null)
@@ -2460,8 +2462,10 @@ namespace AsteroidsGoneRogue
 
             if (_settingsControlsBody != null)
             {
-                _settingsControlsBody.text = FullControlHint();
+                PaintPrompt(_settingsControlsBody, FullControlHint());
             }
+
+            RefreshSettingsPrompt();
 
             RefreshSettingsAudio();
             RefreshSettingsShake();
@@ -2660,7 +2664,7 @@ namespace AsteroidsGoneRogue
             _boonHint.horizontalOverflow = HorizontalWrapMode.Wrap;
             _boonHint.verticalOverflow = VerticalWrapMode.Truncate;
             _boonHint.raycastTarget = false;
-            _boonHint.text = Loc.T("boon.pad", "A select  ·  D-pad or stick moves");
+            PaintPrompt(_boonHint, Loc.T("boon.pad", "{confirm} select  ·  {nav} moves"));
             _boonCanvas.SetActive(false);
             _boonRoot.SetActive(false);
             RaiseBoonModal();
@@ -4671,7 +4675,7 @@ namespace AsteroidsGoneRogue
             _doctrineHint.color = UiTheme.Secondary;
             _doctrineHint.horizontalOverflow = HorizontalWrapMode.Wrap;
             _doctrineHint.verticalOverflow = VerticalWrapMode.Truncate;
-            _doctrineHint.text = Loc.T("ui.hint_dual", HintDual);
+            PaintPrompt(_doctrineHint, Loc.T("ui.hint_dual", HintDual));
 
             _doctrineIntro = CreateFill(
                 "DoctrineIntro",
@@ -4756,9 +4760,11 @@ namespace AsteroidsGoneRogue
 
             if (_doctrineHint != null)
             {
-                _doctrineHint.text = state.Rail
-                    ? Loc.T("ui.hint_rail", HintRail)
-                    : Loc.T("ui.hint_dual", HintDual);
+                PaintPrompt(
+                    _doctrineHint,
+                    state.Rail
+                        ? Loc.T("ui.hint_rail", HintRail)
+                        : Loc.T("ui.hint_dual", HintDual));
             }
 
             PaintDoctrineButton(_barrageButton, _barrageLabel, DoctrineId.Barrage, state);
@@ -5044,7 +5050,7 @@ namespace AsteroidsGoneRogue
             if (_game != null && _game.TutorialActive)
             {
                 _hint.gameObject.SetActive(true);
-                _hint.text = FirstRunRules.SkipHint();
+                PaintPrompt(_hint, FirstRunRules.SkipHint());
                 return;
             }
 
@@ -5057,13 +5063,13 @@ namespace AsteroidsGoneRogue
             _hint.gameObject.SetActive(show);
             if (!show)
             {
-                _hint.text = string.Empty;
+                PaintPrompt(_hint, string.Empty);
                 return;
             }
 
             if (coach)
             {
-                _hint.text = Loc.T("ui.first_wave_coach", FirstWaveCoach);
+                PaintPrompt(_hint, Loc.T("ui.first_wave_coach", FirstWaveCoach));
             }
             else if (playing)
             {
@@ -5072,19 +5078,48 @@ namespace AsteroidsGoneRogue
                     && _loadout.State.ResolvedPrimary() == FireMode.Rail;
                 if (rail)
                 {
-                    _hint.text = Loc.T("ui.hint_rail", HintRail);
+                    PaintPrompt(_hint, Loc.T("ui.hint_rail", HintRail));
                 }
                 else
                 {
-                    _hint.text = Loc.T("ui.hint_play", HintPlay);
+                    PaintPrompt(_hint, Loc.T("ui.hint_play", HintPlay));
                 }
             }
             else
             {
-                _hint.text = Loc.T("ui.hint_footer", HintFooter);
+                PaintPrompt(_hint, Loc.T("ui.hint_footer", HintFooter));
             }
 
             ClampOneLine(_hint);
+        }
+
+        private void PaintPrompt(Text host, string source)
+        {
+            if (host == null)
+            {
+                return;
+            }
+
+            float promptScale = SettingsMeasure.CanvasScale(Screen.width, Screen.height);
+            PromptLineView.Paint(host, source, InputSchemeDriver.Current, promptScale);
+        }
+
+        private void RestylePrompts()
+        {
+            float promptScale = SettingsMeasure.CanvasScale(Screen.width, Screen.height);
+            InputScheme schemeNow = InputSchemeDriver.Current;
+            PromptLineView.Restyle(_hint, schemeNow, promptScale);
+            PromptLineView.Restyle(_settingsControlsBody, schemeNow, promptScale);
+            PromptLineView.Restyle(_doctrineHint, schemeNow, promptScale);
+            PromptLineView.Restyle(_firstFlightBody, schemeNow, promptScale);
+            PromptLineView.Restyle(_boonHint, schemeNow, promptScale);
+            PromptLineView.Restyle(_tutorialBanner, schemeNow, promptScale);
+            if (_settingsConfirmAbortLabel != null)
+            {
+                _settingsConfirmAbortLabel.text = PromptText.Flatten(
+                    Loc.T("ui.settings.confirm_abort", "Confirm abort ({pause}) during wave"),
+                    schemeNow);
+            }
         }
 
         private static void ClampOneLine(Text text)
@@ -5287,6 +5322,12 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.FpsCap)
             {
                 BuildSettingsFpsRow(rowIndex, body, y0, y1);
+                return;
+            }
+
+            if (rowId == SettingsRowId.PromptScheme)
+            {
+                BuildSettingsPromptRow(rowIndex, body, y0, y1);
                 return;
             }
 
@@ -5902,7 +5943,7 @@ namespace AsteroidsGoneRogue
             _settingsControlsBody.horizontalOverflow = HorizontalWrapMode.Wrap;
             _settingsControlsBody.verticalOverflow = VerticalWrapMode.Overflow;
             _settingsControlsBody.alignByGeometry = false;
-            _settingsControlsBody.text = FullControlHint();
+            PaintPrompt(_settingsControlsBody, FullControlHint());
         }
 
         private void BuildSettingsCloseRow(int rowIndex, Font display, float y0, float y1)
@@ -5926,7 +5967,7 @@ namespace AsteroidsGoneRogue
             string playHint = Loc.T("ui.hint_play", HintPlay);
             string hangarHint = Loc.Tf(
                 "ui.hint_hangar",
-                "LS move · {0}",
+                "{move} move · {0}",
                 Loc.T("ui.hangar_controls", HangarControlsHint));
             string playCaption = Loc.T("ui.settings.play", "Play");
             string hangarCaption = Loc.T("ui.settings.hangar", "Hangar");
@@ -6219,9 +6260,9 @@ namespace AsteroidsGoneRogue
         {
             if (_settingsConfirmAbortLabel != null)
             {
-                _settingsConfirmAbortLabel.text = Loc.T(
-                    "ui.settings.confirm_abort",
-                    "Confirm abort (Esc/Start) during wave");
+                _settingsConfirmAbortLabel.text = PromptText.Flatten(
+                    Loc.T("ui.settings.confirm_abort", "Confirm abort ({pause}) during wave"),
+                    InputSchemeDriver.Current);
             }
 
             if (_settingsConfirmNewRunLabel != null)
@@ -6244,6 +6285,82 @@ namespace AsteroidsGoneRogue
                     ? Loc.T("ui.settings.on", "On")
                     : Loc.T("ui.settings.off", "Off");
             }
+        }
+
+        private void BuildSettingsPromptRow(int rowIndex, Font body, float y0, float y1)
+        {
+            BuildSettingsChoiceRow(
+                rowIndex,
+                "SettingsPromptScheme",
+                body,
+                y0,
+                y1,
+                CyclePromptScheme,
+                out _settingsPromptLabel,
+                out _settingsPromptValue);
+            RefreshSettingsPrompt();
+        }
+
+        private void CyclePromptScheme()
+        {
+            StepPromptScheme(1);
+        }
+
+        private void StepPromptScheme(int direction)
+        {
+            EnsureSettings();
+            InputSchemePreference current = InputSchemeRules.Normalize(_settings.PromptScheme);
+            _settings.PromptScheme = (int)InputSchemeRules.Step(current, direction);
+            _settings.Save();
+            InputSchemeDriver.Poll(SettingsState.PromptPreference);
+            RefreshSettingsPrompt();
+            RestylePrompts();
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+        }
+
+        private static string PromptSchemeLabel(InputSchemePreference preference)
+        {
+            InputSchemePreference normalized = InputSchemeRules.Normalize((int)preference);
+            if (normalized == InputSchemePreference.Xbox)
+            {
+                return Loc.T("ui.settings.scheme.xbox", "Xbox");
+            }
+
+            if (normalized == InputSchemePreference.PlayStation)
+            {
+                return Loc.T("ui.settings.scheme.playstation", "PlayStation");
+            }
+
+            if (normalized == InputSchemePreference.Deck)
+            {
+                return Loc.T("ui.settings.scheme.deck", "Deck");
+            }
+
+            if (normalized == InputSchemePreference.Keyboard)
+            {
+                return Loc.T("ui.settings.scheme.keyboard", "Keyboard");
+            }
+
+            return Loc.T("ui.settings.scheme.auto", "Auto");
+        }
+
+        private void RefreshSettingsPrompt()
+        {
+            if (_settingsPromptLabel != null)
+            {
+                _settingsPromptLabel.text = Loc.T("ui.settings.prompt_scheme", "Button icons");
+            }
+
+            if (_settingsPromptValue == null)
+            {
+                return;
+            }
+
+            int stored = _settings != null ? _settings.PromptScheme : (int)InputSchemePreference.Auto;
+            _settingsPromptValue.text = PromptSchemeLabel(InputSchemeRules.Normalize(stored));
         }
 
         private void CyclePadNav()
@@ -7200,6 +7317,13 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.FpsCap)
             {
                 StepFpsCap(direction);
+                return;
+            }
+
+            if (rowId == SettingsRowId.PromptScheme)
+            {
+                StepPromptScheme(direction);
+                return;
             }
         }
 
@@ -7287,6 +7411,12 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.FpsCap)
             {
                 CycleFpsCap();
+                return;
+            }
+
+            if (rowId == SettingsRowId.PromptScheme)
+            {
+                CyclePromptScheme();
                 return;
             }
 
@@ -7682,7 +7812,7 @@ namespace AsteroidsGoneRogue
                 _tutorialBanner.gameObject.SetActive(live);
                 if (live)
                 {
-                    _tutorialBanner.text = FirstRunRules.PromptLine(_game.TutorialPrompt, ControlLabels.PreferPad);
+                    PaintPrompt(_tutorialBanner, FirstRunRules.PromptLine(_game.TutorialPrompt, ControlLabels.PreferPad));
                 }
             }
 
@@ -7699,6 +7829,12 @@ namespace AsteroidsGoneRogue
 
         private void NoteControlDevice()
         {
+            InputSchemeDriver.Poll(SettingsState.PromptPreference);
+            if (InputSchemeDriver.Changed)
+            {
+                RestylePrompts();
+            }
+
             Vector2 padFly = GamepadInput.PadMoveStick();
             Vector2 aimFly = GamepadInput.AimStick();
             bool padFire = Input.GetButton(GamepadInput.FirePad);
@@ -7733,7 +7869,7 @@ namespace AsteroidsGoneRogue
             _game.TickTutorial(moved, GamepadInput.FireHeld());
             if (_tutorialBanner != null)
             {
-                _tutorialBanner.text = FirstRunRules.PromptLine(_game.TutorialPrompt, ControlLabels.PreferPad);
+                PaintPrompt(_tutorialBanner, FirstRunRules.PromptLine(_game.TutorialPrompt, ControlLabels.PreferPad));
             }
         }
 
