@@ -37,6 +37,23 @@ namespace AsteroidsGoneRogue
 
         public bool RapidFire { get; private set; }
         public int ShieldCharges { get; private set; }
+
+        public void SetShieldCharges(int charges)
+        {
+            if (charges < 0)
+            {
+                charges = 0;
+            }
+
+            int cap = CurrentMaxShield;
+            if (charges > cap)
+            {
+                charges = cap;
+            }
+
+            ShieldCharges = charges;
+        }
+
         public bool NoseHardpoint { get; private set; }
         public bool BodyUpgrade01 { get; private set; }
         public bool BodyUpgrade02 { get; private set; }

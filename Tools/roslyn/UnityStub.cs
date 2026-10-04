@@ -1,5 +1,9 @@
 using System;
 
+// Stand-in for the Unity editor assemblies. Types that Core pulls in from the
+// rest of the game (UI, audio, physics) have to exist here, or Roslyn stops at
+// declaration errors and never binds method bodies. Holes in these stubs are
+// ignored. A missing member on a project type is a real error.
 namespace UnityEngine
 {
     public class Object
@@ -269,4 +273,80 @@ namespace UnityEngine
     }
 
     public class Light : Behaviour { }
+
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+    public sealed class RequireComponentAttribute : Attribute
+    {
+        public RequireComponentAttribute(System.Type type) { }
+        public RequireComponentAttribute(System.Type a, System.Type b) { }
+        public RequireComponentAttribute(System.Type a, System.Type b, System.Type c) { }
+    }
+
+    public class Collider { }
+    public class PrimitiveType { }
+    public class Collision { }
+    public class CapsuleCollider { }
+    public class SphereCollider { }
+    public class Bounds { }
+    public class Font { }
+    public class Texture2D { }
+    public class Button { }
+    public class Text { }
+    public class Image { }
+    public class Sprite { }
+    public class TextAnchor { }
+    public class FontStyle { }
+    public class Slider { }
+    public class RectTransform { }
+    public class RawImage { }
+    public class RenderTexture { }
+    public class Scrollbar { }
+    public class EntityId { }
+    public class MeshRenderer { }
+    public class AudioClip { }
+    public class AudioSource { }
+    public class ColorBlock { }
+    public class Outline { }
+    public class Canvas { }
+    public class CanvasScaler { }
+    public class GraphicRaycaster { }
+    public class Navigation { }
+    public class RectMask2D { }
+    public class TextMesh { }
+    public class CanvasGroup { }
+    public class TextGenerator { }
+    public class TextGenerationSettings { }
+    public class Animator { }
+    public class Ray { }
+    public class Plane { }
+    public class MeshFilter { }
+    public class LineRenderer { }
+    public class WaitForSeconds { }
+    public class TrailRenderer { }
+    public class BoxCollider { }
+    public class Shadow { }
+    public class Selectable { }
+}
+
+namespace UnityEngine.UI { }
+namespace UnityEngine.Events
+{
+    public delegate void UnityAction();
+    public delegate void UnityAction<T>(T arg);
+}
+namespace UnityEngine.EventSystems
+{
+    public class EventSystem : UnityEngine.MonoBehaviour { }
+    public enum EventTriggerType { PointerEnter, PointerExit, PointerDown, PointerUp, PointerClick, Drag, BeginDrag, EndDrag, Submit, Cancel }
+    public class BaseEventData { }
+    public class PointerEventData : BaseEventData { }
+    public class EventTrigger : UnityEngine.MonoBehaviour
+    {
+        public class Entry
+        {
+            public EventTriggerType eventID;
+            public UnityEngine.Events.UnityAction<BaseEventData> callback;
+        }
+        public System.Collections.Generic.List<Entry> triggers = new System.Collections.Generic.List<Entry>();
+    }
 }

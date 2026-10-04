@@ -26,7 +26,7 @@ namespace AsteroidsGoneRogue
         private float _restUntil;
         private readonly List<EnemySeeker> _minions = new List<EnemySeeker>();
         private int _maxHp = 1;
-        private int _glassRemainder;
+        private HitRemainder _glassRemainder;
         private int _fireRatePercent = 100;
         private bool _boss;
         private bool _elite;
@@ -95,7 +95,7 @@ namespace AsteroidsGoneRogue
 
             _hp = DifficultyCurve.ScaleHp(EnemyCatalog.HitPoints(kind), waveNumber, DifficultySettings.Current);
             _maxHp = _hp;
-            _glassRemainder = 0;
+            _glassRemainder.Clear();
             _speed = EnemyCatalog.Speed(kind);
             _turn = EnemyCatalog.TurnDegreesPerSecond(kind);
             _fireRatePercent = DifficultyCurve.ForWave(waveNumber).FireRatePercent;
@@ -172,7 +172,7 @@ namespace AsteroidsGoneRogue
 
             _hp = hp;
             _maxHp = hp;
-            _glassRemainder = 0;
+            _glassRemainder.Clear();
             if (speedScale < 0.05f)
             {
                 speedScale = 0.05f;
@@ -193,7 +193,7 @@ namespace AsteroidsGoneRogue
 
             _hp = hp;
             _maxHp = hp;
-            _glassRemainder = 0;
+            _glassRemainder.Clear();
         }
 
         public void ConfigureBoss(int hp)
@@ -206,7 +206,7 @@ namespace AsteroidsGoneRogue
 
             _hp = hp;
             _maxHp = hp;
-            _glassRemainder = 0;
+            _glassRemainder.Clear();
             _speed *= BossRules.SpeedScale;
             _turn *= 0.85f;
             _bossPattern = 0;
@@ -229,7 +229,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            amount = MutatorRules.ScaleDamage(amount, MutatorRuntime.Mask, ref _glassRemainder);
+            amount = MutatorRules.ScaleDamage(amount, MutatorRuntime.Mask, ref _glassRemainder.Value);
             _hp -= amount;
             if (_hp > 0)
             {

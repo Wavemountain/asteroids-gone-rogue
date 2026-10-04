@@ -14,6 +14,8 @@ namespace AsteroidsGoneRogue
         private ShipController _ship;
         private HangarShipPreview _hangarPreview;
         private FollowCamera _follow;
+        private bool _keepDailyOnReset;
+        private int _grantedStartShield;
 
         public GameSession Session
         {
@@ -684,6 +686,15 @@ namespace AsteroidsGoneRogue
 
         public void OneMoreTry()
         {
+            if (ActiveDailySeed > 0 && DailySeed.DateLooksValid(ActiveDailyDate))
+            {
+                int year = ActiveDailyDate / 10000;
+                int month = (ActiveDailyDate / 100) % 100;
+                int day = ActiveDailyDate % 100;
+                BeginRetry(true, year, month, day, ActiveMutatorMask);
+                return;
+            }
+
             BeginRetry(false, 0, 0, 0, ActiveMutatorMask);
         }
 
@@ -701,12 +712,19 @@ namespace AsteroidsGoneRogue
 
             DifficultyGrade keptGrade = DifficultySettings.Current;
             _skipTutorialRedirect = true;
-            ResetFullRun();
-            ApplyMutators(mutatorMask);
             if (daily)
             {
-                ApplyDailyClock(year, month, day);
+                StampDaily(year, month, day);
+                _keepDailyOnReset = true;
             }
+            else
+            {
+                ActiveDailySeed = 0;
+                ActiveDailyDate = 0;
+            }
+
+            ResetFullRun();
+            ApplyMutators(mutatorMask);
 
             if (DifficultySettings.Current != keptGrade)
             {
@@ -1046,6 +1064,9 @@ namespace AsteroidsGoneRogue
                 ActiveDailyDate = 0;
             }
 
+            // The save already holds this run's shields. Do not grant start bonuses again.
+            _grantedStartShield = 0;
+
             ApplyMutators(data.MutatorMask);
             _runLaunched = true;
             _legacyApplied = true;
@@ -1250,20 +1271,9 @@ namespace AsteroidsGoneRogue
 
         public void ApplyDailyClock(int year, int month, int day)
         {
-            int packed = DailySeed.PackDate(year, month, day);
-            int seed = DailySeed.ForDate(year, month, day);
-            if (packed == 0 || seed == 0)
-            {
-                ActiveDailySeed = 0;
-                ActiveDailyDate = 0;
-                BindGameplaySeed();
-                RaiseStateChanged();
-                return;
-            }
-
-            ActiveDailyDate = packed;
-            ActiveDailySeed = seed;
+            StampDaily(year, month, day);
             BindGameplaySeed();
+            ResyncStartShield();
             RaiseStateChanged();
         }
 
@@ -1272,7 +1282,23 @@ namespace AsteroidsGoneRogue
             ActiveDailySeed = 0;
             ActiveDailyDate = 0;
             BindGameplaySeed();
+            ResyncStartShield();
             RaiseStateChanged();
+        }
+
+        private void StampDaily(int year, int month, int day)
+        {
+            int packed = DailySeed.PackDate(year, month, day);
+            int seed = DailySeed.ForDate(year, month, day);
+            if (packed == 0 || seed == 0)
+            {
+                ActiveDailySeed = 0;
+                ActiveDailyDate = 0;
+                return;
+            }
+
+            ActiveDailyDate = packed;
+            ActiveDailySeed = seed;
         }
 
         public bool TryBuyLegacy(int perk)
@@ -1299,11 +1325,21 @@ namespace AsteroidsGoneRogue
 
         private void ResetFullRun()
         {
+            bool keepDaily = _keepDailyOnReset;
+            _keepDailyOnReset = false;
+            int keptSeed = 0;
+            int keptDate = 0;
+            if (keepDaily && ActiveDailySeed > 0)
+            {
+                keptSeed = ActiveDailySeed;
+                keptDate = ActiveDailyDate;
+            }
+
             _runLaunched = false;
             _legacyApplied = false;
             ActiveRunId = 0;
-            ActiveDailySeed = 0;
-            ActiveDailyDate = 0;
+            ActiveDailySeed = keptSeed;
+            ActiveDailyDate = keptDate;
             ActiveMutatorMask = 0;
             MutatorRuntime.Clear();
             if (_loadout != null && _loadout.State != null)
@@ -1890,18 +1926,73 @@ namespace AsteroidsGoneRogue
             }
 
             LoadoutState state = _loadout.State;
-            int bonusShield = SinkRules.RunStartShield(
-                LegacyProgress.StartingShield(Meta),
-                SinkRules.StartingShieldBonus(Sinks),
-                ActiveDailySeed > 0);
+            _grantedStartShield = GrantStartShield(state);
+            state.SetLegacyBonuses(LegacyProgress.HullBonus(Meta), LegacyProgress.DiscountPercent(Meta));
+        }
+
+        private int GrantStartShield(LoadoutState state)
+        {
+            int legacyShield = 0;
+            if (Meta != null && RunBonusPolicy.AppliesLegacy(ActiveDailySeed))
+            {
+                legacyShield = LegacyProgress.StartingShield(Meta);
+            }
+
+            int sinkShield = 0;
+            if (RunBonusPolicy.AppliesSinkShield(ActiveDailySeed))
+            {
+                sinkShield = SinkRules.StartingShieldBonus(Sinks);
+            }
+
+            int bonusShield = SinkRules.RunStartShield(legacyShield, sinkShield, ActiveDailySeed > 0);
             int shieldIndex = 0;
-            while (shieldIndex < bonusShield && state.CanApply(UpgradeId.ShieldCell))
+            while (shieldIndex < bonusShield && state != null && state.CanApply(UpgradeId.ShieldCell))
             {
                 state.Apply(UpgradeId.ShieldCell);
                 shieldIndex += 1;
             }
 
-            state.SetLegacyBonuses(LegacyProgress.HullBonus(Meta), LegacyProgress.DiscountPercent(Meta));
+            return shieldIndex;
+        }
+
+        private void ResyncStartShield()
+        {
+            if (_runLaunched || _loadout == null || _loadout.State == null)
+            {
+                return;
+            }
+
+            if (!_legacyApplied)
+            {
+                ApplyLegacyToNewRun();
+                RefreshPendingShip();
+                return;
+            }
+
+            LoadoutState state = _loadout.State;
+            int kept = state.ShieldCharges - _grantedStartShield;
+            if (kept < 0)
+            {
+                kept = 0;
+            }
+
+            state.SetShieldCharges(kept);
+            _grantedStartShield = GrantStartShield(state);
+            RefreshPendingShip();
+        }
+
+        private void RefreshPendingShip()
+        {
+            if (_ship == null || _loadout == null)
+            {
+                return;
+            }
+
+            _ship.ResetForWave(_loadout.State);
+            if (_factory != null)
+            {
+                _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
+            }
         }
 
         private void AwardLegacy(bool diedOnWave)
@@ -1948,8 +2039,18 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            int perkShield = Meta != null ? LegacyProgress.StartingShield(Meta) : 0;
-            if (state.ShieldCharges > perkShield)
+            int allowedShield = 0;
+            if (Meta != null && RunBonusPolicy.AppliesLegacy(ActiveDailySeed))
+            {
+                allowedShield += LegacyProgress.StartingShield(Meta);
+            }
+
+            if (RunBonusPolicy.AppliesSinkShield(ActiveDailySeed))
+            {
+                allowedShield += SinkRules.StartingShieldBonus(Sinks);
+            }
+
+            if (state.ShieldCharges > allowedShield)
             {
                 return false;
             }

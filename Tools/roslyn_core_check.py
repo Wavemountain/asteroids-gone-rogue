@@ -64,6 +64,28 @@ def game_type_index() -> dict[str, Path]:
     return index
 
 
+# Errors that mean a type was never bound. Roslyn then skips method bodies,
+# so a later DailySeed.Mix shadow can pass with an empty report.
+_DECLARATION_CODES = frozenset(
+    {
+        "CS0246",
+        "CS0234",
+        "CS0535",
+        "CS0534",
+        "CS0115",
+        "CS0506",
+        "CS0101",
+        "CS0102",
+        "CS0111",
+        "CS0260",
+        "CS0616",
+        "CS0501",
+        "CS0012",
+        "CS0542",
+    }
+)
+
+
 def is_unity_stub_artefact(code: str, message: str, stub_types: set[str]) -> bool:
     """True when the diagnostic is a hole in the Unity base-class stub."""
     if "UnityEngine" in message and code in {"CS0234", "CS0246"}:
@@ -72,6 +94,8 @@ def is_unity_stub_artefact(code: str, message: str, stub_types: set[str]) -> boo
     if not quoted:
         return False
     receiver = quoted[0]
+    if "." in receiver:
+        receiver = receiver.rsplit(".", 1)[-1]
     if code in {"CS1061", "CS0117", "CS0246", "CS1729", "CS0311"} and receiver in stub_types:
         return True
     return False
@@ -150,13 +174,28 @@ def _build(dotnet: str, work: Path) -> str:
     return result.stdout
 
 
-def core_roslyn_errors() -> list[str]:
+def _overlay_path(path: Path, work: Path, overlays: dict[str, str]) -> Path:
+    try:
+        relative = path.resolve().relative_to(ROOT.resolve()).as_posix()
+    except ValueError:
+        return path
+    replacement = overlays.get(relative)
+    if replacement is None:
+        return path
+    dest = work / "overlay" / relative
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(replacement, encoding="utf-8")
+    return dest
+
+
+def core_roslyn_errors(overlays: dict[str, str] | None = None) -> list[str]:
     dotnet = find_dotnet()
     if dotnet is None:
         return ["Roslyn Core compile needs the .NET SDK (dotnet on PATH, DOTNET_ROOT, or /tmp/dotnet)"]
     if not STUB.is_file():
         return ["missing Tools/roslyn/UnityStub.cs"]
 
+    replacements = overlays or {}
     index = game_type_index()
     stub_types = stub_type_names()
     core_dir = ROOT / "Assets" / "Scripts" / "Core"
@@ -168,7 +207,8 @@ def core_roslyn_errors() -> list[str]:
         shutil.copyfile(STUB, work / "UnityStub.cs")
         last_output = ""
         for _round in range(8):
-            _project(work, sources)
+            compiled = [_overlay_path(path, work, replacements) for path in sources]
+            _project(work, compiled)
             last_output = _build(dotnet, work)
             errors = _parse_errors(last_output)
             added = False
@@ -193,13 +233,25 @@ def core_roslyn_errors() -> list[str]:
                 break
 
         problems: list[str] = []
+        blockers: list[str] = []
         for path, line, code, message in _parse_errors(last_output):
-            relative = _core_rel(path)
-            if relative is None:
-                continue
             if is_unity_stub_artefact(code, message, stub_types):
                 continue
-            problems.append(f"{relative}:{line}: {code}: {message}")
+            relative = _core_rel(path)
+            shown = relative if relative is not None else path
+            entry = f"{shown}:{line}: {code}: {message}"
+            if code in _DECLARATION_CODES:
+                blockers.append(entry)
+                continue
+            if relative is None:
+                continue
+            problems.append(entry)
+        if blockers:
+            banner = (
+                "INCOMPLETE: Roslyn did not fully bind method bodies. "
+                "Declaration errors remain that are not known Unity stub artefacts:"
+            )
+            return [banner, *blockers, *problems]
         return problems
     finally:
         shutil.rmtree(work, ignore_errors=True)

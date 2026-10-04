@@ -18,8 +18,8 @@ namespace AsteroidsGoneRogue
         private DamageCause _lastCause = DamageCause.Unknown;
         private EnemyKind _lastEnemyKind = EnemyKind.Mid01;
         private bool _invulnCueArmed;
-        private int _assistRemainder;
-        private int _glassRemainder;
+        private HitRemainder _assistRemainder;
+        private HitRemainder _glassRemainder;
         private readonly DamageCauseLog _hits = new DamageCauseLog();
 
         public DamageCauseLog Hits
@@ -80,6 +80,8 @@ namespace AsteroidsGoneRogue
 
         public void ResetForWave(LoadoutState loadout, bool refillHull, bool applyWaveShield)
         {
+            _glassRemainder.Clear();
+            _assistRemainder.Clear();
             _dead = false;
             int hullBonus = DifficultySettings.PlayerHullBonus;
             int previousShieldMax = _maxShield;
@@ -275,9 +277,9 @@ namespace AsteroidsGoneRogue
             }
 
             amount = DifficultySettings.ScaleIncomingDamage(amount, cause);
-            amount = MutatorRules.ScaleDamage(amount, MutatorRuntime.Mask, ref _glassRemainder);
+            amount = MutatorRules.ScaleDamage(amount, MutatorRuntime.Mask, ref _glassRemainder.Value);
             bool assist = SettingsState.AssistEnabled;
-            amount = AssistRules.ScaleIncoming(amount, cause, assist, ref _assistRemainder);
+            amount = AssistRules.ScaleIncoming(amount, cause, assist, ref _assistRemainder.Value);
             if (assist && _game != null)
             {
                 _game.NoteAssistUsed();

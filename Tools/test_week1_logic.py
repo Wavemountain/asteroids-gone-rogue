@@ -1596,6 +1596,128 @@ def test_type_member_shadow_gate() -> None:
     assert not shadow(files), shadow(files)
 
 
+def test_b1_reintroduction_fails() -> None:
+    """A temp copy that puts DailySeed.Mix back under a DailySeed member must fail."""
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    from roslyn_core_check import core_roslyn_errors
+    from validate_week1_project import type_member_shadow_violations
+
+    original = (root / "Assets/Scripts/Core/RunRng.cs").read_text(encoding="utf-8")
+    bad = original.replace("public static int ActiveDailySeed", "public static int DailySeed", 1)
+    bad = bad.replace("AsteroidsGoneRogue.DailySeed.Mix", "DailySeed.Mix", 1)
+    assert bad != original
+
+    files = []
+    for path in sorted((root / "Assets").rglob("*.cs")):
+        text = path.read_text(encoding="utf-8")
+        relative = path.relative_to(root).as_posix()
+        if relative == "Assets/Scripts/Core/RunRng.cs":
+            text = bad
+        files.append((relative, text))
+    shadow_hits = type_member_shadow_violations(files)
+    assert shadow_hits, "member DailySeed hiding DailySeed.Mix must fail the shadow gate"
+    assert any("DailySeed.Mix" in hit for hit in shadow_hits)
+
+    roslyn_hits = core_roslyn_errors({"Assets/Scripts/Core/RunRng.cs": bad})
+    assert roslyn_hits, "reintroduced B1 must not pass the Roslyn gate silently"
+    joined = "\n".join(roslyn_hits)
+    assert "INCOMPLETE" in joined or ("RunRng.cs" in joined and "Mix" in joined), joined
+    assert "Mix" in joined
+
+
+def test_daily_shield_and_remainder_047() -> None:
+    """Daily runs skip legacy and sink start shields. Remainders restart each configure."""
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    policy = (root / "Assets/Scripts/Core/RunBonusPolicy.cs").read_text(encoding="utf-8")
+    health = (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
+    seeker = (root / "Assets/Scripts/Combat/EnemySeeker.cs").read_text(encoding="utf-8")
+    remainder = (root / "Assets/Scripts/Core/HitRemainder.cs").read_text(encoding="utf-8")
+    design = (root / "Docs/0.47/F_design.md").read_text(encoding="utf-8")
+
+    def applies_legacy(daily_seed: int) -> bool:
+        return daily_seed <= 0
+
+    def applies_sink(daily_seed: int) -> bool:
+        return daily_seed <= 0
+
+    def start_shield(legacy: int, sink: int, daily_seed: int) -> int:
+        legacy_part = legacy if applies_legacy(daily_seed) and legacy > 0 else 0
+        sink_part = sink if applies_sink(daily_seed) and sink > 0 else 0
+        if daily_seed > 0:
+            return 0
+        return legacy_part + sink_part
+
+    assert applies_legacy(0) and applies_sink(0)
+    assert not applies_legacy(40621) and not applies_sink(40621)
+    assert start_shield(2, 1, 40621) == 0
+    assert start_shield(2, 1, 0) == 3
+    assert "AppliesLegacy" in policy and "AppliesSinkShield" in policy
+    assert "RunBonusPolicy.AppliesLegacy" in manager and "RunBonusPolicy.AppliesSinkShield" in manager
+    assert "does not apply the legacy starting shield" in design
+
+    begin = manager.split("public void BeginRetry(")[1].split("public void ApplyMutators")[0]
+    assert begin.index("StampDaily") < begin.index("ResetFullRun()")
+    assert "_keepDailyOnReset = true" in begin
+    one = manager.split("public void OneMoreTry()")[1].split("public void OneMoreTryDaily")[0]
+    assert "BeginRetry(true" in one
+    clock = manager.split("public void ApplyDailyClock")[1].split("public void ClearDailyStamp")[0]
+    assert clock.index("StampDaily") < clock.index("ResyncStartShield")
+    clear = manager.split("public void ClearDailyStamp")[1].split("public bool TryBuyLegacy")[0]
+    assert "ResyncStartShield" in clear
+    accept = manager.split("public void AcceptContinue()")[1].split("private void ConcludeAbandonedLastLife")[0]
+    assert accept.index("ActiveDailySeed = data.DailySeed") < accept.index("RestoreSnapshot")
+    assert "ApplyLegacyToNewRun" not in accept
+    assert "_grantedStartShield = 0" in accept
+
+    assert "struct HitRemainder" in remainder and "void Clear()" in remainder
+    reset = health.split("bool applyWaveShield)")[1].split("public void SetHull")[0]
+    assert reset.index("_glassRemainder.Clear()") < reset.index("_maxHull")
+    assert "_assistRemainder.Clear()" in reset
+    assert seeker.count("_glassRemainder.Clear()") >= 4
+
+    class Remainder:
+        def __init__(self) -> None:
+            self.value = 0
+
+        def clear(self) -> None:
+            self.value = 0
+
+        def glass(self, amount: int) -> int:
+            dealt, self.value = _glass_damage(amount, 1, self.value)
+            return dealt
+
+    fresh = Remainder()
+    first = [fresh.glass(1), fresh.glass(1), fresh.glass(3)]
+    dirty = Remainder()
+    dirty.value = 50
+    leaked = [dirty.glass(1), dirty.glass(1), dirty.glass(3)]
+    assert first != leaked
+    dirty.clear()
+    replay = [dirty.glass(1), dirty.glass(1), dirty.glass(3)]
+    assert replay == first
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    import sim_longhaul
+
+    report = sim_longhaul.sweep(root)
+    assert report["catalogue"] == 9883
+    assert abs(report["ratio"]["easy"] - 0.847) <= 0.001
+    assert abs(report["ratio"]["normal"] - 0.755) <= 0.001
+    assert abs(report["ratio"]["hard"] - 0.641) <= 0.001
+
+
 def test_roslyn_stub_artefact_gate() -> None:
     """Unity stub holes are ignored. A shadowed project type is a real error."""
     import sys
@@ -7705,6 +7827,7 @@ def main() -> int:
     test_shader_cs1503_gate()
     test_cs0136_local_shadow_gate()
     test_type_member_shadow_gate()
+    test_b1_reintroduction_fails()
     test_roslyn_stub_artefact_gate()
     test_monsters_arenas_040()
     test_weapons_upgrades_040b()
@@ -7758,6 +7881,7 @@ def main() -> int:
     test_daily_seed_047f()
     test_mutators_047f()
     test_rc_047_fixes()
+    test_daily_shield_and_remainder_047()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -11252,7 +11376,7 @@ def test_part_c_047() -> None:
     assert lethal.index("PlayerHullHit()") < lethal.index("FlashScreen(")
     assert ", true)" in lethal
     health = (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
-    assert "ScaleIncoming(amount, cause, assist, ref _assistRemainder)" in health
+    assert "ScaleIncoming(amount, cause, assist, ref _assistRemainder.Value)" in health
     fairness = (root / "Assets/Scripts/Core/FairnessRules.cs").read_text(encoding="utf-8")
     assert "ref int remainder" in fairness
     legacy3 = _settings_from_ints(3, 1, 2, 1, 1, 1, 2, 1, 1)
@@ -13614,6 +13738,7 @@ def test_rc_047_fixes() -> None:
     assert _glass_damage(1, 0, 40) == (1, 40)
     assert "ref int remainder" in rules
     assert "ref _glassRemainder" in health and "ref _glassRemainder" in seeker
+    assert "_glassRemainder.Clear()" in health and "_assistRemainder.Clear()" in health
     assert "+50% damage" in copy and "+50% skada" in loc
 
     assert _run_start_shield(2, 1, True) == 0
