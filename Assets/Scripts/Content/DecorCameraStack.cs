@@ -147,6 +147,7 @@ namespace AsteroidsGoneRogue
             backdrop.rect = new Rect(viewX, viewY, viewW, viewH);
             backdrop.allowHDR = false;
             backdrop.allowMSAA = false;
+            backdrop.enabled = true;
         }
 
         public static void KeepSingleListener(Camera gameplay)

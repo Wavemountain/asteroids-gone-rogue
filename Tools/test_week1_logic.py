@@ -1596,6 +1596,35 @@ def test_type_member_shadow_gate() -> None:
     assert not shadow(files), shadow(files)
 
 
+def test_roslyn_stub_artefact_gate() -> None:
+    """Unity stub holes are ignored. A shadowed project type is a real error."""
+    import sys
+    from pathlib import Path
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    from roslyn_core_check import is_unity_stub_artefact, stub_type_names
+
+    stub = stub_type_names()
+    assert "Vector3" in stub and "DailySeed" not in stub
+    assert is_unity_stub_artefact(
+        "CS1061",
+        "'Vector3' does not contain a definition for 'normalized'",
+        stub,
+    )
+    assert not is_unity_stub_artefact(
+        "CS1061",
+        "'int' does not contain a definition for 'Mix'",
+        stub,
+    )
+    assert not is_unity_stub_artefact(
+        "CS1061",
+        "'DailySeed' does not contain a definition for 'Mix'",
+        stub,
+    )
+
+
 def test_monsters_arenas_040() -> None:
     from pathlib import Path
 
@@ -7676,6 +7705,7 @@ def main() -> int:
     test_shader_cs1503_gate()
     test_cs0136_local_shadow_gate()
     test_type_member_shadow_gate()
+    test_roslyn_stub_artefact_gate()
     test_monsters_arenas_040()
     test_weapons_upgrades_040b()
     test_art_parity_040c()
@@ -11674,6 +11704,8 @@ def _prompt_resolve(source: str, scheme: str) -> list[tuple]:
                         pieces.append(("text", pending))
                         pending = ""
                     pieces.append(("icon", token))
+                elif scheme == "keyboard" and token in ("cycle_prev", "cycle_alt"):
+                    pending += "unbound"
                 index = end + 1
                 continue
         pending += source[index]
@@ -11723,7 +11755,15 @@ def test_input_prompts_047e() -> None:
     resolved = _prompt_resolve("Hold {fire} now", "keyboard")
     assert resolved == [("text", "Hold "), ("icon", "fire"), ("text", " now")]
     missing = _prompt_resolve("{cycle_prev}", "keyboard")
-    assert missing == []
+    assert missing == [("text", "unbound")]
+    assert 'Loc.T("ui.prompt.unbound", "unbound")' in text
+    assert "obunden" in loc
+    for width, height in ((1280, 800), (1366, 768), (1920, 1080), (3440, 1440)):
+        scale = _canvas_scale(width, height)
+        panel_w = (0.78 - 0.22) * (width / scale)
+        icon_w = (0.12 - 0.02) * panel_w
+        assert _kenney_narrow_width("unbound", 18) <= icon_w
+        assert _kenney_narrow_width("obunden", 18) <= icon_w
     unknown = _prompt_resolve("keep {nope}", "xbox")
     assert unknown == [("text", "keep {nope}")]
     assert _prompt_resolve("{fire}{pause}", "deck")[0] == ("icon", "fire")

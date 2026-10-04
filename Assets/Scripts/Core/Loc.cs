@@ -84,6 +84,7 @@ namespace AsteroidsGoneRogue
             { "ui.rebind.utility", "Verktyg" },
             { "ui.rebind.cycle", "Cykla" },
             { "ui.rebind.cycle_prev", "Cykla bakåt" },
+            { "ui.prompt.unbound", "obunden" },
             { "ui.rebind.cycle_alt", "Alternativ cykel" },
             { "ui.rebind.pause", "Paus" },
             { "ui.rebind.confirm", "Bekräfta" },
