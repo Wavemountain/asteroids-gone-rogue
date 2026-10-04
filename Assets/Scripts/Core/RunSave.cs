@@ -56,6 +56,12 @@ namespace AsteroidsGoneRogue
         public int HullNow = -1;
         public int AssistUsed;
 
+        /// <summary>UTC daily seed. 0 means a normal run.</summary>
+        public int DailySeed;
+
+        /// <summary>UTC date as yyyymmdd. 0 means a normal run.</summary>
+        public int DailyDate;
+
         /// <summary>
         /// Remaining shield charges when the save was written. -1 means full
         /// (version 1–3 files, or a field the file omitted).
@@ -67,7 +73,7 @@ namespace AsteroidsGoneRogue
 
     public static class RunSaveCodec
     {
-        public const int CurrentVersion = 5;
+        public const int CurrentVersion = 6;
         public const int MaxHullNow = 16;
 
         /// <summary>
@@ -109,7 +115,9 @@ namespace AsteroidsGoneRogue
             string timestamp,
             BoonRun boons,
             int hullNow,
-            int shieldNow)
+            int shieldNow,
+            int dailySeed,
+            int dailyDate)
         {
             RunSaveData data = new RunSaveData();
             data.Version = CurrentVersion;
@@ -152,6 +160,8 @@ namespace AsteroidsGoneRogue
             data.HullNow = hullNow < -1 ? -1 : hullNow;
             data.ShieldNow = shieldNow < -1 ? -1 : shieldNow;
             data.AssistUsed = session != null && session.AssistUsed ? 1 : 0;
+            data.DailySeed = dailySeed > 0 ? dailySeed : 0;
+            data.DailyDate = dailyDate > 0 ? dailyDate : 0;
             data.Difficulty = difficulty;
             data.RunId = runId;
             data.Timestamp = timestamp == null ? string.Empty : timestamp;
@@ -370,7 +380,17 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            return true;
+            if (data.DailySeed < 0 || data.DailyDate < 0)
+            {
+                return false;
+            }
+
+            if (data.DailyDate == 0)
+            {
+                return data.DailySeed == 0;
+            }
+
+            return data.DailySeed > 0 && DailySeed.DateLooksValid(data.DailyDate);
         }
 
         /// <summary>
@@ -469,6 +489,8 @@ namespace AsteroidsGoneRogue
                 && left.HullNow == right.HullNow
                 && left.ShieldNow == right.ShieldNow
                 && left.AssistUsed == right.AssistUsed
+                && left.DailySeed == right.DailySeed
+                && left.DailyDate == right.DailyDate
                 && left.Timestamp == right.Timestamp;
         }
 
@@ -514,6 +536,8 @@ namespace AsteroidsGoneRogue
             AppendInt(builder, "HullNow", data.HullNow, false);
             AppendInt(builder, "ShieldNow", data.ShieldNow, false);
             AppendInt(builder, "AssistUsed", data.AssistUsed, false);
+            AppendInt(builder, "DailySeed", data.DailySeed, false);
+            AppendInt(builder, "DailyDate", data.DailyDate, false);
             builder.Append(",\"Timestamp\":\"");
             builder.Append(Escape(data.Timestamp));
             builder.Append("\"}");
@@ -638,6 +662,12 @@ namespace AsteroidsGoneRogue
                 parsed.AssistUsed = 0;
             }
 
+            if (parsed.Version < 6)
+            {
+                parsed.DailySeed = 0;
+                parsed.DailyDate = 0;
+            }
+
             if (!IsValid(parsed))
             {
                 return false;
@@ -759,6 +789,12 @@ namespace AsteroidsGoneRogue
                     return true;
                 case "AssistUsed":
                     data.AssistUsed = number;
+                    return true;
+                case "DailySeed":
+                    data.DailySeed = number;
+                    return true;
+                case "DailyDate":
+                    data.DailyDate = number;
                     return true;
                 default:
                     return true;

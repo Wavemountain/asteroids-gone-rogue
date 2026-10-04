@@ -1422,13 +1422,13 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (Random.value > 0.22f)
+            if (RunRng.Unit() > 0.22f)
             {
                 return;
             }
 
             string[] kinds = { "Pickup_Score", "Pickup_Shield", "Pickup_Health", "Pickup_RapidFire" };
-            CreatePickup(kinds[Random.Range(0, kinds.Length)], position);
+            CreatePickup(kinds[RunRng.Index(kinds.Length)], position);
         }
 
         private static void DressExtraLifeHeart(Transform parent, Material material)
@@ -1459,7 +1459,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (Random.value > DifficultySettings.ExtraLifeChance)
+            if (RunRng.Unit() > DifficultySettings.ExtraLifeChance)
             {
                 return;
             }
@@ -1470,7 +1470,7 @@ namespace AsteroidsGoneRogue
         private static string PickAsteroidVisual(AsteroidSize size)
         {
             string suffix = size == AsteroidSize.Large ? "Large" : "Small";
-            float roll = Random.value;
+            float roll = RunRng.Unit();
             if (roll < 0.25f)
             {
                 return "Asteroid_VariantC_" + suffix;

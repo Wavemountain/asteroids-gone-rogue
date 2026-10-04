@@ -26,9 +26,9 @@ At New Run the player can pick **Daily Run** or a normal run. The daily seed is 
 
 Seeded when the daily seed is non-zero:
 
-- Boon offers (`BoonCatalog.Draw` already takes a seed; the daily seed replaces the run id for that draw).
-- Spawn ring phase (rocks, roster, extras, boss, elite). Unseeded angles stay the current formulas.
-- Pickup drops, extra-life rolls, and asteroid visual picks.
+- Boon offers (`BoonCatalog.Draw` already takes a seed; the daily seed replaces the run id for that draw). Shop stock and prices are fixed, so there is no shop roll.
+- Spawn ring phase (rocks, roster, extras, boss, elite, and the scripted pickup rings). Unseeded angles stay the current formulas because the added phase is 0.
+- Pickup drops, extra-life rolls, and asteroid visual picks. Each wave restarts that stream from `Mix(seed, wave)`.
 
 Not deterministic, even on a daily run: audio pitch, camera shake, asteroid tumble, enemy aim wander, seeker lead, and VFX. Those stay on `UnityEngine.Random`.
 
@@ -79,6 +79,6 @@ Profile JSON (`agr.sink.profile`, version 1) is separate from the run file: `Own
 
 ## What is tested vs not
 
-**Tested without Play Mode:** preview spin / pause / reduce freeze, frustum fit, sink prices, caps, monotonic reach curve, purchase and equip rules, profile codec (round-trip, missing, corrupt, newer version), sink pad grid, bay cell inside the hangar and clear of the bank button, EN/SV lines inside the overlay from 1280×800 through 3440×1440 at font 18, catalogue prices unchanged, existing `LayoutSelfCheck` strings and gear row coords, loc parity (`audit_loc.py`).
+**Tested without Play Mode:** preview spin / pause / reduce freeze, frustum fit, sink prices, caps, monotonic reach curve, purchase and equip rules, profile codec (round-trip, missing, corrupt, newer version), sink pad grid, bay cell inside the hangar and clear of the bank button, EN/SV lines inside the overlay from 1280×800 through 3440×1440 at font 18, catalogue prices unchanged, existing `LayoutSelfCheck` strings and gear row coords, loc parity (`audit_loc.py`). Daily seed repeats for one date and changes on the next, the stream repeats for one seed, spawn phase is 0 when the seed is 0, the daily board keeps a better score, drops the oldest day past 32, ignores assist, and treats a corrupt blob as empty. Run saves older than version 6 load with no daily seed. The New Run chooser rects do not overlap and the EN/SV labels fit the same resolution matrix.
 
 **Not tested here:** Unity Play Mode, a real gamepad, the studio lights on a GPU, FBX material emission, or `Screen` layout on a Deck. Roslyn does not compile `GameUi.cs` or `GameManager.cs`; those edits are read back line by line.
