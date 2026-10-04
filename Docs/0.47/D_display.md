@@ -1,6 +1,6 @@
 # 0.47 Part D — resolution, Steam Deck, window settings
 
-Settings version is **5**. A save older than 5 still loads. Display keys are ignored until that migration and the launch defaults are written on the next save. Defaults keep the previous behaviour: borderless, VSync off, FPS cap 60. The stored windowed size starts at 1920×1080 and is used only in windowed mode.
+Settings version is **5**. A save older than 5 still loads. Display keys are ignored until that migration and the launch defaults are written on the next save. Migrated saves and a fresh default are borderless, VSync on, FPS cap 60. A save from version 5 or newer keeps the VSync value it stored, including off. The stored windowed size starts at 1920×1080 and is used only in windowed mode.
 
 ## Resolution matrix
 
@@ -30,7 +30,7 @@ The canvas scaler stays 1920×1080, match 0.5. On-screen size is `fontSize × ca
 
 ## Settings scroll
 
-Eighteen rows do not fit in the panel at font 18, so the list scrolls. Row height is 0.076 of the panel (tall enough for two lines of font 18 on 3440×1440). The controls block is a 0.26 section. Pad up/down moves `SettingsRows.Move` and `ShiftForFocus` slides the focused row fully into the viewport. Stick and D-pad both feed that move. Left/right nudges the focused value, including Reduce effects and the two sliders. B / Esc / Start closes the overlay. Focus uses `UiTheme.SetPadFocus`. Rows outside the mask are not interactable.
+Eighteen rows do not fit in the panel at font 18, so the list scrolls. Row height is 0.076 of the panel (tall enough for two lines of font 18 on 3440×1440). The controls block is a 0.26 section. Pad up/down moves `SettingsRows.Move` and `ShiftForFocus` slides the focused row fully into the viewport. Stick and D-pad both feed that move. Left/right nudges the focused value, including Reduce effects and the two sliders. B / Esc / Start closes the overlay. Focus uses `UiTheme.SetPadFocus`. The mouse wheel moves the same shift by one row per notch, and a slim scrollbar on the right of the list can be dragged. A click on a row that is only partly inside the mask focuses that row and scrolls it fully in. A row that is fully inside stays clickable. Rows completely outside the mask are not interactable.
 
 ## Display rows
 
@@ -46,7 +46,7 @@ Vertical FOV stays **54**. `ArenaFraming` keeps a 16:9 frustum:
 - Taller than 16:9 (including 1280×800): letterbox. The rect is shorter and centered, so the playfield is not cropped.
 - Exactly 16:9: the rect is full screen.
 
-The decor camera copies the play camera rect in `LateUpdate` (execution order 20000), otherwise the side bars would show extra scenery. UI canvases are screen-space overlays and stay full screen. Store capture hold resets the play rect to full screen so the capture is not letterboxed.
+The decor camera copies the play camera rect in `LateUpdate` (execution order 20000), otherwise the side bars would show extra scenery. `LetterboxClear` is a third camera at depth −100, solid black, culling mask 0, full rect, and no audio listener. It is created with the decor stack and paints the letterbox and pillarbox bars so a 16:10 Deck or an ultrawide build does not flicker uncleared color there. The gameplay camera keeps the only audio listener. UI canvases are screen-space overlays and stay full screen. Store capture hold resets the play rect to full screen so the capture is not letterboxed.
 
 ## Known sizes the tests do not raise
 
@@ -56,4 +56,4 @@ Shop hull names stay at `ShopGridLayout.HullFont` 14. The hull cell fails a two-
 
 **Tests (this repo, no Play Mode):** layout math above, display clamp/fallback, settings version migration, music same-clip hold, assist absorb decision, contrast floors after the W3/W4 bump, localisation parity via `audit_loc.py`.
 
-**Hand only:** a real Steam Deck, `Screen.SetResolution` on a desktop, pad focus chrome in Play Mode, and that the letterbox bars match the camera background. This environment does not run the Unity editor.
+**Hand only:** a real Steam Deck, `Screen.SetResolution` on a desktop, pad focus chrome in Play Mode, and that the letterbox bars stay black. This environment does not run the Unity editor.

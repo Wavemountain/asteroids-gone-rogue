@@ -341,6 +341,21 @@ namespace AsteroidsGoneRogue
             return data.ShieldRank;
         }
 
+        /// <summary>
+        /// Legacy and sink start-shield bonuses. A daily run gets neither.
+        /// </summary>
+        public static int RunStartShield(int legacyShield, int sinkShield, bool dailyRun)
+        {
+            if (dailyRun)
+            {
+                return 0;
+            }
+
+            int legacy = legacyShield > 0 ? legacyShield : 0;
+            int sink = sinkShield > 0 ? sinkShield : 0;
+            return legacy + sink;
+        }
+
         public static bool TryPurchase(SinkProfileData profile, int sinkId, int credits, out SinkProfileData next, out int price)
         {
             next = null;

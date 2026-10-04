@@ -168,5 +168,155 @@ namespace AsteroidsGoneRogue
             minX = SettingsMeasure.RowMinX;
             maxX = SettingsMeasure.RowMaxX;
         }
+
+        public const int ClickIgnore = 0;
+        public const int ClickFocus = 1;
+        public const int ClickActivate = 2;
+        public const float ThumbMin = 0.12f;
+
+        public static float MaxShift()
+        {
+            float extra = ContentHeight() - ViewportSpan;
+            if (extra < 0f)
+            {
+                return 0f;
+            }
+
+            return extra;
+        }
+
+        public static float ClampShift(float shift)
+        {
+            if (shift < 0f)
+            {
+                return 0f;
+            }
+
+            float max = MaxShift();
+            if (shift > max)
+            {
+                return max;
+            }
+
+            return shift;
+        }
+
+        /// <summary>
+        /// One wheel notch moves one row. Positive scrollY reveals earlier rows.
+        /// </summary>
+        public static float Wheel(float shift, float scrollY)
+        {
+            if (scrollY == 0f)
+            {
+                return ClampShift(shift);
+            }
+
+            float step = RowHeight + RowGap;
+            float notches = scrollY;
+            if (notches < 0f)
+            {
+                notches = -notches;
+            }
+
+            int count = (int)notches;
+            if (count < 1)
+            {
+                count = 1;
+            }
+
+            float delta = step * count;
+            if (scrollY > 0f)
+            {
+                return ClampShift(shift - delta);
+            }
+
+            return ClampShift(shift + delta);
+        }
+
+        public static void ViewportBandAt(int index, float shift, out float bottom, out float top)
+        {
+            float panelBottom;
+            float panelTop;
+            ContentBand(index, out panelBottom, out panelTop);
+            float applied = ClampShift(shift);
+            panelBottom += applied;
+            panelTop += applied;
+            float span = ViewportSpan;
+            if (span < 0.0001f)
+            {
+                span = 0.0001f;
+            }
+
+            bottom = (panelBottom - ViewportBottom) / span;
+            top = (panelTop - ViewportBottom) / span;
+        }
+
+        public static int ClickKind(float bottom, float top)
+        {
+            if (ContainsBand(bottom, top))
+            {
+                return ClickActivate;
+            }
+
+            if (IntersectsViewport(bottom, top))
+            {
+                return ClickFocus;
+            }
+
+            return ClickIgnore;
+        }
+
+        public static float ScrollbarSize()
+        {
+            float content = ContentHeight();
+            float view = ViewportSpan;
+            if (content <= view || content <= 0.0001f)
+            {
+                return 1f;
+            }
+
+            float size = view / content;
+            if (size < ThumbMin)
+            {
+                size = ThumbMin;
+            }
+
+            if (size > 1f)
+            {
+                size = 1f;
+            }
+
+            return size;
+        }
+
+        /// <summary>
+        /// Scrollbar value 1 is the top of the list (shift 0).
+        /// </summary>
+        public static float ScrollbarValue(float shift)
+        {
+            float max = MaxShift();
+            if (max <= 0.0001f)
+            {
+                return 1f;
+            }
+
+            return 1f - (ClampShift(shift) / max);
+        }
+
+        public static float ShiftFromScrollbar(float value)
+        {
+            float clamped = value;
+            if (clamped < 0f)
+            {
+                clamped = 0f;
+            }
+
+            if (clamped > 1f)
+            {
+                clamped = 1f;
+            }
+
+            return ClampShift((1f - clamped) * MaxShift());
+        }
     }
 }

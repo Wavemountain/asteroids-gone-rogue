@@ -19,6 +19,7 @@ namespace AsteroidsGoneRogue
         private EnemyKind _lastEnemyKind = EnemyKind.Mid01;
         private bool _invulnCueArmed;
         private int _assistRemainder;
+        private int _glassRemainder;
         private readonly DamageCauseLog _hits = new DamageCauseLog();
 
         public DamageCauseLog Hits
@@ -274,7 +275,7 @@ namespace AsteroidsGoneRogue
             }
 
             amount = DifficultySettings.ScaleIncomingDamage(amount, cause);
-            amount = MutatorRules.ScaleDamage(amount, MutatorRuntime.Mask);
+            amount = MutatorRules.ScaleDamage(amount, MutatorRuntime.Mask, ref _glassRemainder);
             bool assist = SettingsState.AssistEnabled;
             amount = AssistRules.ScaleIncoming(amount, cause, assist, ref _assistRemainder);
             if (assist && _game != null)

@@ -49,6 +49,11 @@ namespace AsteroidsGoneRogue
                 return true;
             }
 
+            if (action == BindAction.Confirm && source.PadHeld(BindCodes.SubmitPad))
+            {
+                return true;
+            }
+
             return map.IsHeld(action, source, false);
         }
 
@@ -65,6 +70,11 @@ namespace AsteroidsGoneRogue
             }
 
             if ((action == BindAction.Pause || action == BindAction.Cancel) && source.KeyDown(BindCodes.Escape))
+            {
+                return true;
+            }
+
+            if (action == BindAction.Confirm && source.PadDown(BindCodes.SubmitPad))
             {
                 return true;
             }

@@ -483,7 +483,7 @@ namespace AsteroidsGoneRogue
             { "mut.quiet", "Tyst rymd" },
             { "mut.overclock", "Överklockning" },
             { "mut.long", "Långtur" },
-            { "mut.glass.desc", "Du och fiender tar mer skada." },
+            { "mut.glass.desc", "Du och fiender tar +50% skada." },
             { "mut.swarm.desc", "Fler svärmare, färre tungviktare." },
             { "mut.heavy.desc", "Asteroider är segare och delas en gång till." },
             { "mut.quiet.desc", "Färre plock. Kreditbelöning stiger." },
