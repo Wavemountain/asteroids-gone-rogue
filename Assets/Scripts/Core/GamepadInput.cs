@@ -32,9 +32,15 @@ namespace AsteroidsGoneRogue
         public const string DpadLeft = "DpadLeft";
         public const string DpadRight = "DpadRight";
 
+        public static IBindSource Live
+        {
+            get { return LiveBindSource.Instance; }
+        }
+
         public static Vector2 MoveStick()
         {
-            return Deadzone(new Vector2(Axis(MoveX), Axis(MoveY)));
+            BindVec2 raw = BoundInput.MoveVector(Live);
+            return Deadzone(new Vector2(raw.X, raw.Y));
         }
 
         public static Vector2 PadMoveStick()
@@ -49,12 +55,20 @@ namespace AsteroidsGoneRogue
 
         public static bool FireHeld()
         {
-            if (Input.GetButton("Fire1") || Input.GetKey(KeyCode.Space))
+            BindingMap map = BindingMap.ActiveOrDefault();
+            if (map.UsesLegacyFire())
             {
-                return true;
-            }
+                if (Input.GetButton("Fire1") || Input.GetKey(KeyCode.Space))
+                {
+                    return true;
+                }
 
-            if (Input.GetButton(FirePad))
+                if (Input.GetButton(FirePad))
+                {
+                    return true;
+                }
+            }
+            else if (BoundInput.Held(BindAction.Fire, Live) || BoundInput.Held(BindAction.FireAlt, Live))
             {
                 return true;
             }
@@ -64,7 +78,15 @@ namespace AsteroidsGoneRogue
 
         public static bool UtilityHeld()
         {
-            if (Input.GetKey(KeyCode.E) || Input.GetMouseButton(1))
+            BindingMap map = BindingMap.ActiveOrDefault();
+            if (map.UsesLegacyUtility())
+            {
+                if (Input.GetKey(KeyCode.E) || Input.GetMouseButton(1))
+                {
+                    return true;
+                }
+            }
+            else if (BoundInput.Held(BindAction.Utility, Live))
             {
                 return true;
             }
@@ -86,29 +108,59 @@ namespace AsteroidsGoneRogue
 
         public static bool CyclePressed()
         {
-            return Input.GetKeyDown(KeyCode.Q)
-                || Input.GetKeyDown(KeyCode.JoystickButton4)
-                || ButtonDown(CycleFire);
+            BindingMap map = BindingMap.ActiveOrDefault();
+            if (map.UsesLegacyCycle())
+            {
+                return Input.GetKeyDown(KeyCode.Q)
+                    || Input.GetKeyDown(KeyCode.JoystickButton4)
+                    || ButtonDown(CycleFire);
+            }
+
+            return BoundInput.Down(BindAction.Cycle, Live) || BoundInput.Down(BindAction.CycleAlt, Live);
         }
 
         public static bool CyclePrevPressed()
         {
-            return Input.GetKeyDown(KeyCode.JoystickButton5);
+            BindingMap map = BindingMap.ActiveOrDefault();
+            if (map.UsesLegacyCyclePrev())
+            {
+                return Input.GetKeyDown(KeyCode.JoystickButton5);
+            }
+
+            return BoundInput.Down(BindAction.CyclePrev, Live);
         }
 
         public static bool PausePressed()
         {
-            return Input.GetKeyDown(KeyCode.Escape) || ButtonDown(Pause);
+            BindingMap map = BindingMap.ActiveOrDefault();
+            if (map.UsesLegacyPause())
+            {
+                return Input.GetKeyDown(KeyCode.Escape) || ButtonDown(Pause);
+            }
+
+            return BoundInput.Down(BindAction.Pause, Live);
         }
 
         public static bool ConfirmPressed()
         {
-            return Input.GetButtonDown("Submit") || ButtonDown(FirePad);
+            BindingMap map = BindingMap.ActiveOrDefault();
+            if (map.UsesLegacyConfirm())
+            {
+                return Input.GetButtonDown("Submit") || ButtonDown(FirePad);
+            }
+
+            return BoundInput.Down(BindAction.Confirm, Live);
         }
 
         public static bool CancelPressed()
         {
-            return Input.GetButtonDown("Cancel") || Input.GetKeyDown(KeyCode.Escape);
+            BindingMap map = BindingMap.ActiveOrDefault();
+            if (map.UsesLegacyCancel())
+            {
+                return Input.GetButtonDown("Cancel") || Input.GetKeyDown(KeyCode.Escape);
+            }
+
+            return BoundInput.Down(BindAction.Cancel, Live);
         }
 
         public static Vector2 UiNavStick()
@@ -255,6 +307,144 @@ namespace AsteroidsGoneRogue
             }
 
             return stick;
+        }
+
+        private sealed class LiveBindSource : IBindSource
+        {
+            public static readonly LiveBindSource Instance = new LiveBindSource();
+
+            private LiveBindSource()
+            {
+            }
+
+            public bool KeyHeld(int keyCode)
+            {
+                if (keyCode == (int)KeyCode.E)
+                {
+                    return Input.GetKey(KeyCode.E);
+                }
+
+                if (keyCode <= 0)
+                {
+                    return false;
+                }
+
+                return Input.GetKey((KeyCode)keyCode);
+            }
+
+            public bool KeyDown(int keyCode)
+            {
+                if (keyCode <= 0)
+                {
+                    return false;
+                }
+
+                return Input.GetKeyDown((KeyCode)keyCode);
+            }
+
+            public bool MouseHeld(int button)
+            {
+                if (button == 1)
+                {
+                    return Input.GetMouseButton(1);
+                }
+
+                if (button < 0 || button > 6)
+                {
+                    return false;
+                }
+
+                return Input.GetMouseButton(button);
+            }
+
+            public bool MouseDown(int button)
+            {
+                if (button < 0 || button > 6)
+                {
+                    return false;
+                }
+
+                return Input.GetMouseButtonDown(button);
+            }
+
+            public bool PadHeld(int button)
+            {
+                if (button < 0 || button > 19)
+                {
+                    return false;
+                }
+
+                return Input.GetKey((KeyCode)((int)KeyCode.JoystickButton0 + button));
+            }
+
+            public bool PadDown(int button)
+            {
+                if (button == 4)
+                {
+                    return Input.GetKeyDown(KeyCode.JoystickButton4);
+                }
+
+                if (button == 5)
+                {
+                    return Input.GetKeyDown(KeyCode.JoystickButton5);
+                }
+
+                if (button < 0 || button > 19)
+                {
+                    return false;
+                }
+
+                return Input.GetKeyDown((KeyCode)((int)KeyCode.JoystickButton0 + button));
+            }
+
+            public float Axis(string name)
+            {
+                return GamepadInput.Axis(name);
+            }
+
+            public int NextKeyDown()
+            {
+                for (int code = 8; code <= 319; code++)
+                {
+                    if (code == (int)KeyCode.Escape)
+                    {
+                        continue;
+                    }
+
+                    if (Input.GetKeyDown((KeyCode)code))
+                    {
+                        return code;
+                    }
+                }
+
+                return 0;
+            }
+
+            public int NextMouseDown()
+            {
+                for (int button = 0; button <= 6; button++)
+                {
+                    if (MouseDown(button))
+                    {
+                        return button;
+                    }
+                }
+
+                return -1;
+            }
+
+            public int NextPadDown()
+            {
+                for (int button = 0; button <= 19; button++)
+                {
+                    if (PadDown(button))
+                    {
+                        return button;
+                    }
+                }
+
+                return -1;
+            }
         }
     }
 }

@@ -39,7 +39,15 @@ namespace AsteroidsGoneRogue
 
             string safe = source ?? string.Empty;
             int fontSize = host.fontSize;
-            string stamp = ((int)scheme).ToString() + "|" + canvasScale.ToString("0.000") + "|" + fontSize.ToString() + "|" + safe;
+            string stamp = ((int)scheme).ToString()
+                + "|"
+                + canvasScale.ToString("0.000")
+                + "|"
+                + fontSize.ToString()
+                + "|"
+                + BindingMap.Revision.ToString()
+                + "|"
+                + safe;
             if (mark.Stamp == stamp)
             {
                 return;

@@ -209,6 +209,8 @@ namespace AsteroidsGoneRogue
         private Text _settingsPadNavValue;
         private Text _settingsPromptLabel;
         private Text _settingsPromptValue;
+        private Text _settingsRebindLabel;
+        private RebindOverlay _rebindOverlay;
         private Text _settingsWindowLabel;
         private Text _settingsWindowValue;
         private Text _settingsResolutionLabel;
@@ -2460,6 +2462,11 @@ namespace AsteroidsGoneRogue
                 _settingsControlsTitle.text = Loc.T("ui.settings.controls", "Controls");
             }
 
+            if (_settingsRebindLabel != null)
+            {
+                _settingsRebindLabel.text = Loc.T("ui.settings.rebind", "Change controls");
+            }
+
             if (_settingsControlsBody != null)
             {
                 PaintPrompt(_settingsControlsBody, FullControlHint());
@@ -2993,6 +3000,12 @@ namespace AsteroidsGoneRogue
             // In-wave Esc/Start is handled by the confirm router above.
             if (!_confirmOpen && confirmAction == ConfirmAction.None)
             {
+                if (RebindConsumesInput())
+                {
+                    TickRebind();
+                }
+                else
+                {
                 SettingsInputFlags settingsFlags = ReadSettingsFlags();
                 SettingsRoute settingsRoute = SettingsInputRouter.Route(settingsFlags);
                 if (settingsRoute == SettingsRoute.CloseSave)
@@ -3047,6 +3060,7 @@ namespace AsteroidsGoneRogue
                 {
                     NavigateHangarPad();
                     SyncHangarPadSelection();
+                }
                 }
             }
             }
@@ -5224,6 +5238,8 @@ namespace AsteroidsGoneRogue
             }
 
             ApplySettingsFonts();
+            _rebindOverlay = RebindOverlay.Create(transform);
+            _rebindOverlay.SetChanged(OnBindingsChanged);
             _settingsRoot.SetActive(false);
         }
 
@@ -5328,6 +5344,12 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.PromptScheme)
             {
                 BuildSettingsPromptRow(rowIndex, body, y0, y1);
+                return;
+            }
+
+            if (rowId == SettingsRowId.ChangeControls)
+            {
+                BuildSettingsRebindRow(rowIndex, body, y0, y1);
                 return;
             }
 
@@ -6301,6 +6323,66 @@ namespace AsteroidsGoneRogue
             RefreshSettingsPrompt();
         }
 
+        private void BuildSettingsRebindRow(int rowIndex, Font body, float y0, float y1)
+        {
+            Text rebindValue;
+            BuildSettingsChoiceRow(
+                rowIndex,
+                "SettingsRebind",
+                body,
+                y0,
+                y1,
+                OpenRebind,
+                out _settingsRebindLabel,
+                out rebindValue);
+            if (_settingsRebindLabel != null)
+            {
+                _settingsRebindLabel.text = Loc.T("ui.settings.rebind", "Change controls");
+            }
+
+            if (rebindValue != null)
+            {
+                rebindValue.text = string.Empty;
+            }
+        }
+
+        private void OpenRebind()
+        {
+            if (_rebindOverlay == null)
+            {
+                return;
+            }
+
+            _rebindOverlay.Open();
+        }
+
+        private void OnBindingsChanged()
+        {
+            EnsureSettings();
+            _settings.Bindings = BindingStore.Serialize(BindingMap.ActiveOrDefault());
+            _settings.Save();
+            RestylePrompts();
+        }
+
+        private bool RebindConsumesInput()
+        {
+            return _rebindOverlay != null && _rebindOverlay.IsOpen;
+        }
+
+        private void TickRebind()
+        {
+            if (_rebindOverlay == null)
+            {
+                return;
+            }
+
+            _rebindOverlay.Tick(Time.unscaledTime, Time.frameCount);
+            if (_settingsOpen)
+            {
+                SetSettingsNavigationLock(true);
+            }
+        }
+
         private void CyclePromptScheme()
         {
             StepPromptScheme(1);
@@ -7121,6 +7203,11 @@ namespace AsteroidsGoneRogue
 
         private void CloseSettings()
         {
+            if (_rebindOverlay != null)
+            {
+                _rebindOverlay.Close();
+            }
+
             PersistSettings();
             HideSettingsRoot();
             SetSettingsNavigationLock(false);
@@ -7137,6 +7224,11 @@ namespace AsteroidsGoneRogue
             if (!_settingsOpen)
             {
                 return;
+            }
+
+            if (_rebindOverlay != null)
+            {
+                _rebindOverlay.Close();
             }
 
             PersistSettings();
@@ -7417,6 +7509,12 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.PromptScheme)
             {
                 CyclePromptScheme();
+                return;
+            }
+
+            if (rowId == SettingsRowId.ChangeControls)
+            {
+                OpenRebind();
                 return;
             }
 

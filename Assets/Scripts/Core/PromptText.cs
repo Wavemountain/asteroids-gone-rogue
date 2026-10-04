@@ -120,7 +120,8 @@ namespace AsteroidsGoneRogue
                         string token = source.Substring(cursor + 1, end - cursor - 1);
                         if (IsToken(token))
                         {
-                            if (PromptCatalog.Has(scheme, token))
+                            BindingMap liveMap = BindingMap.ActiveOrDefault();
+                            if (PromptCatalog.Has(scheme, token) && BindingGlyph.ShowsIcon(scheme, token, liveMap))
                             {
                                 Flush(pieces, pending);
                                 pending = string.Empty;
@@ -128,7 +129,7 @@ namespace AsteroidsGoneRogue
                             }
                             else
                             {
-                                pending += Fallback(scheme, token);
+                                pending += BindingGlyph.PromptValue(token, scheme, liveMap);
                             }
 
                             cursor = end + 1;
@@ -169,7 +170,7 @@ namespace AsteroidsGoneRogue
                         string token = source.Substring(cursor + 1, end - cursor - 1);
                         if (IsToken(token))
                         {
-                            built += Fallback(scheme, token);
+                            built += BindingGlyph.PromptValue(token, scheme, BindingMap.ActiveOrDefault());
                             cursor = end + 1;
                             continue;
                         }
@@ -184,6 +185,11 @@ namespace AsteroidsGoneRogue
         }
 
         public static string Fallback(InputScheme scheme, string token)
+        {
+            return BindingGlyph.PromptValue(token, scheme, BindingMap.ActiveOrDefault());
+        }
+
+        public static string StockLabel(InputScheme scheme, string token)
         {
             if (scheme == InputScheme.PlayStation)
             {

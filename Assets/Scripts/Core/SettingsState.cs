@@ -123,7 +123,7 @@ namespace AsteroidsGoneRogue
     /// </summary>
     public sealed class SettingsState
     {
-        public const int CurrentVersion = 6;
+        public const int CurrentVersion = 7;
         public const int DefaultHintSizeStep = 1;
         public const int MaxHintSizeStep = 2;
 
@@ -142,6 +142,7 @@ namespace AsteroidsGoneRogue
         public const string VSyncKey = "agr.settings.vSync";
         public const string FpsCapKey = "agr.settings.fpsCap";
         public const string PromptSchemeKey = "agr.settings.promptScheme";
+        public const string BindingsKey = BindingStore.PrefsKey;
 
         public bool ScreenShake;
         public bool AssistMode;
@@ -157,6 +158,7 @@ namespace AsteroidsGoneRogue
         public bool VSync;
         public int FpsCap;
         public int PromptScheme;
+        public string Bindings;
 
         public static SettingsState CreateDefault()
         {
@@ -175,6 +177,7 @@ namespace AsteroidsGoneRogue
             state.VSync = DisplaySettings.DefaultVSync != 0;
             state.FpsCap = DisplaySettings.DefaultFpsCap;
             state.PromptScheme = (int)InputSchemePreference.Auto;
+            state.Bindings = BindingStore.Serialize(BindingMap.CreateDefault());
             return state;
         }
 
@@ -274,6 +277,7 @@ namespace AsteroidsGoneRogue
             _reduceReady = true;
             _promptSchemeCached = source.PromptScheme;
             _promptSchemeReady = true;
+            BindingMap.Publish(BindingStore.Parse(source.Bindings, CurrentVersion));
         }
 
         /// <summary>
@@ -656,6 +660,11 @@ namespace AsteroidsGoneRogue
             prefs.VSync = VSync ? 1 : 0;
             prefs.FpsCap = FpsCap;
             prefs.PromptScheme = PromptScheme;
+            if (string.IsNullOrEmpty(Bindings))
+            {
+                Bindings = BindingStore.Serialize(BindingMap.CreateDefault());
+            }
+
             return prefs;
         }
 
@@ -811,6 +820,7 @@ namespace AsteroidsGoneRogue
         public static SettingsState Load()
         {
             int version = UnityEngine.PlayerPrefs.GetInt(VersionKey, 0);
+            string storedBindings = UnityEngine.PlayerPrefs.GetString(BindingsKey, string.Empty);
             SettingsState state = FromInts(
                 version,
                 UnityEngine.PlayerPrefs.GetInt(ScreenShakeKey, 1),
@@ -827,6 +837,7 @@ namespace AsteroidsGoneRogue
                 UnityEngine.PlayerPrefs.GetInt(VSyncKey, DisplaySettings.DefaultVSync),
                 UnityEngine.PlayerPrefs.GetInt(FpsCapKey, DisplaySettings.DefaultFpsCap),
                 UnityEngine.PlayerPrefs.GetInt(PromptSchemeKey, (int)InputSchemePreference.Auto));
+            state.Bindings = BindingStore.Serialize(BindingStore.Parse(storedBindings, version));
             Publish(state);
             if (version != CurrentVersion)
             {
@@ -854,6 +865,7 @@ namespace AsteroidsGoneRogue
             UnityEngine.PlayerPrefs.SetInt(VSyncKey, prefs.VSync);
             UnityEngine.PlayerPrefs.SetInt(FpsCapKey, prefs.FpsCap);
             UnityEngine.PlayerPrefs.SetInt(PromptSchemeKey, prefs.PromptScheme);
+            UnityEngine.PlayerPrefs.SetString(BindingsKey, Bindings);
             UnityEngine.PlayerPrefs.Save();
             Publish(this);
         }

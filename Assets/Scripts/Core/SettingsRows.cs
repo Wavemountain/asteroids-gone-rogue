@@ -21,6 +21,7 @@ namespace AsteroidsGoneRogue
         VSync = 16,
         FpsCap = 17,
         PromptScheme = 18,
+        ChangeControls = 19,
     }
 
     public enum SettingsRowRole
@@ -62,6 +63,7 @@ namespace AsteroidsGoneRogue
             SettingsRowId.VSync,
             SettingsRowId.FpsCap,
             SettingsRowId.PromptScheme,
+            SettingsRowId.ChangeControls,
             SettingsRowId.Controls,
             SettingsRowId.Close,
         };
@@ -78,7 +80,7 @@ namespace AsteroidsGoneRogue
                 return SettingsRowRole.Section;
             }
 
-            if (id == SettingsRowId.Close)
+            if (id == SettingsRowId.Close || id == SettingsRowId.ChangeControls)
             {
                 return SettingsRowRole.Action;
             }
@@ -150,6 +152,14 @@ namespace AsteroidsGoneRogue
 
         public static float Weight(SettingsRowId id)
         {
+            // The visible list uses SettingsScroll's fixed row height. This share
+            // only feeds RowBand. A full extra row drops the language band under
+            // the 14px line floor on 3440x1440, so the rebind entry is a short share.
+            if (id == SettingsRowId.ChangeControls)
+            {
+                return 0.2f;
+            }
+
             return Role(id) == SettingsRowRole.Section ? SectionWeight : RowWeight;
         }
 
