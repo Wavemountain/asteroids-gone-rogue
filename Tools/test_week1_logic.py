@@ -1552,6 +1552,50 @@ def test_cs0136_local_shadow_gate() -> None:
     assert not shadow(siblings), "sibling blocks may reuse a local name"
 
 
+def test_type_member_shadow_gate() -> None:
+    """A class member named like a project type must not steal X.Static lookups."""
+    validator = _load_week1_validator()
+    shadow = validator.type_member_shadow_violations
+
+    bad = """
+        namespace AsteroidsGoneRogue
+        {
+            public static class DailySeed
+            {
+                public static int Mix(int seed, int salt) { return seed; }
+            }
+
+            public static class RunRng
+            {
+                public static int DailySeed { get { return 0; } }
+
+                public static void BindWave(int dailySeed, int wave)
+                {
+                    int mixed = DailySeed.Mix(dailySeed, wave);
+                }
+            }
+        }
+        """
+    hits = shadow([("RunRng.cs", bad)])
+    assert hits, "DailySeed.Mix inside RunRng must fail when the property hides the type"
+    assert any("DailySeed.Mix" in hit for hit in hits)
+
+    qualified = bad.replace("DailySeed.Mix(dailySeed, wave)", "AsteroidsGoneRogue.DailySeed.Mix(dailySeed, wave)")
+    assert not shadow([("RunRng.cs", qualified)]), "a namespace-qualified type is not a simple name"
+
+    renamed = bad.replace("public static int DailySeed", "public static int ActiveDailySeed")
+    renamed = renamed.replace("DailySeed.Mix(dailySeed, wave)", "AsteroidsGoneRogue.DailySeed.Mix(dailySeed, wave)")
+    assert not shadow([("RunRng.cs", renamed)])
+
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    files = []
+    for path in sorted((root / "Assets").rglob("*.cs")):
+        files.append((str(path.relative_to(root)), path.read_text(encoding="utf-8")))
+    assert not shadow(files), shadow(files)
+
+
 def test_monsters_arenas_040() -> None:
     from pathlib import Path
 
@@ -12834,7 +12878,12 @@ def test_daily_seed_047f() -> None:
     assert "PhaseRadians" in spawn_src
     assert "return 0d;" in spawn_src
     assert "BindWave" in rng_src and "Random.value" in rng_src and "Random.Range" in rng_src
+    assert "public static int ActiveDailySeed" in rng_src
+    assert "AsteroidsGoneRogue.DailySeed.Mix" in rng_src
+    assert "RunRng.DailySeed" not in rng_src
     assert "RunRng.BindWave" in waves
+    assert "RunRng.ActiveDailySeed" in waves
+    assert "RunRng.DailySeed" not in waves
     assert "SpawnLayout.PhaseRadians" in waves
     assert "+ 0.35f + ringPhase" in waves
     assert "RunRng.Unit()" in factory

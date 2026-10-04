@@ -69,8 +69,8 @@ namespace AsteroidsGoneRogue
             DespawnAll();
             _allStrandedSeconds = 0f;
             _factory.ApplyArenaForWave(waveIndex);
-            RunRng.BindWave(RunRng.DailySeed, _activeWave);
-            float ringPhase = (float)SpawnLayout.PhaseRadians(RunRng.DailySeed, _activeWave);
+            RunRng.BindWave(RunRng.ActiveDailySeed, _activeWave);
+            float ringPhase = (float)SpawnLayout.PhaseRadians(RunRng.ActiveDailySeed, _activeWave);
 
             int debrisBonus = WorldRules.ExtraAsteroids(waveIndex);
             int largeCount = Mathf.Clamp(
@@ -194,7 +194,7 @@ namespace AsteroidsGoneRogue
 
         private void SpawnEliteBrute(int waveIndex)
         {
-            float eliteAngle = waveIndex * 0.2f + Mathf.PI + (float)SpawnLayout.PhaseRadians(RunRng.DailySeed, waveIndex);
+            float eliteAngle = waveIndex * 0.2f + Mathf.PI + (float)SpawnLayout.PhaseRadians(RunRng.ActiveDailySeed, waveIndex);
             Vector3 elitePos = ClearSpawn(RingPoint(eliteAngle, ScaledRing(18f)));
             EnemySeeker elite = _factory.CreateEnemy(
                 elitePos,
@@ -223,7 +223,7 @@ namespace AsteroidsGoneRogue
 
         private void SpawnBoss(int waveIndex)
         {
-            float bossAngle = waveIndex * 0.2f + 0.4f + (float)SpawnLayout.PhaseRadians(RunRng.DailySeed, waveIndex);
+            float bossAngle = waveIndex * 0.2f + 0.4f + (float)SpawnLayout.PhaseRadians(RunRng.ActiveDailySeed, waveIndex);
             Vector3 bossPos = ClearSpawn(RingPoint(bossAngle, ScaledRing(12f)));
             EnemySeeker boss = _factory.CreateEnemy(
                 bossPos,
@@ -246,7 +246,7 @@ namespace AsteroidsGoneRogue
         {
             string[] eliteKinds = { "Pickup_Shield", "Pickup_Health", "Pickup_RapidFire" };
             string eliteVisual = eliteKinds[(waveIndex / WaveModifier.EliteStride) % eliteKinds.Length];
-            Vector3 elitePickupPos = RingPoint(waveIndex * 0.7f + 0.2f + (float)SpawnLayout.PhaseRadians(RunRng.DailySeed, waveIndex), ScaledRing(5.5f));
+            Vector3 elitePickupPos = RingPoint(waveIndex * 0.7f + 0.2f + (float)SpawnLayout.PhaseRadians(RunRng.ActiveDailySeed, waveIndex), ScaledRing(5.5f));
             _factory.CreatePickup(eliteVisual, elitePickupPos);
         }
 
@@ -269,7 +269,7 @@ namespace AsteroidsGoneRogue
 
             string[] extraKinds = { "Pickup_Shield", "Pickup_Health", "Pickup_Score" };
             string extraVisual = extraKinds[waveIndex % extraKinds.Length];
-            Vector3 extraPos = RingPoint(waveIndex * 0.8f + 2.1f + (float)SpawnLayout.PhaseRadians(RunRng.DailySeed, waveIndex), ScaledRing(6.5f));
+            Vector3 extraPos = RingPoint(waveIndex * 0.8f + 2.1f + (float)SpawnLayout.PhaseRadians(RunRng.ActiveDailySeed, waveIndex), ScaledRing(6.5f));
             _factory.CreatePickup(extraVisual, extraPos);
         }
 
@@ -287,7 +287,7 @@ namespace AsteroidsGoneRogue
 
             string[] kinds = { "Pickup_Score", "Pickup_Shield", "Pickup_Health", "Pickup_RapidFire" };
             string visual = kinds[(waveIndex - 2) % kinds.Length];
-            Vector3 pos = RingPoint(waveIndex * 1.3f + 0.4f + (float)SpawnLayout.PhaseRadians(RunRng.DailySeed, waveIndex), ScaledRing(8.5f));
+            Vector3 pos = RingPoint(waveIndex * 1.3f + 0.4f + (float)SpawnLayout.PhaseRadians(RunRng.ActiveDailySeed, waveIndex), ScaledRing(8.5f));
             _factory.CreatePickup(visual, pos);
         }
 

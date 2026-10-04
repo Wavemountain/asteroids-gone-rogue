@@ -1284,6 +1284,217 @@ def local_shadow_violations(source: str) -> list[str]:
     return scanner.violations()
 
 
+_CS_TYPE_KINDS = frozenset({"class", "struct", "interface", "enum", "record"})
+
+
+def _cs_ident(token: str) -> str:
+    if not token or token in _CS_NON_TYPE or token in _CS_MODIFIERS or token in _CS_ACCESSOR:
+        return ""
+    if token[0].isalpha() or token[0] == "_" or token[0] == "@":
+        return token.lstrip("@")
+    return ""
+
+
+def _commit_type_decl(frame: dict, decl: list[tuple[str, int]]) -> None:
+    """Record one class-body member. Constructors and nested types are not members that hide a name."""
+    if not decl or frame["kind"] == "enum":
+        decl.clear()
+        return
+    if any(token in _CS_TYPE_KINDS for token, _line in decl):
+        decl.clear()
+        return
+    has_static = False
+    angle = 0
+    last = ""
+    for token, _line in decl:
+        if token == "<":
+            angle += 1
+            continue
+        if token == ">":
+            angle = max(0, angle - 1)
+            continue
+        if token in ("static", "const"):
+            has_static = True
+        if angle == 0:
+            name = _cs_ident(token)
+            if name:
+                last = name
+    decl.clear()
+    if not last or last == frame["name"]:
+        return
+    frame["members"].add(last)
+    if has_static:
+        frame["statics"].add(last)
+
+
+def _parse_cs_types(path: str, source: str) -> list[dict]:
+    """Types, their members, and simple-name X.Y uses inside each type."""
+    cleaned = _strip_cs_preserve_lines(source)
+    tokens = _tokenize_cs(cleaned)
+    frames: list[dict] = []
+    done: list[dict] = []
+    pending: tuple[str, str] | None = None
+    decl: list[tuple[str, int]] = []
+    brace = 0
+    angle = 0
+    count = len(tokens)
+    for index, (token, line) in enumerate(tokens):
+        if token == "<":
+            angle += 1
+        elif token == ">":
+            angle = max(0, angle - 1)
+
+        if angle == 0 and token in _CS_TYPE_KINDS and (index == 0 or tokens[index - 1][0] != "."):
+            look = index + 1
+            while look < count and tokens[look][0] in _CS_MODIFIERS:
+                look += 1
+            if look < count:
+                name = _cs_ident(tokens[look][0])
+                if name:
+                    pending = (token, name)
+
+        if token == "{":
+            if frames and brace == frames[-1]["depth"]:
+                _commit_type_decl(frames[-1], decl)
+            brace += 1
+            if pending is not None:
+                parent = frames[-1]["name"] if frames else ""
+                frames.append(
+                    {
+                        "path": path,
+                        "name": pending[1],
+                        "kind": pending[0],
+                        "depth": brace,
+                        "parent": parent,
+                        "members": set(),
+                        "statics": set(),
+                        "uses": [],
+                        "paren": 0,
+                        "init": False,
+                    }
+                )
+                pending = None
+                decl = []
+            continue
+
+        if token == "}":
+            if frames and brace == frames[-1]["depth"]:
+                _commit_type_decl(frames[-1], decl)
+                done.append(frames.pop())
+                decl = []
+            brace = max(0, brace - 1)
+            continue
+
+        if not frames or brace < frames[-1]["depth"]:
+            continue
+
+        frame = frames[-1]
+        if (
+            angle == 0
+            and brace >= frame["depth"]
+            and index + 2 < count
+            and tokens[index + 1][0] == "."
+            and (index == 0 or tokens[index - 1][0] != ".")
+        ):
+            used = _cs_ident(token)
+            member = _cs_ident(tokens[index + 2][0])
+            if used and member:
+                frame["uses"].append((line, used, member))
+
+        if brace != frame["depth"] or angle != 0:
+            continue
+
+        if frame["kind"] == "enum":
+            name = _cs_ident(token)
+            previous = tokens[index - 1][0] if index > 0 else ""
+            if name and previous in ("{", ","):
+                frame["members"].add(name)
+                frame["statics"].add(name)
+            continue
+
+        if frame["paren"] > 0:
+            if token == "(":
+                frame["paren"] += 1
+            elif token == ")":
+                frame["paren"] -= 1
+            continue
+
+        if frame["init"]:
+            if token == ";":
+                frame["init"] = False
+                decl = []
+            continue
+
+        if token == "=":
+            _commit_type_decl(frame, decl)
+            frame["init"] = True
+            continue
+        if token == "(":
+            _commit_type_decl(frame, decl)
+            frame["paren"] = 1
+            continue
+        if token == ";":
+            _commit_type_decl(frame, decl)
+            continue
+        decl.append((token, line))
+
+    return done
+
+
+def type_member_shadow_violations(files: list[tuple[str, str]]) -> list[str]:
+    """Member X hides project type X, so a simple-name X.Static binds to the member.
+
+    Qualified names (Namespace.X.Member) are not flagged: the dot before X makes
+    the lookup a member access, not a simple name. A constructor with the type's
+    own name is not a hiding member.
+    """
+    parsed: list[dict] = []
+    for path, source in files:
+        parsed.extend(_parse_cs_types(path, source))
+
+    statics: dict[str, set[str]] = {}
+    members: dict[str, set[str]] = {}
+    for item in parsed:
+        statics.setdefault(item["name"], set()).update(item["statics"])
+        members.setdefault(item["name"], set()).update(item["members"])
+
+    hits: list[str] = []
+    seen: set[tuple[str, int, str, str]] = set()
+    for item in parsed:
+        owners = []
+        cursor = item
+        guard = 0
+        while cursor is not None and guard < 16:
+            owners.append(cursor["name"])
+            parent = cursor["parent"]
+            cursor = None
+            if parent:
+                for other in parsed:
+                    if other["name"] == parent:
+                        cursor = other
+                        break
+            guard += 1
+        for line, used, member in item["uses"]:
+            hidden = False
+            for owner in owners:
+                if used in members.get(owner, ()):
+                    hidden = True
+                    break
+            if not hidden:
+                continue
+            if member not in statics.get(used, ()):
+                continue
+            key = (item["path"], line, used, member)
+            if key in seen:
+                continue
+            seen.add(key)
+            hits.append(
+                f"{item['path']}:{line} member '{used}' hides the {used} type; "
+                f"simple name '{used}.{member}' binds to the member, not the type"
+            )
+    return hits
+
+
 def _dict_keys(block: str) -> set[str]:
     return set(re.findall(r'\{\s*"([^"]+)"\s*,', block))
 
@@ -1855,11 +2066,15 @@ def main() -> int:
         err("UiFonts should load bundled Kenney Future / Future Narrow")
     if 'GetBuiltinResource<Font>(LegacyBuiltin)' not in fonts and 'GetBuiltinResource<Font>("LegacyRuntime.ttf")' not in fonts:
         err("UiFonts should fall back to builtin LegacyRuntime.ttf")
+    shadow_files: list[tuple[str, str]] = []
     for path in scripts + editor_scripts:
         for hit in shader_conditional_violations(read(path)):
             err(f"{path.relative_to(ROOT)}: {hit} (Unity 6000.6 CS1503)")
         for hit in local_shadow_violations(read(path)):
             err(f"{path.relative_to(ROOT)}: {hit}")
+        shadow_files.append((str(path.relative_to(ROOT)), read(path)))
+    for hit in type_member_shadow_violations(shadow_files):
+        err(hit)
 
     if "FindObjectOfType" in blob or "FindObjectsOfType" in blob:
         err("scripts still call obsolete FindObjectOfType / FindObjectsOfType")

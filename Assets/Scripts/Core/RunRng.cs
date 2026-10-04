@@ -12,7 +12,7 @@ namespace AsteroidsGoneRogue
         private static int _daily;
         private static SeedStream _stream;
 
-        public static int DailySeed
+        public static int ActiveDailySeed
         {
             get { return _daily; }
         }
@@ -43,7 +43,7 @@ namespace AsteroidsGoneRogue
 
             _daily = dailySeed;
             int wave = waveIndex < 1 ? 1 : waveIndex;
-            _stream = new SeedStream(DailySeed.Mix(dailySeed, wave));
+            _stream = new SeedStream(AsteroidsGoneRogue.DailySeed.Mix(dailySeed, wave));
         }
 
         public static float Unit()
