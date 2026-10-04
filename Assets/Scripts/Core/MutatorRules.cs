@@ -239,12 +239,42 @@ namespace AsteroidsGoneRogue
 
         public static int ScaleDamage(int amount, int mask)
         {
+            int remainder = 0;
+            return ScaleDamage(amount, mask, ref remainder);
+        }
+
+        /// <summary>
+        /// Glass Cannon is +50 percent, a true x1.5 average.
+        /// <paramref name="remainder"/> keeps the unused percent (0–99), so two
+        /// one-point hits deal 1 then 2. Mask 0, and any mask without Glass,
+        /// returns <paramref name="amount"/> and leaves the remainder alone.
+        /// </summary>
+        public static int ScaleDamage(int amount, int mask, ref int remainder)
+        {
             if (amount <= 0 || !Has(Sanitize(mask), MutatorCatalog.Glass))
             {
                 return amount;
             }
 
-            return (amount * 3 + 1) / 2;
+            if (remainder < 0)
+            {
+                remainder = 0;
+            }
+
+            if (remainder > 99)
+            {
+                remainder = 99;
+            }
+
+            int pool = (amount * 150) + remainder;
+            int scaled = pool / 100;
+            remainder = pool % 100;
+            if (scaled < 0)
+            {
+                scaled = 0;
+            }
+
+            return scaled;
         }
 
         public static int ScaleRockHits(int hits, int mask)

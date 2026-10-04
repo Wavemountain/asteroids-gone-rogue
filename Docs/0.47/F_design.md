@@ -68,6 +68,8 @@ Prices are never negative. The reach curve is strictly increasing. At the cap th
 
 Profile JSON (`agr.sink.profile`, version 1) is separate from the run file: `OwnedMask`, `Paint`, `Trail`, `ShieldRank`, `ReachRank`. Missing key = nothing owned. Unreadable blob = empty profile in memory (the blob is left on disk if the version is newer). Run-start perks apply in `ApplyLegacyToNewRun` only. Rank 0 adds no shield and a reach multiplier of 1, so a profile with nothing purchased does not move combat or the wave-35 ratios.
 
+A daily run does not apply the legacy starting shield or the sink start-shield bonus. `SinkRules.RunStartShield` returns 0 when the run is daily. Credit and hull bonuses still apply. A normal run keeps both shield bonuses.
+
 ## Save format
 
 | Store | This pass | Migration |
@@ -81,4 +83,4 @@ Profile JSON (`agr.sink.profile`, version 1) is separate from the run file: `Own
 
 **Tested without Play Mode:** preview spin / pause / reduce freeze, frustum fit, sink prices, caps, monotonic reach curve, purchase and equip rules, profile codec (round-trip, missing, corrupt, newer version), sink pad grid, bay cell inside the hangar and clear of the bank button, EN/SV lines inside the overlay from 1280×800 through 3440×1440 at font 18, catalogue prices unchanged, existing `LayoutSelfCheck` strings and gear row coords, loc parity (`audit_loc.py`). Daily seed repeats for one date and changes on the next, the stream repeats for one seed, spawn phase is 0 when the seed is 0, the daily board keeps a better score, drops the oldest day past 32, ignores assist, and treats a corrupt blob as empty. Run saves older than version 6 load with no daily seed. Saves older than version 7 load with no mutators. A bad mutator mask sanitizes to none and the rest of the run still loads. The New Run chooser rects do not overlap and the EN/SV labels fit the same resolution matrix. Mutator score and credit multipliers, incompatible pairs, the two-pick cap, and the pad grid are covered in `test_mutators_047f`.
 
-**Not tested here:** Unity Play Mode, a real gamepad, the studio lights on a GPU, FBX material emission, or `Screen` layout on a Deck. Roslyn does not compile `GameUi.cs` or `GameManager.cs`; those edits are read back line by line.
+**Not tested here:** Unity Play Mode, a real gamepad, the studio lights on a GPU, FBX material emission, or `Screen` layout on a Deck. `Tools/validate_week1_project.py` compiles every script under `Assets/Scripts/Core`, including `GameManager.cs` and `WaveManager.cs`, with Roslyn. Unity base-class gaps in the stub are ignored. `GameUi.cs` is still outside that error gate.

@@ -30,6 +30,10 @@ namespace AsteroidsGoneRogue
         public const float ViewportWidth = 768f;
         public const float ViewportHeight = 960f;
         public const float FitRadius = 2.5f;
+        public const float WellMinX = 0.048f;
+        public const float WellMinY = 0.048f;
+        public const float WellMaxX = 0.952f;
+        public const float WellMaxY = 0.860f;
 
         public const int BitRapid = 0;
         public const int BitNose = 1;
@@ -104,6 +108,57 @@ namespace AsteroidsGoneRogue
             double horizontalHalf = verticalHalf * aspect;
             double need = radius;
             return need < horizontalHalf && need < verticalHalf;
+        }
+
+        /// <summary>
+        /// Contain the portrait preview inside a landscape well. uvRect stays the
+        /// full texture. The normalized rect is the unstretched image inside the well.
+        /// </summary>
+        public static void Contain(
+            float frameWidth,
+            float frameHeight,
+            float textureWidth,
+            float textureHeight,
+            out float uvX,
+            out float uvY,
+            out float uvW,
+            out float uvH,
+            out float minX,
+            out float minY,
+            out float maxX,
+            out float maxY)
+        {
+            uvX = 0f;
+            uvY = 0f;
+            uvW = 1f;
+            uvH = 1f;
+            minX = 0f;
+            minY = 0f;
+            maxX = 1f;
+            maxY = 1f;
+            if (frameWidth <= 0f || frameHeight <= 0f || textureWidth <= 0f || textureHeight <= 0f)
+            {
+                return;
+            }
+
+            float frameAspect = frameWidth / frameHeight;
+            float textureAspect = textureWidth / textureHeight;
+            if (frameAspect > textureAspect)
+            {
+                float used = textureAspect / frameAspect;
+                float pad = (1f - used) * 0.5f;
+                minX = pad;
+                maxX = 1f - pad;
+                return;
+            }
+
+            if (textureAspect > frameAspect)
+            {
+                float used = frameAspect / textureAspect;
+                float pad = (1f - used) * 0.5f;
+                minY = pad;
+                maxY = 1f - pad;
+            }
         }
 
         private static bool Bit(int mask, int index)

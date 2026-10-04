@@ -39,7 +39,7 @@ namespace AsteroidsGoneRogue
                 case MutatorCatalog.LongHaul:
                     return Loc.T("mut.long.desc", "The roster uses the next wave rung.");
                 default:
-                    return Loc.T("mut.glass.desc", "You and enemies take more damage.");
+                    return Loc.T("mut.glass.desc", "You and enemies take +50% damage.");
             }
         }
 

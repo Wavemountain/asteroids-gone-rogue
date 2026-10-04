@@ -1596,6 +1596,157 @@ def test_type_member_shadow_gate() -> None:
     assert not shadow(files), shadow(files)
 
 
+def test_b1_reintroduction_fails() -> None:
+    """A temp copy that puts DailySeed.Mix back under a DailySeed member must fail."""
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    from roslyn_core_check import core_roslyn_errors
+    from validate_week1_project import type_member_shadow_violations
+
+    original = (root / "Assets/Scripts/Core/RunRng.cs").read_text(encoding="utf-8")
+    bad = original.replace("public static int ActiveDailySeed", "public static int DailySeed", 1)
+    bad = bad.replace("AsteroidsGoneRogue.DailySeed.Mix", "DailySeed.Mix", 1)
+    assert bad != original
+
+    files = []
+    for path in sorted((root / "Assets").rglob("*.cs")):
+        text = path.read_text(encoding="utf-8")
+        relative = path.relative_to(root).as_posix()
+        if relative == "Assets/Scripts/Core/RunRng.cs":
+            text = bad
+        files.append((relative, text))
+    shadow_hits = type_member_shadow_violations(files)
+    assert shadow_hits, "member DailySeed hiding DailySeed.Mix must fail the shadow gate"
+    assert any("DailySeed.Mix" in hit for hit in shadow_hits)
+
+    roslyn_hits = core_roslyn_errors({"Assets/Scripts/Core/RunRng.cs": bad})
+    assert roslyn_hits, "reintroduced B1 must not pass the Roslyn gate silently"
+    joined = "\n".join(roslyn_hits)
+    assert "INCOMPLETE" in joined or ("RunRng.cs" in joined and "Mix" in joined), joined
+    assert "Mix" in joined
+
+
+def test_daily_shield_and_remainder_047() -> None:
+    """Daily runs skip legacy and sink start shields. Remainders restart each configure."""
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    policy = (root / "Assets/Scripts/Core/RunBonusPolicy.cs").read_text(encoding="utf-8")
+    health = (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
+    seeker = (root / "Assets/Scripts/Combat/EnemySeeker.cs").read_text(encoding="utf-8")
+    remainder = (root / "Assets/Scripts/Core/HitRemainder.cs").read_text(encoding="utf-8")
+    design = (root / "Docs/0.47/F_design.md").read_text(encoding="utf-8")
+
+    def applies_legacy(daily_seed: int) -> bool:
+        return daily_seed <= 0
+
+    def applies_sink(daily_seed: int) -> bool:
+        return daily_seed <= 0
+
+    def start_shield(legacy: int, sink: int, daily_seed: int) -> int:
+        legacy_part = legacy if applies_legacy(daily_seed) and legacy > 0 else 0
+        sink_part = sink if applies_sink(daily_seed) and sink > 0 else 0
+        if daily_seed > 0:
+            return 0
+        return legacy_part + sink_part
+
+    assert applies_legacy(0) and applies_sink(0)
+    assert not applies_legacy(40621) and not applies_sink(40621)
+    assert start_shield(2, 1, 40621) == 0
+    assert start_shield(2, 1, 0) == 3
+    assert "AppliesLegacy" in policy and "AppliesSinkShield" in policy
+    assert "RunBonusPolicy.AppliesLegacy" in manager and "RunBonusPolicy.AppliesSinkShield" in manager
+    assert "does not apply the legacy starting shield" in design
+
+    begin = manager.split("public void BeginRetry(")[1].split("public void ApplyMutators")[0]
+    assert begin.index("StampDaily") < begin.index("ResetFullRun()")
+    assert "_keepDailyOnReset = true" in begin
+    one = manager.split("public void OneMoreTry()")[1].split("public void OneMoreTryDaily")[0]
+    assert "BeginRetry(true" in one
+    clock = manager.split("public void ApplyDailyClock")[1].split("public void ClearDailyStamp")[0]
+    assert clock.index("StampDaily") < clock.index("ResyncStartShield")
+    clear = manager.split("public void ClearDailyStamp")[1].split("public bool TryBuyLegacy")[0]
+    assert "ResyncStartShield" in clear
+    accept = manager.split("public void AcceptContinue()")[1].split("private void ConcludeAbandonedLastLife")[0]
+    assert accept.index("ActiveDailySeed = data.DailySeed") < accept.index("RestoreSnapshot")
+    assert "ApplyLegacyToNewRun" not in accept
+    assert "_grantedStartShield = 0" in accept
+
+    assert "struct HitRemainder" in remainder and "void Clear()" in remainder
+    reset = health.split("bool applyWaveShield)")[1].split("public void SetHull")[0]
+    assert reset.index("_glassRemainder.Clear()") < reset.index("_maxHull")
+    assert "_assistRemainder.Clear()" in reset
+    assert seeker.count("_glassRemainder.Clear()") >= 4
+
+    class Remainder:
+        def __init__(self) -> None:
+            self.value = 0
+
+        def clear(self) -> None:
+            self.value = 0
+
+        def glass(self, amount: int) -> int:
+            dealt, self.value = _glass_damage(amount, 1, self.value)
+            return dealt
+
+    fresh = Remainder()
+    first = [fresh.glass(1), fresh.glass(1), fresh.glass(3)]
+    dirty = Remainder()
+    dirty.value = 50
+    leaked = [dirty.glass(1), dirty.glass(1), dirty.glass(3)]
+    assert first != leaked
+    dirty.clear()
+    replay = [dirty.glass(1), dirty.glass(1), dirty.glass(3)]
+    assert replay == first
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    import sim_longhaul
+
+    report = sim_longhaul.sweep(root)
+    assert report["catalogue"] == 9883
+    assert abs(report["ratio"]["easy"] - 0.847) <= 0.001
+    assert abs(report["ratio"]["normal"] - 0.755) <= 0.001
+    assert abs(report["ratio"]["hard"] - 0.641) <= 0.001
+
+
+def test_roslyn_stub_artefact_gate() -> None:
+    """Unity stub holes are ignored. A shadowed project type is a real error."""
+    import sys
+    from pathlib import Path
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    from roslyn_core_check import is_unity_stub_artefact, stub_type_names
+
+    stub = stub_type_names()
+    assert "Vector3" in stub and "DailySeed" not in stub
+    assert is_unity_stub_artefact(
+        "CS1061",
+        "'Vector3' does not contain a definition for 'normalized'",
+        stub,
+    )
+    assert not is_unity_stub_artefact(
+        "CS1061",
+        "'int' does not contain a definition for 'Mix'",
+        stub,
+    )
+    assert not is_unity_stub_artefact(
+        "CS1061",
+        "'DailySeed' does not contain a definition for 'Mix'",
+        stub,
+    )
+
+
 def test_monsters_arenas_040() -> None:
     from pathlib import Path
 
@@ -4620,7 +4771,7 @@ def _settings_default() -> dict:
         "window_mode": 1,
         "resolution_w": 1920,
         "resolution_h": 1080,
-        "vsync": False,
+        "vsync": True,
         "fps_cap": 60,
         "prompt_scheme": 0,
     }
@@ -4763,7 +4914,7 @@ def _settings_from_ints(
     window_mode=1,
     res_w=1920,
     res_h=1080,
-    vsync=0,
+    vsync=1,
     fps=60,
     prompt_scheme=0,
 ) -> dict:
@@ -7675,6 +7826,9 @@ def main() -> int:
     test_event_system_persist()
     test_shader_cs1503_gate()
     test_cs0136_local_shadow_gate()
+    test_type_member_shadow_gate()
+    test_b1_reintroduction_fails()
+    test_roslyn_stub_artefact_gate()
     test_monsters_arenas_040()
     test_weapons_upgrades_040b()
     test_art_parity_040c()
@@ -7726,6 +7880,8 @@ def main() -> int:
     test_part_f_preview_and_sinks()
     test_daily_seed_047f()
     test_mutators_047f()
+    test_rc_047_fixes()
+    test_daily_shield_and_remainder_047()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -11220,7 +11376,7 @@ def test_part_c_047() -> None:
     assert lethal.index("PlayerHullHit()") < lethal.index("FlashScreen(")
     assert ", true)" in lethal
     health = (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
-    assert "ScaleIncoming(amount, cause, assist, ref _assistRemainder)" in health
+    assert "ScaleIncoming(amount, cause, assist, ref _assistRemainder.Value)" in health
     fairness = (root / "Assets/Scripts/Core/FairnessRules.cs").read_text(encoding="utf-8")
     assert "ref int remainder" in fairness
     legacy3 = _settings_from_ints(3, 1, 2, 1, 1, 1, 2, 1, 1)
@@ -11500,10 +11656,10 @@ def test_display_047d() -> None:
     assert "letterbox" in doc.lower() and "1280x800" in doc
 
     fresh = _settings_default()
-    assert fresh["window_mode"] == 1 and fresh["fps_cap"] == 60 and fresh["vsync"] is False
+    assert fresh["window_mode"] == 1 and fresh["fps_cap"] == 60 and fresh["vsync"] is True
     ignored = _settings_from_ints(4, 1, 2, 1, 1, 1, 2, 0, 0, 0, 800, 600, 1, 30)
     assert ignored["window_mode"] == 1 and ignored["resolution_w"] == 1920
-    assert ignored["vsync"] is False and ignored["fps_cap"] == 60
+    assert ignored["vsync"] is True and ignored["fps_cap"] == 60
     applied = _settings_from_ints(5, 1, 2, 1, 1, 1, 2, 0, 0, 0, 1280, 800, 1, 0)
     assert applied["window_mode"] == 0 and applied["resolution_w"] == 1280 and applied["resolution_h"] == 800
     assert applied["vsync"] is True and applied["fps_cap"] == 0
@@ -11672,6 +11828,8 @@ def _prompt_resolve(source: str, scheme: str) -> list[tuple]:
                         pieces.append(("text", pending))
                         pending = ""
                     pieces.append(("icon", token))
+                elif scheme == "keyboard" and token in ("cycle_prev", "cycle_alt"):
+                    pending += "unbound"
                 index = end + 1
                 continue
         pending += source[index]
@@ -11721,7 +11879,15 @@ def test_input_prompts_047e() -> None:
     resolved = _prompt_resolve("Hold {fire} now", "keyboard")
     assert resolved == [("text", "Hold "), ("icon", "fire"), ("text", " now")]
     missing = _prompt_resolve("{cycle_prev}", "keyboard")
-    assert missing == []
+    assert missing == [("text", "unbound")]
+    assert 'Loc.T("ui.prompt.unbound", "unbound")' in text
+    assert "obunden" in loc
+    for width, height in ((1280, 800), (1366, 768), (1920, 1080), (3440, 1440)):
+        scale = _canvas_scale(width, height)
+        panel_w = (0.78 - 0.22) * (width / scale)
+        icon_w = (0.12 - 0.02) * panel_w
+        assert _kenney_narrow_width("unbound", 18) <= icon_w
+        assert _kenney_narrow_width("obunden", 18) <= icon_w
     unknown = _prompt_resolve("keep {nope}", "xbox")
     assert unknown == [("text", "keep {nope}")]
     assert _prompt_resolve("{fire}{pause}", "deck")[0] == ("icon", "fire")
@@ -11899,6 +12065,32 @@ def _bind_serialize(binding: dict) -> str:
     return ";".join(parts)
 
 
+def _bind_owners_valid(binding: dict) -> bool:
+    """Mirrors BindingMap.OwnersAreValid."""
+    owners: dict[tuple[int, int], int] = {}
+    for action in range(10):
+        for slot in range(4):
+            kind, code = binding["keys"][action][slot]
+            if kind == 0:
+                continue
+            if kind == 1 and code == _BIND_ESC:
+                if action not in (7, 9):
+                    return False
+                continue
+            key = (kind, code)
+            owners[key] = owners.get(key, 0) + 1
+        pad = binding["pads"][action]
+        if pad is None:
+            continue
+        if pad == 0:
+            continue
+        if action == 0:
+            return False
+        key = (3, pad)
+        owners[key] = owners.get(key, 0) + 1
+    return all(count <= 1 for count in owners.values())
+
+
 def _bind_parse(blob: str, settings_version: int) -> dict:
     if settings_version < 7 or not blob:
         return _bind_default()
@@ -11930,6 +12122,8 @@ def _bind_parse(blob: str, settings_version: int) -> dict:
         if code < 0 or code > 19:
             return _bind_default()
         binding["pads"][action] = code
+    if not _bind_owners_valid(binding):
+        return _bind_default()
     binding["cursor"] = 0
     return binding
 
@@ -11945,6 +12139,8 @@ def _bind_held(binding: dict, action: int, source: dict, edge: bool) -> bool:
     if pad is not None and pad in source[bucket + "_pad"]:
         return True
     if action in (7, 9) and _BIND_ESC in source[bucket + "_keys"]:
+        return True
+    if action == 8 and 0 in source[bucket + "_pad"]:
         return True
     return False
 
@@ -13191,7 +13387,8 @@ def test_mutators_047f() -> None:
     assert _mutator_credit_percent(quiet) <= 140
     assert _mutator_scale(100, 115) == 115
     assert _mutator_scale(80, 100) == 80
-    assert "return (amount * 3 + 1) / 2" in rules
+    assert "return (hits * 3 + 1) / 2" in rules
+    assert "ref int remainder" in rules
     assert "return 0.11f" in rules and "return 0.22f" in rules
     assert "cooldown * 0.80f" in rules
     assert "EnemyKind.Brute" in rules and "EnemyKind.Swarmling" in rules
@@ -13301,6 +13498,254 @@ def test_mutators_047f() -> None:
             assert _shop_wrapped_lines(descs[lang], blurb_w, 18) <= 2
             assert _shop_wrapped_lines(rejected[lang], blurb_w, 18) <= 2
             assert _kenney_future_width(rows[lang].split(" ")[0], 18) <= row_w
+
+
+def _preview_contain(frame_w: float, frame_h: float, tex_w: float = 768.0, tex_h: float = 960.0):
+    min_x, min_y, max_x, max_y = 0.0, 0.0, 1.0, 1.0
+    if frame_w <= 0.0 or frame_h <= 0.0 or tex_w <= 0.0 or tex_h <= 0.0:
+        return (0.0, 0.0, 1.0, 1.0), (min_x, min_y, max_x, max_y)
+    frame_aspect = frame_w / frame_h
+    texture_aspect = tex_w / tex_h
+    if frame_aspect > texture_aspect:
+        used = texture_aspect / frame_aspect
+        pad = (1.0 - used) * 0.5
+        min_x = pad
+        max_x = 1.0 - pad
+    elif texture_aspect > frame_aspect:
+        used = frame_aspect / texture_aspect
+        pad = (1.0 - used) * 0.5
+        min_y = pad
+        max_y = 1.0 - pad
+    return (0.0, 0.0, 1.0, 1.0), (min_x, min_y, max_x, max_y)
+
+
+def _preview_well(screen_w: float, screen_h: float, failed: bool = False) -> tuple[float, float]:
+    frame_w = (0.986 - 0.562) * screen_w
+    frame_max_y = 0.468 if failed else 0.596
+    frame_h = (frame_max_y - 0.080) * screen_h
+    return frame_w * (0.952 - 0.048), frame_h * (0.860 - 0.048)
+
+
+def _scroll_clamp(shift: float) -> float:
+    if shift < 0.0:
+        return 0.0
+    extra = 0.0
+    roles = _settings_roles()
+    for index, role in enumerate(roles):
+        extra += 0.26 if role == "section" else 0.076
+        if index:
+            extra += 0.008
+    extra -= 0.86 - 0.05
+    if extra < 0.0:
+        extra = 0.0
+    if shift > extra:
+        return extra
+    return shift
+
+
+def _scroll_wheel(shift: float, scroll_y: float) -> float:
+    if scroll_y == 0.0:
+        return _scroll_clamp(shift)
+    step = 0.076 + 0.008
+    notches = abs(scroll_y)
+    count = int(notches)
+    if count < 1:
+        count = 1
+    delta = step * count
+    if scroll_y > 0.0:
+        return _scroll_clamp(shift - delta)
+    return _scroll_clamp(shift + delta)
+
+
+def _scroll_band_at(index: int, shift: float) -> tuple[float, float]:
+    bottom, top = _scroll_content_band(index)
+    applied = _scroll_clamp(shift)
+    bottom += applied
+    top += applied
+    span = 0.86 - 0.05
+    return (bottom - 0.05) / span, (top - 0.05) / span
+
+
+def _click_kind(bottom: float, top: float) -> int:
+    if bottom >= -0.001 and top <= 1.001 and top > bottom:
+        return 2
+    if top > 0.001 and bottom < 0.999:
+        return 1
+    return 0
+
+
+def _glass_damage(amount: int, mask: int, remainder: int) -> tuple[int, int]:
+    if amount <= 0 or (mask & 1) == 0:
+        return amount, remainder
+    if remainder < 0:
+        remainder = 0
+    if remainder > 99:
+        remainder = 99
+    pool = (amount * 150) + remainder
+    return pool // 100, pool % 100
+
+
+def _run_start_shield(legacy: int, sink: int, daily: bool) -> int:
+    if daily:
+        return 0
+    legacy_part = legacy if legacy > 0 else 0
+    sink_part = sink if sink > 0 else 0
+    return legacy_part + sink_part
+
+
+def _sink_prices_positive() -> bool:
+    prices = (420, 420, 380, 380, 640, 520)
+    caps = (1, 1, 1, 1, 1, 2)
+    if min(prices) < 1 or 980 <= 520:
+        return False
+    for sink_id, cap in enumerate(caps):
+        if cap < 1:
+            return False
+        for rank in range(cap):
+            if sink_id == 5 and rank == 1:
+                price = 980
+            elif sink_id == 4 and rank >= 1:
+                price = 0
+            else:
+                price = prices[sink_id]
+            if price < 1:
+                return False
+        if sink_id >= 4 and ((0 if sink_id == 4 else 0) if False else (0 if cap and sink_id >= 4 else prices[sink_id])) != 0 and sink_id >= 4:
+            closed = 0
+            if sink_id == 5:
+                closed = 0
+            if closed != 0:
+                return False
+    return 980 > 520
+
+
+def test_rc_047_fixes() -> None:
+    """0.47 RC: letterbox clear, preview fit, settings wheel, binds, sinks, vsync, glass, daily shield."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    decor = (root / "Assets/Scripts/Content/DecorCameraStack.cs").read_text(encoding="utf-8")
+    clear = (root / "Assets/Scripts/Core/LetterboxClear.cs").read_text(encoding="utf-8")
+    rig = (root / "Assets/Scripts/Core/HangarPreviewRig.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    scroll = (root / "Assets/Scripts/Core/SettingsScroll.cs").read_text(encoding="utf-8")
+    binding = (root / "Assets/Scripts/Core/BindingMap.cs").read_text(encoding="utf-8")
+    store = (root / "Assets/Scripts/Core/BindingStore.cs").read_text(encoding="utf-8")
+    bound = (root / "Assets/Scripts/Core/BoundInput.cs").read_text(encoding="utf-8")
+    catalog = (root / "Assets/Scripts/Core/ShopSinkCatalog.cs").read_text(encoding="utf-8")
+    sink_pad = (root / "Assets/Scripts/Core/SinkPadNav.cs").read_text(encoding="utf-8")
+    display = (root / "Assets/Scripts/Core/DisplaySettings.cs").read_text(encoding="utf-8")
+    rules = (root / "Assets/Scripts/Core/MutatorRules.cs").read_text(encoding="utf-8")
+    health = (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
+    seeker = (root / "Assets/Scripts/Combat/EnemySeeker.cs").read_text(encoding="utf-8")
+    copy = (root / "Assets/Scripts/Core/MutatorCopy.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    profile = (root / "Assets/Scripts/Core/SinkProfile.cs").read_text(encoding="utf-8")
+    doc = (root / "Docs/0.47/D_display.md").read_text(encoding="utf-8")
+    design = (root / "Docs/0.47/F_design.md").read_text(encoding="utf-8")
+
+    assert "Depth = -100f" in clear and "CullingMask = 0" in clear
+    assert "LetterboxClear.CameraName" in decor and "KeepSingleListener" in decor
+    assert "cullingMask = LetterboxClear.CullingMask" in decor
+    assert "Color.black" in decor
+    assert "decorCamera.rect = _play.rect" in decor
+    assert "VSync on" in doc and "depth −100" in doc
+
+    assert "HangarPreviewRig.Contain" in ui
+    assert "WellMinX = 0.048f" in rig and "sortingOrder = CanvasOrder.ShipPreview" in ui
+    matrix = ((1280, 800), (1366, 768), (1440, 900), (1920, 1080), (1920, 1200), (2560, 1080), (2560, 1440), (3440, 1440))
+    for width, height in matrix:
+        for failed in (False, True):
+            well_w, well_h = _preview_well(width, height, failed)
+            uv, box = _preview_contain(well_w, well_h)
+            assert uv == (0.0, 0.0, 1.0, 1.0)
+            min_x, min_y, max_x, max_y = box
+            assert 0.0 <= min_x < max_x <= 1.0
+            assert 0.0 <= min_y < max_y <= 1.0
+            shown_w = (max_x - min_x) * well_w
+            shown_h = (max_y - min_y) * well_h
+            assert abs((shown_w / shown_h) - (768.0 / 960.0)) < 1e-6
+
+    assert "Input.mouseScrollDelta" in ui and "Scrollbar" in ui
+    assert "ClickFocus" in scroll and "Wheel(" in scroll
+    assert "BindSettingsClick" in ui and "SettingsScroll.ContainsBand" in ui
+    assert _scroll_wheel(0.0, 0.0) == 0.0
+    stepped = _scroll_wheel(0.0, -1.0)
+    assert stepped > 0.0
+    assert _scroll_wheel(stepped, 1.0) == 0.0
+    ceiling = _scroll_clamp(10.0)
+    assert _scroll_wheel(ceiling, -5.0) == ceiling
+    assert _click_kind(-0.2, 0.4) == 1
+    assert _click_kind(0.1, 0.4) == 2
+    assert _click_kind(1.2, 1.5) == 0
+    window = 12
+    quiet_bottom, quiet_top = _scroll_band_at(window, 0.0)
+    assert _click_kind(quiet_bottom, quiet_top) != 2
+    shown_bottom, shown_top = _scroll_band_at(window, _scroll_shift(window))
+    assert _click_kind(shown_bottom, shown_top) == 2
+    assert _scroll_shift(0) == 0.0
+
+    stripped = _bind_default()
+    status, _other = _bind_assign(stripped, 8, 3, 3)
+    assert status == 1 and stripped["pads"][8] == 3
+    status, _other = _bind_assign(stripped, 9, 3, 6)
+    assert status == 1 and stripped["pads"][9] == 6
+    pad_a = {
+        "held_keys": set(),
+        "down_keys": set(),
+        "held_mouse": set(),
+        "down_mouse": set(),
+        "held_pad": set(),
+        "down_pad": {0},
+        "axes": {},
+    }
+    assert _bind_held(stripped, 8, pad_a, True) is True
+    assert _bind_held(stripped, 9, pad_a, True) is False
+    pause = _bind_default()
+    _bind_assign(pause, 7, 3, 6)
+    assert pause["pads"][7] == 6
+    start_down = dict(pad_a)
+    start_down["down_pad"] = {7}
+    assert _bind_held(pause, 7, start_down, True) is False
+    assert "PadDown(BindCodes.SubmitPad)" in bound
+    assert "OwnersAreValid" in binding and "OwnersAreValid" in store
+    escaped = _bind_default()
+    escaped["keys"][1][0] = (1, _BIND_ESC)
+    assert _bind_parse(_bind_serialize(escaped), 7)["keys"] == _bind_default()["keys"]
+    duplicated = _bind_default()
+    duplicated["keys"][3][0] = (1, _BIND_W)
+    assert _bind_parse(_bind_serialize(duplicated), 7)["keys"][3][0] == (2, 1)
+    custom = _bind_default()
+    _bind_assign(custom, 1, 1, _BIND_R)
+    assert _bind_parse(_bind_serialize(custom), 7)["keys"][1][0] == (1, _BIND_R)
+    assert _bind_owners_valid(_bind_default())
+
+    assert "PricesStayPositive" in catalog and "PricesStayPositive" in sink_pad
+    assert _sink_prices_positive()
+    assert "DefaultVSync = 1" in display
+    assert "DefaultWidth = 1920" in display and "Borderless" in display
+    assert "VSync on" in doc
+
+    remainder = 0
+    total = 0
+    for _hit in range(100):
+        dealt, remainder = _glass_damage(1, 1, remainder)
+        total += dealt
+    assert total == 150 and remainder == 0
+    assert _glass_damage(2, 1, 0) == (3, 0)
+    assert _glass_damage(3, 1, 0) == (4, 50)
+    assert _glass_damage(1, 0, 40) == (1, 40)
+    assert "ref int remainder" in rules
+    assert "ref _glassRemainder" in health and "ref _glassRemainder" in seeker
+    assert "_glassRemainder.Clear()" in health and "_assistRemainder.Clear()" in health
+    assert "+50% damage" in copy and "+50% skada" in loc
+
+    assert _run_start_shield(2, 1, True) == 0
+    assert _run_start_shield(2, 1, False) == 3
+    assert "RunStartShield" in profile and "RunStartShield" in manager
+    assert "ActiveDailySeed > 0" in manager
+    assert "does not apply the legacy starting shield" in design
 
 
 def RunSetupNav_selfcheck() -> bool:

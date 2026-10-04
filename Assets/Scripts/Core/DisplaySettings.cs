@@ -2,7 +2,7 @@ namespace AsteroidsGoneRogue
 {
     /// <summary>
     /// Window, resolution, vsync, and FPS cap. Unity-free. Invalid values fall
-    /// back to the launch defaults (borderless, 1920x1080, vsync off, 60).
+    /// back to the launch defaults (borderless, 1920x1080, vsync on, 60).
     /// An unavailable windowed resolution falls back to the current size.
     /// </summary>
     public enum WindowModeId
@@ -17,7 +17,7 @@ namespace AsteroidsGoneRogue
         public const int DefaultWindowMode = (int)WindowModeId.Borderless;
         public const int DefaultWidth = 1920;
         public const int DefaultHeight = 1080;
-        public const int DefaultVSync = 0;
+        public const int DefaultVSync = 1;
         public const int DefaultFpsCap = 60;
         public const int Uncapped = 0;
         public const int MinWidth = 640;

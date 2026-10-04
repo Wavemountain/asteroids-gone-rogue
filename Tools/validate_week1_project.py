@@ -1327,6 +1327,30 @@ def _commit_type_decl(frame: dict, decl: list[tuple[str, int]]) -> None:
         frame["statics"].add(last)
 
 
+def _lt_opens_generic(tokens: list[tuple[str, int]], index: int) -> bool:
+    """True when this '<' is a generic argument list, not a comparison.
+
+    A comparison has no matching '>' before the next statement boundary.
+    Treating 'waveIndex < 1' as a generic leaves angle depth open and then
+    hides later simple names such as DailySeed.Mix.
+    """
+    depth = 0
+    limit = min(len(tokens), index + 80)
+    cursor = index
+    while cursor < limit:
+        tok = tokens[cursor][0]
+        if tok == "<":
+            depth += 1
+        elif tok == ">":
+            depth -= 1
+            if depth == 0:
+                return True
+        elif depth <= 1 and tok in (";", "{", "}", "(", ")", "<=", ">=", "=>"):
+            return False
+        cursor += 1
+    return False
+
+
 def _parse_cs_types(path: str, source: str) -> list[dict]:
     """Types, their members, and simple-name X.Y uses inside each type."""
     cleaned = _strip_cs_preserve_lines(source)
@@ -1340,9 +1364,10 @@ def _parse_cs_types(path: str, source: str) -> list[dict]:
     count = len(tokens)
     for index, (token, line) in enumerate(tokens):
         if token == "<":
-            angle += 1
-        elif token == ">":
-            angle = max(0, angle - 1)
+            if _lt_opens_generic(tokens, index):
+                angle += 1
+        elif token == ">" and angle > 0:
+            angle -= 1
 
         if angle == 0 and token in _CS_TYPE_KINDS and (index == 0 or tokens[index - 1][0] != "."):
             look = index + 1
@@ -2074,6 +2099,10 @@ def main() -> int:
             err(f"{path.relative_to(ROOT)}: {hit}")
         shadow_files.append((str(path.relative_to(ROOT)), read(path)))
     for hit in type_member_shadow_violations(shadow_files):
+        err(hit)
+    from roslyn_core_check import core_roslyn_errors
+
+    for hit in core_roslyn_errors():
         err(hit)
 
     if "FindObjectOfType" in blob or "FindObjectsOfType" in blob:

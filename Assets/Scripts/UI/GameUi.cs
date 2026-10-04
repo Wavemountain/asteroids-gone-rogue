@@ -200,6 +200,10 @@ namespace AsteroidsGoneRogue
         private SettingsState _settings;
         private bool _settingsOpen;
         private int _settingsIndex;
+        private float _settingsShift;
+        private bool _settingsScrollMute;
+        private GameObject _settingsScrollTrack;
+        private Scrollbar _settingsScrollbar;
         private bool _settingsNavHeld;
         private float _settingsNavRepeatAt;
         private GameObject _settingsRoot;
@@ -1414,7 +1418,8 @@ namespace AsteroidsGoneRogue
                 AddReadability(_previewCaption, true);
 
                 GameObject well = CreateFill("PreviewWell", _previewRoot.transform, UiTheme.Void,
-                    new Vector2(0.048f, 0.048f), new Vector2(0.952f, 0.860f));
+                    new Vector2(HangarPreviewRig.WellMinX, HangarPreviewRig.WellMinY),
+                    new Vector2(HangarPreviewRig.WellMaxX, HangarPreviewRig.WellMaxY));
 
                 GameObject view = new GameObject("PreviewViewport", typeof(RectTransform));
                 view.transform.SetParent(well.transform, false);
@@ -1506,6 +1511,8 @@ namespace AsteroidsGoneRogue
                 {
                     _previewViewport.color = Color.white;
                 }
+
+                ApplyPreviewAspect();
             }
 
             RaiseShopAbovePreview();
@@ -3900,6 +3907,11 @@ namespace AsteroidsGoneRogue
                         {
                             _settingsNavHeld = false;
                         }
+
+                        if (settingsRoute != SettingsRoute.Move && !RebindConsumesInput())
+                        {
+                            TickSettingsWheel();
+                        }
                     }
                 }
                 else
@@ -6091,9 +6103,10 @@ namespace AsteroidsGoneRogue
             Stretch(
                 _settingsViewport.AddComponent<RectTransform>(),
                 new Vector2(0f, SettingsScroll.ViewportBottom),
-                new Vector2(1f, SettingsScroll.ViewportTop));
+                new Vector2(0.955f, SettingsScroll.ViewportTop));
             _settingsViewport.AddComponent<RectMask2D>();
             _settingsRows = _settingsViewport.transform;
+            BuildSettingsScrollbar();
 
             int rowCount = SettingsRows.Count;
             _settingsRowButtons = new Button[rowCount];
@@ -6294,6 +6307,8 @@ namespace AsteroidsGoneRogue
                 _settingsSfxLabel = caption;
                 _settingsSfxSlider = slider;
             }
+
+            BindSettingsClick(row, rowIndex, null);
         }
 
         private void BuildSettingsMuteRow(int rowIndex, Font body, float y0, float y1)
@@ -6305,7 +6320,7 @@ namespace AsteroidsGoneRogue
                 new Vector2(SettingsMeasure.RowMinX, y0),
                 new Vector2(SettingsMeasure.RowMaxX, y1));
             _settingsRowButtons[rowIndex] = row;
-            row.onClick.AddListener(ToggleSettingsMute);
+            BindSettingsClick(row, rowIndex, ToggleSettingsMute);
             UiTheme.ApplyButton(row, false, false, false);
 
             _settingsMuteLabel = row.GetComponentInChildren<Text>();
@@ -6337,7 +6352,7 @@ namespace AsteroidsGoneRogue
                 new Vector2(SettingsMeasure.RowMinX, y0),
                 new Vector2(SettingsMeasure.RowMaxX, y1));
             _settingsRowButtons[rowIndex] = row;
-            row.onClick.AddListener(ToggleScreenShake);
+            BindSettingsClick(row, rowIndex, ToggleScreenShake);
             UiTheme.ApplyButton(row, false, false, false);
 
             _settingsShakeLabel = row.GetComponentInChildren<Text>();
@@ -6369,7 +6384,7 @@ namespace AsteroidsGoneRogue
                 new Vector2(SettingsMeasure.RowMinX, y0),
                 new Vector2(SettingsMeasure.RowMaxX, y1));
             _settingsRowButtons[rowIndex] = row;
-            row.onClick.AddListener(ToggleReduceEffects);
+            BindSettingsClick(row, rowIndex, ToggleReduceEffects);
             UiTheme.ApplyButton(row, false, false, false);
 
             _settingsReduceLabel = row.GetComponentInChildren<Text>();
@@ -6403,7 +6418,7 @@ namespace AsteroidsGoneRogue
                 new Vector2(SettingsMeasure.RowMinX, y0),
                 new Vector2(SettingsMeasure.RowMaxX, y1));
             _settingsRowButtons[rowIndex] = row;
-            row.onClick.AddListener(ToggleAssistMode);
+            BindSettingsClick(row, rowIndex, ToggleAssistMode);
             UiTheme.ApplyButton(row, false, false, false);
 
             _settingsAssistLabel = row.GetComponentInChildren<Text>();
@@ -6437,7 +6452,7 @@ namespace AsteroidsGoneRogue
                 new Vector2(SettingsMeasure.RowMinX, y0),
                 new Vector2(SettingsMeasure.RowMaxX, y1));
             _settingsRowButtons[rowIndex] = row;
-            row.onClick.AddListener(CycleHintMode);
+            BindSettingsClick(row, rowIndex, CycleHintMode);
             UiTheme.ApplyButton(row, false, false, false);
 
             _settingsHintModeLabel = row.GetComponentInChildren<Text>();
@@ -6469,7 +6484,7 @@ namespace AsteroidsGoneRogue
                 new Vector2(SettingsMeasure.RowMinX, y0),
                 new Vector2(SettingsMeasure.RowMaxX, y1));
             _settingsRowButtons[rowIndex] = row;
-            row.onClick.AddListener(CycleHintSize);
+            BindSettingsClick(row, rowIndex, CycleHintSize);
             UiTheme.ApplyButton(row, false, false, false);
 
             _settingsHintSizeLabel = row.GetComponentInChildren<Text>();
@@ -6501,7 +6516,7 @@ namespace AsteroidsGoneRogue
                 new Vector2(SettingsMeasure.RowMinX, y0),
                 new Vector2(SettingsMeasure.RowMaxX, y1));
             _settingsRowButtons[rowIndex] = row;
-            row.onClick.AddListener(ToggleConfirmAbort);
+            BindSettingsClick(row, rowIndex, ToggleConfirmAbort);
             UiTheme.ApplyButton(row, false, false, false);
 
             _settingsConfirmAbortLabel = row.GetComponentInChildren<Text>();
@@ -6533,7 +6548,7 @@ namespace AsteroidsGoneRogue
                 new Vector2(SettingsMeasure.RowMinX, y0),
                 new Vector2(SettingsMeasure.RowMaxX, y1));
             _settingsRowButtons[rowIndex] = row;
-            row.onClick.AddListener(ToggleConfirmNewRun);
+            BindSettingsClick(row, rowIndex, ToggleConfirmNewRun);
             UiTheme.ApplyButton(row, false, false, false);
 
             _settingsConfirmNewRunLabel = row.GetComponentInChildren<Text>();
@@ -6565,7 +6580,7 @@ namespace AsteroidsGoneRogue
                 new Vector2(SettingsMeasure.RowMinX, y0),
                 new Vector2(SettingsMeasure.RowMaxX, y1));
             _settingsRowButtons[rowIndex] = row;
-            row.onClick.AddListener(CyclePadNav);
+            BindSettingsClick(row, rowIndex, CyclePadNav);
             UiTheme.ApplyButton(row, false, false, false);
 
             _settingsPadNavLabel = row.GetComponentInChildren<Text>();
@@ -6623,7 +6638,7 @@ namespace AsteroidsGoneRogue
             SettingsScroll.RowX(SettingsRowId.Language, out x0, out x1);
             Button row = CreateButton(rowName, _settingsRows, body, new Vector2(x0, y0), new Vector2(x1, y1));
             _settingsRowButtons[rowIndex] = row;
-            row.onClick.AddListener(onClick);
+            BindSettingsClick(row, rowIndex, onClick);
             UiTheme.ApplyButton(row, false, false, false);
             label = row.GetComponentInChildren<Text>();
             label.fontSize = SettingsScroll.RowFont;
@@ -6696,7 +6711,7 @@ namespace AsteroidsGoneRogue
             {
                 float y0;
                 float y1;
-                SettingsScroll.ViewportBand(index, focus, out y0, out y1);
+                SettingsScroll.ViewportBandAt(index, _settingsShift, out y0, out y1);
                 SettingsRowId rowId = SettingsRows.At(index);
                 if (rowId == SettingsRowId.Controls)
                 {
@@ -6719,8 +6734,193 @@ namespace AsteroidsGoneRogue
                 float x1;
                 SettingsScroll.RowX(rowId, out x0, out x1);
                 Stretch(rowButton.GetComponent<RectTransform>(), new Vector2(x0, y0), new Vector2(x1, y1));
-                rowButton.interactable = SettingsScroll.ContainsBand(y0, y1);
+                bool rowShown = SettingsScroll.IntersectsViewport(y0, y1);
+                bool rowFull = SettingsScroll.ContainsBand(y0, y1);
+                SetSettingsRowRays(rowButton, rowShown, rowFull);
             }
+
+            SyncSettingsScrollbar();
+        }
+
+        private void ApplyPreviewAspect()
+        {
+            if (_previewViewport == null)
+            {
+                return;
+            }
+
+            float frameMaxY = ShipPreviewMax.y;
+            if (_session != null && _session.Phase == GamePhase.Failed)
+            {
+                frameMaxY = FailedPreviewMaxY;
+            }
+
+            float frameWidth = (ShipPreviewMax.x - ShipPreviewMin.x) * Mathf.Max(1, Screen.width);
+            float frameHeight = (frameMaxY - ShipPreviewMin.y) * Mathf.Max(1, Screen.height);
+            float wellWidth = frameWidth * (HangarPreviewRig.WellMaxX - HangarPreviewRig.WellMinX);
+            float wellHeight = frameHeight * (HangarPreviewRig.WellMaxY - HangarPreviewRig.WellMinY);
+            float uvX;
+            float uvY;
+            float uvW;
+            float uvH;
+            float fitMinX;
+            float fitMinY;
+            float fitMaxX;
+            float fitMaxY;
+            HangarPreviewRig.Contain(
+                wellWidth,
+                wellHeight,
+                HangarPreviewRig.ViewportWidth,
+                HangarPreviewRig.ViewportHeight,
+                out uvX,
+                out uvY,
+                out uvW,
+                out uvH,
+                out fitMinX,
+                out fitMinY,
+                out fitMaxX,
+                out fitMaxY);
+            _previewViewport.uvRect = new Rect(uvX, uvY, uvW, uvH);
+            Stretch(_previewViewport.rectTransform, new Vector2(fitMinX, fitMinY), new Vector2(fitMaxX, fitMaxY));
+        }
+
+        private void BuildSettingsScrollbar()
+        {
+            _settingsScrollTrack = new GameObject("SettingsScrollTrack");
+            _settingsScrollTrack.transform.SetParent(_settingsPanel.transform, false);
+            Stretch(
+                _settingsScrollTrack.AddComponent<RectTransform>(),
+                new Vector2(0.962f, SettingsScroll.ViewportBottom),
+                new Vector2(0.988f, SettingsScroll.ViewportTop));
+            Image trackImage = _settingsScrollTrack.AddComponent<Image>();
+            trackImage.color = UiTheme.WithAlpha(UiTheme.Void, 0.92f);
+            trackImage.raycastTarget = true;
+
+            GameObject thumb = new GameObject("SettingsScrollThumb");
+            thumb.transform.SetParent(_settingsScrollTrack.transform, false);
+            RectTransform thumbRect = thumb.AddComponent<RectTransform>();
+            Stretch(thumbRect, Vector2.zero, Vector2.one);
+            Image thumbImage = thumb.AddComponent<Image>();
+            thumbImage.color = UiTheme.Primary;
+            thumbImage.raycastTarget = true;
+
+            _settingsScrollbar = _settingsScrollTrack.AddComponent<Scrollbar>();
+            _settingsScrollbar.handleRect = thumbRect;
+            _settingsScrollbar.targetGraphic = thumbImage;
+            _settingsScrollbar.direction = Scrollbar.Direction.BottomToTop;
+            Navigation scrollNav = _settingsScrollbar.navigation;
+            scrollNav.mode = Navigation.Mode.None;
+            _settingsScrollbar.navigation = scrollNav;
+            _settingsScrollbar.onValueChanged.AddListener(OnSettingsScrollChanged);
+        }
+
+        private void SyncSettingsScrollbar()
+        {
+            if (_settingsScrollbar == null)
+            {
+                return;
+            }
+
+            _settingsScrollMute = true;
+            _settingsScrollbar.size = SettingsScroll.ScrollbarSize();
+            _settingsScrollbar.value = SettingsScroll.ScrollbarValue(_settingsShift);
+            _settingsScrollMute = false;
+            if (_settingsScrollTrack != null)
+            {
+                _settingsScrollTrack.SetActive(SettingsScroll.MaxShift() > 0.0001f);
+            }
+        }
+
+        private void OnSettingsScrollChanged(float value)
+        {
+            if (_settingsScrollMute)
+            {
+                return;
+            }
+
+            _settingsShift = SettingsScroll.ShiftFromScrollbar(value);
+            ApplySettingsScroll();
+        }
+
+        private void TickSettingsWheel()
+        {
+            float scrollWheel = Input.mouseScrollDelta.y;
+            if (scrollWheel == 0f)
+            {
+                return;
+            }
+
+            _settingsShift = SettingsScroll.Wheel(_settingsShift, scrollWheel);
+            ApplySettingsScroll();
+        }
+
+        private void SetSettingsRowRays(Button rowButton, bool shown, bool full)
+        {
+            if (rowButton == null)
+            {
+                return;
+            }
+
+            rowButton.interactable = shown;
+            Image plate = rowButton.GetComponent<Image>();
+            if (plate != null)
+            {
+                plate.raycastTarget = shown;
+            }
+
+            Selectable[] nested = rowButton.GetComponentsInChildren<Selectable>(true);
+            for (int nestedIndex = 0; nestedIndex < nested.Length; nestedIndex++)
+            {
+                Selectable part = nested[nestedIndex];
+                if (part == null || part == rowButton)
+                {
+                    continue;
+                }
+
+                part.interactable = full;
+                if (part.targetGraphic != null)
+                {
+                    part.targetGraphic.raycastTarget = full;
+                }
+            }
+        }
+
+        private void BindSettingsClick(Button row, int rowIndex, UnityEngine.Events.UnityAction action)
+        {
+            int captured = rowIndex;
+            row.onClick.AddListener(() =>
+            {
+                if (!AllowSettingsActivate(captured))
+                {
+                    return;
+                }
+
+                if (action != null)
+                {
+                    action();
+                }
+            });
+        }
+
+        private bool AllowSettingsActivate(int rowIndex)
+        {
+            float bandBottom;
+            float bandTop;
+            SettingsScroll.ViewportBandAt(rowIndex, _settingsShift, out bandBottom, out bandTop);
+            int kind = SettingsScroll.ClickKind(bandBottom, bandTop);
+            if (kind == SettingsScroll.ClickActivate)
+            {
+                return true;
+            }
+
+            if (kind == SettingsScroll.ClickFocus)
+            {
+                _settingsIndex = rowIndex;
+                RefreshSettingsFocus();
+                return false;
+            }
+
+            return false;
         }
 
         private void PlaceSettingsControls(float y0, float y1)
@@ -6757,7 +6957,7 @@ namespace AsteroidsGoneRogue
                 new Vector2(0.06f, y0),
                 new Vector2(0.94f, y1));
             _settingsRowButtons[rowIndex] = row;
-            row.onClick.AddListener(CycleSettingsLanguage);
+            BindSettingsClick(row, rowIndex, CycleSettingsLanguage);
             UiTheme.ApplyButton(row, false, false, false);
 
             _settingsLanguageLabel = CreateText(
@@ -6848,7 +7048,7 @@ namespace AsteroidsGoneRogue
             Text closeLabel = row.GetComponentInChildren<Text>();
             closeLabel.fontSize = UiTheme.BodyMin;
             closeLabel.text = Loc.T("ui.settings.close", "Close");
-            row.onClick.AddListener(CloseSettings);
+            BindSettingsClick(row, rowIndex, CloseSettings);
             UiTheme.ApplyButton(row, true, false, false);
         }
 
@@ -8407,6 +8607,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            _settingsShift = SettingsScroll.ShiftForFocus(SettingsRows.ClampIndex(_settingsIndex));
             ApplySettingsScroll();
             int focusIndex = SettingsRows.ClampIndex(_settingsIndex);
             for (int index = 0; index < _settingsRowButtons.Length; index++)

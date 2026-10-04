@@ -16,6 +16,7 @@ namespace AsteroidsGoneRogue
         public const int S = 115;
         public const int W = 119;
         public const int LeftControl = 306;
+        public const int SubmitPad = 0;
     }
 
     public static class BindKind
@@ -468,6 +469,58 @@ namespace AsteroidsGoneRogue
             return AssignSwap;
         }
 
+        /// <summary>
+        /// Escape may sit on pause and cancel only. Pad A (submit) may be shared,
+        /// because it is the confirm fallback and the default alt-fire. Every
+        /// other control has one owner. A pad button on move is rejected.
+        /// </summary>
+        public bool OwnersAreValid()
+        {
+            if (Key0 == null || Key1 == null || Key2 == null || Key3 == null || Pad0 == null)
+            {
+                return false;
+            }
+
+            for (int action = 0; action < BindAction.Count; action++)
+            {
+                for (int slot = 0; slot < 5; slot++)
+                {
+                    BindControl control = SlotControl(action, slot);
+                    if (control.Empty())
+                    {
+                        continue;
+                    }
+
+                    if (control.IsEscape())
+                    {
+                        if (action != BindAction.Pause && action != BindAction.Cancel)
+                        {
+                            return false;
+                        }
+
+                        continue;
+                    }
+
+                    if (control.Kind == BindKind.Pad && control.Code == BindCodes.SubmitPad)
+                    {
+                        continue;
+                    }
+
+                    if (control.Kind == BindKind.Pad && action == BindAction.Move)
+                    {
+                        return false;
+                    }
+
+                    if (CountOwners(control) > 1)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
         public bool IsHeld(int action, IBindSource source, bool edge)
         {
             if (source == null || action < 0 || action >= BindAction.Count)
@@ -521,6 +574,34 @@ namespace AsteroidsGoneRogue
             {
                 _moveCursor = 0;
             }
+        }
+
+        private BindControl SlotControl(int action, int slot)
+        {
+            if (slot >= 4)
+            {
+                return Pad0[action];
+            }
+
+            return GetKey(action, slot);
+        }
+
+        private int CountOwners(BindControl control)
+        {
+            int count = 0;
+            for (int action = 0; action < BindAction.Count; action++)
+            {
+                for (int slot = 0; slot < 5; slot++)
+                {
+                    BindControl stored = SlotControl(action, slot);
+                    if (!stored.Empty() && stored.Equal(control))
+                    {
+                        count += 1;
+                    }
+                }
+            }
+
+            return count;
         }
 
         private bool Owns(int action, BindControl control)

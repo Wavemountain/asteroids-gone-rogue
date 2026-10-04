@@ -73,6 +73,11 @@ namespace AsteroidsGoneRogue
                 }
             }
 
+            if (!map.OwnersAreValid())
+            {
+                return BindingMap.CreateDefault();
+            }
+
             return map;
         }
 
