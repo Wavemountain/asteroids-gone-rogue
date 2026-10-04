@@ -10,6 +10,7 @@ namespace AsteroidsGoneRogue
         public const int ShipPreview = 80;
         public const int HangarShop = 120;
         public const int Overlay = 150;
+        public const int Rebind = 160;
         public const int Boon = 200;
         public const int Toast = 250;
     }

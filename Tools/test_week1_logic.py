@@ -4724,7 +4724,7 @@ def _settings_from_ints(
     prompt_scheme=0,
 ) -> dict:
     state = _settings_default()
-    if version not in (1, 2, 3, 4, 5, 6):
+    if version not in (1, 2, 3, 4, 5, 6, 7):
         return state
     state["screen_shake"] = shake != 0
     state["hint_mode"] = _normalize_hint_mode(hint)
@@ -4750,7 +4750,7 @@ def _settings_from_ints(
 
 def _settings_capture(state: dict) -> tuple:
     return (
-        6,
+        7,
         1 if state["screen_shake"] else 0,
         _normalize_hint_mode(state["hint_mode"]),
         _clamp_hint_size(state["hint_size"]),
@@ -4823,6 +4823,7 @@ def _settings_roles() -> tuple[str, ...]:
         "value",
         "value",
         "value",
+        "action",
         "section",
         "action",
     )
@@ -4832,12 +4833,19 @@ def _row_bands() -> list[tuple[float, float]]:
     order = _settings_roles()
     weights = {"value": 1.0, "section": 7.2, "action": 1.0}
     top, bottom, gap = 0.86, 0.05, 0.012
-    weight_sum = sum(weights[kind] for kind in order)
+
+    def weight(index: int, kind: str) -> float:
+        # Mirrors SettingsRows.Weight: Change controls is a short share.
+        if index == 17:
+            return 0.2
+        return weights[kind]
+
+    weight_sum = sum(weight(index, kind) for index, kind in enumerate(order))
     span = top - bottom - gap * (len(order) - 1)
     cursor = top
     bands = []
-    for kind in order:
-        height = span * (weights[kind] / weight_sum)
+    for index, kind in enumerate(order):
+        height = span * (weight(index, kind) / weight_sum)
         bands.append((cursor - height, cursor))
         cursor = cursor - height - gap
     return bands
@@ -5108,7 +5116,7 @@ def test_settings_shell() -> None:
     inputs = (root / "ProjectSettings/InputManager.asset").read_text(encoding="utf-8")
 
     assert "class SettingsState" in state
-    assert "CurrentVersion = 6" in state
+    assert "CurrentVersion = 7" in state
     assert "DefaultHintSizeStep = 1" in state
     assert "MaxHintSizeStep = 2" in state
     assert "ScreenShake = true" in state
@@ -5240,7 +5248,7 @@ def test_settings_shell() -> None:
     assert "ContentTop = 0.86f" in rows and "ContentBottom = 0.05f" in rows
     assert "RowGap = 0.012f" in rows and "SectionWeight = 7.2f" in rows
     bands = _row_bands()
-    assert len(bands) == 19
+    assert len(bands) == 20
     for y0, y1 in bands:
         assert 0.05 - 1e-6 <= y0 < y1 <= 0.86 + 1e-6
     for left, right in zip(bands, bands[1:]):
@@ -5256,8 +5264,9 @@ def test_settings_shell() -> None:
     assert _settings_move(11, 1) == 12
     assert _settings_move(12, -1) == 11
     assert _settings_move(15, 1) == 16
-    assert _settings_move(16, 1) == 18
-    assert _settings_move(17, -1) == 15
+    assert _settings_move(16, 1) == 17
+    assert _settings_move(17, 1) == 19
+    assert _settings_move(18, -1) == 16
     assert _settings_move(10, -1) == 9
     assert _settings_move(0, 0) == 0
     assert SettingsState_shake(False, 0.4) == 0.0
@@ -7669,6 +7678,7 @@ def main() -> int:
     test_part_c_047()
     test_display_047d()
     test_input_prompts_047e()
+    test_rebind_047e2()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -11337,7 +11347,7 @@ def test_display_047d() -> None:
     ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
     doc = (root / "Docs/0.47/D_display.md").read_text(encoding="utf-8")
 
-    assert "CurrentVersion = 6" in state
+    assert "CurrentVersion = 7" in state
     assert "version >= 5" in state
     assert "version >= 6" in state
     assert "DefaultWindowMode" in display and "Borderless" in display
@@ -11617,6 +11627,531 @@ def test_input_prompts_047e() -> None:
         assert 16.0 / scale - 0.01 <= icon <= 20.0 / scale + 0.01
     assert _canvas_scale(3440, 1440) > 1.25
     assert _canvas_scale(1920, 1080) <= 1.25
+
+
+_BIND_W = 119
+_BIND_A = 97
+_BIND_S = 115
+_BIND_D = 100
+_BIND_E = 101
+_BIND_Q = 113
+_BIND_R = 114
+_BIND_SPACE = 32
+_BIND_ESC = 27
+_BIND_RETURN = 13
+_BIND_CTRL = 306
+
+
+def _bind_default() -> dict:
+    keys = [[(0, 0) for _slot in range(4)] for _action in range(10)]
+    pads = [None] * 10
+    keys[0] = [(1, _BIND_W), (1, _BIND_A), (1, _BIND_S), (1, _BIND_D)]
+    keys[1] = [(2, 0), (1, _BIND_CTRL), (0, 0), (0, 0)]
+    keys[2] = [(1, _BIND_SPACE), (0, 0), (0, 0), (0, 0)]
+    pads[2] = 0
+    keys[3] = [(2, 1), (1, _BIND_E), (0, 0), (0, 0)]
+    keys[4] = [(1, _BIND_Q), (0, 0), (0, 0), (0, 0)]
+    pads[4] = 4
+    pads[5] = 5
+    pads[6] = 2
+    keys[7] = [(1, _BIND_ESC), (0, 0), (0, 0), (0, 0)]
+    pads[7] = 7
+    keys[8] = [(1, _BIND_RETURN), (0, 0), (0, 0), (0, 0)]
+    pads[8] = 0
+    keys[9] = [(1, _BIND_ESC), (0, 0), (0, 0), (0, 0)]
+    pads[9] = 1
+    return {"keys": keys, "pads": pads, "cursor": 0}
+
+
+def _bind_equal(left: tuple, right: tuple) -> bool:
+    return left[0] == right[0] and left[1] == right[1]
+
+
+def _bind_empty(control: tuple) -> bool:
+    return control[0] == 0
+
+
+def _bind_keyboard_default(binding: dict, action: int) -> bool:
+    stock = _bind_default()
+    for slot in range(4):
+        if not _bind_equal(binding["keys"][action][slot], stock["keys"][action][slot]):
+            return False
+    return True
+
+
+def _bind_pad_default(binding: dict, action: int) -> bool:
+    return binding["pads"][action] == _bind_default()["pads"][action]
+
+
+def _bind_move_default(binding: dict) -> bool:
+    return _bind_keyboard_default(binding, 0)
+
+
+def _bind_owns(binding: dict, action: int, kind: int, code: int) -> bool:
+    if kind == 3:
+        return binding["pads"][action] == code
+    for slot in range(4):
+        if _bind_equal(binding["keys"][action][slot], (kind, code)):
+            return True
+    return False
+
+
+def _bind_find(binding: dict, kind: int, code: int, skip: int):
+    for action in range(10):
+        if action == skip:
+            continue
+        if kind == 3:
+            if binding["pads"][action] == code:
+                return action, 0, True
+            continue
+        for slot in range(4):
+            stored = binding["keys"][action][slot]
+            if not _bind_empty(stored) and _bind_equal(stored, (kind, code)):
+                return action, slot, False
+    return None
+
+
+def _bind_assign(binding: dict, action: int, kind: int, code: int):
+    """Mirrors BindingMap.TryAssign. Returns (status, other)."""
+    if action < 0 or action >= 10 or kind == 0 or code < 0:
+        return 4, -1
+    if kind == 1 and code == 0:
+        return 0, -1
+    if kind == 1 and code == _BIND_ESC and action not in (7, 9):
+        return 3, -1
+    if kind == 3 and action == 0:
+        return 4, -1
+    if _bind_owns(binding, action, kind, code):
+        return 0, -1
+    found = _bind_find(binding, kind, code, action)
+    pad = kind == 3
+    dest = 0
+    if not pad and action == 0:
+        dest = binding["cursor"]
+    previous = ("pad", binding["pads"][action]) if pad else binding["keys"][action][dest]
+    if found and not pad and previous[0] == 1 and previous[1] == _BIND_ESC:
+        binding["keys"][action][dest] = (kind, code)
+        other, slot, _other_pad = found
+        binding["keys"][other][slot] = (0, 0)
+        if action == 0:
+            binding["cursor"] = (binding["cursor"] + 1) % 4
+        return 2, other
+    if pad:
+        binding["pads"][action] = code
+    else:
+        binding["keys"][action][dest] = (kind, code)
+        if action == 0:
+            binding["cursor"] = (binding["cursor"] + 1) % 4
+    if not found:
+        return 1, -1
+    other, slot, other_pad = found
+    if other_pad:
+        if previous[0] == "pad":
+            binding["pads"][other] = previous[1]
+        else:
+            binding["pads"][other] = None
+    else:
+        if previous[0] == "pad":
+            binding["keys"][other][slot] = (0, 0)
+        else:
+            binding["keys"][other][slot] = previous
+    return 2, other
+
+
+def _bind_serialize(binding: dict) -> str:
+    parts = ["7"]
+    for action in range(10):
+        slots = []
+        for slot in range(4):
+            kind, code = binding["keys"][action][slot]
+            slots.append(f"{kind}:{code}")
+        parts.append(",".join(slots))
+    for action in range(10):
+        pad = binding["pads"][action]
+        parts.append("" if pad is None else str(pad))
+    return ";".join(parts)
+
+
+def _bind_parse(blob: str, settings_version: int) -> dict:
+    if settings_version < 7 or not blob:
+        return _bind_default()
+    parts = blob.split(";")
+    if len(parts) != 21 or parts[0] != "7":
+        return _bind_default()
+    binding = _bind_default()
+    for action in range(10):
+        binding["keys"][action] = [(0, 0) for _slot in range(4)]
+        binding["pads"][action] = None
+    for action in range(10):
+        tokens = parts[1 + action].split(",")
+        if len(tokens) < 1 or len(tokens) > 4:
+            return _bind_default()
+        for index, token in enumerate(tokens):
+            kind_text, code_text = token.split(":")
+            kind = int(kind_text)
+            code = int(code_text)
+            if kind == 0:
+                continue
+            if kind not in (1, 2):
+                return _bind_default()
+            binding["keys"][action][index] = (kind, code)
+    for action in range(10):
+        text = parts[11 + action]
+        if text == "":
+            continue
+        code = int(text)
+        if code < 0 or code > 19:
+            return _bind_default()
+        binding["pads"][action] = code
+    binding["cursor"] = 0
+    return binding
+
+
+def _bind_held(binding: dict, action: int, source: dict, edge: bool) -> bool:
+    bucket = "down" if edge else "held"
+    for kind, code in binding["keys"][action]:
+        if kind == 1 and code in source[bucket + "_keys"]:
+            return True
+        if kind == 2 and code in source[bucket + "_mouse"]:
+            return True
+    pad = binding["pads"][action]
+    if pad is not None and pad in source[bucket + "_pad"]:
+        return True
+    if action in (7, 9) and _BIND_ESC in source[bucket + "_keys"]:
+        return True
+    return False
+
+
+def _bind_move(binding: dict, source: dict) -> tuple:
+    if _bind_move_default(binding):
+        return (source["axes"].get("Horizontal", 0.0), source["axes"].get("Vertical", 0.0))
+    x = 0.0
+    y = 0.0
+    keys = binding["keys"][0]
+    if keys[1][0] == 1 and keys[1][1] in source["held_keys"]:
+        x -= 1.0
+    if keys[3][0] == 1 and keys[3][1] in source["held_keys"]:
+        x += 1.0
+    if keys[2][0] == 1 and keys[2][1] in source["held_keys"]:
+        y -= 1.0
+    if keys[0][0] == 1 and keys[0][1] in source["held_keys"]:
+        y += 1.0
+    x += source["axes"].get("PadMoveX", 0.0)
+    y += source["axes"].get("PadMoveY", 0.0)
+    return (max(-1.0, min(1.0, x)), max(-1.0, min(1.0, y)))
+
+
+def _key_label(code: int) -> str:
+    if 97 <= code <= 122:
+        return chr(code).upper()
+    if code == _BIND_SPACE:
+        return "Space"
+    if code == _BIND_ESC:
+        return "Esc"
+    if code == _BIND_RETURN:
+        return "Enter"
+    if code in (_BIND_CTRL, 305):
+        return "Ctrl"
+    return "K" + str(code)
+
+
+def _prompt_value(action: str, scheme: str, binding: dict) -> str:
+    index = {
+        "move": 0,
+        "fire": 1,
+        "fire_alt": 2,
+        "utility": 3,
+        "cycle": 4,
+        "cycle_prev": 5,
+        "cycle_alt": 6,
+        "pause": 7,
+        "confirm": 8,
+        "cancel": 9,
+    }[action]
+    stock = {
+        ("keyboard", "fire"): "LMB",
+        ("keyboard", "move"): "WASD",
+        ("keyboard", "pause"): "Esc",
+        ("keyboard", "cancel"): "Esc",
+        ("keyboard", "confirm"): "Enter",
+        ("xbox", "fire"): "RT",
+        ("xbox", "confirm"): "A",
+        ("playstation", "confirm"): "Cross",
+    }
+    if scheme == "keyboard" and not _bind_keyboard_default(binding, index):
+        labels = []
+        for kind, code in binding["keys"][index]:
+            if kind == 2 and code == 0:
+                labels.append("LMB")
+            elif kind == 2 and code == 1:
+                labels.append("RMB")
+            elif kind == 1:
+                labels.append(_key_label(code))
+        return " ".join(labels) if labels else "-"
+    if scheme != "keyboard" and not _bind_pad_default(binding, index):
+        pad = binding["pads"][index]
+        if pad is None:
+            return "-"
+        if scheme == "playstation":
+            playstation = {0: "Cross", 1: "Circle", 2: "Square", 3: "Triangle"}
+            if pad in playstation:
+                return playstation[pad]
+        names = {0: "A", 1: "B", 2: "X", 3: "Y", 4: "LB", 5: "RB"}
+        return names.get(pad, "B" + str(pad))
+    return stock[(scheme, action)]
+
+
+def _rebind_bands(focus: int) -> tuple:
+    top = 0.83
+    height = 0.062
+    gap = 0.006
+    bottom_limit = 0.05
+    cursor = top
+    bands = []
+    for _row in range(12):
+        bands.append((cursor - height, cursor))
+        cursor = cursor - height - gap
+    bottom, row_top = bands[focus]
+    shift = 0.0
+    if bottom < bottom_limit:
+        shift = bottom_limit - bottom
+    if row_top + shift > top:
+        shift = top - row_top
+    if shift < 0.0:
+        shift = 0.0
+    span = top - bottom_limit
+    view_bottom = (bottom + shift - bottom_limit) / span
+    view_top = (row_top + shift - bottom_limit) / span
+    return view_bottom, view_top
+
+
+def test_rebind_047e2() -> None:
+    """0.47 Part E2: rebinding, v7 migration, capture, and prompt labels."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    binding = (root / "Assets/Scripts/Core/BindingMap.cs").read_text(encoding="utf-8")
+    store = (root / "Assets/Scripts/Core/BindingStore.cs").read_text(encoding="utf-8")
+    bound = (root / "Assets/Scripts/Core/BoundInput.cs").read_text(encoding="utf-8")
+    glyph = (root / "Assets/Scripts/Core/BindingGlyph.cs").read_text(encoding="utf-8")
+    session = (root / "Assets/Scripts/Core/RebindSession.cs").read_text(encoding="utf-8")
+    pad = (root / "Assets/Scripts/Core/GamepadInput.cs").read_text(encoding="utf-8")
+    state = (root / "Assets/Scripts/Core/SettingsState.cs").read_text(encoding="utf-8")
+    rows = (root / "Assets/Scripts/Core/SettingsRows.cs").read_text(encoding="utf-8")
+    order = (root / "Assets/Scripts/Core/CanvasOrder.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    overlay = (root / "Assets/Scripts/UI/RebindOverlay.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    done = (root / "Docs/0.47/E_done.md").read_text(encoding="utf-8")
+
+    assert "class BindingMap" in binding and "ActiveOrDefault" in binding
+    assert "ResetToDefaults" in binding and "MoveIsDefault" in binding
+    assert "AssignReserved" in binding and "AssignSwap" in binding
+    assert "settingsVersion < 7" in store and "PartCount = 21" in store
+    assert "class BoundInput" in bound and "FillCapture" in bound and "MoveVector" in bound
+    assert "PromptValue" in glyph and "ShowsIcon" in glyph
+    assert "class RebindSession" in session and "ListenSeconds = 5f" in session and "NoteOther" in session
+    assert "public const int Rebind = 160" in order
+    assert "sortingOrder = CanvasOrder.Rebind" in overlay
+    assert "ChangeControls" in rows and rows.split("Order =")[1].split(";")[0].index("PromptScheme") < rows.split("Order =")[1].split(";")[0].index("ChangeControls")
+    assert "CurrentVersion = 7" in state and "BindingStore.Parse" in state
+    assert "BoundInput.MoveVector" in pad.split("public static Vector2 MoveStick()")[1].split("public static Vector2 PadMoveStick()")[0]
+    fire_held = pad.split("public static bool FireHeld()")[1].split("public static bool UtilityHeld()")[0]
+    assert "UsesLegacyFire" in fire_held and "BoundInput.Held" in fire_held
+    assert "TriggerHeld(FireTrigger)" in fire_held and "TriggerHeld(FireTrigger6)" in fire_held
+    assert "TriggerHeld(FireTrigger3)" not in fire_held
+    assert "ui.settings.rebind" in ui and "Change controls" in ui
+    assert "RebindConsumesInput" in ui
+    assert "E2" in done
+
+    fresh = _bind_default()
+    quiet = {
+        "held_keys": set(),
+        "down_keys": set(),
+        "held_mouse": set(),
+        "down_mouse": set(),
+        "held_pad": set(),
+        "down_pad": set(),
+        "axes": {"Horizontal": 0.4, "Vertical": -0.1, "PadMoveX": 1.0, "PadMoveY": 0.0},
+    }
+    assert _bind_move(fresh, quiet) == (0.4, -0.1)
+    keyed = dict(quiet)
+    keyed["held_keys"] = {_BIND_W}
+    assert _bind_move(fresh, keyed) == (0.4, -0.1)
+    legacy_cases = (
+        ({"held_mouse": {0}}, True),
+        ({"held_keys": {_BIND_CTRL}}, True),
+        ({"held_keys": {_BIND_SPACE}}, True),
+        ({"held_pad": {0}}, True),
+        ({"held_keys": {_BIND_E}}, False),
+    )
+    for extra, expect in legacy_cases:
+        source = {
+            "held_keys": set(extra.get("held_keys", ())),
+            "down_keys": set(),
+            "held_mouse": set(extra.get("held_mouse", ())),
+            "down_mouse": set(),
+            "held_pad": set(extra.get("held_pad", ())),
+            "down_pad": set(),
+            "axes": {},
+        }
+        fired = _bind_held(fresh, 1, source, False) or _bind_held(fresh, 2, source, False)
+        assert fired is expect
+
+    moved = _bind_default()
+    status, other = _bind_assign(moved, 0, 1, 105)
+    assert status == 1 and other == -1
+    assert _bind_move_default(moved) is False
+    rebound = {
+        "held_keys": {105, _BIND_W},
+        "down_keys": set(),
+        "held_mouse": set(),
+        "down_mouse": set(),
+        "held_pad": set(),
+        "down_pad": set(),
+        "axes": {"Horizontal": 1.0, "Vertical": 1.0, "PadMoveX": 0.25, "PadMoveY": 0.0},
+    }
+    assert _bind_move(moved, rebound) == (0.25, 1.0)
+
+    swapped = _bind_default()
+    status, other = _bind_assign(swapped, 1, 1, _BIND_Q)
+    assert status == 2 and other == 4
+    assert swapped["keys"][1][0] == (1, _BIND_Q)
+    assert swapped["keys"][4][0] == (2, 0)
+    status, other = _bind_assign(swapped, 4, 3, 0)
+    assert status == 2 and other == 2
+    assert swapped["pads"][4] == 0 and swapped["pads"][2] == 4
+    assert swapped["pads"][8] == 0
+
+    reserved = _bind_default()
+    before = [list(row) for row in reserved["keys"]]
+    status, _other = _bind_assign(reserved, 3, 1, _BIND_ESC)
+    assert status == 3
+    assert reserved["keys"] == before
+    status, _other = _bind_assign(reserved, 0, 3, 0)
+    assert status == 4 and _bind_move_default(reserved)
+
+    pause = _bind_default()
+    status, _other = _bind_assign(pause, 7, 1, _BIND_R)
+    assert status == 1
+    assert pause["keys"][7][0] == (1, _BIND_R)
+    escape_down = {
+        "held_keys": set(),
+        "down_keys": {_BIND_ESC},
+        "held_mouse": set(),
+        "down_mouse": set(),
+        "held_pad": set(),
+        "down_pad": set(),
+        "axes": {},
+    }
+    assert _bind_held(pause, 7, escape_down, True) is True
+    assert _bind_held(pause, 9, escape_down, True) is True
+
+    blob = _bind_serialize(_bind_default())
+    assert _bind_parse(blob, 7)["keys"] == _bind_default()["keys"]
+    assert _bind_parse(blob, 7)["pads"] == _bind_default()["pads"]
+    assert _bind_parse("not-a-blob", 7)["keys"] == _bind_default()["keys"]
+    assert _bind_parse(blob, 6)["keys"] == _bind_default()["keys"]
+    assert _bind_parse(blob, 1)["pads"] == _bind_default()["pads"]
+    assert _bind_parse("7;0:0", 7)["keys"] == _bind_default()["keys"]
+
+    assert _prompt_value("fire", "keyboard", _bind_default()) == "LMB"
+    rebound_fire = _bind_default()
+    _bind_assign(rebound_fire, 1, 1, _BIND_R)
+    assert _prompt_value("fire", "keyboard", rebound_fire) == "R Ctrl"
+    assert _prompt_value("fire", "xbox", rebound_fire) == "RT"
+    confirm = _bind_default()
+    _bind_assign(confirm, 8, 3, 1)
+    assert _prompt_value("confirm", "xbox", confirm) == "B"
+    assert confirm["pads"][9] == 0
+    assert _prompt_value("confirm", "playstation", confirm) == "Circle"
+
+    listen_left = 5.0
+    assert listen_left - 0.0 == 5.0
+    assert listen_left - 5.0 == 0.0
+    assert "ListenLeft" in session
+
+    en_keys = (
+        "ui.settings.rebind",
+        "ui.rebind.listen",
+        "ui.rebind.timeout",
+        "ui.rebind.reserved",
+        "ui.rebind.fixed",
+        "ui.rebind.swap",
+        "ui.rebind.reset",
+        "ui.rebind.back",
+        "ui.rebind.move",
+        "ui.rebind.fire",
+        "ui.rebind.fire_alt",
+        "ui.rebind.utility",
+        "ui.rebind.cycle",
+        "ui.rebind.cycle_prev",
+        "ui.rebind.cycle_alt",
+        "ui.rebind.pause",
+        "ui.rebind.confirm",
+        "ui.rebind.cancel",
+    )
+    for key in en_keys:
+        assert key in loc
+        assert key in overlay or key in ui
+
+    lines = {
+        "en": (
+            "Change controls",
+            "Press a key or button...",
+            "Timed out",
+            "Escape is reserved",
+            "Stick stays on the axis",
+            "Swapped with Alt cycle",
+            "Reset to defaults",
+            "Back",
+            "Move",
+            "Alt fire",
+            "Cycle back",
+            "Alt cycle",
+        ),
+        "sv": (
+            "Ändra kontroller",
+            "Tryck en tangent eller knapp...",
+            "Tiden gick ut",
+            "Escape är reserverad",
+            "Spaken sitter på axeln",
+            "Byttes mot {0}",
+            "Återställ standard",
+            "Tillbaka",
+            "Styr",
+            "Altskott",
+            "Cykla bakåt",
+            "Alternativ cykel",
+        ),
+    }
+    for text in lines["sv"]:
+        assert text in loc
+    lines["en"] = lines["en"] + ("LMB Ctrl  ·  RT", "W A S D  ·  LS")
+    lines["sv"] = lines["sv"] + ("Byttes mot Alternativ cykel", "LMB Ctrl  ·  RT", "W A S D  ·  LS")
+    matrix = ((1280, 800), (1366, 768), (1440, 900), (1920, 1080), (1920, 1200), (2560, 1080), (2560, 1440), (3440, 1440))
+    for width, height in matrix:
+        scale = _canvas_scale(width, height)
+        canvas_w = width / scale
+        canvas_h = height / scale
+        panel_w = (0.78 - 0.22) * canvas_w
+        panel_h = (0.92 - 0.08) * canvas_h
+        name_w = (0.52 - 0.14) * panel_w
+        value_w = (0.96 - 0.52) * panel_w
+        note_w = (0.94 - 0.06) * panel_w
+        row_h = 0.062 * panel_h
+        note_h = (0.91 - 0.845) * panel_h
+        for text in lines["en"] + lines["sv"]:
+            box = note_w if len(text) > 18 else max(name_w, value_w)
+            used_h = note_h if len(text) > 18 else row_h
+            wrapped = _wrapped_line_count(text, box, 18)
+            assert wrapped * 18 * 1.15 <= used_h + 0.5, (width, text, wrapped, used_h, box)
+            narrow = _kenney_narrow_width(text, 18)
+            narrow_lines = 1 if narrow <= box + 0.5 else 2
+            assert narrow_lines * 18 * 1.15 <= used_h + 0.5, (width, text, narrow, box, used_h)
+        for focus in range(12):
+            view_bottom, view_top = _rebind_bands(focus)
+            assert view_bottom >= -0.001 and view_top <= 1.001, (focus, view_bottom, view_top)
 
 
 if __name__ == "__main__":
