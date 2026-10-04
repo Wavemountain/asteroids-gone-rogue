@@ -2065,7 +2065,7 @@ def test_end_credits_040d() -> None:
     assert "Kenney Future" in credits_cs
     assert "SpelPM / GameBot / BlenderBot / AtmosBot / Speltest" in credits_cs
     assert "TitleSize = 32" in credits_cs
-    assert "BodySize = 17" in credits_cs
+    assert "BodySize = 18" in credits_cs
     assert "#FFD16F" in credits_cs and "#B8E8FF" in credits_cs
     assert "new UnityEngine.Color32(255, 209, 111, 255)" in credits_cs
     assert "new UnityEngine.Color32(184, 232, 255, 255)" in credits_cs
@@ -4575,6 +4575,11 @@ def _settings_default() -> dict:
         "pad_nav": 2,
         "assist": False,
         "reduce_effects": False,
+        "window_mode": 1,
+        "resolution_w": 1920,
+        "resolution_h": 1080,
+        "vsync": False,
+        "fps_cap": 60,
     }
 
 
@@ -4684,9 +4689,42 @@ def _normalize_pad_nav(value: int) -> int:
     return 2
 
 
-def _settings_from_ints(version, shake, hint, size, in_play, new_run, pad, assist=0, reduce=0) -> dict:
+def _normalize_window(mode: int) -> int:
+    if mode in (0, 2):
+        return mode
+    return 1
+
+
+def _normalize_fps(cap: int) -> int:
+    if cap in (0, 30, 60, 120):
+        return cap
+    return 60
+
+
+def _clamp_resolution(value: int, minimum: int, fallback: int) -> int:
+    if value < minimum:
+        return fallback
+    return value
+
+
+def _settings_from_ints(
+    version,
+    shake,
+    hint,
+    size,
+    in_play,
+    new_run,
+    pad,
+    assist=0,
+    reduce=0,
+    window_mode=1,
+    res_w=1920,
+    res_h=1080,
+    vsync=0,
+    fps=60,
+) -> dict:
     state = _settings_default()
-    if version not in (1, 2, 3, 4):
+    if version not in (1, 2, 3, 4, 5):
         return state
     state["screen_shake"] = shake != 0
     state["hint_mode"] = _normalize_hint_mode(hint)
@@ -4697,12 +4735,19 @@ def _settings_from_ints(version, shake, hint, size, in_play, new_run, pad, assis
     state["pad_nav"] = _normalize_pad_nav(pad)
     state["assist"] = version >= 3 and assist != 0
     state["reduce_effects"] = version >= 4 and reduce != 0
+    # Versions before 5 keep the launch display defaults.
+    if version >= 5:
+        state["window_mode"] = _normalize_window(window_mode)
+        state["resolution_w"] = _clamp_resolution(res_w, 640, 1920)
+        state["resolution_h"] = _clamp_resolution(res_h, 480, 1080)
+        state["vsync"] = vsync != 0
+        state["fps_cap"] = _normalize_fps(fps)
     return state
 
 
 def _settings_capture(state: dict) -> tuple:
     return (
-        4,
+        5,
         1 if state["screen_shake"] else 0,
         _normalize_hint_mode(state["hint_mode"]),
         _clamp_hint_size(state["hint_size"]),
@@ -4711,6 +4756,11 @@ def _settings_capture(state: dict) -> tuple:
         _normalize_pad_nav(state["pad_nav"]),
         1 if state.get("assist") else 0,
         1 if state.get("reduce_effects") else 0,
+        _normalize_window(state.get("window_mode", 1)),
+        _clamp_resolution(state.get("resolution_w", 1920), 640, 1920),
+        _clamp_resolution(state.get("resolution_h", 1080), 480, 1080),
+        1 if state.get("vsync") else 0,
+        _normalize_fps(state.get("fps_cap", 60)),
     )
 
 
@@ -4752,6 +4802,10 @@ def _settings_blocks_pad(flags: dict) -> bool:
 
 def _settings_roles() -> tuple[str, ...]:
     return (
+        "value",
+        "value",
+        "value",
+        "value",
         "value",
         "value",
         "value",
@@ -4994,7 +5048,7 @@ def test_settings_shell() -> None:
     inputs = (root / "ProjectSettings/InputManager.asset").read_text(encoding="utf-8")
 
     assert "class SettingsState" in state
-    assert "CurrentVersion = 4" in state
+    assert "CurrentVersion = 5" in state
     assert "DefaultHintSizeStep = 1" in state
     assert "MaxHintSizeStep = 2" in state
     assert "ScreenShake = true" in state
@@ -5077,6 +5131,11 @@ def test_settings_shell() -> None:
         "pad_nav": 0,
         "assist": False,
         "reduce_effects": False,
+        "window_mode": 1,
+        "resolution_w": 1920,
+        "resolution_h": 1080,
+        "vsync": False,
+        "fps_cap": 60,
     }
     packed = _settings_capture(dirty)
     assert _settings_from_ints(*packed) == dirty
@@ -5110,6 +5169,8 @@ def test_settings_shell() -> None:
     assert order.index("HintSize") < order.index("ConfirmAbort") < order.index("ConfirmNewRun")
     assert "SettingsRowId.PadNav" in order
     assert order.index("ConfirmNewRun") < order.index("PadNav") < order.index("Controls") < order.index("Close")
+    assert order.index("PadNav") < order.index("AssistMode") < order.index("WindowMode")
+    assert order.index("WindowMode") < order.index("Resolution") < order.index("VSync") < order.index("FpsCap") < order.index("Controls")
     assert "IsNavigable" in rows and "IsValue" in rows and "RowBand" in rows and "Move(" in rows
     assert "IsSlider" in rows and "StepVolume" in rows and "VolumeStep = 0.1f" in rows
     assert "SliderMinX = 0.40f" in rows and "SliderMaxX = 0.96f" in rows
@@ -5118,7 +5179,7 @@ def test_settings_shell() -> None:
     assert "ContentTop = 0.86f" in rows and "ContentBottom = 0.05f" in rows
     assert "RowGap = 0.012f" in rows and "SectionWeight = 7.2f" in rows
     bands = _row_bands()
-    assert len(bands) == 14
+    assert len(bands) == 18
     for y0, y1 in bands:
         assert 0.05 - 1e-6 <= y0 < y1 <= 0.86 + 1e-6
     for left, right in zip(bands, bands[1:]):
@@ -5131,8 +5192,10 @@ def test_settings_shell() -> None:
     assert _settings_move(9, 1) == 10
     assert _settings_move(9, -1) == 8
     assert _settings_move(11, -1) == 10
-    assert _settings_move(11, 1) == 13
-    assert _settings_move(12, -1) == 10
+    assert _settings_move(11, 1) == 12
+    assert _settings_move(12, -1) == 11
+    assert _settings_move(15, 1) == 17
+    assert _settings_move(16, -1) == 14
     assert _settings_move(10, -1) == 9
     assert _settings_move(0, 0) == 0
     assert SettingsState_shake(False, 0.4) == 0.0
@@ -5272,6 +5335,19 @@ def test_settings_shell() -> None:
         "ui.settings.pad.dpad",
         "ui.settings.pad.analog",
         "ui.settings.pad.both",
+        "ui.settings.window",
+        "ui.settings.window.windowed",
+        "ui.settings.window.fullscreen",
+        "ui.settings.window.borderless",
+        "ui.settings.resolution",
+        "ui.settings.resolution.value",
+        "ui.settings.vsync",
+        "ui.settings.vsync.on",
+        "ui.settings.fps",
+        "ui.settings.fps.uncapped",
+        "ui.settings.fps.uncapped_held",
+        "ui.settings.fps.held",
+        "ui.settings.fps.value",
         "ui.hint_footer",
     ):
         assert f'"{key}"' in swedish, key
@@ -5312,9 +5388,8 @@ def test_settings_shell() -> None:
         slider_w = (0.96 - 0.40) * (0.94 - 0.06) * (0.70 - 0.30) * canvas_w
         assert slider_w >= 101.0, (width, height, slider_w)
 
-        controls_index = _settings_roles().index("section")
-        band_bottom, band_top = bands[controls_index]
-        body_span = (band_top - 0.05) - band_bottom
+        # Controls copy uses the scroll section, not the packed weight share.
+        body_span = 0.26 - 0.05
         body_h = body_span * (0.88 - 0.12) * (height / scale)
         body_w = (0.92 - 0.08) * (0.70 - 0.30) * canvas_w
         play_en = "WASD/LS move · Mouse/RS aim · LMB/RT fire · E/LT utility · Q/LB cycle · Esc / Start = back to hangar"
@@ -6401,6 +6476,16 @@ def test_fairness_047b() -> None:
         dealt, carry = scale(1, "enemy", True, carry)
         total += dealt
     assert total == 75 and carry == 0
+    # Carried remainder: a 1-point assist hit may deal 0. MinDamage is not applied.
+    assert scale(1, "bolt", True, 0)[0] == 0
+    assert "MinDamage = 1" in rules
+    assert "return !assistUsed;" in rules
+
+    def counts_for_board(assist_used: bool) -> bool:
+        return not assist_used
+
+    assert counts_for_board(True) is False
+    assert counts_for_board(False) is True
 
     def bonus_shield(shield, cap, assist):
         if not assist or shield >= cap:
@@ -7522,6 +7607,7 @@ def main() -> int:
     test_speltest_047_part_a()
     test_honest_fail_copy()
     test_part_c_047()
+    test_display_047d()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -10886,7 +10972,8 @@ def test_part_c_047() -> None:
     assert "DefaultMusicSlider = 0.5f" in mix and "DefaultSfxSlider = 0.9f" in mix
     assert "return p * p;" in mix and 'CurveKey = "agr.audio.curve"' in mix
     assert "System.Math.Cos" in fade and "System.Math.Sin" in fade
-    assert "World3BrightnessMilli = 880" in palette and "World4BrightnessMilli = 800" in palette
+    assert "World3BrightnessMilli = 760" in palette and "World4BrightnessMilli = 680" in palette
+    assert "WatchMidMul = 1.5f" in palette and "WatchAsteroidMul = 1.15f" in palette
     assert "EnemyEmissionScale = 0.9f" in palette and "MidEmissionScale = 1.35f" in palette
     assert "HullRimScale = 0.35f" in palette and "AsteroidAlbedoScale = 1.5f" in palette
     assert "AsteroidEmissionScale = 0.15f" in palette
@@ -10900,7 +10987,8 @@ def test_part_c_047() -> None:
     assert "ReadabilityPalette.EnemyEmissionScale" in factory
     assert "ReadabilityPalette.AsteroidAlbedoScale" in factory
     assert "ReadabilityPalette.HullRimScale" in factory
-    assert "ReadabilityPalette.MidEmissionScale" in factory
+    assert "ReadabilityPalette.MidEmissionFor" in factory
+    assert "ReadabilityPalette.AsteroidAlbedoMul" in factory
     assert "EffectScale.TrailWidth" in factory
     assert "MusicCrossfade.Weights" in audio and "MusicCrossfade.Retarget" in audio
     assert "MixCurve.Gain" in audio and "LoadMixSliders" in audio
@@ -10976,7 +11064,7 @@ def test_part_c_047() -> None:
 
     nums = _palette_nums(rules)
     assert len(nums) == 105
-    assert nums[2 * 15 + 12] == 880 and nums[3 * 15 + 12] == 800
+    assert nums[2 * 15 + 12] == 760 and nums[3 * 15 + 12] == 680
     qx, qy, qz, qw = 0.35355338, -0.35355338, 0.1464466, 0.8535534
     sun_y = 2.0 * ((qy * qz) - (qw * qx))
     sun_ndl = max(0.0, -sun_y)
@@ -11025,11 +11113,19 @@ def test_part_c_047() -> None:
     danger = (184.0 / 255.0, 90.0 / 255.0, 40.0 / 255.0)
     secondary = (106.0 / 255.0, 168.0 / 255.0, 200.0 / 255.0)
     enemy = apparent((0.5, 0.3, 0.32), _mul(danger, 0.9))
-    mid = apparent((0.5, 0.3, 0.32), _mul((0.82, 0.1, 0.12), 1.35))
     brute = apparent((0.58, 0.34, 0.36), _mul((1.0, 0.32, 0.1), 0.8))
     hull = apparent((0.45, 0.52, 0.58), _mul(secondary, 0.35))
-    rock = apparent(_mul((0.38, 0.32, 0.28), 1.5), _mul(secondary, 0.15))
-    rock_b = apparent(_mul((0.46, 0.3, 0.22), 1.5), _mul(secondary, 0.15))
+    mids = []
+    rocks = []
+    rock_bs = []
+    for world_index in range(7):
+        watch = world_index in (2, 3)
+        mid_mul = 1.35 * (1.5 if watch else 1.0)
+        rock_mul = 1.5 * (1.15 if watch else 1.0)
+        mids.append(apparent((0.5, 0.3, 0.32), _mul((0.82, 0.1, 0.12), mid_mul)))
+        rocks.append(apparent(_mul((0.38, 0.32, 0.28), rock_mul), _mul(secondary, 0.15)))
+        rock_bs.append(apparent(_mul((0.46, 0.3, 0.22), rock_mul), _mul(secondary, 0.15)))
+    rock = rocks[0]
     player_bolt = apparent((0.831, 0.627, 0.29), _mul((0.831, 0.627, 0.29), 1.6))
     enemy_bolt = apparent((0.722, 0.353, 0.157), _mul((0.722, 0.353, 0.157), 1.2))
 
@@ -11040,14 +11136,18 @@ def test_part_c_047() -> None:
     enemy_floor, enemy_rows = mins(enemy, "floor")
     assert enemy_floor >= 2.7, enemy_rows
     assert min(_lab_l(enemy) - _lab_l(world["floor"]) for world in worlds) >= 15.0
-    assert mins(mid, "floor")[0] >= 3.3
     assert mins(brute, "floor")[0] >= 3.0
     assert mins(hull, "floor")[0] >= 1.9
-    rock_gaps = [_lab_l(rock) - _lab_l(world["floor"]) for world in worlds]
-    # Spec annex rounds this row to 15. This port of the same WCAG method measures 14.6 on W3 at the approved 0.15 emission.
-    assert min(rock_gaps) >= 14.5, rock_gaps
-    variant_gaps = [_lab_l(rock_b) - _lab_l(world["floor"]) for world in worlds]
-    assert min(variant_gaps) >= 15.0, variant_gaps
+    mid_ratios = [_wcag(mids[index], worlds[index]["floor"]) for index in range(7)]
+    # W3 is the new minimum after the floor drop and the watch-only mid boost.
+    assert min(mid_ratios) >= 4.2, mid_ratios
+    assert mid_ratios[2] >= 4.2 and mid_ratios[3] >= 4.4
+    rock_gaps = [_lab_l(rocks[index]) - _lab_l(worlds[index]["floor"]) for index in range(7)]
+    # W1 stays the global rock minimum. W3/W4 rise above it.
+    assert min(rock_gaps) >= 20.7, rock_gaps
+    assert rock_gaps[2] >= 22.9 and rock_gaps[3] >= 24.9
+    variant_gaps = [_lab_l(rock_bs[index]) - _lab_l(worlds[index]["floor"]) for index in range(7)]
+    assert min(variant_gaps) >= 21.2, variant_gaps
     assert mins(player_bolt, "floor")[0] >= 8.0
     assert mins(player_bolt, "sky")[0] >= 3.0
     assert mins(enemy_bolt, "floor")[0] >= 3.5
@@ -11086,14 +11186,232 @@ def test_part_c_047() -> None:
     sv = "Minska effekter: mindre skärmskak, blixtar och partiklar"
     assert en in ui and sv in loc
     assert "\u2699" not in en and "\u2605" not in en and "\u2699" not in sv and "\u2605" not in sv
-    for width, height in ((1280, 800), (1600, 900), (1920, 1080), (2560, 1440), (3440, 1440)):
+    for width, height in ((1280, 800), (1366, 768), (1440, 900), (1600, 900), (1920, 1080), (1920, 1200), (2560, 1080), (2560, 1440), (3440, 1440)):
         scale = _canvas_scale(width, height)
         canvas_w = width / scale
-        row_w = (0.94 - 0.06) * (0.70 - 0.30) * canvas_w
-        label_w = (0.78 - 0.03) * row_w
-        value_h = (_row_bands()[0][1] - _row_bands()[0][0]) * (0.88 - 0.12) * (height / scale)
+        canvas_h = height / scale
+        label_w = (0.78 - 0.03) * (0.94 - 0.06) * (0.70 - 0.30) * canvas_w
+        row_h = 0.076 * (0.88 - 0.12) * (0.94 - 0.06) * canvas_h
         for line in (en, sv):
-            assert _kenney_future_width(line, 12) <= label_w or (12 * 1.15 * 2) <= value_h, (width, line, label_w, value_h)
+            lines = _wrapped_line_count(line, label_w, 18)
+            assert lines * 18 * 1.15 <= row_h + 0.5, (width, height, line, lines, row_h)
+
+
+def _scroll_content_band(index: int) -> tuple[float, float]:
+    roles = _settings_roles()
+    cursor = 0.86
+    for row, role in enumerate(roles):
+        height = 0.26 if role == "section" else 0.076
+        top = cursor
+        bottom = cursor - height
+        if row == index:
+            return bottom, top
+        cursor = bottom - 0.008
+    return 0.05, 0.86
+
+
+def _scroll_shift(focus: int) -> float:
+    bottom, top = _scroll_content_band(focus)
+    shift = 0.0
+    if bottom < 0.05:
+        shift = 0.05 - bottom
+    if top + shift > 0.86:
+        shift = 0.86 - top
+    if shift < 0.0:
+        shift = 0.0
+    return shift
+
+
+def _scroll_viewport_band(index: int, focus: int) -> tuple[float, float]:
+    bottom, top = _scroll_content_band(index)
+    shift = _scroll_shift(focus)
+    bottom += shift
+    top += shift
+    span = 0.86 - 0.05
+    return (bottom - 0.05) / span, (top - 0.05) / span
+
+
+def _arena_viewport(width: float, height: float) -> tuple[float, float, float, float]:
+    aspect = width / height
+    reference = 16.0 / 9.0
+    if aspect > reference + 0.0001:
+        view_w = reference / aspect
+        return (1.0 - view_w) * 0.5, 0.0, view_w, 1.0
+    if aspect < reference - 0.0001:
+        view_h = aspect / reference
+        return 0.0, (1.0 - view_h) * 0.5, 1.0, view_h
+    return 0.0, 0.0, 1.0, 1.0
+
+
+def _keep_same_clip(same: bool, playing: bool, paused_or_muted: bool) -> bool:
+    if not same:
+        return False
+    if playing:
+        return True
+    return paused_or_muted
+
+
+def _was_absorbed(scaled: int, assist: bool, cause: str) -> bool:
+    if not assist or scaled > 0 or cause not in ("enemy", "bolt", "boss", "hazard"):
+        return False
+    return True
+
+
+def test_display_047d() -> None:
+    """0.47 Part D: display settings, deck scroll, letterbox, music hold, absorbed hits."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    display = (root / "Assets/Scripts/Core/DisplaySettings.cs").read_text(encoding="utf-8")
+    runtime = (root / "Assets/Scripts/Core/DisplayRuntime.cs").read_text(encoding="utf-8")
+    scroll = (root / "Assets/Scripts/Core/SettingsScroll.cs").read_text(encoding="utf-8")
+    framing = (root / "Assets/Scripts/Core/ArenaFraming.cs").read_text(encoding="utf-8")
+    fit = (root / "Assets/Scripts/Core/UiScreenFit.cs").read_text(encoding="utf-8")
+    state = (root / "Assets/Scripts/Core/SettingsState.cs").read_text(encoding="utf-8")
+    fade = (root / "Assets/Scripts/Core/MusicCrossfade.cs").read_text(encoding="utf-8")
+    effect = (root / "Assets/Scripts/Core/EffectScale.cs").read_text(encoding="utf-8")
+    mix = (root / "Assets/Scripts/Core/MixCurve.cs").read_text(encoding="utf-8")
+    rules = (root / "Assets/Scripts/Core/FairnessRules.cs").read_text(encoding="utf-8")
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    health = (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
+    visuals = (root / "Assets/Scripts/Player/ShipVisuals.cs").read_text(encoding="utf-8")
+    follow = (root / "Assets/Scripts/Player/FollowCamera.cs").read_text(encoding="utf-8")
+    decor = (root / "Assets/Scripts/Content/DecorCameraStack.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    doc = (root / "Docs/0.47/D_display.md").read_text(encoding="utf-8")
+
+    assert "CurrentVersion = 5" in state
+    assert "version >= 5" in state
+    assert "DefaultWindowMode" in display and "Borderless" in display
+    assert "DefaultFpsCap = 60" in display and "Uncapped = 0" in display
+    assert "ModeWindowed = 3" in display and "ModeExclusive = 0" in display and "ModeBorderless = 1" in display
+    assert "Screen.SetResolution" in runtime
+    assert "QualitySettings.vSyncCount" in runtime
+    assert "Application.targetFrameRate" in runtime
+    assert "captureFramerate" not in runtime
+    assert "FullScreenMode" in runtime
+    assert "RowHeight = 0.076f" in scroll and "ContainsBand" in scroll
+    assert "Viewport(" in framing and "BaseFov = 54f" in framing
+    assert "MinOnScreenFont = 12f" in fit
+    assert "KeepSameClip" in fade and "SettledSame" in fade
+    assert "MusicCrossfade.KeepSameClip" in audio and "MusicCrossfade.SettledSame" in audio
+    assert "AssistRules.WasAbsorbed" in health and "PlayArmorHit" in health
+    assert "ChargeGlowCompose.ShouldDim" in visuals
+    assert "ArenaFraming.Viewport" in follow
+    assert "decorCamera.rect = _play.rect" in decor
+    assert "DisplayRuntime.Apply" in ui
+    assert "EffectScale.FreezePulse" in ui
+    assert "SettingsScroll.ContainsBand" in ui
+    assert "letterbox" in doc.lower() and "1280x800" in doc
+
+    fresh = _settings_default()
+    assert fresh["window_mode"] == 1 and fresh["fps_cap"] == 60 and fresh["vsync"] is False
+    ignored = _settings_from_ints(4, 1, 2, 1, 1, 1, 2, 0, 0, 0, 800, 600, 1, 30)
+    assert ignored["window_mode"] == 1 and ignored["resolution_w"] == 1920
+    assert ignored["vsync"] is False and ignored["fps_cap"] == 60
+    applied = _settings_from_ints(5, 1, 2, 1, 1, 1, 2, 0, 0, 0, 1280, 800, 1, 0)
+    assert applied["window_mode"] == 0 and applied["resolution_w"] == 1280 and applied["resolution_h"] == 800
+    assert applied["vsync"] is True and applied["fps_cap"] == 0
+    invalid = _settings_from_ints(5, 1, 2, 1, 1, 1, 2, 0, 0, 9, 100, 100, 0, 15)
+    assert invalid["window_mode"] == 1 and invalid["resolution_w"] == 1920 and invalid["resolution_h"] == 1080
+    assert invalid["fps_cap"] == 60
+    assert _settings_from_ints(9, 0, 0, 0, 0, 0, 0) == fresh
+
+    assert _normalize_window(0) == 0 and _normalize_window(2) == 2 and _normalize_window(4) == 1
+    assert _normalize_fps(30) == 30 and _normalize_fps(120) == 120 and _normalize_fps(0) == 0 and _normalize_fps(90) == 60
+
+    def listed(width, height, widths, heights):
+        return any(widths[i] == width and heights[i] == height for i in range(min(len(widths), len(heights))))
+
+    def resolve(width, height, avail_w, avail_h, current_w, current_h):
+        safe_w = width if width >= 640 else 1920
+        safe_h = height if height >= 480 else 1080
+        known = bool(avail_w)
+        if not known or listed(safe_w, safe_h, avail_w, avail_h):
+            return safe_w, safe_h
+        cur_w = current_w if current_w >= 640 else 1920
+        cur_h = current_h if current_h >= 480 else 1080
+        if listed(cur_w, cur_h, avail_w, avail_h):
+            return cur_w, cur_h
+        return 1920, 1080
+
+    assert resolve(1280, 800, [], [], 1920, 1080) == (1280, 800)
+    assert resolve(1280, 800, [1920, 1366], [1080, 768], 1366, 768) == (1366, 768)
+    assert resolve(800, 600, [1920], [1080], 800, 600) == (1920, 1080)
+    assert resolve(100, 100, [], [], 1920, 1080) == (1920, 1080)
+
+    matrix = (
+        (1280, 800),
+        (1366, 768),
+        (1440, 900),
+        (1920, 1080),
+        (1920, 1200),
+        (2560, 1080),
+        (2560, 1440),
+        (3440, 1440),
+    )
+    for width, height in matrix:
+        view_x, view_y, view_w, view_h = _arena_viewport(width, height)
+        assert 0.0 <= view_x and 0.0 <= view_y
+        assert view_x + view_w <= 1.0001 and view_y + view_h <= 1.0001
+        framed = (width / height) * (view_w / view_h)
+        assert abs(framed - (16.0 / 9.0)) < 0.002, (width, height, framed)
+        scale = _canvas_scale(width, height)
+        assert 18 * scale + 0.05 >= 12.0 or width != 1280
+        if width == 1280 and height == 800:
+            assert 18 * scale + 0.05 >= 12.0
+
+    deck_scale = _canvas_scale(1280, 800)
+    assert 18 * deck_scale >= 12.0
+    assert 14 * deck_scale < 12.0
+
+    roles = _settings_roles()
+    for focus in range(len(roles)):
+        if roles[focus] == "section":
+            continue
+        bottom, top = _scroll_viewport_band(focus, focus)
+        assert bottom >= -0.001 and top <= 1.001, (focus, bottom, top)
+    for row in (1, 2, 5):
+        bottom, top = _scroll_viewport_band(row, 0)
+        assert bottom >= -0.001 and top <= 1.001, (row, bottom, top)
+
+    reduce_en = "Reduce effects: less screen shake, flashes and particles"
+    reduce_sv = "Minska effekter: mindre skärmskak, blixtar och partiklar"
+    vsync_sv = "På  ·  takten ignoreras"
+    fps_sv = "Obegränsad  ·  ignoreras"
+    for width, height in matrix:
+        scale = _canvas_scale(width, height)
+        canvas_w = width / scale
+        canvas_h = height / scale
+        label_w = (0.78 - 0.03) * (0.94 - 0.06) * 0.40 * canvas_w
+        value_w = (0.96 - 0.50) * (0.94 - 0.06) * 0.40 * canvas_w
+        row_h = 0.076 * 0.76 * (0.94 - 0.06) * canvas_h
+        for line in (reduce_en, reduce_sv):
+            lines = _wrapped_line_count(line, label_w, 18)
+            assert lines * 18 * 1.15 <= row_h + 0.5, (width, line, lines, row_h, label_w)
+        for line in (vsync_sv, fps_sv, "On  ·  cap ignored", "Uncapped  ·  ignored"):
+            assert _wrapped_line_count(line, value_w, 18) == 1, (width, line, value_w)
+
+    assert _keep_same_clip(True, True, False) is True
+    assert _keep_same_clip(True, False, True) is True
+    assert _keep_same_clip(True, False, False) is False
+    assert _keep_same_clip(False, True, True) is False
+    assert _keep_same_clip(True, False, True) is True
+    play = audio.split("private void PlayLoop")[1].split("private void CrossfadeTo")[0]
+    assert "MusicCrossfade.KeepSameClip" in play
+    assert "_music.Stop()" in play
+
+    assert _was_absorbed(0, True, "enemy") is True
+    assert _was_absorbed(0, True, "bolt") is True
+    assert _was_absorbed(0, True, "hazard") is True
+    assert _was_absorbed(0, True, "asteroid") is False
+    assert _was_absorbed(1, True, "enemy") is False
+    assert _was_absorbed(0, False, "enemy") is False
+    assert "WasAbsorbed" in rules
+
+    assert "FreezePulse" in effect and "UiPulse" in effect
+    assert _mix_gain(0.5) == 0.25
+    assert abs(_mix_gain(0.9) - 0.81) < 1e-9
 
 
 if __name__ == "__main__":

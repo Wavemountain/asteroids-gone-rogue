@@ -207,6 +207,16 @@ namespace AsteroidsGoneRogue
         private Text _settingsConfirmNewRunValue;
         private Text _settingsPadNavLabel;
         private Text _settingsPadNavValue;
+        private Text _settingsWindowLabel;
+        private Text _settingsWindowValue;
+        private Text _settingsResolutionLabel;
+        private Text _settingsResolutionValue;
+        private Text _settingsVSyncLabel;
+        private Text _settingsVSyncValue;
+        private Text _settingsFpsLabel;
+        private Text _settingsFpsValue;
+        private GameObject _settingsViewport;
+        private Transform _settingsRows;
         private Slider _settingsMusicSlider;
         private Slider _settingsSfxSlider;
         private Button[] _settingsRowButtons;
@@ -581,6 +591,7 @@ namespace AsteroidsGoneRogue
         {
             Loc.EnsureLoaded();
             _settings = SettingsState.Load();
+            DisplayRuntime.Apply(_settings);
             Font display = UiFonts.Display();
             Font body = UiFonts.Body();
             _scrim = CreateFill("Scrim", transform, UiTheme.WithAlpha(UiTheme.Void, 0.22f), new Vector2(0f, 0f), new Vector2(1f, 1f));
@@ -696,7 +707,7 @@ namespace AsteroidsGoneRogue
             _abortButton = CreateButton("AbortWave", transform, body, new Vector2(0.78f, 0.09f), new Vector2(0.97f, 0.155f));
             _abortLabel = _abortButton.GetComponentInChildren<Text>();
             _abortLabel.text = "Abort > Hangar";
-            _abortLabel.fontSize = 16;
+            _abortLabel.fontSize = 18;
             _abortButton.onClick.AddListener(RequestAbort);
             _abortPlate = _abortButton.targetGraphic as Image;
             UiTheme.ApplyButton(_abortButton, false, true, false);
@@ -1666,6 +1677,7 @@ namespace AsteroidsGoneRogue
                 }
             }
 
+            _summaryBody.fontSize = failed && summaryPhase ? 18 : UiTheme.BodyMin;
             _summaryBody.text = stats;
             ClampOneLine(_summaryBody);
 
@@ -2458,6 +2470,7 @@ namespace AsteroidsGoneRogue
             RefreshSettingsHint();
             RefreshSettingsConfirm();
             RefreshSettingsPadNav();
+            RefreshSettingsDisplay();
             RefreshConfirmCopy();
 
             if (_settingsRowButtons != null)
@@ -3082,6 +3095,10 @@ namespace AsteroidsGoneRogue
                     float elitePulse = EffectScale.UiPulse(
                         SettingsState.ReduceEffectsEnabled,
                         Mathf.PingPong(Time.unscaledTime * 3.2f, 1f));
+                    if (EffectScale.FreezePulse(SettingsState.ReduceEffectsEnabled))
+                    {
+                        elitePulse = 0f;
+                    }
                     _world.fontSize = 22 + (int)(4f * elitePulse);
                     _world.color = Color.Lerp(UiTheme.Danger, UiTheme.Brighten(UiTheme.Danger, 0.18f), elitePulse);
                     _world.text = _eliteBanner;
@@ -3089,6 +3106,11 @@ namespace AsteroidsGoneRogue
                 }
 
                 float pulse = Mathf.PingPong(Time.unscaledTime * 3.2f, 1f);
+                if (EffectScale.FreezePulse(SettingsState.ReduceEffectsEnabled))
+                {
+                    pulse = 0f;
+                }
+
                 _world.fontSize = 22 + (int)(4f * pulse);
                 bool world3 = _flashedWorld == MedalCatalog.World3EntryWorld;
                 Color flashTone = world3 ? UiTheme.Secondary : UiTheme.Primary;
@@ -3145,6 +3167,11 @@ namespace AsteroidsGoneRogue
             }
 
             float pulse = Mathf.PingPong(Time.unscaledTime * 2.4f, 1f);
+            if (EffectScale.FreezePulse(SettingsState.ReduceEffectsEnabled))
+            {
+                pulse = 0f;
+            }
+
             _primaryPlate.color = Color.Lerp(UiTheme.PrimaryCta, UiTheme.Brighten(UiTheme.Primary, 0.12f), pulse);
         }
 
@@ -3156,6 +3183,11 @@ namespace AsteroidsGoneRogue
             }
 
             float pulse = Mathf.PingPong(Time.unscaledTime * 4.2f, 1f);
+            if (EffectScale.FreezePulse(SettingsState.ReduceEffectsEnabled))
+            {
+                pulse = 0f;
+            }
+
             _abortPlate.color = Color.Lerp(UiTheme.DangerTint, UiTheme.Brighten(UiTheme.Danger, 0.18f), pulse);
         }
 
@@ -3173,6 +3205,11 @@ namespace AsteroidsGoneRogue
             }
 
             float pulse = Mathf.PingPong(Time.unscaledTime * 3.4f, 1f);
+            if (EffectScale.FreezePulse(SettingsState.ReduceEffectsEnabled))
+            {
+                pulse = 0f;
+            }
+
             _achievementToast.color = Color.Lerp(UiTheme.Primary, UiTheme.Focus, pulse);
         }
 
@@ -5132,16 +5169,26 @@ namespace AsteroidsGoneRogue
             _settingsTitle.color = UiTheme.Primary;
             AddReadability(_settingsTitle, true);
 
+            _settingsViewport = new GameObject("SettingsViewport");
+            _settingsViewport.transform.SetParent(_settingsPanel.transform, false);
+            Stretch(
+                _settingsViewport.AddComponent<RectTransform>(),
+                new Vector2(0f, SettingsScroll.ViewportBottom),
+                new Vector2(1f, SettingsScroll.ViewportTop));
+            _settingsViewport.AddComponent<RectMask2D>();
+            _settingsRows = _settingsViewport.transform;
+
             int rowCount = SettingsRows.Count;
             _settingsRowButtons = new Button[rowCount];
             float bandY0;
             float bandY1;
             for (int rowIndex = 0; rowIndex < rowCount; rowIndex++)
             {
-                SettingsRows.RowBand(rowIndex, out bandY0, out bandY1);
+                SettingsScroll.ViewportBand(rowIndex, 0, out bandY0, out bandY1);
                 BuildSettingsRow(SettingsRows.Order[rowIndex], rowIndex, display, body, bandY0, bandY1);
             }
 
+            ApplySettingsFonts();
             _settingsRoot.SetActive(false);
         }
 
@@ -5219,6 +5266,30 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (rowId == SettingsRowId.WindowMode)
+            {
+                BuildSettingsWindowRow(rowIndex, body, y0, y1);
+                return;
+            }
+
+            if (rowId == SettingsRowId.Resolution)
+            {
+                BuildSettingsResolutionRow(rowIndex, body, y0, y1);
+                return;
+            }
+
+            if (rowId == SettingsRowId.VSync)
+            {
+                BuildSettingsVSyncRow(rowIndex, body, y0, y1);
+                return;
+            }
+
+            if (rowId == SettingsRowId.FpsCap)
+            {
+                BuildSettingsFpsRow(rowIndex, body, y0, y1);
+                return;
+            }
+
             if (rowId == SettingsRowId.Controls)
             {
                 BuildSettingsControlsRow(display, body, y0, y1);
@@ -5235,7 +5306,7 @@ namespace AsteroidsGoneRogue
         {
             Button row = CreateButton(
                 rowName,
-                _settingsPanel.transform,
+                _settingsRows,
                 body,
                 new Vector2(SettingsMeasure.RowMinX, y0),
                 new Vector2(SettingsMeasure.RowMaxX, y1));
@@ -5298,7 +5369,7 @@ namespace AsteroidsGoneRogue
         {
             Button row = CreateButton(
                 "SettingsMute",
-                _settingsPanel.transform,
+                _settingsRows,
                 body,
                 new Vector2(SettingsMeasure.RowMinX, y0),
                 new Vector2(SettingsMeasure.RowMaxX, y1));
@@ -5330,7 +5401,7 @@ namespace AsteroidsGoneRogue
         {
             Button row = CreateButton(
                 "SettingsShake",
-                _settingsPanel.transform,
+                _settingsRows,
                 body,
                 new Vector2(SettingsMeasure.RowMinX, y0),
                 new Vector2(SettingsMeasure.RowMaxX, y1));
@@ -5362,7 +5433,7 @@ namespace AsteroidsGoneRogue
         {
             Button row = CreateButton(
                 "SettingsReduce",
-                _settingsPanel.transform,
+                _settingsRows,
                 body,
                 new Vector2(SettingsMeasure.RowMinX, y0),
                 new Vector2(SettingsMeasure.RowMaxX, y1));
@@ -5396,7 +5467,7 @@ namespace AsteroidsGoneRogue
         {
             Button row = CreateButton(
                 "SettingsAssist",
-                _settingsPanel.transform,
+                _settingsRows,
                 body,
                 new Vector2(SettingsMeasure.RowMinX, y0),
                 new Vector2(SettingsMeasure.RowMaxX, y1));
@@ -5430,7 +5501,7 @@ namespace AsteroidsGoneRogue
         {
             Button row = CreateButton(
                 "SettingsHintMode",
-                _settingsPanel.transform,
+                _settingsRows,
                 body,
                 new Vector2(SettingsMeasure.RowMinX, y0),
                 new Vector2(SettingsMeasure.RowMaxX, y1));
@@ -5462,7 +5533,7 @@ namespace AsteroidsGoneRogue
         {
             Button row = CreateButton(
                 "SettingsHintSize",
-                _settingsPanel.transform,
+                _settingsRows,
                 body,
                 new Vector2(SettingsMeasure.RowMinX, y0),
                 new Vector2(SettingsMeasure.RowMaxX, y1));
@@ -5494,7 +5565,7 @@ namespace AsteroidsGoneRogue
         {
             Button row = CreateButton(
                 "SettingsConfirmAbort",
-                _settingsPanel.transform,
+                _settingsRows,
                 body,
                 new Vector2(SettingsMeasure.RowMinX, y0),
                 new Vector2(SettingsMeasure.RowMaxX, y1));
@@ -5526,7 +5597,7 @@ namespace AsteroidsGoneRogue
         {
             Button row = CreateButton(
                 "SettingsConfirmNewRun",
-                _settingsPanel.transform,
+                _settingsRows,
                 body,
                 new Vector2(SettingsMeasure.RowMinX, y0),
                 new Vector2(SettingsMeasure.RowMaxX, y1));
@@ -5558,7 +5629,7 @@ namespace AsteroidsGoneRogue
         {
             Button row = CreateButton(
                 "SettingsPadNav",
-                _settingsPanel.transform,
+                _settingsRows,
                 body,
                 new Vector2(SettingsMeasure.RowMinX, y0),
                 new Vector2(SettingsMeasure.RowMaxX, y1));
@@ -5586,11 +5657,171 @@ namespace AsteroidsGoneRogue
             _settingsPadNavValue.raycastTarget = false;
         }
 
+        private void BuildSettingsWindowRow(int rowIndex, Font body, float y0, float y1)
+        {
+            BuildSettingsChoiceRow(rowIndex, "SettingsWindow", body, y0, y1, CycleWindowMode, out _settingsWindowLabel, out _settingsWindowValue);
+        }
+
+        private void BuildSettingsResolutionRow(int rowIndex, Font body, float y0, float y1)
+        {
+            BuildSettingsChoiceRow(rowIndex, "SettingsResolution", body, y0, y1, CycleResolution, out _settingsResolutionLabel, out _settingsResolutionValue);
+        }
+
+        private void BuildSettingsVSyncRow(int rowIndex, Font body, float y0, float y1)
+        {
+            BuildSettingsChoiceRow(rowIndex, "SettingsVSync", body, y0, y1, ToggleVSync, out _settingsVSyncLabel, out _settingsVSyncValue);
+        }
+
+        private void BuildSettingsFpsRow(int rowIndex, Font body, float y0, float y1)
+        {
+            BuildSettingsChoiceRow(rowIndex, "SettingsFps", body, y0, y1, CycleFpsCap, out _settingsFpsLabel, out _settingsFpsValue);
+        }
+
+        private void BuildSettingsChoiceRow(
+            int rowIndex,
+            string rowName,
+            Font body,
+            float y0,
+            float y1,
+            UnityEngine.Events.UnityAction onClick,
+            out Text label,
+            out Text value)
+        {
+            float x0;
+            float x1;
+            SettingsScroll.RowX(SettingsRowId.Language, out x0, out x1);
+            Button row = CreateButton(rowName, _settingsRows, body, new Vector2(x0, y0), new Vector2(x1, y1));
+            _settingsRowButtons[rowIndex] = row;
+            row.onClick.AddListener(onClick);
+            UiTheme.ApplyButton(row, false, false, false);
+            label = row.GetComponentInChildren<Text>();
+            label.fontSize = SettingsScroll.RowFont;
+            label.alignment = TextAnchor.MiddleLeft;
+            label.fontStyle = FontStyle.Bold;
+            label.color = UiTheme.Accent;
+            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+            label.verticalOverflow = VerticalWrapMode.Truncate;
+            label.raycastTarget = false;
+            Stretch(label.rectTransform, new Vector2(0.04f, 0.08f), new Vector2(0.48f, 0.92f));
+            value = CreateText(rowName + "Value", row.transform, body, SettingsScroll.RowFont, TextAnchor.MiddleRight, FontStyle.Bold);
+            Stretch(value.rectTransform, new Vector2(0.50f, 0.08f), new Vector2(0.96f, 0.92f));
+            value.color = UiTheme.Primary;
+            value.horizontalOverflow = HorizontalWrapMode.Wrap;
+            value.verticalOverflow = VerticalWrapMode.Truncate;
+            value.raycastTarget = false;
+        }
+
+        private void ApplySettingsFonts()
+        {
+            if (_settingsRowButtons == null)
+            {
+                return;
+            }
+
+            for (int index = 0; index < _settingsRowButtons.Length; index++)
+            {
+                Button row = _settingsRowButtons[index];
+                if (row == null)
+                {
+                    continue;
+                }
+
+                Text[] labels = row.GetComponentsInChildren<Text>(true);
+                for (int labelIndex = 0; labelIndex < labels.Length; labelIndex++)
+                {
+                    Text rowLabel = labels[labelIndex];
+                    if (rowLabel == null)
+                    {
+                        continue;
+                    }
+
+                    rowLabel.fontSize = SettingsScroll.RowFont;
+                    rowLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
+                    rowLabel.verticalOverflow = VerticalWrapMode.Truncate;
+                }
+            }
+
+            if (_settingsControlsTitle != null)
+            {
+                _settingsControlsTitle.fontSize = SettingsScroll.RowFont;
+            }
+
+            if (_settingsControlsBody != null)
+            {
+                _settingsControlsBody.fontSize = SettingsScroll.RowFont;
+            }
+        }
+
+        private void ApplySettingsScroll()
+        {
+            if (_settingsRowButtons == null)
+            {
+                return;
+            }
+
+            int focus = SettingsRows.ClampIndex(_settingsIndex);
+            int count = SettingsRows.Count;
+            for (int index = 0; index < count; index++)
+            {
+                float y0;
+                float y1;
+                SettingsScroll.ViewportBand(index, focus, out y0, out y1);
+                SettingsRowId rowId = SettingsRows.At(index);
+                if (rowId == SettingsRowId.Controls)
+                {
+                    PlaceSettingsControls(y0, y1);
+                    continue;
+                }
+
+                if (index >= _settingsRowButtons.Length)
+                {
+                    continue;
+                }
+
+                Button rowButton = _settingsRowButtons[index];
+                if (rowButton == null)
+                {
+                    continue;
+                }
+
+                float x0;
+                float x1;
+                SettingsScroll.RowX(rowId, out x0, out x1);
+                Stretch(rowButton.GetComponent<RectTransform>(), new Vector2(x0, y0), new Vector2(x1, y1));
+                rowButton.interactable = SettingsScroll.ContainsBand(y0, y1);
+            }
+        }
+
+        private void PlaceSettingsControls(float y0, float y1)
+        {
+            float header = 0.06f;
+            if (y1 - header < y0)
+            {
+                header = (y1 - y0) * 0.22f;
+            }
+
+            if (_settingsControlsTitle != null)
+            {
+                Stretch(
+                    _settingsControlsTitle.rectTransform,
+                    new Vector2(SettingsMeasure.BodyMinX, y1 - header),
+                    new Vector2(SettingsMeasure.BodyMaxX, y1));
+            }
+
+            if (_settingsControlsBody != null)
+            {
+                Stretch(
+                    _settingsControlsBody.rectTransform,
+                    new Vector2(SettingsMeasure.BodyMinX, y0),
+                    new Vector2(SettingsMeasure.BodyMaxX, y1 - header));
+            }
+        }
+
         private void BuildSettingsLanguageRow(int rowIndex, Font body, float y0, float y1)
         {
             Button row = CreateButton(
                 "SettingsLanguage",
-                _settingsPanel.transform,
+                _settingsRows,
                 body,
                 new Vector2(0.06f, y0),
                 new Vector2(0.94f, y1));
@@ -5645,7 +5876,7 @@ namespace AsteroidsGoneRogue
         {
             _settingsControlsTitle = CreateText(
                 "SettingsControlsTitle",
-                _settingsPanel.transform,
+                _settingsRows,
                 display,
                 UiTheme.BodyMin,
                 TextAnchor.UpperLeft,
@@ -5658,9 +5889,9 @@ namespace AsteroidsGoneRogue
 
             _settingsControlsBody = CreateText(
                 "SettingsControlsBody",
-                _settingsPanel.transform,
+                _settingsRows,
                 body,
-                UiTheme.HintSize(Screen.width),
+                SettingsScroll.RowFont,
                 TextAnchor.UpperLeft,
                 FontStyle.Normal);
             Stretch(
@@ -5678,7 +5909,7 @@ namespace AsteroidsGoneRogue
         {
             Button row = CreateButton(
                 "SettingsClose",
-                _settingsPanel.transform,
+                _settingsRows,
                 display,
                 new Vector2(0.22f, y0),
                 new Vector2(0.78f, y1));
@@ -6068,6 +6299,173 @@ namespace AsteroidsGoneRogue
             _settingsPadNavValue.text = PadNavLabel(source);
         }
 
+        private void CycleWindowMode()
+        {
+            StepWindowMode(1);
+        }
+
+        private void CycleResolution()
+        {
+            StepResolution(1);
+        }
+
+        private void CycleFpsCap()
+        {
+            StepFpsCap(1);
+        }
+
+        private void StepWindowMode(int direction)
+        {
+            EnsureSettings();
+            _settings.WindowMode = DisplaySettings.StepWindow(_settings.WindowMode, direction);
+            _settings.Save();
+            DisplayRuntime.Apply(_settings);
+            RefreshSettingsDisplay();
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+        }
+
+        private void StepResolution(int direction)
+        {
+            EnsureSettings();
+            int nextWidth;
+            int nextHeight;
+            DisplaySettings.StepResolution(_settings.ResolutionWidth, _settings.ResolutionHeight, direction, out nextWidth, out nextHeight);
+            _settings.ResolutionWidth = nextWidth;
+            _settings.ResolutionHeight = nextHeight;
+            _settings.Save();
+            DisplayRuntime.Apply(_settings);
+            RefreshSettingsDisplay();
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+        }
+
+        private void ToggleVSync()
+        {
+            EnsureSettings();
+            _settings.VSync = !_settings.VSync;
+            _settings.Save();
+            DisplayRuntime.Apply(_settings);
+            RefreshSettingsDisplay();
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+        }
+
+        private void StepFpsCap(int direction)
+        {
+            EnsureSettings();
+            _settings.FpsCap = DisplaySettings.StepFps(_settings.FpsCap, direction);
+            _settings.Save();
+            DisplayRuntime.Apply(_settings);
+            RefreshSettingsDisplay();
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+        }
+
+        private static string WindowModeLabel(int mode)
+        {
+            int normalized = DisplaySettings.NormalizeWindow(mode);
+            if (normalized == (int)WindowModeId.Windowed)
+            {
+                return Loc.T("ui.settings.window.windowed", "Windowed");
+            }
+
+            if (normalized == (int)WindowModeId.Fullscreen)
+            {
+                return Loc.T("ui.settings.window.fullscreen", "Fullscreen");
+            }
+
+            return Loc.T("ui.settings.window.borderless", "Borderless");
+        }
+
+        private static string FpsCapLabel(int cap, bool vsync)
+        {
+            int normalized = DisplaySettings.NormalizeFps(cap);
+            if (normalized == DisplaySettings.Uncapped)
+            {
+                if (vsync)
+                {
+                    return Loc.T("ui.settings.fps.uncapped_held", "Uncapped  ·  ignored");
+                }
+
+                return Loc.T("ui.settings.fps.uncapped", "Uncapped");
+            }
+
+            if (vsync)
+            {
+                return Loc.Tf("ui.settings.fps.held", "{0}  ·  ignored", normalized);
+            }
+
+            return Loc.Tf("ui.settings.fps.value", "{0}", normalized);
+        }
+
+        private void RefreshSettingsDisplay()
+        {
+            if (_settingsWindowLabel != null)
+            {
+                _settingsWindowLabel.text = Loc.T("ui.settings.window", "Window");
+            }
+
+            if (_settingsResolutionLabel != null)
+            {
+                _settingsResolutionLabel.text = Loc.T("ui.settings.resolution", "Resolution");
+            }
+
+            if (_settingsVSyncLabel != null)
+            {
+                _settingsVSyncLabel.text = Loc.T("ui.settings.vsync", "VSync");
+            }
+
+            if (_settingsFpsLabel != null)
+            {
+                _settingsFpsLabel.text = Loc.T("ui.settings.fps", "FPS cap");
+            }
+
+            int mode = DisplaySettings.DefaultWindowMode;
+            int width = DisplaySettings.DefaultWidth;
+            int height = DisplaySettings.DefaultHeight;
+            bool vsync = DisplaySettings.DefaultVSync != 0;
+            int cap = DisplaySettings.DefaultFpsCap;
+            if (_settings != null)
+            {
+                mode = _settings.WindowMode;
+                width = _settings.ResolutionWidth;
+                height = _settings.ResolutionHeight;
+                vsync = _settings.VSync;
+                cap = _settings.FpsCap;
+            }
+
+            if (_settingsWindowValue != null)
+            {
+                _settingsWindowValue.text = WindowModeLabel(mode);
+            }
+
+            if (_settingsResolutionValue != null)
+            {
+                _settingsResolutionValue.text = Loc.Tf("ui.settings.resolution.value", "{0} x {1}", width, height);
+            }
+
+            if (_settingsVSyncValue != null)
+            {
+                _settingsVSyncValue.text = vsync
+                    ? Loc.T("ui.settings.vsync.on", "On  ·  cap ignored")
+                    : Loc.T("ui.settings.off", "Off");
+            }
+
+            if (_settingsFpsValue != null)
+            {
+                _settingsFpsValue.text = FpsCapLabel(cap, vsync);
+            }
+        }
+
         private void RefreshSettingsAudio()
         {
             if (_settingsMusicLabel != null)
@@ -6172,7 +6570,7 @@ namespace AsteroidsGoneRogue
                 "ConfirmBody",
                 panel.transform,
                 body,
-                UiTheme.BodyMin,
+                18,
                 TextAnchor.MiddleCenter,
                 FontStyle.Normal);
             Stretch(_confirmBody.rectTransform, new Vector2(0.08f, 0.40f), new Vector2(0.92f, 0.70f));
@@ -6188,7 +6586,7 @@ namespace AsteroidsGoneRogue
                 new Vector2(ConfirmDialogLayout.YesMinX, ConfirmDialogLayout.YesMinY),
                 new Vector2(ConfirmDialogLayout.YesMaxX, ConfirmDialogLayout.YesMaxY));
             _confirmYesLabel = _confirmYes.GetComponentInChildren<Text>();
-            _confirmYesLabel.fontSize = UiTheme.BodyMin;
+            _confirmYesLabel.fontSize = 18;
             _confirmYes.onClick.AddListener(OnConfirmYesClick);
             UiTheme.ApplyButton(_confirmYes, false, false, false);
             LockButtonNavigation(_confirmYes);
@@ -6200,7 +6598,7 @@ namespace AsteroidsGoneRogue
                 new Vector2(ConfirmDialogLayout.NoMinX, ConfirmDialogLayout.NoMinY),
                 new Vector2(ConfirmDialogLayout.NoMaxX, ConfirmDialogLayout.NoMaxY));
             _confirmNoLabel = _confirmNo.GetComponentInChildren<Text>();
-            _confirmNoLabel.fontSize = UiTheme.BodyMin;
+            _confirmNoLabel.fontSize = 18;
             _confirmNo.onClick.AddListener(OnConfirmNoClick);
             UiTheme.ApplyButton(_confirmNo, true, false, false);
             LockButtonNavigation(_confirmNo);
@@ -6778,6 +7176,30 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.PadNav)
             {
                 StepPadNav(direction);
+                return;
+            }
+
+            if (rowId == SettingsRowId.WindowMode)
+            {
+                StepWindowMode(direction);
+                return;
+            }
+
+            if (rowId == SettingsRowId.Resolution)
+            {
+                StepResolution(direction);
+                return;
+            }
+
+            if (rowId == SettingsRowId.VSync)
+            {
+                ToggleVSync();
+                return;
+            }
+
+            if (rowId == SettingsRowId.FpsCap)
+            {
+                StepFpsCap(direction);
             }
         }
 
@@ -6844,6 +7266,30 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (rowId == SettingsRowId.WindowMode)
+            {
+                CycleWindowMode();
+                return;
+            }
+
+            if (rowId == SettingsRowId.Resolution)
+            {
+                CycleResolution();
+                return;
+            }
+
+            if (rowId == SettingsRowId.VSync)
+            {
+                ToggleVSync();
+                return;
+            }
+
+            if (rowId == SettingsRowId.FpsCap)
+            {
+                CycleFpsCap();
+                return;
+            }
+
             if (rowId == SettingsRowId.Close)
             {
                 CloseSettings();
@@ -6865,6 +7311,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            ApplySettingsScroll();
             int focusIndex = SettingsRows.ClampIndex(_settingsIndex);
             for (int index = 0; index < _settingsRowButtons.Length; index++)
             {
@@ -6950,7 +7397,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            label.fontSize = 16;
+            label.fontSize = 18;
             label.alignment = TextAnchor.MiddleCenter;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             label.verticalOverflow = VerticalWrapMode.Truncate;
@@ -6975,7 +7422,7 @@ namespace AsteroidsGoneRogue
             Text skipPlayLabel = _tutorialSkipPlay.GetComponentInChildren<Text>();
             if (skipPlayLabel != null)
             {
-                skipPlayLabel.fontSize = 16;
+                skipPlayLabel.fontSize = 18;
                 skipPlayLabel.text = FirstRunRules.SkipTutorialLabel();
             }
 
@@ -7345,6 +7792,10 @@ namespace AsteroidsGoneRogue
             float shopPulse = EffectScale.UiPulse(
                 SettingsState.ReduceEffectsEnabled,
                 Mathf.PingPong(Time.unscaledTime * 2.2f, 1f));
+            if (EffectScale.FreezePulse(SettingsState.ReduceEffectsEnabled))
+            {
+                shopPulse = 0f;
+            }
             shopRing.effectColor = Color.Lerp(UiTheme.Secondary, UiTheme.Focus, shopPulse);
             shopRing.enabled = true;
         }

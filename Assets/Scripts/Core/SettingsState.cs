@@ -123,7 +123,7 @@ namespace AsteroidsGoneRogue
     /// </summary>
     public sealed class SettingsState
     {
-        public const int CurrentVersion = 4;
+        public const int CurrentVersion = 5;
         public const int DefaultHintSizeStep = 1;
         public const int MaxHintSizeStep = 2;
 
@@ -136,6 +136,11 @@ namespace AsteroidsGoneRogue
         public const string PadNavSourceKey = "agr.settings.padNavSource";
         public const string AssistModeKey = "agr.settings.assistMode";
         public const string ReduceEffectsKey = "agr.settings.reduceEffects";
+        public const string WindowModeKey = "agr.settings.windowMode";
+        public const string ResolutionWidthKey = "agr.settings.resolutionW";
+        public const string ResolutionHeightKey = "agr.settings.resolutionH";
+        public const string VSyncKey = "agr.settings.vSync";
+        public const string FpsCapKey = "agr.settings.fpsCap";
 
         public bool ScreenShake;
         public bool AssistMode;
@@ -145,6 +150,11 @@ namespace AsteroidsGoneRogue
         public bool ConfirmRestartInPlay;
         public bool ConfirmRestartNewRun;
         public PadNavSource PadNavSource;
+        public int WindowMode;
+        public int ResolutionWidth;
+        public int ResolutionHeight;
+        public bool VSync;
+        public int FpsCap;
 
         public static SettingsState CreateDefault()
         {
@@ -157,6 +167,11 @@ namespace AsteroidsGoneRogue
             state.PadNavSource = AsteroidsGoneRogue.PadNavSource.Both;
             state.AssistMode = false;
             state.ReduceEffects = false;
+            state.WindowMode = DisplaySettings.DefaultWindowMode;
+            state.ResolutionWidth = DisplaySettings.DefaultWidth;
+            state.ResolutionHeight = DisplaySettings.DefaultHeight;
+            state.VSync = DisplaySettings.DefaultVSync != 0;
+            state.FpsCap = DisplaySettings.DefaultFpsCap;
             return state;
         }
 
@@ -583,6 +598,16 @@ namespace AsteroidsGoneRogue
             HintMode = NormalizeHintMode((int)HintMode);
             HintSizeStep = ClampHintSize(HintSizeStep);
             PadNavSource = NormalizePadNavSource((int)PadNavSource);
+            WindowMode = DisplaySettings.NormalizeWindow(WindowMode);
+            FpsCap = DisplaySettings.NormalizeFps(FpsCap);
+            ResolutionWidth = DisplaySettings.ClampDimension(
+                ResolutionWidth,
+                DisplaySettings.MinWidth,
+                DisplaySettings.DefaultWidth);
+            ResolutionHeight = DisplaySettings.ClampDimension(
+                ResolutionHeight,
+                DisplaySettings.MinHeight,
+                DisplaySettings.DefaultHeight);
         }
 
         public SettingsPrefs Capture()
@@ -598,6 +623,11 @@ namespace AsteroidsGoneRogue
             prefs.PadNavSource = (int)PadNavSource;
             prefs.AssistMode = AssistMode ? 1 : 0;
             prefs.ReduceEffects = ReduceEffects ? 1 : 0;
+            prefs.WindowMode = WindowMode;
+            prefs.ResolutionWidth = ResolutionWidth;
+            prefs.ResolutionHeight = ResolutionHeight;
+            prefs.VSync = VSync ? 1 : 0;
+            prefs.FpsCap = FpsCap;
             return prefs;
         }
 
@@ -655,6 +685,39 @@ namespace AsteroidsGoneRogue
             int assistMode,
             int reduceEffects)
         {
+            return FromInts(
+                version,
+                screenShake,
+                hintMode,
+                hintSizeStep,
+                confirmRestartInPlay,
+                confirmRestartNewRun,
+                padNavSource,
+                assistMode,
+                reduceEffects,
+                DisplaySettings.DefaultWindowMode,
+                DisplaySettings.DefaultWidth,
+                DisplaySettings.DefaultHeight,
+                DisplaySettings.DefaultVSync,
+                DisplaySettings.DefaultFpsCap);
+        }
+
+        public static SettingsState FromInts(
+            int version,
+            int screenShake,
+            int hintMode,
+            int hintSizeStep,
+            int confirmRestartInPlay,
+            int confirmRestartNewRun,
+            int padNavSource,
+            int assistMode,
+            int reduceEffects,
+            int windowMode,
+            int resolutionWidth,
+            int resolutionHeight,
+            int vSync,
+            int fpsCap)
+        {
             if (version < 1 || version > CurrentVersion)
             {
                 return CreateDefault();
@@ -670,6 +733,22 @@ namespace AsteroidsGoneRogue
             state.PadNavSource = NormalizePadNavSource(padNavSource);
             state.AssistMode = version >= 3 && assistMode != 0;
             state.ReduceEffects = version >= 4 && reduceEffects != 0;
+            // Versions before 5 have no display keys. Keep the launch defaults.
+            if (version >= 5)
+            {
+                state.WindowMode = DisplaySettings.NormalizeWindow(windowMode);
+                state.ResolutionWidth = DisplaySettings.ClampDimension(
+                    resolutionWidth,
+                    DisplaySettings.MinWidth,
+                    DisplaySettings.DefaultWidth);
+                state.ResolutionHeight = DisplaySettings.ClampDimension(
+                    resolutionHeight,
+                    DisplaySettings.MinHeight,
+                    DisplaySettings.DefaultHeight);
+                state.VSync = DisplaySettings.NormalizeVSync(vSync) != 0;
+                state.FpsCap = DisplaySettings.NormalizeFps(fpsCap);
+            }
+
             return state;
         }
 
@@ -684,7 +763,12 @@ namespace AsteroidsGoneRogue
                 prefs.ConfirmRestartNewRun,
                 prefs.PadNavSource,
                 prefs.AssistMode,
-                prefs.ReduceEffects);
+                prefs.ReduceEffects,
+                prefs.WindowMode,
+                prefs.ResolutionWidth,
+                prefs.ResolutionHeight,
+                prefs.VSync,
+                prefs.FpsCap);
         }
 
         public static SettingsState Load()
@@ -699,7 +783,12 @@ namespace AsteroidsGoneRogue
                 UnityEngine.PlayerPrefs.GetInt(ConfirmRestartNewRunKey, 1),
                 UnityEngine.PlayerPrefs.GetInt(PadNavSourceKey, (int)AsteroidsGoneRogue.PadNavSource.Both),
                 UnityEngine.PlayerPrefs.GetInt(AssistModeKey, 0),
-                UnityEngine.PlayerPrefs.GetInt(ReduceEffectsKey, 0));
+                UnityEngine.PlayerPrefs.GetInt(ReduceEffectsKey, 0),
+                UnityEngine.PlayerPrefs.GetInt(WindowModeKey, DisplaySettings.DefaultWindowMode),
+                UnityEngine.PlayerPrefs.GetInt(ResolutionWidthKey, DisplaySettings.DefaultWidth),
+                UnityEngine.PlayerPrefs.GetInt(ResolutionHeightKey, DisplaySettings.DefaultHeight),
+                UnityEngine.PlayerPrefs.GetInt(VSyncKey, DisplaySettings.DefaultVSync),
+                UnityEngine.PlayerPrefs.GetInt(FpsCapKey, DisplaySettings.DefaultFpsCap));
             Publish(state);
             if (version != CurrentVersion)
             {
@@ -721,6 +810,11 @@ namespace AsteroidsGoneRogue
             UnityEngine.PlayerPrefs.SetInt(PadNavSourceKey, prefs.PadNavSource);
             UnityEngine.PlayerPrefs.SetInt(AssistModeKey, prefs.AssistMode);
             UnityEngine.PlayerPrefs.SetInt(ReduceEffectsKey, prefs.ReduceEffects);
+            UnityEngine.PlayerPrefs.SetInt(WindowModeKey, prefs.WindowMode);
+            UnityEngine.PlayerPrefs.SetInt(ResolutionWidthKey, prefs.ResolutionWidth);
+            UnityEngine.PlayerPrefs.SetInt(ResolutionHeightKey, prefs.ResolutionHeight);
+            UnityEngine.PlayerPrefs.SetInt(VSyncKey, prefs.VSync);
+            UnityEngine.PlayerPrefs.SetInt(FpsCapKey, prefs.FpsCap);
             UnityEngine.PlayerPrefs.Save();
             Publish(this);
         }
@@ -737,5 +831,10 @@ namespace AsteroidsGoneRogue
         public int PadNavSource;
         public int AssistMode;
         public int ReduceEffects;
+        public int WindowMode;
+        public int ResolutionWidth;
+        public int ResolutionHeight;
+        public int VSync;
+        public int FpsCap;
     }
 }

@@ -339,6 +339,21 @@ namespace AsteroidsGoneRogue
             return scaled;
         }
 
+        /// <summary>
+        /// Assist carried the hit to zero. The hull is unchanged, but the
+        /// player still gets i-frames and a visible hit. Asteroids are not
+        /// absorbed. <see cref="MinDamage"/> is not applied.
+        /// </summary>
+        public static bool WasAbsorbed(int scaled, bool assist, DamageCause cause)
+        {
+            if (!assist || scaled > 0 || !Affects(cause))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         public static int BonusShieldAtWaveStart(int shield, int maxShield, bool assist)
         {
             if (!assist || BonusShield <= 0 || shield >= maxShield)

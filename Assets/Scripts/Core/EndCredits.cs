@@ -6,7 +6,7 @@ namespace AsteroidsGoneRogue
     public static class EndCredits
     {
         public const int TitleSize = 32;
-        public const int BodySize = 17;
+        public const int BodySize = 18;
         public const float ScrollSpeed = 28f;
         public const string TitleHex = "#FFD16F";
         public const string BodyHex = "#B8E8FF";

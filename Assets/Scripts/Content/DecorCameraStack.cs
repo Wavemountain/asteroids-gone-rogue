@@ -114,6 +114,7 @@ namespace AsteroidsGoneRogue
             decorCamera.fieldOfView = _play.fieldOfView;
             decorCamera.nearClipPlane = _play.nearClipPlane;
             decorCamera.farClipPlane = _play.farClipPlane;
+            decorCamera.rect = _play.rect;
             decorCamera.backgroundColor = _play.backgroundColor;
             decorCamera.enabled = _play.enabled;
         }

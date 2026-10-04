@@ -8,8 +8,10 @@ namespace AsteroidsGoneRogue
     /// </summary>
     public static class ReadabilityPalette
     {
-        public const int World3BrightnessMilli = 880;
-        public const int World4BrightnessMilli = 800;
+        public const int World3BrightnessMilli = 760;
+        public const int World4BrightnessMilli = 680;
+        public const float WatchMidMul = 1.5f;
+        public const float WatchAsteroidMul = 1.15f;
         public const float EnemyEmissionScale = 0.9f;
         public const float MidEmissionScale = 1.35f;
         public const float HullRimScale = 0.35f;
@@ -49,6 +51,37 @@ namespace AsteroidsGoneRogue
             red = 106f / 255f;
             green = 168f / 255f;
             blue = 200f / 255f;
+        }
+
+        public static bool WatchWorld(int world)
+        {
+            return world == 3 || world == 4;
+        }
+
+        /// <summary>
+        /// Mid01 emission. Worlds 3 and 4 multiply the shared scale; others stay.
+        /// </summary>
+        public static float MidEmissionFor(int world)
+        {
+            if (WatchWorld(world))
+            {
+                return MidEmissionScale * WatchMidMul;
+            }
+
+            return MidEmissionScale;
+        }
+
+        /// <summary>
+        /// Extra asteroid albedo on worlds 3 and 4. Other worlds stay at 1.
+        /// </summary>
+        public static float AsteroidAlbedoMul(int world)
+        {
+            if (WatchWorld(world))
+            {
+                return WatchAsteroidMul;
+            }
+
+            return 1f;
         }
     }
 }
