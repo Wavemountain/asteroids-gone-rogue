@@ -40,6 +40,12 @@ namespace AsteroidsGoneRogue
 
         public int ActiveRunId { get; private set; }
 
+        public int ActiveDailySeed { get; private set; }
+
+        public int ActiveDailyDate { get; private set; }
+
+        public DailyBoardData Daily { get; private set; }
+
         public ShipHealth PlayerHealth
         {
             get { return _ship != null ? _ship.Health : null; }
@@ -145,6 +151,7 @@ namespace AsteroidsGoneRogue
             Persist = HangarPersist.Load();
             Sinks = SinkProfileStore.Load();
             SinkRuntime.Apply(Sinks);
+            Daily = DailyBoardStore.Load();
             Achievements = AchievementPersist.Load();
             Meta = RunSaveStore.LoadMeta();
             RunSaveData loaded;
@@ -400,7 +407,7 @@ namespace AsteroidsGoneRogue
             EnsureRunId();
             _session.BeginWave();
             _session.MarkWaveStarted();
-            BoonHooks.RunSeed = ActiveRunId > 0 ? ActiveRunId : 1;
+            BindGameplaySeed();
             _ship.ResetForWave(_loadout.State, false, true);
             ApplyWaveFairness();
             _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
@@ -684,6 +691,29 @@ namespace AsteroidsGoneRogue
             if (DifficultySettings.Current != kept)
             {
                 DifficultySettings.SetGrade(kept);
+            }
+
+            StartWave();
+            if (_ui != null)
+            {
+                _ui.FlashRetry();
+            }
+        }
+
+        public void OneMoreTryDaily(int year, int month, int day)
+        {
+            if (_session == null || !FirstRunRules.OneMoreTryIsPrimary(_session.Phase))
+            {
+                return;
+            }
+
+            DifficultyGrade keptGrade = DifficultySettings.Current;
+            _skipTutorialRedirect = true;
+            ResetFullRun();
+            ApplyDailyClock(year, month, day);
+            if (DifficultySettings.Current != keptGrade)
+            {
+                DifficultySettings.SetGrade(keptGrade);
             }
 
             StartWave();
@@ -1002,6 +1032,17 @@ namespace AsteroidsGoneRogue
 
             PendingContinue = null;
             ActiveRunId = data.RunId;
+            if (data.DailySeed > 0 && DailySeed.DateLooksValid(data.DailyDate))
+            {
+                ActiveDailySeed = data.DailySeed;
+                ActiveDailyDate = data.DailyDate;
+            }
+            else
+            {
+                ActiveDailySeed = 0;
+                ActiveDailyDate = 0;
+            }
+
             _runLaunched = true;
             _legacyApplied = true;
             DifficultyGrade grade = DifficultyGrade.Normal;
@@ -1054,7 +1095,7 @@ namespace AsteroidsGoneRogue
             _loadout.State.SetMk2Mask(data.Mk2Mask);
             _boonRun.ReadSave(data.BoonLevels, data.BoonPending, data.BoonOffer);
             BoonHooks.Sync(_boonRun);
-            BoonHooks.RunSeed = ActiveRunId > 0 ? ActiveRunId : 1;
+            BindGameplaySeed();
             if (_ship != null)
             {
                 _ship.SetInputEnabled(false);
@@ -1128,10 +1169,14 @@ namespace AsteroidsGoneRogue
             int closedHighest;
             LegacyProgress.ProgressOf(doomedSave.WaveIndex, true, out closedWorlds, out closedHighest);
             LegacyProgress.TryAward(Meta, doomedSave.RunId, closedWorlds, closedHighest);
-            if (closedHighest > 0)
+            if (closedHighest > 0 && doomedSave.DailySeed == 0)
             {
                 int closedWorldNumber = WorldCatalog.NumberForWave(closedHighest);
                 LegacyProgress.TryRecordBest(Meta, doomedSave.Difficulty, doomedSave.Score, closedHighest, closedWorldNumber);
+            }
+            else if (closedHighest > 0 && doomedSave.AssistUsed == 0)
+            {
+                RememberDaily(doomedSave.DailyDate, doomedSave.Score, closedHighest);
             }
 
             RunSaveStore.TrySaveMeta(Meta);
@@ -1164,10 +1209,14 @@ namespace AsteroidsGoneRogue
                 }
 
                 LegacyProgress.TryAward(Meta, pending.RunId, worldsCleared, highestWave);
-                if (highestWave > 0)
+                if (highestWave > 0 && pending.DailySeed == 0)
                 {
                     int worldNumber = WorldCatalog.NumberForWave(highestWave);
                     LegacyProgress.TryRecordBest(Meta, pending.Difficulty, pending.Score, highestWave, worldNumber);
+                }
+                else if (highestWave > 0 && pending.AssistUsed == 0)
+                {
+                    RememberDaily(pending.DailyDate, pending.Score, highestWave);
                 }
 
                 RunSaveStore.TrySaveMeta(Meta);
@@ -1186,6 +1235,39 @@ namespace AsteroidsGoneRogue
                 }
             }
 
+            RaiseStateChanged();
+        }
+
+        public void AbandonForDaily(int year, int month, int day)
+        {
+            AbandonSavedRun();
+            ApplyDailyClock(year, month, day);
+        }
+
+        public void ApplyDailyClock(int year, int month, int day)
+        {
+            int packed = DailySeed.PackDate(year, month, day);
+            int seed = DailySeed.ForDate(year, month, day);
+            if (packed == 0 || seed == 0)
+            {
+                ActiveDailySeed = 0;
+                ActiveDailyDate = 0;
+                BindGameplaySeed();
+                RaiseStateChanged();
+                return;
+            }
+
+            ActiveDailyDate = packed;
+            ActiveDailySeed = seed;
+            BindGameplaySeed();
+            RaiseStateChanged();
+        }
+
+        public void ClearDailyStamp()
+        {
+            ActiveDailySeed = 0;
+            ActiveDailyDate = 0;
+            BindGameplaySeed();
             RaiseStateChanged();
         }
 
@@ -1216,6 +1298,8 @@ namespace AsteroidsGoneRogue
             _runLaunched = false;
             _legacyApplied = false;
             ActiveRunId = 0;
+            ActiveDailySeed = 0;
+            ActiveDailyDate = 0;
             if (_loadout != null && _loadout.State != null)
             {
                 _loadout.State.Reset();
@@ -1229,7 +1313,7 @@ namespace AsteroidsGoneRogue
             ClearBoons();
             BoonHooks.ResetRunCounters();
             EnsureRunId();
-            BoonHooks.RunSeed = ActiveRunId > 0 ? ActiveRunId : 1;
+            BindGameplaySeed();
             ApplyLegacyToNewRun();
         }
 
@@ -1443,7 +1527,7 @@ namespace AsteroidsGoneRogue
             int waveHull;
             int waveShield;
             ReadShipVitals(out waveHull, out waveShield);
-            RunSaveData waveData = RunSaveCodec.Capture(_session, _loadout.State, (int)DifficultySettings.Current, ActiveRunId, waveStamp, _boonRun, waveHull, waveShield);
+            RunSaveData waveData = RunSaveCodec.Capture(_session, _loadout.State, (int)DifficultySettings.Current, ActiveRunId, waveStamp, _boonRun, waveHull, waveShield, ActiveDailySeed, ActiveDailyDate);
             if (!RunSaveCodec.IsValid(waveData))
             {
                 return;
@@ -1674,6 +1758,29 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (ActiveDailySeed != 0)
+            {
+                if (SessionBest == null)
+                {
+                    SessionBest = new LocalBest();
+                }
+
+                int dailyWorld = WorldCatalog.NumberForWave(wave);
+                SessionBest.TryRecord(_session.Score, wave, dailyWorld);
+                if (Daily == null)
+                {
+                    Daily = DailyBoardStore.Load();
+                }
+
+                LastRunWasNewBest = DailyBoardRules.TrySubmit(Daily, ActiveDailyDate, _session.Score, wave, false);
+                if (LastRunWasNewBest)
+                {
+                    DailyBoardStore.Save(Daily);
+                }
+
+                return;
+            }
+
             if (Best == null)
             {
                 Best = LocalBest.Load();
@@ -1717,6 +1824,32 @@ namespace AsteroidsGoneRogue
 
             ActiveRunId = LegacyProgress.TakeRunId(Meta);
             RunSaveStore.TrySaveMeta(Meta);
+        }
+
+        private void BindGameplaySeed()
+        {
+            if (ActiveDailySeed > 0)
+            {
+                BoonHooks.RunSeed = ActiveDailySeed;
+                RunRng.SetDaily(ActiveDailySeed);
+                return;
+            }
+
+            BoonHooks.RunSeed = ActiveRunId > 0 ? ActiveRunId : 1;
+            RunRng.Clear();
+        }
+
+        private void RememberDaily(int date, int score, int wave)
+        {
+            if (Daily == null)
+            {
+                Daily = DailyBoardStore.Load();
+            }
+
+            if (DailyBoardRules.TrySubmit(Daily, date, score, wave, false))
+            {
+                DailyBoardStore.Save(Daily);
+            }
         }
 
         private void ApplyLegacyToNewRun()
@@ -1853,7 +1986,7 @@ namespace AsteroidsGoneRogue
             int savedHull;
             int savedShield;
             ReadShipVitals(out savedHull, out savedShield);
-            RunSaveData data = RunSaveCodec.Capture(_session, _loadout.State, (int)DifficultySettings.Current, ActiveRunId, stamp, _boonRun, savedHull, savedShield);
+            RunSaveData data = RunSaveCodec.Capture(_session, _loadout.State, (int)DifficultySettings.Current, ActiveRunId, stamp, _boonRun, savedHull, savedShield, ActiveDailySeed, ActiveDailyDate);
             if (!RunSaveCodec.IsValid(data))
             {
                 return;
@@ -1931,7 +2064,8 @@ namespace AsteroidsGoneRogue
 
             EnsureRunId();
             int clearedWorld = WorldCatalog.NumberForWave(clearedWave);
-            int[] offer = BoonCatalog.Draw(ActiveRunId, clearedWorld, _boonRun.Levels);
+            int offerSeed = ActiveDailySeed > 0 ? ActiveDailySeed : ActiveRunId;
+            int[] offer = BoonCatalog.Draw(offerSeed, clearedWorld, _boonRun.Levels);
             if (offer.Length < BoonCatalog.OfferCount)
             {
                 return;

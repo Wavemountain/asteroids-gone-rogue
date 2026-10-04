@@ -7680,6 +7680,7 @@ def main() -> int:
     test_input_prompts_047e()
     test_rebind_047e2()
     test_part_f_preview_and_sinks()
+    test_daily_seed_047f()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -8409,9 +8410,62 @@ def _boon_offer_valid(packed: int, pending: int, levels_packed: int) -> bool:
     return True
 
 
+def _daily_leap(year: int) -> bool:
+    if year % 400 == 0:
+        return True
+    if year % 100 == 0:
+        return False
+    return year % 4 == 0
+
+
+def _daily_days(year: int, month: int) -> int:
+    if month == 2:
+        return 29 if _daily_leap(year) else 28
+    if month in (4, 6, 9, 11):
+        return 30
+    return 31
+
+
+def _daily_valid_ymd(year: int, month: int, day: int) -> bool:
+    if year < 2000 or year > 2199 or month < 1 or month > 12 or day < 1:
+        return False
+    return day <= _daily_days(year, month)
+
+
+def _daily_date_packed(packed: int) -> bool:
+    if packed < 20000101 or packed > 21991231:
+        return False
+    year = packed // 10000
+    month = (packed // 100) % 100
+    day = packed % 100
+    return _daily_valid_ymd(year, month, day)
+
+
+def _daily_mix(seed: int, salt: int) -> int:
+    hash_bits = seed & 0xFFFFFFFF
+    if hash_bits == 0:
+        hash_bits = 1
+    hash_bits ^= salt & 0xFFFFFFFF
+    hash_bits = (hash_bits * 16777619) & 0xFFFFFFFF
+    mixed = hash_bits & 0x7FFFFFFF
+    if mixed == 0:
+        mixed = 1
+    return mixed
+
+
+def _daily_for_date(year: int, month: int, day: int) -> int:
+    if not _daily_valid_ymd(year, month, day):
+        return 0
+    mixed = _daily_mix(_daily_mix(_daily_mix(216613626, year), month), day)
+    mixed = mixed % 1000000000
+    if mixed < 1:
+        mixed = 1
+    return mixed
+
+
 def _save_valid(data: dict) -> bool:
     version = data.get("Version")
-    if version not in (1, 2, 3, 4, 5):
+    if version not in (1, 2, 3, 4, 5, 6):
         return False
     if not 1 <= data.get("WaveIndex", 0) <= 9999:
         return False
@@ -8481,6 +8535,15 @@ def _save_valid(data: dict) -> bool:
             return False
     if version >= 5 and data.get("AssistUsed", 0) not in (0, 1):
         return False
+    if version >= 6:
+        daily_seed = data.get("DailySeed", 0)
+        daily_date = data.get("DailyDate", 0)
+        if daily_seed < 0 or daily_date < 0:
+            return False
+        if daily_date == 0 and daily_seed != 0:
+            return False
+        if daily_date != 0 and (daily_seed < 1 or not _daily_date_packed(daily_date)):
+            return False
     if not _boon_levels_valid(data.get("BoonLevels", 0)):
         return False
     pending = data.get("BoonPending", 0)
@@ -8527,6 +8590,9 @@ def _save_parse(text: str) -> dict | None:
         "ExtraLifeWorld": 0,
         "HullNow": -1,
         "ShieldNow": -1,
+        "AssistUsed": 0,
+        "DailySeed": 0,
+        "DailyDate": 0,
         "Timestamp": "",
     }
     saw_version = False
@@ -8618,7 +8684,15 @@ def _save_parse(text: str) -> dict | None:
         parsed.pop("ShieldNow", None)
     if parsed.get("Version", 0) < 5:
         parsed["AssistUsed"] = 0
-        parsed.pop("AssistUsed", None)
+    parsed.pop("AssistUsed", None)
+    if parsed.get("Version", 0) < 6:
+        parsed["DailySeed"] = 0
+        parsed["DailyDate"] = 0
+    if not _save_valid(parsed):
+        return None
+    if parsed.get("Version", 0) < 6:
+        parsed.pop("DailySeed", None)
+        parsed.pop("DailyDate", None)
     if not saw_lives_now:
         parsed.pop("LivesNow", None)
     return parsed
@@ -8645,7 +8719,7 @@ def test_save_continue_legacy() -> None:
     session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
 
     assert "class RunSaveCodec" in save
-    assert "CurrentVersion = 5" in save
+    assert "CurrentVersion = 6" in save
     assert "data.Version < 1 || data.Version > CurrentVersion" in save
     assert "ShouldWrite" in save and "ShouldDelete" in save
     assert "return phase == GamePhase.Hangar || phase == GamePhase.WaveClear;" in save
@@ -9506,7 +9580,7 @@ def test_pr2_046() -> None:
     assert "WindupInBand" in boss
     assert "_aimedDir" in seeker and "FireAimedBurst(_aimedDir)" in seeker
     assert "SpawnTelegraphRing" in seeker
-    assert "CurrentVersion = 5" in save
+    assert "CurrentVersion = 6" in save
     assert "LivesAfterAbandonedWave" in save
     assert "ApplyAbandonedWave" in save
     assert "SaveFileChoice.Choose" in store
@@ -12509,6 +12583,444 @@ def test_part_f_preview_and_sinks() -> None:
         assert _estimate_width(sv["sink.blurb"], 18) / blurb_w <= 3
         assert blurb_h >= 18 * 2
         assert hint
+
+
+class _DailyStream:
+    def __init__(self, seed: int) -> None:
+        bits = seed & 0xFFFFFFFF
+        self.state = 1 if bits == 0 else bits
+
+    def next_int(self) -> int:
+        self.state = (self.state * 1103515245 + 12345) & 0xFFFFFFFF
+        return (self.state >> 16) & 32767
+
+    def value(self) -> float:
+        return self.next_int() / 32768.0
+
+    def span(self, start: int, stop: int) -> int:
+        width = stop - start
+        if width <= 1:
+            return start
+        return start + (self.next_int() % width)
+
+
+def _daily_phase(seed: int, wave: int) -> float:
+    if seed == 0:
+        return 0.0
+    wave_index = 1 if wave < 1 else wave
+    mixed = _daily_mix(seed, wave_index)
+    bucket = mixed & 4095
+    return bucket * (6.283185307179586 / 4096.0)
+
+
+def _board_fresh() -> dict:
+    return {"count": 0, "dates": [0] * 32, "scores": [0] * 32, "waves": [0] * 32}
+
+
+def _board_better(best_score: int, best_wave: int, score: int, wave: int) -> bool:
+    if score != best_score:
+        return score > best_score
+    return wave > best_wave
+
+
+def _board_find(board: dict, date: int) -> int:
+    for index in range(board["count"]):
+        if board["dates"][index] == date:
+            return index
+    return -1
+
+
+def _board_oldest(board: dict) -> int:
+    oldest = 0
+    for index in range(1, board["count"]):
+        if board["dates"][index] < board["dates"][oldest]:
+            oldest = index
+    return oldest
+
+
+def _board_submit(board: dict, date: int, score: int, wave: int, assist: bool) -> bool:
+    if assist or not _daily_date_packed(date):
+        return False
+    if score < 0 or score > 100000000 or wave < 1 or wave > 9999:
+        return False
+    existing = _board_find(board, date)
+    if existing >= 0:
+        if not _board_better(board["scores"][existing], board["waves"][existing], score, wave):
+            return False
+        board["scores"][existing] = score
+        board["waves"][existing] = wave
+        return True
+    if board["count"] < 32:
+        slot = board["count"]
+        board["dates"][slot] = date
+        board["scores"][slot] = score
+        board["waves"][slot] = wave
+        board["count"] = slot + 1
+        return True
+    oldest = _board_oldest(board)
+    board["dates"][oldest] = date
+    board["scores"][oldest] = score
+    board["waves"][oldest] = wave
+    return True
+
+
+def _board_json(board: dict) -> str:
+    parts = [f'"Version":1', f'"Count":{board["count"]}']
+    for index in range(board["count"]):
+        parts.append(f'"Date{index}":{board["dates"][index]}')
+        parts.append(f'"Score{index}":{board["scores"][index]}')
+        parts.append(f'"Wave{index}":{board["waves"][index]}')
+    return "{" + ",".join(parts) + "}"
+
+
+def _board_parse(text: str) -> dict | None:
+    if not text or not text.strip().startswith("{") or not text.strip().endswith("}"):
+        return None
+    body = text.strip()[1:-1]
+    parsed = {"Version": None, "Count": None, "dates": [0] * 32, "scores": [0] * 32, "waves": [0] * 32}
+    saw = {"date": [False] * 32, "score": [False] * 32, "wave": [False] * 32}
+    cursor = 0
+    while cursor < len(body):
+        while cursor < len(body) and body[cursor] in " \n\r\t,":
+            cursor += 1
+        if cursor >= len(body):
+            break
+        if body[cursor] != '"':
+            return None
+        end_key = body.find('"', cursor + 1)
+        if end_key < 0:
+            return None
+        key = body[cursor + 1 : end_key]
+        cursor = end_key + 1
+        while cursor < len(body) and body[cursor] in " \n\r\t":
+            cursor += 1
+        if cursor >= len(body) or body[cursor] != ":":
+            return None
+        cursor += 1
+        while cursor < len(body) and body[cursor] in " \n\r\t":
+            cursor += 1
+        sign = 1
+        if cursor < len(body) and body[cursor] == "-":
+            sign = -1
+            cursor += 1
+        if cursor >= len(body) or not body[cursor].isdigit():
+            return None
+        value = 0
+        digits = 0
+        while cursor < len(body) and body[cursor].isdigit():
+            digits += 1
+            if digits > 9:
+                return None
+            value = value * 10 + int(body[cursor])
+            cursor += 1
+        value *= sign
+        if key == "Version":
+            if parsed["Version"] is not None:
+                return None
+            parsed["Version"] = value
+        elif key == "Count":
+            if parsed["Count"] is not None:
+                return None
+            parsed["Count"] = value
+        else:
+            kind = None
+            if key.startswith("Date"):
+                kind = "date"
+            elif key.startswith("Score"):
+                kind = "score"
+            elif key.startswith("Wave"):
+                kind = "wave"
+            if kind is None or not key[len(kind) if kind != "date" else 4 :].isdigit() and False:
+                return None
+            prefix = {"date": "Date", "score": "Score", "wave": "Wave"}[kind] if kind else ""
+            if kind is None or not key.startswith(prefix) or not key[len(prefix) :].isdigit():
+                return None
+            index = int(key[len(prefix) :])
+            if index >= 32 or saw[kind][index]:
+                return None
+            saw[kind][index] = True
+            parsed[{"date": "dates", "score": "scores", "wave": "waves"}[kind]][index] = value
+    if parsed["Version"] != 1 or parsed["Count"] is None or not 0 <= parsed["Count"] <= 32:
+        return None
+    for index in range(parsed["Count"]):
+        if not (saw["date"][index] and saw["score"][index] and saw["wave"][index]):
+            return None
+        if not _daily_date_packed(parsed["dates"][index]):
+            return None
+        if not 0 <= parsed["scores"][index] <= 100000000:
+            return None
+        if not 1 <= parsed["waves"][index] <= 9999:
+            return None
+        if parsed["dates"][index] in parsed["dates"][:index]:
+            return None
+    return {
+        "count": parsed["Count"],
+        "dates": parsed["dates"],
+        "scores": parsed["scores"],
+        "waves": parsed["waves"],
+    }
+
+
+def _advance_day(year: int, month: int, day: int) -> tuple:
+    day += 1
+    if day > _daily_days(year, month):
+        day = 1
+        month += 1
+        if month > 12:
+            month = 1
+            year += 1
+    return year, month, day
+
+
+def test_daily_seed_047f() -> None:
+    """0.47 F2 daily seed, separate board, and the New Run chooser."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    seed_src = (root / "Assets/Scripts/Core/DailySeed.cs").read_text(encoding="utf-8")
+    board_src = (root / "Assets/Scripts/Core/DailyBoard.cs").read_text(encoding="utf-8")
+    store_src = (root / "Assets/Scripts/Core/DailyBoardStore.cs").read_text(encoding="utf-8")
+    spawn_src = (root / "Assets/Scripts/Core/SpawnLayout.cs").read_text(encoding="utf-8")
+    rng_src = (root / "Assets/Scripts/Core/RunRng.cs").read_text(encoding="utf-8")
+    nav_src = (root / "Assets/Scripts/Core/RunSetupNav.cs").read_text(encoding="utf-8")
+    layout_src = (root / "Assets/Scripts/Core/RunSetupLayout.cs").read_text(encoding="utf-8")
+    copy_src = (root / "Assets/Scripts/Core/DailyCopy.cs").read_text(encoding="utf-8")
+    save_src = (root / "Assets/Scripts/Core/RunSave.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+
+    assert "public static int ForDate" in seed_src
+    assert "216613626" in seed_src
+    first = _daily_for_date(2026, 10, 4)
+    assert first == _daily_for_date(2026, 10, 4)
+    assert first > 0
+    assert first != _daily_for_date(2026, 10, 5)
+    assert first != _daily_for_date(2026, 11, 4)
+    assert _daily_for_date(2023, 2, 29) == 0
+    assert _daily_for_date(2024, 2, 29) > 0
+    assert _daily_for_date(0, 1, 1) == 0
+    assert _daily_for_date(2026, 13, 1) == 0
+    assert _daily_for_date(2026, 4, 31) == 0
+    seen = set()
+    year, month, day = 2026, 1, 1
+    for _step in range(400):
+        rolled = _daily_for_date(year, month, day)
+        assert rolled > 0
+        seen.add(rolled)
+        year, month, day = _advance_day(year, month, day)
+    assert len(seen) > 390
+
+    left = [_DailyStream(first).next_int() for _draw in range(8)]
+    right = [_DailyStream(first).next_int() for _draw in range(8)]
+    other = [_DailyStream(_daily_for_date(2026, 10, 5)).next_int() for _draw in range(8)]
+    assert left == right
+    assert left != other
+    assert _daily_phase(0, 3) == 0.0
+    assert _daily_phase(0, 35) == 0.0
+    assert _daily_phase(first, 1) == _daily_phase(first, 1)
+    assert _daily_phase(first, 1) != _daily_phase(first, 2)
+    assert 0.0 <= _daily_phase(first, 7) < 6.283185307179586
+    assert "PhaseRadians" in spawn_src
+    assert "return 0d;" in spawn_src
+    assert "BindWave" in rng_src and "Random.value" in rng_src and "Random.Range" in rng_src
+    assert "RunRng.BindWave" in waves
+    assert "SpawnLayout.PhaseRadians" in waves
+    assert "+ 0.35f + ringPhase" in waves
+    assert "RunRng.Unit()" in factory
+    assert "RunRng.Index" in factory
+    assert "Random.Range" in factory
+
+    board = _board_fresh()
+    opening = 20260101
+    assert _board_submit(board, opening, 10, 2, False)
+    assert not _board_submit(board, opening, 10, 2, False)
+    assert not _board_submit(board, opening, 9, 9, False)
+    assert _board_submit(board, opening, 10, 3, False)
+    assert board["waves"][_board_find(board, opening)] == 3
+    assert _board_submit(board, opening, 40, 1, False)
+    frozen = _board_json(board)
+    assert not _board_submit(board, opening, 80, 4, True)
+    assert _board_json(board) == frozen
+    year, month, day = 2026, 3, 1
+    dates = []
+    for _step in range(33):
+        dates.append(year * 10000 + month * 100 + day)
+        year, month, day = _advance_day(year, month, day)
+    capped = _board_fresh()
+    for index, date in enumerate(dates[:32]):
+        assert _board_submit(capped, date, index + 1, 1, False)
+    assert capped["count"] == 32
+    assert _board_submit(capped, dates[32], 100, 2, False)
+    assert capped["count"] == 32
+    assert dates[0] not in capped["dates"]
+    assert dates[32] in capped["dates"]
+    blob = _board_json(capped)
+    assert _board_parse(blob)["dates"] == capped["dates"]
+    assert _board_parse("") is None
+    assert _board_parse("{") is None
+    assert _board_parse("nope") is None
+    assert _board_parse('{"Version":2,"Count":0}') is None
+    assert _board_parse('{"Version":1,"Count":1}') is None
+    assert _board_parse('{"Version":1,"Count":1,"Date0":20260231,"Score0":1,"Wave0":1}') is None
+    assert "agr.daily.board" in store_src
+    assert "DailyBoardRules.Fresh()" in store_src
+    assert "Cap = 32" in board_src
+    assert "if (board == null || assist" in board_src
+
+    sample = {
+        "Version": 5,
+        "WaveIndex": 4,
+        "Score": 12,
+        "Credits": 30,
+        "Lives": 3,
+        "Hull": 3,
+        "Shield": 0,
+        "Difficulty": 1,
+        "UpgradeMask": 0,
+        "Doctrine": 0,
+        "PrimaryMode": 0,
+        "UtilityMode": 0,
+        "HasUtility": 0,
+        "RunId": 2,
+        "LastResolvedWave": 3,
+        "LastRunScore": 12,
+        "LastCreditsAwarded": 0,
+        "ExtraLifeStreak": 0,
+        "LegacyHull": 0,
+        "FirstDiscount": 0,
+        "FirstDiscountUsed": 0,
+        "Timestamp": "2026-10-04T00:00:00Z",
+    }
+    old = _save_parse(_save_to_json(sample))
+    assert old is not None and old["Version"] == 5 and "DailySeed" not in old
+    stamped = _save_to_json(dict(sample, Version=6)).replace(
+        ',"Timestamp"',
+        ',"DailySeed":' + str(first) + ',"DailyDate":20261004,"Timestamp"',
+    )
+    loaded = _save_parse(stamped)
+    assert loaded is not None and loaded["DailySeed"] == first and loaded["DailyDate"] == 20261004
+    broken = stamped.replace(f'"DailyDate":20261004', '"DailyDate":0')
+    assert _save_parse(broken) is None
+    assert "CurrentVersion = 6" in save_src
+    assert "parsed.Version < 6" in save_src
+    assert "parsed.DailySeed = 0" in save_src
+    assert "parsed.DailyDate = 0" in save_src
+
+    record = manager.split("private void RecordBest")[1].split("private void EnsureRunId")[0]
+    assert record.index("CountsForBoard") < record.index("ActiveDailySeed != 0")
+    assert record.index("ActiveDailySeed != 0") < record.index("Best.TryRecord")
+    assert "DailyBoardRules.TrySubmit" in record
+    assert "ActiveDailySeed > 0 ? ActiveDailySeed : ActiveRunId" in manager
+    assert "BindGameplaySeed" in manager
+    assert "RunRng.Clear" in manager
+    offer = manager.split("private void OfferBoonChoice")[1]
+    assert "BoonCatalog.Draw(offerSeed" in offer
+
+    assert "RunSetupCanvas" in ui
+    assert "CanvasOrder.Overlay" in ui
+    assert "OpenRunSetup" in ui and "TickRunSetup" in ui
+    assert "DailyCopy.Stamp" in ui
+    assert "RunSetupNav.SelfCheck" in nav_src or "public static bool SelfCheck" in nav_src
+    assert RunSetupNav_selfcheck()
+    assert "const int Font = 18" in layout_src
+    assert "\\u2022" in copy_src
+    for key in (
+        "daily.title",
+        "daily.normal",
+        "daily.daily",
+        "daily.cancel",
+        "daily.hint",
+        "daily.blurb",
+        "daily.stamp",
+        "daily.board",
+    ):
+        assert key in loc and key in copy_src
+
+    boxes = {
+        "normal": (0.34, 0.42, 0.50, 0.54),
+        "daily": (0.52, 0.42, 0.66, 0.54),
+        "cancel": (0.40, 0.32, 0.60, 0.40),
+        "header": (0.34, 0.64, 0.66, 0.70),
+        "blurb": (0.34, 0.56, 0.66, 0.62),
+    }
+    panel = (0.30, 0.30, 0.70, 0.74)
+    names = list(boxes)
+    for name in names:
+        box = boxes[name]
+        assert panel[0] <= box[0] < box[2] <= panel[2]
+        assert panel[1] <= box[1] < box[3] <= panel[3]
+    for left in range(len(names)):
+        for right in range(left + 1, len(names)):
+            a = boxes[names[left]]
+            b = boxes[names[right]]
+            separated = a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1]
+            assert separated, (names[left], names[right])
+
+    en = {
+        "daily.normal": "Normal run",
+        "daily.daily": "Daily Run",
+        "daily.cancel": "Back",
+        "daily.hint": "{confirm} start  ·  {cancel} back",
+        "daily.blurb": "\u2022 One seed for this UTC day.",
+        "daily.stamp": "Daily 2026-10-04  ·  seed 2147483647",
+    }
+    sv = {
+        "daily.normal": "Vanlig runda",
+        "daily.daily": "Daglig runda",
+        "daily.cancel": "Tillbaka",
+        "daily.hint": "{confirm} start  ·  {cancel} tillbaka",
+        "daily.blurb": "\u2022 Ett frö för detta UTC-dygn.",
+        "daily.stamp": "Daglig 2026-10-04  ·  frö 2147483647",
+    }
+    matrix = ((1280, 800), (1366, 768), (1440, 900), (1920, 1080), (1920, 1200), (2560, 1080), (2560, 1440), (3440, 1440))
+    for width, height in matrix:
+        scale = _canvas_scale(width, height)
+        if width == 1280 and height == 800:
+            assert 18 * scale + 0.05 >= 12.0
+        button_w = (0.50 - 0.34) * (width / scale)
+        blurb_w = (0.66 - 0.34) * (width / scale)
+        blurb_h = (0.62 - 0.56) * (height / scale)
+        hud_w = (0.50 - 0.03) * (width / scale)
+        for key in ("daily.normal", "daily.daily", "daily.cancel"):
+            assert _estimate_width(en[key], 18) <= button_w * 2
+            assert _estimate_width(sv[key], 18) <= button_w * 2
+        assert _prompt_line_width(en["daily.hint"], 18, scale) <= blurb_w
+        assert _prompt_line_width(sv["daily.hint"], 18, scale) <= blurb_w
+        assert _estimate_width(en["daily.blurb"], 18) / blurb_w <= 2
+        assert _estimate_width(sv["daily.blurb"], 18) / blurb_w <= 2
+        assert blurb_h + 0.5 >= 18
+        assert _estimate_width(en["daily.stamp"], 22) <= hud_w * 2
+        assert _estimate_width(sv["daily.stamp"], 22) <= hud_w * 2
+
+
+def RunSetupNav_selfcheck() -> bool:
+    def step(slot: int, dx: int, dy: int) -> int:
+        current = slot
+        if current < 0:
+            current = 0
+        if current > 2:
+            current = 2
+        if dy > 0:
+            return 2
+        if dy < 0:
+            return 0 if current == 2 else current
+        if dx > 0 and current == 0:
+            return 1
+        if dx < 0 and current == 1:
+            return 0
+        return current
+
+    return (
+        step(0, 1, 0) == 1
+        and step(1, -1, 0) == 0
+        and step(0, 0, 1) == 2
+        and step(1, 0, 1) == 2
+        and step(2, 0, -1) == 0
+        and step(2, 1, 0) == 2
+    )
 
 
 if __name__ == "__main__":

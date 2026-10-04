@@ -50,6 +50,16 @@ namespace AsteroidsGoneRogue
         private int _sinkOpenedFrame = -1;
         private bool _sinkHeld;
         private float _sinkRepeatAt;
+        private GameObject _setupRoot;
+        private Button[] _setupButtons;
+        private Text _setupTitle;
+        private Text _setupBlurb;
+        private bool _setupOpen;
+        private int _setupFocus;
+        private int _setupOpenedFrame = -1;
+        private bool _setupHeld;
+        private float _setupRepeatAt;
+        private RunSetupKind _setupKind;
         private Button _abortButton;
         private Text _abortLabel;
         private GameObject _tutorialRoot;
@@ -541,6 +551,12 @@ namespace AsteroidsGoneRogue
                 extra += "  ·  " + hook;
             }
 
+            string dailyHangar = _game != null ? DailyCopy.Stamp(_game.ActiveDailyDate, _game.ActiveDailySeed) : string.Empty;
+            if (dailyHangar.Length > 0)
+            {
+                extra += "  ·  " + dailyHangar;
+            }
+
             // Controls hint lives only in the screen-bottom row, never in WAVE CLEAR / shop.
             return waveLine + extra;
         }
@@ -744,6 +760,7 @@ namespace AsteroidsGoneRogue
             BuildDoctrine(display, body);
             BuildShop(display, body);
             BuildSinkOverlay(display, body);
+            BuildRunSetup(display, body);
             BuildSettingsGear(body);
             BuildDifficultyPicker(display, body);
             BuildFirstHangarHint(display, body);
@@ -773,7 +790,7 @@ namespace AsteroidsGoneRogue
             _newRunLabel.fontSize = UiTheme.BodyMin;
             _newRunLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
             _newRunLabel.verticalOverflow = VerticalWrapMode.Truncate;
-            _newRunButton.onClick.AddListener(RequestAbandonSavedRun);
+            _newRunButton.onClick.AddListener(OnNewRunButton);
             LockButtonNavigation(_newRunButton);
             _newRunButton.gameObject.SetActive(false);
 
@@ -846,17 +863,334 @@ namespace AsteroidsGoneRogue
             ApplyConfirmClock();
         }
 
+        private void OnNewRunButton()
+        {
+            if (_setupOpen || _confirmOpen || _settingsOpen || _sinkOpen)
+            {
+                return;
+            }
+
+            if (_game != null && _game.HasContinueOffer)
+            {
+                RequestAbandonSavedRun();
+                return;
+            }
+
+            if (_session != null && _session.Phase == GamePhase.Failed)
+            {
+                OpenRunSetup(RunSetupKind.Retry);
+                return;
+            }
+
+            OpenRunSetup(RunSetupKind.Hangar);
+        }
+
+        private void BuildRunSetup(Font display, Font body)
+        {
+            GameObject canvasGo = new GameObject("RunSetupCanvas");
+            Canvas canvas = canvasGo.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.pixelPerfect = false;
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = CanvasOrder.Overlay;
+            CanvasScaler scaler = canvasGo.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(ShopGridLayout.RefWidth, ShopGridLayout.RefHeight);
+            scaler.matchWidthOrHeight = ShopGridLayout.Match;
+            canvasGo.AddComponent<GraphicRaycaster>();
+            _setupRoot = canvasGo;
+
+            GameObject plate = CreateFill(
+                "RunSetupPlate",
+                canvasGo.transform,
+                UiTheme.Surface,
+                new Vector2(RunSetupLayout.PanelMinX, RunSetupLayout.PanelMinY),
+                new Vector2(RunSetupLayout.PanelMaxX, RunSetupLayout.PanelMaxY));
+            Image plateImage = plate.GetComponent<Image>();
+            if (plateImage != null)
+            {
+                plateImage.raycastTarget = true;
+            }
+
+            float headerMinX;
+            float headerMinY;
+            float headerMaxX;
+            float headerMaxY;
+            RunSetupLayout.Header(out headerMinX, out headerMinY, out headerMaxX, out headerMaxY);
+            _setupTitle = CreateText("RunSetupTitle", canvasGo.transform, display, RunSetupLayout.Font, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Stretch(_setupTitle.rectTransform, new Vector2(headerMinX, headerMinY), new Vector2(headerMaxX, headerMaxY));
+            _setupTitle.color = UiTheme.Primary;
+            _setupTitle.resizeTextForBestFit = false;
+            _setupTitle.raycastTarget = false;
+
+            float blurbMinX;
+            float blurbMinY;
+            float blurbMaxX;
+            float blurbMaxY;
+            RunSetupLayout.Blurb(out blurbMinX, out blurbMinY, out blurbMaxX, out blurbMaxY);
+            _setupBlurb = CreateText("RunSetupBlurb", canvasGo.transform, body, RunSetupLayout.Font, TextAnchor.MiddleCenter, FontStyle.Normal);
+            Stretch(_setupBlurb.rectTransform, new Vector2(blurbMinX, blurbMinY), new Vector2(blurbMaxX, blurbMaxY));
+            _setupBlurb.color = UiTheme.Accent;
+            _setupBlurb.resizeTextForBestFit = false;
+            _setupBlurb.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _setupBlurb.verticalOverflow = VerticalWrapMode.Truncate;
+            _setupBlurb.raycastTarget = false;
+
+            _setupButtons = new Button[RunSetupNav.SlotCount];
+            for (int setupIndex = 0; setupIndex < RunSetupNav.SlotCount; setupIndex++)
+            {
+                int capturedSlot = setupIndex;
+                float choiceMinX;
+                float choiceMinY;
+                float choiceMaxX;
+                float choiceMaxY;
+                RunSetupLayout.Choice(setupIndex, out choiceMinX, out choiceMinY, out choiceMaxX, out choiceMaxY);
+                Button choice = CreateButton(
+                    "RunSetup" + setupIndex,
+                    canvasGo.transform,
+                    body,
+                    new Vector2(choiceMinX, choiceMinY),
+                    new Vector2(choiceMaxX, choiceMaxY));
+                Text choiceLabel = choice.GetComponentInChildren<Text>();
+                choiceLabel.fontSize = RunSetupLayout.Font;
+                choiceLabel.resizeTextForBestFit = false;
+                choiceLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
+                choiceLabel.verticalOverflow = VerticalWrapMode.Truncate;
+                choice.onClick.AddListener(() => ApplyRunSetup(capturedSlot));
+                LockButtonNavigation(choice);
+                UiTheme.ApplyButton(choice, false, false, false);
+                _setupButtons[setupIndex] = choice;
+            }
+
+            canvasGo.SetActive(false);
+        }
+
+        private void OpenRunSetup(RunSetupKind kind)
+        {
+            if (_setupRoot == null || _confirmOpen || _settingsOpen || _creditsVisible || FirstStartOpen())
+            {
+                return;
+            }
+
+            if (_session != null && _session.Phase == GamePhase.Playing)
+            {
+                return;
+            }
+
+            CloseSinkShop();
+            _setupKind = kind;
+            _setupOpen = true;
+            _setupFocus = RunSetupNav.DefaultSlot(kind);
+            _setupHeld = false;
+            _setupOpenedFrame = Time.frameCount;
+            _setupRoot.SetActive(true);
+            if (_setupTitle != null)
+            {
+                _setupTitle.text = DailyCopy.Title();
+            }
+
+            if (_setupButtons != null)
+            {
+                if (_setupButtons[RunSetupNav.NormalSlot] != null)
+                {
+                    Text normalLabel = _setupButtons[RunSetupNav.NormalSlot].GetComponentInChildren<Text>();
+                    if (normalLabel != null)
+                    {
+                        normalLabel.text = DailyCopy.Normal();
+                    }
+                }
+
+                if (_setupButtons[RunSetupNav.DailySlot] != null)
+                {
+                    Text dailyLabel = _setupButtons[RunSetupNav.DailySlot].GetComponentInChildren<Text>();
+                    if (dailyLabel != null)
+                    {
+                        dailyLabel.text = DailyCopy.Daily();
+                    }
+                }
+
+                if (_setupButtons[RunSetupNav.CancelSlot] != null)
+                {
+                    Text cancelLabel = _setupButtons[RunSetupNav.CancelSlot].GetComponentInChildren<Text>();
+                    if (cancelLabel != null)
+                    {
+                        cancelLabel.text = DailyCopy.Cancel();
+                    }
+                }
+            }
+
+            int boardScore = 0;
+            int boardWave = 0;
+            int clockYear;
+            int clockMonth;
+            int clockDay;
+            DailySeed.UtcToday(out clockYear, out clockMonth, out clockDay);
+            int packedDate = DailySeed.PackDate(clockYear, clockMonth, clockDay);
+            if (_game != null && _game.Daily != null)
+            {
+                DailyBoardRules.TryRead(_game.Daily, packedDate, out boardScore, out boardWave);
+            }
+
+            if (_setupBlurb != null)
+            {
+                _setupBlurb.text = DailyCopy.Hint() + "\n" + DailyCopy.Blurb(boardScore, boardWave);
+            }
+
+            FocusRunSetup(_setupFocus);
+        }
+
+        private void CloseRunSetup()
+        {
+            _setupOpen = false;
+            _setupHeld = false;
+            if (_setupRoot != null)
+            {
+                _setupRoot.SetActive(false);
+            }
+        }
+
+        private void TickRunSetup()
+        {
+            if (!_setupOpen)
+            {
+                return;
+            }
+
+            if (GamepadInput.CancelPressed() || GamepadInput.PausePressed())
+            {
+                CloseRunSetup();
+                return;
+            }
+
+            Vector2 setupNav = GamepadInput.UiNavCombined();
+            int setupDx = HangarPadNav.DominantStep(setupNav.x, setupNav.y, HangarPadNav.Flick);
+            int setupDy = HangarPadNav.DominantStepY(setupNav.x, setupNav.y, HangarPadNav.Flick);
+            if (setupDx != 0 || setupDy != 0)
+            {
+                float setupNow = Time.unscaledTime;
+                if (!_setupHeld || setupNow >= _setupRepeatAt)
+                {
+                    _setupFocus = RunSetupNav.Step(_setupFocus, setupDx, setupDy);
+                    _setupRepeatAt = setupNow + (_setupHeld ? HangarPadNav.RepeatNextSeconds : HangarPadNav.RepeatFirstSeconds);
+                    _setupHeld = true;
+                    FocusRunSetup(_setupFocus);
+                }
+            }
+            else
+            {
+                _setupHeld = false;
+            }
+
+            if (GamepadInput.ConfirmPressed() && _setupOpenedFrame != Time.frameCount)
+            {
+                ApplyRunSetup(_setupFocus);
+            }
+        }
+
+        private void FocusRunSetup(int slot)
+        {
+            if (_setupButtons == null)
+            {
+                return;
+            }
+
+            for (int setupIndex = 0; setupIndex < _setupButtons.Length; setupIndex++)
+            {
+                Button choice = _setupButtons[setupIndex];
+                if (choice != null)
+                {
+                    UiTheme.SetPadFocus(choice.gameObject, setupIndex == slot, true);
+                }
+            }
+        }
+
+        private void ApplyRunSetup(int slot)
+        {
+            RunSetupKind kind = _setupKind;
+            CloseRunSetup();
+            if (slot == RunSetupNav.CancelSlot || _game == null)
+            {
+                return;
+            }
+
+            int setupYear;
+            int setupMonth;
+            int setupDay;
+            DailySeed.UtcToday(out setupYear, out setupMonth, out setupDay);
+            bool daily = slot == RunSetupNav.DailySlot;
+            if (kind == RunSetupKind.Abandon)
+            {
+                if (daily)
+                {
+                    _game.AbandonForDaily(setupYear, setupMonth, setupDay);
+                }
+                else
+                {
+                    _game.AbandonSavedRun();
+                }
+
+                return;
+            }
+
+            if (kind == RunSetupKind.Retry)
+            {
+                if (daily)
+                {
+                    _game.OneMoreTryDaily(setupYear, setupMonth, setupDay);
+                }
+                else
+                {
+                    _game.OneMoreTry();
+                }
+
+                return;
+            }
+
+            if (daily)
+            {
+                _game.ApplyDailyClock(setupYear, setupMonth, setupDay);
+            }
+            else
+            {
+                _game.ClearDailyStamp();
+            }
+        }
+
+        private bool ShowDailyEntry(bool playing, bool offer)
+        {
+            if (playing || offer || _session == null)
+            {
+                return false;
+            }
+
+            if (_session.Phase == GamePhase.Failed)
+            {
+                return true;
+            }
+
+            return _session.Phase == GamePhase.Hangar && _session.WaveIndex <= 1 && _session.Score <= 0;
+        }
+
         private void RefreshContinueChrome()
         {
             bool playing = _session != null && _session.Phase == GamePhase.Playing;
             bool offer = !playing && _game != null && _game.HasContinueOffer;
+            bool dailyEntry = ShowDailyEntry(playing, offer);
+            bool blockRunButton = _creditsVisible || FirstStartOpen() || _setupOpen;
             if (_newRunButton != null)
             {
-                _newRunButton.gameObject.SetActive(offer);
+                _newRunButton.gameObject.SetActive((offer || dailyEntry) && !blockRunButton);
                 if (_newRunLabel != null)
                 {
-                    _newRunLabel.text = Loc.T("ui.new_run", "New Run");
+                    _newRunLabel.text = offer
+                        ? Loc.T("ui.new_run", "New Run")
+                        : DailyCopy.Daily();
                 }
+            }
+
+            if (playing || _creditsVisible || FirstStartOpen())
+            {
+                CloseRunSetup();
             }
 
             bool showLegacy = !playing && _game != null && _game.LegacyShopOpen;
@@ -2157,6 +2491,17 @@ namespace AsteroidsGoneRogue
 
                         recordLine += Loc.T("ui.new_best", "NEW BEST");
                     }
+
+                    string dailyCard = _game != null ? DailyCopy.Stamp(_game.ActiveDailyDate, _game.ActiveDailySeed) : string.Empty;
+                    if (dailyCard.Length > 0)
+                    {
+                        if (recordLine.Length > 0)
+                        {
+                            recordLine += "  ·  ";
+                        }
+
+                        recordLine += dailyCard;
+                    }
                 }
 
                 _summaryRecord.text = recordLine;
@@ -3384,6 +3729,10 @@ namespace AsteroidsGoneRogue
                 {
                     TickRebind();
                 }
+                else if (_setupOpen)
+                {
+                    TickRunSetup();
+                }
                 else if (_sinkOpen)
                 {
                     TickSinkShop();
@@ -4545,6 +4894,12 @@ namespace AsteroidsGoneRogue
                 "Wave {0}   ·   Score {1}",
                 _session.WaveIndex,
                 _session.Score);
+            string dailyHud = _game != null ? DailyCopy.Stamp(_game.ActiveDailyDate, _game.ActiveDailySeed) : string.Empty;
+            if (dailyHud.Length > 0)
+            {
+                scoreLine += "\n" + dailyHud;
+            }
+
             if (playing)
             {
                 scoreLine += PlayBestCompare();
@@ -7343,7 +7698,7 @@ namespace AsteroidsGoneRogue
                 {
                     if (_game != null && _game.HasContinueOffer)
                     {
-                        _game.AbandonSavedRun();
+                        OpenRunSetup(RunSetupKind.Abandon);
                     }
                     else
                     {

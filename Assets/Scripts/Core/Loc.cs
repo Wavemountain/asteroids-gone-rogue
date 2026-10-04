@@ -468,7 +468,15 @@ namespace AsteroidsGoneRogue
             { "sink.status.owned", "ÄGD" },
             { "sink.status.fitted", "MONTERAD" },
             { "sink.status.capped", "TAK" },
-            { "sink.status.price", "{0}" }
+            { "sink.status.price", "{0}" },
+            { "daily.title", "Välj runda" },
+            { "daily.normal", "Vanlig runda" },
+            { "daily.daily", "Daglig runda" },
+            { "daily.cancel", "Tillbaka" },
+            { "daily.hint", "{confirm} start  ·  {cancel} tillbaka" },
+            { "daily.blurb", "\u2022 Ett frö för detta UTC-dygn." },
+            { "daily.stamp", "Daglig {0}  ·  frö {1}" },
+            { "daily.board", "Idag {0}  ·  våg {1}" }
         };
 
         /// <summary>
