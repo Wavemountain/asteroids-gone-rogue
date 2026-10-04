@@ -7681,6 +7681,7 @@ def main() -> int:
     test_rebind_047e2()
     test_part_f_preview_and_sinks()
     test_daily_seed_047f()
+    test_mutators_047f()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -8465,7 +8466,7 @@ def _daily_for_date(year: int, month: int, day: int) -> int:
 
 def _save_valid(data: dict) -> bool:
     version = data.get("Version")
-    if version not in (1, 2, 3, 4, 5, 6):
+    if version not in (1, 2, 3, 4, 5, 6, 7):
         return False
     if not 1 <= data.get("WaveIndex", 0) <= 9999:
         return False
@@ -8593,6 +8594,7 @@ def _save_parse(text: str) -> dict | None:
         "AssistUsed": 0,
         "DailySeed": 0,
         "DailyDate": 0,
+        "MutatorMask": 0,
         "Timestamp": "",
     }
     saw_version = False
@@ -8688,11 +8690,17 @@ def _save_parse(text: str) -> dict | None:
     if parsed.get("Version", 0) < 6:
         parsed["DailySeed"] = 0
         parsed["DailyDate"] = 0
+    if parsed.get("Version", 0) < 7:
+        parsed["MutatorMask"] = 0
+    else:
+        parsed["MutatorMask"] = _mutator_sanitize(parsed.get("MutatorMask", 0))
     if not _save_valid(parsed):
         return None
     if parsed.get("Version", 0) < 6:
         parsed.pop("DailySeed", None)
         parsed.pop("DailyDate", None)
+    if parsed.get("Version", 0) < 7:
+        parsed.pop("MutatorMask", None)
     if not saw_lives_now:
         parsed.pop("LivesNow", None)
     return parsed
@@ -8719,7 +8727,7 @@ def test_save_continue_legacy() -> None:
     session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
 
     assert "class RunSaveCodec" in save
-    assert "CurrentVersion = 6" in save
+    assert "CurrentVersion = 7" in save
     assert "data.Version < 1 || data.Version > CurrentVersion" in save
     assert "ShouldWrite" in save and "ShouldDelete" in save
     assert "return phase == GamePhase.Hangar || phase == GamePhase.WaveClear;" in save
@@ -9580,7 +9588,7 @@ def test_pr2_046() -> None:
     assert "WindupInBand" in boss
     assert "_aimedDir" in seeker and "FireAimedBurst(_aimedDir)" in seeker
     assert "SpawnTelegraphRing" in seeker
-    assert "CurrentVersion = 6" in save
+    assert "CurrentVersion = 7" in save
     assert "LivesAfterAbandonedWave" in save
     assert "ApplyAbandonedWave" in save
     assert "SaveFileChoice.Choose" in store
@@ -12904,7 +12912,7 @@ def test_daily_seed_047f() -> None:
     assert loaded is not None and loaded["DailySeed"] == first and loaded["DailyDate"] == 20261004
     broken = stamped.replace(f'"DailyDate":20261004', '"DailyDate":0')
     assert _save_parse(broken) is None
-    assert "CurrentVersion = 6" in save_src
+    assert "CurrentVersion = 7" in save_src
     assert "parsed.Version < 6" in save_src
     assert "parsed.DailySeed = 0" in save_src
     assert "parsed.DailyDate = 0" in save_src
@@ -12940,13 +12948,13 @@ def test_daily_seed_047f() -> None:
         assert key in loc and key in copy_src
 
     boxes = {
-        "normal": (0.34, 0.42, 0.50, 0.54),
-        "daily": (0.52, 0.42, 0.66, 0.54),
-        "cancel": (0.40, 0.32, 0.60, 0.40),
-        "header": (0.34, 0.64, 0.66, 0.70),
-        "blurb": (0.34, 0.56, 0.66, 0.62),
+        "normal": (0.28, 0.14, 0.50, 0.23),
+        "daily": (0.52, 0.14, 0.72, 0.23),
+        "cancel": (0.40, 0.07, 0.60, 0.12),
+        "header": (0.28, 0.86, 0.72, 0.92),
+        "blurb": (0.28, 0.80, 0.72, 0.85),
     }
-    panel = (0.30, 0.30, 0.70, 0.74)
+    panel = (0.24, 0.06, 0.76, 0.94)
     names = list(boxes)
     for name in names:
         box = boxes[name]
@@ -12980,9 +12988,9 @@ def test_daily_seed_047f() -> None:
         scale = _canvas_scale(width, height)
         if width == 1280 and height == 800:
             assert 18 * scale + 0.05 >= 12.0
-        button_w = (0.50 - 0.34) * (width / scale)
-        blurb_w = (0.66 - 0.34) * (width / scale)
-        blurb_h = (0.62 - 0.56) * (height / scale)
+        button_w = (0.50 - 0.28) * (width / scale)
+        blurb_w = (0.72 - 0.28) * (width / scale)
+        blurb_h = (0.85 - 0.80) * (height / scale)
         hud_w = (0.50 - 0.03) * (width / scale)
         for key in ("daily.normal", "daily.daily", "daily.cancel"):
             assert _estimate_width(en[key], 18) <= button_w * 2
@@ -12996,17 +13004,285 @@ def test_daily_seed_047f() -> None:
         assert _estimate_width(sv["daily.stamp"], 22) <= hud_w * 2
 
 
+def _mutator_bit(ident: int) -> int:
+    if ident < 0 or ident >= 6:
+        return 0
+    return 1 << ident
+
+
+def _mutator_has(mask: int, ident: int) -> bool:
+    bit = _mutator_bit(ident)
+    return bit != 0 and (mask & bit) != 0
+
+
+def _mutator_incompatible(left: int, right: int) -> bool:
+    if left == right:
+        return False
+    swarm_heavy = (left == 1 and right == 2) or (left == 2 and right == 1)
+    glass_quiet = (left == 0 and right == 3) or (left == 3 and right == 0)
+    return swarm_heavy or glass_quiet
+
+
+def _mutator_count(mask: int) -> int:
+    return sum(1 for ident in range(6) if _mutator_has(mask, ident))
+
+
+def _mutator_sanitize(mask: int) -> int:
+    if mask <= 0:
+        return 0
+    allowed = (1 << 6) - 1
+    if (mask & ~allowed) != 0:
+        return 0
+    if _mutator_count(mask) > 2:
+        return 0
+    for left in range(6):
+        if not _mutator_has(mask, left):
+            continue
+        for right in range(left + 1, 6):
+            if _mutator_has(mask, right) and _mutator_incompatible(left, right):
+                return 0
+    return mask
+
+
+def _mutator_toggle(mask: int, ident: int) -> tuple:
+    current = _mutator_sanitize(mask)
+    bit = _mutator_bit(ident)
+    if bit == 0:
+        return False, current
+    if (current & bit) != 0:
+        return True, current & ~bit
+    if _mutator_count(current) >= 2:
+        return False, current
+    for other in range(6):
+        if _mutator_has(current, other) and _mutator_incompatible(other, ident):
+            return False, current
+    return True, current | bit
+
+
+def _mutator_score_percent(mask: int) -> int:
+    clean = _mutator_sanitize(mask)
+    percent = 100
+    if _mutator_has(clean, 0):
+        percent = percent * 115 // 100
+    if _mutator_has(clean, 1):
+        percent = percent * 110 // 100
+    if _mutator_has(clean, 2):
+        percent = percent * 110 // 100
+    if _mutator_has(clean, 4):
+        percent = percent * 120 // 100
+    if _mutator_has(clean, 5):
+        percent = percent * 110 // 100
+    if percent < 100:
+        return 100
+    if percent > 160:
+        return 160
+    return percent
+
+
+def _mutator_credit_percent(mask: int) -> int:
+    clean = _mutator_sanitize(mask)
+    percent = 125 if _mutator_has(clean, 3) else 100
+    if percent < 100:
+        return 100
+    if percent > 140:
+        return 140
+    return percent
+
+
+def _mutator_scale(amount: int, percent: int) -> int:
+    if amount <= 0 or percent == 100:
+        return amount
+    return int(((amount * percent) + 50) // 100)
+
+
+def test_mutators_047f() -> None:
+    """0.47 F3 mutator rules, save migration, and the New Run chooser."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    rules = (root / "Assets/Scripts/Core/MutatorRules.cs").read_text(encoding="utf-8")
+    copy = (root / "Assets/Scripts/Core/MutatorCopy.cs").read_text(encoding="utf-8")
+    save = (root / "Assets/Scripts/Core/RunSave.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    layout = (root / "Assets/Scripts/Core/RunSetupLayout.cs").read_text(encoding="utf-8")
+    nav = (root / "Assets/Scripts/Core/RunSetupNav.cs").read_text(encoding="utf-8")
+    health = (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
+    seeker = (root / "Assets/Scripts/Combat/EnemySeeker.cs").read_text(encoding="utf-8")
+    asteroid = (root / "Assets/Scripts/Combat/Asteroid.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+
+    assert "CurrentVersion = 7" in save
+    assert "parsed.Version < 7" in save
+    assert "parsed.MutatorMask = 0" in save
+    assert "MutatorRules.Sanitize(mutatorMask)" in save
+    glass = _mutator_bit(0)
+    swarm = _mutator_bit(1)
+    heavy = _mutator_bit(2)
+    quiet = _mutator_bit(3)
+    overclock = _mutator_bit(4)
+    long_haul = _mutator_bit(5)
+    assert _mutator_sanitize(0) == 0
+    assert _mutator_sanitize(glass | swarm) == glass | swarm
+    assert _mutator_sanitize(swarm | heavy) == 0
+    assert _mutator_sanitize(glass | quiet) == 0
+    assert _mutator_sanitize(glass | swarm | overclock) == 0
+    assert _mutator_sanitize(1 << 8) == 0
+    assert _mutator_toggle(0, 0) == (True, glass)
+    assert _mutator_toggle(glass | swarm, 4) == (False, glass | swarm)
+    assert _mutator_toggle(glass, 3) == (False, glass)
+    assert _mutator_toggle(glass, 0) == (True, 0)
+    assert _mutator_score_percent(0) == 100
+    assert _mutator_score_percent(glass | overclock) == 138
+    assert _mutator_score_percent(glass | overclock) <= 160
+    assert _mutator_credit_percent(0) == 100
+    assert _mutator_credit_percent(quiet) == 125
+    assert _mutator_credit_percent(quiet) <= 140
+    assert _mutator_scale(100, 115) == 115
+    assert _mutator_scale(80, 100) == 80
+    assert "return (amount * 3 + 1) / 2" in rules
+    assert "return 0.11f" in rules and "return 0.22f" in rules
+    assert "cooldown * 0.80f" in rules
+    assert "EnemyKind.Brute" in rules and "EnemyKind.Swarmling" in rules
+    assert "MaxPicks = 2" in rules
+
+    sample = {
+        "Version": 6,
+        "WaveIndex": 4,
+        "Score": 12,
+        "Credits": 30,
+        "Lives": 3,
+        "Hull": 3,
+        "Shield": 0,
+        "Difficulty": 1,
+        "UpgradeMask": 0,
+        "Doctrine": 0,
+        "PrimaryMode": 0,
+        "UtilityMode": 0,
+        "HasUtility": 0,
+        "RunId": 2,
+        "LastResolvedWave": 3,
+        "LastRunScore": 12,
+        "LastCreditsAwarded": 0,
+        "ExtraLifeStreak": 0,
+        "LegacyHull": 0,
+        "FirstDiscount": 0,
+        "FirstDiscountUsed": 0,
+        "Timestamp": "2026-10-04T00:00:00Z",
+    }
+    aged = _save_parse(_save_to_json(sample))
+    assert aged is not None and "MutatorMask" not in aged
+    stamped = _save_to_json(dict(sample, Version=7)).replace(
+        ',"Timestamp"',
+        ',"MutatorMask":' + str(glass | long_haul) + ',"Timestamp"',
+    )
+    loaded = _save_parse(stamped)
+    assert loaded is not None and loaded["MutatorMask"] == glass | long_haul
+    broken = _save_to_json(dict(sample, Version=7)).replace(
+        ',"Timestamp"',
+        ',"MutatorMask":' + str(swarm | heavy) + ',"Timestamp"',
+    )
+    cleaned = _save_parse(broken)
+    assert cleaned is not None and cleaned["MutatorMask"] == 0
+
+    assert "ActiveMutatorMask" in manager
+    assert "ApplyMutators" in manager and "BeginRetry" in manager
+    assert "MutatorRules.ScaleScore" in manager and "MutatorRules.ScaleCredits" in manager
+    record = manager.split("private void RecordBest")[1].split("private void EnsureRunId")[0]
+    assert record.index("ActiveDailySeed != 0") < record.index("ActiveMutatorMask != 0")
+    assert record.index("ActiveMutatorMask != 0") < record.index("LastRunWasNewBest = Best.TryRecord")
+    assert "MutatorRules.ScaleDamage" in health
+    assert "MutatorRules.ScaleDamage" in seeker
+    assert "ScaleFireCooldown" in seeker
+    assert "ScaleRockHits" in asteroid and "ExtraSplits" in asteroid
+    assert "NextRung" in waves and "AdjustRoster" in waves
+    assert "DropCeiling" in factory
+    assert "MutatorCopy.Hud" in ui and "TryToggle" in ui and "BeginRetry" in ui
+    assert "PanelMinY = 0.06f" in layout
+    assert "0.78f - (row * 0.09f)" in layout
+    assert RunSetupNav_selfcheck()
+    assert "return CancelSlot" in nav
+    for key in (
+        "mut.glass",
+        "mut.swarm",
+        "mut.heavy",
+        "mut.quiet",
+        "mut.overclock",
+        "mut.long",
+        "mut.glass.desc",
+        "mut.swarm.desc",
+        "mut.heavy.desc",
+        "mut.quiet.desc",
+        "mut.overclock.desc",
+        "mut.long.desc",
+        "mut.factors",
+        "mut.rejected",
+        "mut.hud",
+        "mut.stack",
+    ):
+        assert key in loc and key in copy
+
+    rows = {
+        "en": "\u2022 Glass Cannon  ·  score ×1.15  ·  credits ×1.00",
+        "sv": "\u2022 Glaskanone  ·  poäng ×1.15  ·  krediter ×1.00",
+    }
+    descs = {
+        "en": "Asteroids are tougher and split once more.",
+        "sv": "Asteroider är segare och delas en gång till.",
+    }
+    rejected = {
+        "en": "\u2022 At most two. Some pairs cannot combine.",
+        "sv": "\u2022 Högst två. Vissa par går inte ihop.",
+    }
+    matrix = ((1280, 800), (1366, 768), (1440, 900), (1920, 1080), (1920, 1200), (2560, 1080), (2560, 1440), (3440, 1440))
+    for width, height in matrix:
+        scale = _canvas_scale(width, height)
+        if width == 1280 and height == 800:
+            assert 18 * scale + 0.05 >= 12.0
+        row_w = (0.72 - 0.28) * (width / scale)
+        row_h = 0.08 * (height / scale)
+        blurb_w = row_w
+        blurb_h = (0.85 - 0.80) * (height / scale)
+        assert blurb_h + 0.5 >= 18 * 2
+        assert row_h + 0.5 >= 18 * 2
+        for lang in ("en", "sv"):
+            assert _shop_wrapped_lines(rows[lang], row_w, 18) <= 2
+            assert _shop_wrapped_lines(descs[lang], blurb_w, 18) <= 2
+            assert _shop_wrapped_lines(rejected[lang], blurb_w, 18) <= 2
+            assert _kenney_future_width(rows[lang].split(" ")[0], 18) <= row_w
+
+
 def RunSetupNav_selfcheck() -> bool:
+    last = 3 + 6 - 1
+
     def step(slot: int, dx: int, dy: int) -> int:
         current = slot
         if current < 0:
             current = 0
-        if current > 2:
-            current = 2
+        if current >= 3 + 6:
+            current = 3 + 6 - 1
         if dy > 0:
-            return 2
+            if 3 <= current < 3 + 6:
+                ident = current - 3
+                if ident >= 5:
+                    return 0
+                return 3 + ident + 1
+            if current == 0 or current == 1:
+                return 2
+            return current
         if dy < 0:
-            return 0 if current == 2 else current
+            if current == 2:
+                return 0
+            if current == 0 or current == 1:
+                return last
+            if 3 <= current < 3 + 6:
+                ident = current - 3
+                if ident <= 0:
+                    return current
+                return 3 + ident - 1
+            return current
         if dx > 0 and current == 0:
             return 1
         if dx < 0 and current == 1:
@@ -13019,6 +13295,11 @@ def RunSetupNav_selfcheck() -> bool:
         and step(0, 0, 1) == 2
         and step(1, 0, 1) == 2
         and step(2, 0, -1) == 0
+        and step(0, 0, -1) == last
+        and step(last, 0, 1) == 0
+        and step(3, 0, 1) == 4
+        and step(4, 0, -1) == 3
+        and step(3, 0, -1) == 3
         and step(2, 1, 0) == 2
     )
 

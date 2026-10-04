@@ -1422,7 +1422,8 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (RunRng.Unit() > 0.22f)
+            float dropCeiling = MutatorRules.DropCeiling(MutatorRuntime.Mask);
+            if (RunRng.Unit() > dropCeiling)
             {
                 return;
             }

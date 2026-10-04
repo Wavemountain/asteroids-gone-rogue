@@ -315,7 +315,9 @@ namespace AsteroidsGoneRogue
         public static EnemyKind[] RosterForWave(int waveIndex)
         {
             int rung = Mathf.Clamp(waveIndex, 1, 10);
-            return WaveRoster.Extend(BaseRoster(rung), waveIndex);
+            int shiftedRung = MutatorRules.NextRung(rung, MutatorRuntime.Mask);
+            EnemyKind[] roster = WaveRoster.Extend(BaseRoster(shiftedRung), waveIndex);
+            return MutatorRules.AdjustRoster(roster, MutatorRuntime.Mask);
         }
 
         private static EnemyKind[] BaseRoster(int rung)

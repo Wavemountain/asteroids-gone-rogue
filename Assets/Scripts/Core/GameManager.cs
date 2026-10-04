@@ -44,6 +44,8 @@ namespace AsteroidsGoneRogue
 
         public int ActiveDailyDate { get; private set; }
 
+        public int ActiveMutatorMask { get; private set; }
+
         public DailyBoardData Daily { get; private set; }
 
         public ShipHealth PlayerHealth
@@ -534,7 +536,8 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            _session.AddScore(amount);
+            int scaledBonus = MutatorRules.ScaleScore(amount, ActiveMutatorMask);
+            _session.AddScore(scaledBonus);
             RaiseStateChanged();
         }
 
@@ -547,7 +550,8 @@ namespace AsteroidsGoneRogue
 
             if (!TutorialActive)
             {
-                _session.AddScore(scoreValue);
+                int scaledThreat = MutatorRules.ScaleScore(scoreValue, ActiveMutatorMask);
+                _session.AddScore(scaledThreat);
             }
 
             if (_waves.RemainingThreats <= 0)
@@ -680,27 +684,15 @@ namespace AsteroidsGoneRogue
 
         public void OneMoreTry()
         {
-            if (_session == null || !FirstRunRules.OneMoreTryIsPrimary(_session.Phase))
-            {
-                return;
-            }
-
-            DifficultyGrade kept = DifficultySettings.Current;
-            _skipTutorialRedirect = true;
-            ResetFullRun();
-            if (DifficultySettings.Current != kept)
-            {
-                DifficultySettings.SetGrade(kept);
-            }
-
-            StartWave();
-            if (_ui != null)
-            {
-                _ui.FlashRetry();
-            }
+            BeginRetry(false, 0, 0, 0, ActiveMutatorMask);
         }
 
         public void OneMoreTryDaily(int year, int month, int day)
+        {
+            BeginRetry(true, year, month, day, ActiveMutatorMask);
+        }
+
+        public void BeginRetry(bool daily, int year, int month, int day, int mutatorMask)
         {
             if (_session == null || !FirstRunRules.OneMoreTryIsPrimary(_session.Phase))
             {
@@ -710,7 +702,12 @@ namespace AsteroidsGoneRogue
             DifficultyGrade keptGrade = DifficultySettings.Current;
             _skipTutorialRedirect = true;
             ResetFullRun();
-            ApplyDailyClock(year, month, day);
+            ApplyMutators(mutatorMask);
+            if (daily)
+            {
+                ApplyDailyClock(year, month, day);
+            }
+
             if (DifficultySettings.Current != keptGrade)
             {
                 DifficultySettings.SetGrade(keptGrade);
@@ -721,6 +718,12 @@ namespace AsteroidsGoneRogue
             {
                 _ui.FlashRetry();
             }
+        }
+
+        public void ApplyMutators(int mask)
+        {
+            ActiveMutatorMask = MutatorRules.Sanitize(mask);
+            MutatorRuntime.Set(ActiveMutatorMask);
         }
 
         public void NotifyPlayerDestroyed()
@@ -1043,6 +1046,7 @@ namespace AsteroidsGoneRogue
                 ActiveDailyDate = 0;
             }
 
+            ApplyMutators(data.MutatorMask);
             _runLaunched = true;
             _legacyApplied = true;
             DifficultyGrade grade = DifficultyGrade.Normal;
@@ -1169,12 +1173,12 @@ namespace AsteroidsGoneRogue
             int closedHighest;
             LegacyProgress.ProgressOf(doomedSave.WaveIndex, true, out closedWorlds, out closedHighest);
             LegacyProgress.TryAward(Meta, doomedSave.RunId, closedWorlds, closedHighest);
-            if (closedHighest > 0 && doomedSave.DailySeed == 0)
+            if (closedHighest > 0 && doomedSave.DailySeed == 0 && doomedSave.MutatorMask == 0)
             {
                 int closedWorldNumber = WorldCatalog.NumberForWave(closedHighest);
                 LegacyProgress.TryRecordBest(Meta, doomedSave.Difficulty, doomedSave.Score, closedHighest, closedWorldNumber);
             }
-            else if (closedHighest > 0 && doomedSave.AssistUsed == 0)
+            else if (closedHighest > 0 && doomedSave.AssistUsed == 0 && doomedSave.MutatorMask == 0)
             {
                 RememberDaily(doomedSave.DailyDate, doomedSave.Score, closedHighest);
             }
@@ -1209,12 +1213,12 @@ namespace AsteroidsGoneRogue
                 }
 
                 LegacyProgress.TryAward(Meta, pending.RunId, worldsCleared, highestWave);
-                if (highestWave > 0 && pending.DailySeed == 0)
+                if (highestWave > 0 && pending.DailySeed == 0 && pending.MutatorMask == 0)
                 {
                     int worldNumber = WorldCatalog.NumberForWave(highestWave);
                     LegacyProgress.TryRecordBest(Meta, pending.Difficulty, pending.Score, highestWave, worldNumber);
                 }
-                else if (highestWave > 0 && pending.AssistUsed == 0)
+                else if (highestWave > 0 && pending.AssistUsed == 0 && pending.MutatorMask == 0)
                 {
                     RememberDaily(pending.DailyDate, pending.Score, highestWave);
                 }
@@ -1300,6 +1304,8 @@ namespace AsteroidsGoneRogue
             ActiveRunId = 0;
             ActiveDailySeed = 0;
             ActiveDailyDate = 0;
+            ActiveMutatorMask = 0;
+            MutatorRuntime.Clear();
             if (_loadout != null && _loadout.State != null)
             {
                 _loadout.State.Reset();
@@ -1527,7 +1533,7 @@ namespace AsteroidsGoneRogue
             int waveHull;
             int waveShield;
             ReadShipVitals(out waveHull, out waveShield);
-            RunSaveData waveData = RunSaveCodec.Capture(_session, _loadout.State, (int)DifficultySettings.Current, ActiveRunId, waveStamp, _boonRun, waveHull, waveShield, ActiveDailySeed, ActiveDailyDate);
+            RunSaveData waveData = RunSaveCodec.Capture(_session, _loadout.State, (int)DifficultySettings.Current, ActiveRunId, waveStamp, _boonRun, waveHull, waveShield, ActiveDailySeed, ActiveDailyDate, ActiveMutatorMask);
             if (!RunSaveCodec.IsValid(waveData))
             {
                 return;
@@ -1615,7 +1621,9 @@ namespace AsteroidsGoneRogue
             _waves.DespawnAll();
             int clearCredits = DifficultyCurve.ScaleCredits(DifficultySettings.WaveClearCredits, clearedWave);
             clearCredits = BoonHooks.ScaleCredits(clearCredits);
-            _session.CompleteWave(ScoreValues.WaveClearBonus, clearCredits);
+            clearCredits = MutatorRules.ScaleCredits(clearCredits, ActiveMutatorMask);
+            int clearBonus = MutatorRules.ScaleScore(ScoreValues.WaveClearBonus, ActiveMutatorMask);
+            _session.CompleteWave(clearBonus, clearCredits);
             OfferBoonChoice(clearedWave);
 
             RecordBest(clearedWave);
@@ -1772,12 +1780,27 @@ namespace AsteroidsGoneRogue
                     Daily = DailyBoardStore.Load();
                 }
 
-                LastRunWasNewBest = DailyBoardRules.TrySubmit(Daily, ActiveDailyDate, _session.Score, wave, false);
-                if (LastRunWasNewBest)
+                if (ActiveMutatorMask == 0)
                 {
-                    DailyBoardStore.Save(Daily);
+                    LastRunWasNewBest = DailyBoardRules.TrySubmit(Daily, ActiveDailyDate, _session.Score, wave, false);
+                    if (LastRunWasNewBest)
+                    {
+                        DailyBoardStore.Save(Daily);
+                    }
                 }
 
+                return;
+            }
+
+            if (ActiveMutatorMask != 0)
+            {
+                if (SessionBest == null)
+                {
+                    SessionBest = new LocalBest();
+                }
+
+                int mutatorWorld = WorldCatalog.NumberForWave(wave);
+                SessionBest.TryRecord(_session.Score, wave, mutatorWorld);
                 return;
             }
 
@@ -1986,7 +2009,7 @@ namespace AsteroidsGoneRogue
             int savedHull;
             int savedShield;
             ReadShipVitals(out savedHull, out savedShield);
-            RunSaveData data = RunSaveCodec.Capture(_session, _loadout.State, (int)DifficultySettings.Current, ActiveRunId, stamp, _boonRun, savedHull, savedShield, ActiveDailySeed, ActiveDailyDate);
+            RunSaveData data = RunSaveCodec.Capture(_session, _loadout.State, (int)DifficultySettings.Current, ActiveRunId, stamp, _boonRun, savedHull, savedShield, ActiveDailySeed, ActiveDailyDate, ActiveMutatorMask);
             if (!RunSaveCodec.IsValid(data))
             {
                 return;

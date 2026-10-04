@@ -31,7 +31,8 @@ namespace AsteroidsGoneRogue
             _size = size;
             _waves = waves;
             _factory = factory;
-            _hits = size == AsteroidSize.Large ? LargeHits : SmallHits;
+            int rockHits = size == AsteroidSize.Large ? LargeHits : SmallHits;
+            _hits = MutatorRules.ScaleRockHits(rockHits, MutatorRuntime.Mask);
             if (waves != null && waves.Modifier == WaveModifierKind.ShieldedAsteroids)
             {
                 _hits += size == AsteroidSize.Large
@@ -168,7 +169,8 @@ namespace AsteroidsGoneRogue
 
             if (_size == AsteroidSize.Large && _factory != null && _waves != null)
             {
-                int shardCount = ShardsOnSplit + BoonHooks.ExtraShards;
+                int extraSplits = MutatorRules.ExtraSplits(MutatorRuntime.Mask);
+                int shardCount = ShardsOnSplit + BoonHooks.ExtraShards + extraSplits;
                 if (shardCount < ShardsOnSplit)
                 {
                     shardCount = ShardsOnSplit;
