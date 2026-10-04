@@ -2075,6 +2075,10 @@ def main() -> int:
         shadow_files.append((str(path.relative_to(ROOT)), read(path)))
     for hit in type_member_shadow_violations(shadow_files):
         err(hit)
+    from roslyn_core_check import core_roslyn_errors
+
+    for hit in core_roslyn_errors():
+        err(hit)
 
     if "FindObjectOfType" in blob or "FindObjectsOfType" in blob:
         err("scripts still call obsolete FindObjectOfType / FindObjectsOfType")

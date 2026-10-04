@@ -256,6 +256,11 @@ namespace AsteroidsGoneRogue
                 return "Q";
             }
 
+            if (token == "cycle_prev" || token == "cycle_alt")
+            {
+                return Loc.T("ui.prompt.unbound", "unbound");
+            }
+
             if (token == "pause" || token == "cancel")
             {
                 return "Esc";

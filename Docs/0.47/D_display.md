@@ -46,7 +46,9 @@ Vertical FOV stays **54**. `ArenaFraming` keeps a 16:9 frustum:
 - Taller than 16:9 (including 1280×800): letterbox. The rect is shorter and centered, so the playfield is not cropped.
 - Exactly 16:9: the rect is full screen.
 
-The decor camera copies the play camera rect in `LateUpdate` (execution order 20000), otherwise the side bars would show extra scenery. `LetterboxClear` is a third camera at depth −100, solid black, culling mask 0, full rect, and no audio listener. It is created with the decor stack and paints the letterbox and pillarbox bars so a 16:10 Deck or an ultrawide build does not flicker uncleared color there. The gameplay camera keeps the only audio listener. UI canvases are screen-space overlays and stay full screen. Store capture hold resets the play rect to full screen so the capture is not letterboxed.
+The decor camera copies the play camera rect in `LateUpdate` (execution order 20000), so the bars are outside both the play frustum and the decor frustum. `LetterboxClear` is a third camera at depth −100, solid black, culling mask 0, full rect, enabled, and no audio listener. It is created with the decor stack and paints the letterbox and pillarbox bars, so a 16:10 Deck or an ultrawide build shows black there instead of uncleared color. The gameplay camera keeps the only audio listener. UI canvases are screen-space overlays and stay full screen. Store capture hold resets the play rect to full screen so the capture is not letterboxed.
+
+1280×800 is 16:10, taller than 16:9. The letterbox is 40 px at the top and 40 px at the bottom. Filling that screen by giving only the decor camera a taller frustum would draw scenery outside the fair play view, and lining that image up with the 16:9 play camera is not clearly safe. The playfield stays the 16:9 rect. The bars stay black.
 
 ## Known sizes the tests do not raise
 
