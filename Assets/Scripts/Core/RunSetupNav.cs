@@ -1,15 +1,36 @@
 namespace AsteroidsGoneRogue
 {
     /// <summary>
-    /// Pad grid for the New Run chooser. Normal and Daily sit on one row.
-    /// Back is the row below. Unity-free.
+    /// Pad grid for the New Run chooser. Normal and Daily sit on the bottom
+    /// row, six mutators stack above them, and Back is under that row.
+    /// Down the screen is positive dy. Unity-free.
     /// </summary>
     public static class RunSetupNav
     {
         public const int NormalSlot = 0;
         public const int DailySlot = 1;
         public const int CancelSlot = 2;
-        public const int SlotCount = 3;
+        public const int Mutator0 = 3;
+
+        public static int SlotCount
+        {
+            get { return Mutator0 + MutatorCatalog.Count; }
+        }
+
+        public static int MutatorSlot(int id)
+        {
+            return Mutator0 + id;
+        }
+
+        public static bool IsMutator(int slot)
+        {
+            return slot >= Mutator0 && slot < SlotCount;
+        }
+
+        public static int MutatorId(int slot)
+        {
+            return slot - Mutator0;
+        }
 
         public static int DefaultSlot(RunSetupKind kind)
         {
@@ -29,19 +50,56 @@ namespace AsteroidsGoneRogue
                 current = NormalSlot;
             }
 
-            if (current > CancelSlot)
+            if (current >= SlotCount)
             {
-                current = CancelSlot;
+                current = SlotCount - 1;
             }
 
             if (dy > 0)
             {
-                return CancelSlot;
+                if (IsMutator(current))
+                {
+                    int downId = MutatorId(current);
+                    if (downId >= MutatorCatalog.Count - 1)
+                    {
+                        return NormalSlot;
+                    }
+
+                    return MutatorSlot(downId + 1);
+                }
+
+                if (current == NormalSlot || current == DailySlot)
+                {
+                    return CancelSlot;
+                }
+
+                return current;
             }
 
             if (dy < 0)
             {
-                return current == CancelSlot ? NormalSlot : current;
+                if (current == CancelSlot)
+                {
+                    return NormalSlot;
+                }
+
+                if (current == NormalSlot || current == DailySlot)
+                {
+                    return MutatorSlot(MutatorCatalog.Count - 1);
+                }
+
+                if (IsMutator(current))
+                {
+                    int upId = MutatorId(current);
+                    if (upId <= 0)
+                    {
+                        return current;
+                    }
+
+                    return MutatorSlot(upId - 1);
+                }
+
+                return current;
             }
 
             if (dx > 0 && current == NormalSlot)
@@ -59,11 +117,17 @@ namespace AsteroidsGoneRogue
 
         public static bool SelfCheck()
         {
+            int lastMutator = MutatorSlot(MutatorCatalog.Count - 1);
             return Step(NormalSlot, 1, 0) == DailySlot
                 && Step(DailySlot, -1, 0) == NormalSlot
                 && Step(NormalSlot, 0, 1) == CancelSlot
                 && Step(DailySlot, 0, 1) == CancelSlot
                 && Step(CancelSlot, 0, -1) == NormalSlot
+                && Step(NormalSlot, 0, -1) == lastMutator
+                && Step(lastMutator, 0, 1) == NormalSlot
+                && Step(Mutator0, 0, 1) == MutatorSlot(1)
+                && Step(MutatorSlot(1), 0, -1) == Mutator0
+                && Step(Mutator0, 0, -1) == Mutator0
                 && Step(CancelSlot, 1, 0) == CancelSlot
                 && DefaultSlot(RunSetupKind.Abandon) == NormalSlot
                 && DefaultSlot(RunSetupKind.Retry) == DailySlot

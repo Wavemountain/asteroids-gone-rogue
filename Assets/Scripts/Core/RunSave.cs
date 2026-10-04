@@ -62,6 +62,9 @@ namespace AsteroidsGoneRogue
         /// <summary>UTC date as yyyymmdd. 0 means a normal run.</summary>
         public int DailyDate;
 
+        /// <summary>Optional mutator bits. 0 means the shipped rules.</summary>
+        public int MutatorMask;
+
         /// <summary>
         /// Remaining shield charges when the save was written. -1 means full
         /// (version 1–3 files, or a field the file omitted).
@@ -73,7 +76,7 @@ namespace AsteroidsGoneRogue
 
     public static class RunSaveCodec
     {
-        public const int CurrentVersion = 6;
+        public const int CurrentVersion = 7;
         public const int MaxHullNow = 16;
 
         /// <summary>
@@ -117,7 +120,8 @@ namespace AsteroidsGoneRogue
             int hullNow,
             int shieldNow,
             int dailySeed,
-            int dailyDate)
+            int dailyDate,
+            int mutatorMask)
         {
             RunSaveData data = new RunSaveData();
             data.Version = CurrentVersion;
@@ -162,6 +166,7 @@ namespace AsteroidsGoneRogue
             data.AssistUsed = session != null && session.AssistUsed ? 1 : 0;
             data.DailySeed = dailySeed > 0 ? dailySeed : 0;
             data.DailyDate = dailyDate > 0 ? dailyDate : 0;
+            data.MutatorMask = MutatorRules.Sanitize(mutatorMask);
             data.Difficulty = difficulty;
             data.RunId = runId;
             data.Timestamp = timestamp == null ? string.Empty : timestamp;
@@ -387,10 +392,17 @@ namespace AsteroidsGoneRogue
 
             if (data.DailyDate == 0)
             {
-                return data.DailySeed == 0;
+                if (data.DailySeed != 0)
+                {
+                    return false;
+                }
+            }
+            else if (data.DailySeed < 1 || !DailySeed.DateLooksValid(data.DailyDate))
+            {
+                return false;
             }
 
-            return data.DailySeed > 0 && DailySeed.DateLooksValid(data.DailyDate);
+            return data.MutatorMask == MutatorRules.Sanitize(data.MutatorMask);
         }
 
         /// <summary>
@@ -491,6 +503,7 @@ namespace AsteroidsGoneRogue
                 && left.AssistUsed == right.AssistUsed
                 && left.DailySeed == right.DailySeed
                 && left.DailyDate == right.DailyDate
+                && left.MutatorMask == right.MutatorMask
                 && left.Timestamp == right.Timestamp;
         }
 
@@ -538,6 +551,7 @@ namespace AsteroidsGoneRogue
             AppendInt(builder, "AssistUsed", data.AssistUsed, false);
             AppendInt(builder, "DailySeed", data.DailySeed, false);
             AppendInt(builder, "DailyDate", data.DailyDate, false);
+            AppendInt(builder, "MutatorMask", data.MutatorMask, false);
             builder.Append(",\"Timestamp\":\"");
             builder.Append(Escape(data.Timestamp));
             builder.Append("\"}");
@@ -668,6 +682,15 @@ namespace AsteroidsGoneRogue
                 parsed.DailyDate = 0;
             }
 
+            if (parsed.Version < 7)
+            {
+                parsed.MutatorMask = 0;
+            }
+            else
+            {
+                parsed.MutatorMask = MutatorRules.Sanitize(parsed.MutatorMask);
+            }
+
             if (!IsValid(parsed))
             {
                 return false;
@@ -795,6 +818,9 @@ namespace AsteroidsGoneRogue
                     return true;
                 case "DailyDate":
                     data.DailyDate = number;
+                    return true;
+                case "MutatorMask":
+                    data.MutatorMask = number;
                     return true;
                 default:
                     return true;

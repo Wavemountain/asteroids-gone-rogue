@@ -274,6 +274,7 @@ namespace AsteroidsGoneRogue
             }
 
             amount = DifficultySettings.ScaleIncomingDamage(amount, cause);
+            amount = MutatorRules.ScaleDamage(amount, MutatorRuntime.Mask);
             bool assist = SettingsState.AssistEnabled;
             amount = AssistRules.ScaleIncoming(amount, cause, assist, ref _assistRemainder);
             if (assist && _game != null)

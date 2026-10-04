@@ -224,6 +224,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            amount = MutatorRules.ScaleDamage(amount, MutatorRuntime.Mask);
             _hp -= amount;
             if (_hp > 0)
             {
@@ -536,6 +537,7 @@ namespace AsteroidsGoneRogue
             }
 
             float cooldown = EnemyCatalog.FireCooldown(_kind);
+            cooldown = MutatorRules.ScaleFireCooldown(cooldown, MutatorRuntime.Mask);
             int firePercent = _fireRatePercent < 100 ? 100 : _fireRatePercent;
             cooldown = cooldown * 100f / firePercent;
             bool aimedGun = _kind == EnemyKind.Sniper || _kind == EnemyKind.Gunner;

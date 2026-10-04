@@ -60,6 +60,8 @@ namespace AsteroidsGoneRogue
         private bool _setupHeld;
         private float _setupRepeatAt;
         private RunSetupKind _setupKind;
+        private int _setupMask;
+        private bool _setupRejected;
         private Button _abortButton;
         private Text _abortLabel;
         private GameObject _tutorialRoot;
@@ -557,6 +559,12 @@ namespace AsteroidsGoneRogue
                 extra += "  ·  " + dailyHangar;
             }
 
+            string mutatorHangar = _game != null ? MutatorCopy.Hud(_game.ActiveMutatorMask) : string.Empty;
+            if (mutatorHangar.Length > 0)
+            {
+                extra += "  ·  " + mutatorHangar;
+            }
+
             // Controls hint lives only in the screen-bottom row, never in WAVE CLEAR / shop.
             return waveLine + extra;
         }
@@ -979,6 +987,8 @@ namespace AsteroidsGoneRogue
 
             CloseSinkShop();
             _setupKind = kind;
+            _setupMask = 0;
+            _setupRejected = false;
             _setupOpen = true;
             _setupFocus = RunSetupNav.DefaultSlot(kind);
             _setupHeld = false;
@@ -1102,10 +1112,107 @@ namespace AsteroidsGoneRogue
                     UiTheme.SetPadFocus(choice.gameObject, setupIndex == slot, true);
                 }
             }
+
+            PaintRunSetup(slot);
+        }
+
+        private void PaintRunSetup(int slot)
+        {
+            if (_setupButtons != null)
+            {
+                for (int paintIndex = 0; paintIndex < _setupButtons.Length; paintIndex++)
+                {
+                    Button paintButton = _setupButtons[paintIndex];
+                    if (paintButton == null)
+                    {
+                        continue;
+                    }
+
+                    Text paintLabel = paintButton.GetComponentInChildren<Text>();
+                    if (paintLabel == null)
+                    {
+                        continue;
+                    }
+
+                    if (paintIndex == RunSetupNav.NormalSlot)
+                    {
+                        paintLabel.text = DailyCopy.Normal();
+                    }
+                    else if (paintIndex == RunSetupNav.DailySlot)
+                    {
+                        paintLabel.text = DailyCopy.Daily();
+                    }
+                    else if (paintIndex == RunSetupNav.CancelSlot)
+                    {
+                        paintLabel.text = DailyCopy.Cancel();
+                    }
+                    else if (RunSetupNav.IsMutator(paintIndex))
+                    {
+                        int paintId = RunSetupNav.MutatorId(paintIndex);
+                        bool paintOn = MutatorRules.Has(_setupMask, paintId);
+                        paintLabel.text = MutatorCopy.Row(paintId, paintOn);
+                    }
+                }
+            }
+
+            if (_setupBlurb == null)
+            {
+                return;
+            }
+
+            int paintYear;
+            int paintMonth;
+            int paintDay;
+            DailySeed.UtcToday(out paintYear, out paintMonth, out paintDay);
+            int paintDate = DailySeed.PackDate(paintYear, paintMonth, paintDay);
+            int paintScore = 0;
+            int paintWave = 0;
+            if (_game != null && _game.Daily != null)
+            {
+                DailyBoardRules.TryRead(_game.Daily, paintDate, out paintScore, out paintWave);
+            }
+
+            string paintSecond;
+            if (_setupRejected)
+            {
+                paintSecond = MutatorCopy.Rejected();
+            }
+            else if (RunSetupNav.IsMutator(slot))
+            {
+                paintSecond = MutatorCopy.Description(RunSetupNav.MutatorId(slot));
+            }
+            else if (_setupMask != 0)
+            {
+                paintSecond = MutatorCopy.StackLine(_setupMask);
+            }
+            else
+            {
+                paintSecond = DailyCopy.Blurb(paintScore, paintWave);
+            }
+
+            _setupBlurb.text = DailyCopy.Hint() + "\n" + paintSecond;
         }
 
         private void ApplyRunSetup(int slot)
         {
+            if (RunSetupNav.IsMutator(slot))
+            {
+                int toggledMask;
+                if (MutatorRules.TryToggle(_setupMask, RunSetupNav.MutatorId(slot), out toggledMask))
+                {
+                    _setupMask = toggledMask;
+                    _setupRejected = false;
+                }
+                else
+                {
+                    _setupRejected = true;
+                }
+
+                FocusRunSetup(slot);
+                return;
+            }
+
+            int chosenMask = _setupMask;
             RunSetupKind kind = _setupKind;
             CloseRunSetup();
             if (slot == RunSetupNav.CancelSlot || _game == null)
@@ -1129,23 +1236,18 @@ namespace AsteroidsGoneRogue
                     _game.AbandonSavedRun();
                 }
 
+                _game.ApplyMutators(chosenMask);
+                _game.RefreshHud();
                 return;
             }
 
             if (kind == RunSetupKind.Retry)
             {
-                if (daily)
-                {
-                    _game.OneMoreTryDaily(setupYear, setupMonth, setupDay);
-                }
-                else
-                {
-                    _game.OneMoreTry();
-                }
-
+                _game.BeginRetry(daily, setupYear, setupMonth, setupDay, chosenMask);
                 return;
             }
 
+            _game.ApplyMutators(chosenMask);
             if (daily)
             {
                 _game.ApplyDailyClock(setupYear, setupMonth, setupDay);
@@ -2501,6 +2603,17 @@ namespace AsteroidsGoneRogue
                         }
 
                         recordLine += dailyCard;
+                    }
+
+                    string mutatorCard = _game != null ? MutatorCopy.Hud(_game.ActiveMutatorMask) : string.Empty;
+                    if (mutatorCard.Length > 0)
+                    {
+                        if (recordLine.Length > 0)
+                        {
+                            recordLine += "  ·  ";
+                        }
+
+                        recordLine += mutatorCard;
                     }
                 }
 
@@ -4898,6 +5011,12 @@ namespace AsteroidsGoneRogue
             if (dailyHud.Length > 0)
             {
                 scoreLine += "\n" + dailyHud;
+            }
+
+            string mutatorHud = _game != null ? MutatorCopy.Hud(_game.ActiveMutatorMask) : string.Empty;
+            if (mutatorHud.Length > 0)
+            {
+                scoreLine += "\n" + mutatorHud;
             }
 
             if (playing)
