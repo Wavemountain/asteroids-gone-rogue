@@ -446,7 +446,29 @@ namespace AsteroidsGoneRogue
             { "boon.level", "Nv {0}" },
             { "boon.row", "Bonusar  {0}" },
             { "boon.pick", "Välj 1 bonus" },
-            { "boon.pad", "{confirm} välj  ·  {nav}" }
+            { "boon.pad", "{confirm} välj  ·  {nav}" },
+            { "sink.entry", "Varv" },
+            { "sink.title", "Varvsdetaljer" },
+            { "sink.close", "Stäng" },
+            { "sink.hint", "{confirm} köp  ·  {cancel} stäng" },
+            { "sink.blurb", "\u2022 Färg och spår stannar på profilen. Sköld och räckvidd gäller nästa runda." },
+            { "sink.paint.amber", "Bärnstensskrov" },
+            { "sink.paint.steel", "Stålskrov" },
+            { "sink.trail.cyan", "Cyan spår" },
+            { "sink.trail.amber", "Bärnstensspår" },
+            { "sink.shield", "Startsköld" },
+            { "sink.reach", "Plockräckvidd" },
+            { "sink.desc.amber", "Bärnsten på hangarskrovet." },
+            { "sink.desc.steel", "Kallt stål på hangarskrovet." },
+            { "sink.desc.trail.cyan", "Cyan spår efter skott. Kosmetiskt." },
+            { "sink.desc.trail.amber", "Bärnstensspår efter skott. Kosmetiskt." },
+            { "sink.desc.shield", "Nästa runda börjar med +1 sköld. Tak 1." },
+            { "sink.desc.reach", "Nästa runda: plockradie +5% per steg. Tak 2." },
+            { "sink.status.need", "SAKNAR {0}" },
+            { "sink.status.owned", "ÄGD" },
+            { "sink.status.fitted", "MONTERAD" },
+            { "sink.status.capped", "TAK" },
+            { "sink.status.price", "{0}" }
         };
 
         /// <summary>

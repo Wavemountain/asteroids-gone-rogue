@@ -7679,6 +7679,7 @@ def main() -> int:
     test_display_047d()
     test_input_prompts_047e()
     test_rebind_047e2()
+    test_part_f_preview_and_sinks()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -12152,6 +12153,362 @@ def test_rebind_047e2() -> None:
         for focus in range(12):
             view_bottom, view_top = _rebind_bands(focus)
             assert view_bottom >= -0.001 and view_top <= 1.001, (focus, view_bottom, view_top)
+
+
+def test_part_f_preview_and_sinks() -> None:
+    """0.47 F1 preview motion and F4 bay sinks. Default catalogue stays 9883."""
+    import math
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    rig = (root / "Assets/Scripts/Core/HangarPreviewRig.cs").read_text(encoding="utf-8")
+    preview = (root / "Assets/Scripts/Hangar/HangarShipPreview.cs").read_text(encoding="utf-8")
+    catalog = (root / "Assets/Scripts/Core/ShopSinkCatalog.cs").read_text(encoding="utf-8")
+    profile = (root / "Assets/Scripts/Core/SinkProfile.cs").read_text(encoding="utf-8")
+    layout = (root / "Assets/Scripts/Core/SinkShopLayout.cs").read_text(encoding="utf-8")
+    pad = (root / "Assets/Scripts/Core/HangarPadNav.cs").read_text(encoding="utf-8")
+    sink_pad = (root / "Assets/Scripts/Core/SinkPadNav.cs").read_text(encoding="utf-8")
+    copy = (root / "Assets/Scripts/Core/SinkCopy.cs").read_text(encoding="utf-8")
+    shop = (root / "Assets/Scripts/Core/ShopCatalog.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+
+    assert "IdleSpinDegrees = 18f" in preview
+    assert "LegacySpinDegrees = 18f" in rig
+    assert "TurntableScale = 0.5f" in rig
+    assert "interacting || reduceEffects" in rig
+    assert "return false" in rig.split("GlowPulses")[1].split("public static")[0]
+    assert "SetInteractionHold" in preview
+    assert "HangarPreviewRig.SpinDegreesPerSecond" in preview
+    assert "ApplyLightRecipe" in preview
+    assert "Mk2Marker" in preview and "TrailRibbon" in preview
+    assert "RectMask2D" in ui
+    assert "sortingOrder = CanvasOrder.ShipPreview" in ui or "CanvasOrder.ShipPreview" in ui
+    assert "canvas.sortingOrder = CanvasOrder.Overlay" in ui
+    assert "ShipFitsFrame" in rig
+
+    def spin(interacting: bool, reduce: bool) -> float:
+        if interacting or reduce:
+            return 0.0
+        return 18.0 * 0.5
+
+    assert spin(False, False) == 9.0
+    assert spin(True, False) == 0.0
+    assert spin(False, True) == 0.0
+
+    dx, dy, dz = 0.2, 4.55 - 0.08, -10.0
+    dist = math.sqrt(dx * dx + dy * dy + dz * dz)
+    vertical = dist * math.tan(math.radians(20.0))
+    horizontal = vertical * (768.0 / 960.0)
+    assert 2.5 < horizontal and 2.5 < vertical
+    assert not (4.5 < horizontal)
+
+    assert "PaintPrice = 420" in catalog
+    assert "TrailPrice = 380" in catalog
+    assert "ShieldPrice = 640" in catalog
+    assert "ReachPrice0 = 520" in catalog
+    assert "ReachPrice1 = 980" in catalog
+    assert "ShieldCap = 1" in catalog
+    assert "ReachCap = 2" in catalog
+    assert "class ShopSinkCatalog" not in shop
+    assert "420" not in shop
+    for sticker in ("90,", "175,", "120,", "80,", "185,"):
+        assert sticker in shop
+
+    def sink_price(sink_id: int, rank: int) -> int:
+        if sink_id < 0 or sink_id >= 6:
+            return 0
+        if rank < 0:
+            rank = 0
+        if sink_id == 4:
+            return 0 if rank >= 1 else 640
+        if sink_id == 5:
+            if rank >= 2:
+                return 0
+            return 520 if rank <= 0 else 980
+        if sink_id in (0, 1):
+            return 420
+        if sink_id in (2, 3):
+            return 380
+        return 0
+
+    assert sink_price(5, 1) > sink_price(5, 0) > 0
+    assert sink_price(5, 2) == 0
+    assert sink_price(4, 0) == 640 and sink_price(4, 1) == 0
+    for sink_id in range(6):
+        assert sink_price(sink_id, 0) > 0
+        assert sink_price(sink_id, -3) == sink_price(sink_id, 0)
+
+    def reach_mul(rank: int) -> float:
+        if rank < 0:
+            rank = 0
+        if rank > 2:
+            rank = 2
+        return (100 + rank * 5) / 100.0
+
+    assert reach_mul(0) == 1.0
+    assert abs(reach_mul(1) - 1.05) < 1e-6
+    assert abs(reach_mul(2) - 1.10) < 1e-6
+    assert "StartingShieldBonus" in profile
+    assert "return 0" in profile.split("StartingShieldBonus")[1].split("public static")[0]
+
+    def purchase(owned: set[int], paint: int, trail: int, shield: int, reach: int, sink_id: int, credits: int):
+        if sink_id in (0, 1, 2, 3):
+            if sink_id in owned:
+                equipped = paint if sink_id in (0, 1) else trail
+                if equipped == sink_id:
+                    return None
+                if sink_id in (0, 1):
+                    paint = sink_id
+                else:
+                    trail = sink_id
+                return owned, paint, trail, shield, reach, 0
+            price = sink_price(sink_id, 0)
+            if credits < price:
+                return None
+            owned = set(owned)
+            owned.add(sink_id)
+            if sink_id in (0, 1):
+                paint = sink_id
+            else:
+                trail = sink_id
+            return owned, paint, trail, shield, reach, price
+        if sink_id == 4:
+            if shield >= 1 or credits < 640:
+                return None
+            return owned, paint, trail, 1, reach, 640
+        if reach >= 2 or credits < sink_price(5, reach):
+            return None
+        price = sink_price(5, reach)
+        return owned, paint, trail, shield, reach + 1, price
+
+    bought = purchase(set(), -1, -1, 0, 0, 0, 500)
+    assert bought is not None and bought[1] == 0 and bought[5] == 420
+    refit = purchase(bought[0], bought[1], bought[2], 0, 0, 0, 0)
+    assert refit is None
+    other = purchase(bought[0], bought[1], bought[2], 0, 0, 1, 100)
+    assert other is None
+    other = purchase(bought[0], bought[1], bought[2], 0, 0, 1, 420)
+    assert other is not None and other[1] == 1 and other[5] == 420
+    free = purchase(other[0], other[1], other[2], 0, 0, 0, 0)
+    assert free is not None and free[5] == 0 and free[1] == 0
+    assert purchase(set(), -1, -1, 1, 0, 4, 9999) is None
+    step = purchase(set(), -1, -1, 0, 0, 5, 520)
+    assert step is not None and step[4] == 1 and step[5] == 520
+    step2 = purchase(set(), -1, -1, 0, 1, 5, 979)
+    assert step2 is None
+    step2 = purchase(set(), -1, -1, 0, 1, 5, 980)
+    assert step2 is not None and step2[4] == 2
+    assert purchase(set(), -1, -1, 0, 2, 5, 5000) is None
+
+    def tile_state(owned, paint, trail, shield, reach, sink_id, credits) -> str:
+        if sink_id in (0, 1):
+            if sink_id not in owned:
+                return "NEED" if credits < 420 else "PRICE"
+            return "FITTED" if paint == sink_id else "OWNED"
+        if sink_id in (2, 3):
+            if sink_id not in owned:
+                return "NEED" if credits < 380 else "PRICE"
+            return "FITTED" if trail == sink_id else "OWNED"
+        if sink_id == 4:
+            if shield >= 1:
+                return "CAPPED"
+            return "NEED" if credits < 640 else "PRICE"
+        if reach >= 2:
+            return "CAPPED"
+        return "NEED" if credits < sink_price(5, reach) else "PRICE"
+
+    assert tile_state({0}, 0, -1, 0, 0, 0, 0) == "FITTED"
+    assert tile_state({0, 1}, 0, -1, 0, 0, 1, 0) == "OWNED"
+    assert tile_state(set(), -1, -1, 1, 2, 4, 0) == "CAPPED"
+    assert tile_state(set(), -1, -1, 0, 2, 5, 0) == "CAPPED"
+    assert "FITTED" in copy and "CAPPED" in copy and "OWNED" in copy
+    assert "Mk II" not in copy
+
+    blob = '{"Version":1,"OwnedMask":3,"Paint":1,"Trail":-1,"ShieldRank":0,"ReachRank":1}'
+    assert '"Version"' in profile and '"ReachRank"' in profile
+
+    def sink_valid(version, mask, paint, trail, shield, reach) -> bool:
+        if version < 1 or version > 1:
+            return False
+        if mask < 0 or mask >= (1 << 6):
+            return False
+        def cosmetic(item, paints):
+            if item == -1:
+                return True
+            kind = item in ((0, 1) if paints else (2, 3))
+            if not kind:
+                return False
+            return (mask & (1 << item)) != 0
+        if not cosmetic(paint, True) or not cosmetic(trail, False):
+            return False
+        if shield < 0 or shield > 1 or reach < 0 or reach > 2:
+            return False
+        return True
+
+    import json
+    parsed = json.loads(blob)
+    assert sink_valid(parsed["Version"], parsed["OwnedMask"], parsed["Paint"], parsed["Trail"], parsed["ShieldRank"], parsed["ReachRank"])
+    assert not sink_valid(0, 0, -1, -1, 0, 0)
+    assert not sink_valid(2, 0, -1, -1, 0, 0)
+    assert not sink_valid(1, 0, 0, -1, 0, 0)
+    assert not sink_valid(1, 1, 0, -1, 0, 3)
+    assert sink_valid(1, 1, 0, -1, 0, 0)
+    assert "string.IsNullOrEmpty(raw)" in (root / "Assets/Scripts/Core/SinkProfileStore.cs").read_text(encoding="utf-8")
+    assert "SinkProfileCodec.Fresh" in (root / "Assets/Scripts/Core/SinkProfileStore.cs").read_text(encoding="utf-8")
+
+    assert "SinkSlot == FirstSkipSlot + 1" in pad
+    assert "sinkX == 3 && sinkY == 2" in pad
+    assert "Step(HardSlot, 1, 0) == SettingsSlot" in pad
+    assert "x = 3" in pad and "y = -3" in pad
+    assert "CloseSlot" in sink_pad
+    assert "Step(4, 0, 1) == CloseSlot" in sink_pad
+    assert "Step(5, 0, 1) == CloseSlot" in sink_pad
+
+    def sink_coord(slot: int) -> tuple[int, int]:
+        if slot == 6:
+            return 0, 3
+        slot = max(0, min(5, slot))
+        return slot % 2, slot // 2
+
+    def sink_step(slot: int, dx: int, dy: int) -> int:
+        if dx == 0 and dy == 0:
+            return max(0, min(6, slot))
+        if dx != 0 and dy != 0:
+            if dx * dx >= dy * dy:
+                dy = 0
+            else:
+                dx = 0
+        slot = max(0, min(6, slot))
+        x, y = sink_coord(slot)
+        coords = [sink_coord(index) for index in range(7)]
+        target = (x + dx, y + dy)
+        if target in coords:
+            return coords.index(target)
+        best = None
+        best_score = 10**9
+        for index, (sx, sy) in enumerate(coords):
+            if index == slot:
+                continue
+            delx, dely = sx - x, sy - y
+            if dx != 0:
+                if (delx > 0) - (delx < 0) != (dx > 0) - (dx < 0):
+                    continue
+                score = abs(dely) * 20 + (delx if dx > 0 else -delx)
+            else:
+                if (dely > 0) - (dely < 0) != (dy > 0) - (dy < 0):
+                    continue
+                score = abs(delx) * 20 + (dely if dy > 0 else -dely)
+            if score < best_score:
+                best_score = score
+                best = index
+        return slot if best is None else best
+
+    assert sink_step(0, 1, 0) == 1
+    assert sink_step(1, -1, 0) == 0
+    assert sink_step(0, 0, 1) == 2
+    assert sink_step(4, 0, 1) == 6
+    assert sink_step(5, 0, 1) == 6
+    assert sink_step(6, 0, -1) != 6
+    assert sink_step(-1, 0, 0) == 0
+
+    swedish = loc.split("private static readonly Dictionary")[1].split("};")[0]
+    keys = (
+        "sink.entry",
+        "sink.title",
+        "sink.close",
+        "sink.hint",
+        "sink.blurb",
+        "sink.paint.amber",
+        "sink.paint.steel",
+        "sink.trail.cyan",
+        "sink.trail.amber",
+        "sink.shield",
+        "sink.reach",
+        "sink.desc.amber",
+        "sink.desc.steel",
+        "sink.desc.trail.cyan",
+        "sink.desc.trail.amber",
+        "sink.desc.shield",
+        "sink.desc.reach",
+        "sink.status.need",
+        "sink.status.owned",
+        "sink.status.fitted",
+        "sink.status.capped",
+        "sink.status.price",
+    )
+    for key in keys:
+        assert f'"{key}"' in swedish, key
+        assert f'"{key}"' in copy, key
+
+    en = {
+        "sink.hint": "{confirm} buy  ·  {cancel} close",
+        "sink.blurb": "\\u2022 Paint and trail stay on this profile. Shield and reach start the next run.",
+        "sink.desc.reach": "Next run pickup radius +5% per rank. Cap 2.",
+        "sink.desc.shield": "Next run starts with +1 shield. Cap 1.",
+    }
+    sv = {
+        "sink.hint": "{confirm} köp  ·  {cancel} stäng",
+        "sink.blurb": "\\u2022 Färg och spår stannar på profilen. Sköld och räckvidd gäller nästa runda.",
+        "sink.desc.reach": "Nästa runda: plockradie +5% per steg. Tak 2.",
+        "sink.desc.shield": "Nästa runda börjar med +1 sköld. Tak 1.",
+    }
+    for key, line in {**en, **sv}.items():
+        assert line in copy or line in loc, key
+
+    def tile_box(index: int) -> tuple[float, float, float, float]:
+        slot = max(0, min(5, index))
+        col, row = slot % 2, slot // 2
+        gutter = 0.02
+        area_min_x, area_max_x = 0.20, 0.80
+        area_max_y, area_min_y = 0.76, 0.30
+        cell_w = (area_max_x - area_min_x - gutter) * 0.5
+        cell_h = (area_max_y - area_min_y - gutter * 2) / 3
+        x0 = area_min_x + col * (cell_w + gutter)
+        y1 = area_max_y - row * (cell_h + gutter)
+        return x0, y1 - cell_h, x0 + cell_w, y1
+
+    boxes = [tile_box(index) for index in range(6)]
+    panel = (0.18, 0.12, 0.82, 0.88)
+    close = (0.36, 0.14, 0.64, 0.24)
+    for box in boxes + [panel, close]:
+        assert 0 <= box[0] < box[2] <= 1
+        assert 0 <= box[1] < box[3] <= 1
+        assert box[0] >= panel[0] and box[2] <= panel[2]
+        assert box[1] >= panel[1] and box[3] <= panel[3]
+    for left in range(6):
+        for right in range(left + 1, 6):
+            a, b = boxes[left], boxes[right]
+            assert not (a[0] < b[2] and a[2] > b[0] and a[1] < b[3] and a[3] > b[1])
+
+    row_step = 0.094 + 0.016
+    entry = (0.02 + 3 * 0.1175, 0.665 - 2 * row_step - 0.094, 0.02 + 3 * 0.1175 + 0.110, 0.665 - 2 * row_step)
+    bank = (0.02 + 2 * 0.1175, 0.665 - 2 * row_step - 0.094, 0.02 + 2 * 0.1175 + 0.110, 0.665 - 2 * row_step)
+    assert entry[0] >= bank[2]
+    assert "EntryLocal" in layout
+    assert "HangarPadNav.SinkSlot" in ui
+    assert "TryBuySink" in manager
+    assert "StartingShieldBonus" in manager
+    assert "PickupReachMultiplier" in (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+
+    matrix = ((1280, 800), (1366, 768), (1440, 900), (1920, 1080), (1920, 1200), (2560, 1080), (2560, 1440), (3440, 1440))
+    lines = list(en.values()) + list(sv.values()) + ["Bay", "Varv", "Close", "Stäng", "Amber hull", "Bärnstensskrov", "CAPPED", "TAK", "FITTED", "MONTERAD"]
+    for width, height in matrix:
+        scale = _canvas_scale(width, height)
+        assert 18 * scale + 0.05 >= 12.0 or width != 1280
+        tile_w = (boxes[0][2] - boxes[0][0]) * (width / scale)
+        blurb_w = (0.80 - 0.20) * (width / scale)
+        blurb_h = (0.29 - 0.24) * (height / scale)
+        for line in lines:
+            assert _estimate_width(line, 18) <= max(tile_w, blurb_w) * 4, (width, line)
+        hint = en["sink.hint"] + " " + sv["sink.hint"]
+        assert _prompt_line_width(en["sink.hint"], 18, scale) <= blurb_w
+        assert _prompt_line_width(sv["sink.hint"], 18, scale) <= blurb_w
+        assert _estimate_width(en["sink.blurb"], 18) / blurb_w <= 3
+        assert _estimate_width(sv["sink.blurb"], 18) / blurb_w <= 3
+        assert blurb_h >= 18 * 2
+        assert hint
 
 
 if __name__ == "__main__":

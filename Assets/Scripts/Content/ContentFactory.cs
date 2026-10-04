@@ -1226,6 +1226,18 @@ namespace AsteroidsGoneRogue
                 trail.endColor = new Color(0.55f, 0.38f, 0.14f, 0f);
             }
 
+            if (!hostile)
+            {
+                float trailRed;
+                float trailGreen;
+                float trailBlue;
+                if (ShipPaint.TryTrail(out trailRed, out trailGreen, out trailBlue))
+                {
+                    trail.startColor = new Color(trailRed, trailGreen, trailBlue, 0.9f);
+                    trail.endColor = new Color(trailRed * 0.55f, trailGreen * 0.55f, trailBlue * 0.55f, 0f);
+                }
+            }
+
             Projectile projectile = root.AddComponent<Projectile>();
             int bounces = ricochet ? LoadoutState.RicochetBounces : 0;
             projectile.Launch(direction, speed, damage, pierce, hostile, kind, seeker, bounces);
@@ -1344,7 +1356,9 @@ namespace AsteroidsGoneRogue
 
             SphereCollider trigger = root.AddComponent<SphereCollider>();
             trigger.isTrigger = true;
-            trigger.radius = kind == Pickup.Kind.ExtraLife ? 0.9f : 0.7f;
+            float pickupRadius = kind == Pickup.Kind.ExtraLife ? 0.9f : 0.7f;
+            pickupRadius *= SinkRuntime.PickupReachMultiplier();
+            trigger.radius = pickupRadius;
             Rigidbody body = root.AddComponent<Rigidbody>();
             body.useGravity = false;
             body.isKinematic = true;

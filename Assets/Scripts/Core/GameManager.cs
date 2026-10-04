@@ -30,6 +30,8 @@ namespace AsteroidsGoneRogue
 
         public HangarPersist Persist { get; private set; }
 
+        public SinkProfileData Sinks { get; private set; }
+
         public AchievementPersist Achievements { get; private set; }
 
         public MetaData Meta { get; private set; }
@@ -141,6 +143,8 @@ namespace AsteroidsGoneRogue
             Best = LocalBest.Load();
             SessionBest = new LocalBest();
             Persist = HangarPersist.Load();
+            Sinks = SinkProfileStore.Load();
+            SinkRuntime.Apply(Sinks);
             Achievements = AchievementPersist.Load();
             Meta = RunSaveStore.LoadMeta();
             RunSaveData loaded;
@@ -175,7 +179,22 @@ namespace AsteroidsGoneRogue
             _ship.SetInputEnabled(false);
             _ship.ResetForWave(_loadout.State);
             _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
+            PushPreviewFittings(_loadout != null ? _loadout.State : null);
             RaiseStateChanged();
+        }
+
+        private void PushPreviewFittings(LoadoutState state)
+        {
+            if (_hangarPreview == null)
+            {
+                return;
+            }
+
+            int upgradeMask = state != null ? RunSaveCodec.PackUpgrades(state) : 0;
+            int mk2Mask = state != null ? state.Mk2Mask : 0;
+            int paintId = Sinks != null ? Sinks.Paint : -1;
+            int trailId = Sinks != null ? Sinks.Trail : -1;
+            _hangarPreview.SetFittings(upgradeMask, mk2Mask, paintId, trailId);
         }
 
         public void SetDifficulty(DifficultyGrade grade)
@@ -213,6 +232,8 @@ namespace AsteroidsGoneRogue
             _factory.ApplyLoadoutVisuals(_ship, preview, _loadout.State);
             if (_hangarPreview != null)
             {
+                _hangarPreview.SetInteractionHold(true);
+                PushPreviewFittings(preview);
                 _hangarPreview.NotifyVisualsChanged();
             }
         }
@@ -227,8 +248,46 @@ namespace AsteroidsGoneRogue
             _factory.ApplyLoadoutVisuals(_ship, _loadout.State);
             if (_hangarPreview != null)
             {
+                _hangarPreview.SetInteractionHold(false);
+                PushPreviewFittings(_loadout.State);
                 _hangarPreview.NotifyVisualsChanged();
             }
+        }
+
+        public bool TryBuySink(int sinkId)
+        {
+            if (_session == null || !_session.ShopOpen)
+            {
+                return false;
+            }
+
+            if (Sinks == null)
+            {
+                Sinks = SinkProfileCodec.Fresh();
+            }
+
+            SinkProfileData next;
+            int price;
+            if (!SinkRules.TryPurchase(Sinks, sinkId, _session.Credits, out next, out price))
+            {
+                return false;
+            }
+
+            if (price > 0 && !_session.TrySpend(price))
+            {
+                return false;
+            }
+
+            Sinks = next;
+            SinkProfileStore.Save(Sinks);
+            SinkRuntime.Apply(Sinks);
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayHangarPurchase();
+            }
+
+            NotifyLoadoutChanged();
+            return true;
         }
 
         public bool TryGrantExtraLife()
@@ -1414,6 +1473,7 @@ namespace AsteroidsGoneRogue
 
                 if (_hangarPreview != null)
                 {
+                    PushPreviewFittings(_loadout != null ? _loadout.State : null);
                     _hangarPreview.NotifyVisualsChanged();
                 }
             }
@@ -1675,6 +1735,7 @@ namespace AsteroidsGoneRogue
 
             LoadoutState state = _loadout.State;
             int bonusShield = LegacyProgress.StartingShield(Meta);
+            bonusShield += SinkRules.StartingShieldBonus(Sinks);
             int shieldIndex = 0;
             while (shieldIndex < bonusShield && state.CanApply(UpgradeId.ShieldCell))
             {

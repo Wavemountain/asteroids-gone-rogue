@@ -58,9 +58,12 @@ namespace AsteroidsGoneRogue
 
         public static int FirstSkipSlot { get { return BankSlot + 6; } }
 
+        /// <summary>Bay fittings. Empty hull cell, after the Mk II hull tiles.</summary>
+        public static int SinkSlot { get { return FirstSkipSlot + 1; } }
+
         public static int SlotCount
         {
-            get { return FirstSkipSlot + 1; }
+            get { return SinkSlot + 1; }
         }
 
         public static int ShopSlot(int shopIndex)
@@ -463,7 +466,16 @@ namespace AsteroidsGoneRogue
                 && DominantStepY(0f, 1f, Flick) == -1
                 && DominantStep(1f, 0f, Flick) == 1
                 && NavIncludesPrimary()
-                && NextWaveScreenClear();
+                && NextWaveScreenClear()
+                && SinkSlotFollowsFirstSkip();
+        }
+
+        public static bool SinkSlotFollowsFirstSkip()
+        {
+            int sinkX;
+            int sinkY;
+            Coord(SinkSlot, out sinkX, out sinkY);
+            return SinkSlot == FirstSkipSlot + 1 && sinkX == 3 && sinkY == 2;
         }
 
         public static bool LockedShopFallsBackToPrimary()
@@ -656,6 +668,13 @@ namespace AsteroidsGoneRogue
             {
                 x = 4;
                 y = -6;
+                return;
+            }
+
+            if (slot == SinkSlot)
+            {
+                x = 3;
+                y = 2;
                 return;
             }
 

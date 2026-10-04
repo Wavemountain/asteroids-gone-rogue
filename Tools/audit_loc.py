@@ -51,6 +51,8 @@ BUTTON_KEYS = {
     "ui.confirm.yes",
     "ui.confirm.no",
     "ui.settings.confirm_new_run",
+    "sink.entry",
+    "sink.close",
     "ui.mute",
     "ui.unmute",
     "ui.sfx",
