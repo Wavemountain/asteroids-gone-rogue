@@ -106,37 +106,45 @@ namespace AsteroidsGoneRogue
 
         public static bool PricesStayPositive()
         {
-            if (PaintPrice < 1 || TrailPrice < 1 || ShieldPrice < 1)
+            if (!Listed(PaintPrice) || !Listed(TrailPrice) || !Listed(ShieldPrice))
             {
                 return false;
             }
 
-            if (ReachPrice0 < 1 || ReachPrice1 <= ReachPrice0)
+            if (!Listed(ReachPrice0) || ReachPrice1 <= ReachPrice0)
             {
                 return false;
             }
 
             for (int id = 0; id < Count; id++)
             {
-                int first = Price(id, 0);
-                if (first < 1)
-                {
-                    return false;
-                }
-
                 int cap = Cap(id);
                 if (cap < 1)
                 {
                     return false;
                 }
 
-                if (Price(id, cap) != 0)
+                for (int rank = 0; rank < cap; rank++)
+                {
+                    if (Price(id, rank) < 1)
+                    {
+                        return false;
+                    }
+                }
+
+                // Cosmetics keep their list price after purchase. Ranked sinks close at the cap.
+                if (!IsCosmetic(id) && Price(id, cap) != 0)
                 {
                     return false;
                 }
             }
 
             return Price(PickupReach, 1) > Price(PickupReach, 0);
+        }
+
+        private static bool Listed(int price)
+        {
+            return price >= 1;
         }
 
         public static float ReachMultiplier(int rank)

@@ -68,6 +68,8 @@ Prices are never negative. The reach curve is strictly increasing. At the cap th
 
 Profile JSON (`agr.sink.profile`, version 1) is separate from the run file: `OwnedMask`, `Paint`, `Trail`, `ShieldRank`, `ReachRank`. Missing key = nothing owned. Unreadable blob = empty profile in memory (the blob is left on disk if the version is newer). Run-start perks apply in `ApplyLegacyToNewRun` only. Rank 0 adds no shield and a reach multiplier of 1, so a profile with nothing purchased does not move combat or the wave-35 ratios.
 
+A daily run does not apply the legacy starting shield or the sink start-shield bonus. `SinkRules.RunStartShield` returns 0 when the run is daily. Credit and hull bonuses still apply. A normal run keeps both shield bonuses.
+
 ## Save format
 
 | Store | This pass | Migration |

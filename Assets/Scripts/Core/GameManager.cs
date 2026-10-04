@@ -1890,8 +1890,10 @@ namespace AsteroidsGoneRogue
             }
 
             LoadoutState state = _loadout.State;
-            int bonusShield = LegacyProgress.StartingShield(Meta);
-            bonusShield += SinkRules.StartingShieldBonus(Sinks);
+            int bonusShield = SinkRules.RunStartShield(
+                LegacyProgress.StartingShield(Meta),
+                SinkRules.StartingShieldBonus(Sinks),
+                ActiveDailySeed > 0);
             int shieldIndex = 0;
             while (shieldIndex < bonusShield && state.CanApply(UpgradeId.ShieldCell))
             {

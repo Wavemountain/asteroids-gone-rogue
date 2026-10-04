@@ -55,7 +55,8 @@ namespace AsteroidsGoneRogue
                 && Step(4, 0, 1) == CloseSlot
                 && Step(5, 0, 1) == CloseSlot
                 && Step(CloseSlot, 0, -1) != CloseSlot
-                && Step(-1, 0, 0) == 0;
+                && Step(-1, 0, 0) == 0
+                && ShopSinkCatalog.PricesStayPositive();
         }
 
         private static int Clamp(int slot)
