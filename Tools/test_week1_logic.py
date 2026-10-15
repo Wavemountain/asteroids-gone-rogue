@@ -1715,6 +1715,60 @@ namespace AsteroidsGoneRogue
     assert "CS0121" not in good_joined and "CS0426" not in good_joined, good_joined
 
 
+def test_horizontal_wrap_truncate_fails_gate() -> None:
+    """HorizontalWrapMode.Truncate is not a Unity 6000.6 member and must fail the gate.
+
+    The stub enum is Wrap/Overflow only. An unreachable statement in the same
+    overlay must be reported as a CS0162 warning count greater than zero.
+    """
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    from roslyn_core_check import compiled_sources, core_roslyn_errors
+
+    stub = (root / "Tools/roslyn/UnityStub.cs").read_text(encoding="utf-8")
+    horizontal = stub.split("public enum HorizontalWrapMode", 1)[1].split("}", 1)[0]
+    vertical = stub.split("public enum VerticalWrapMode", 1)[1].split("}", 1)[0]
+    assert "Wrap" in horizontal and "Overflow" in horizontal
+    assert "Truncate" not in horizontal
+    assert "Truncate" in vertical and "Overflow" in vertical
+    assert "Wrap" not in vertical
+
+    sources = compiled_sources()
+    names = {path.name for path in sources}
+    assert "GameUi.cs" in names
+    assert "AgrCapture.cs" in names
+    assert "GameManager.cs" in names
+    assert any(path.as_posix().endswith("Assets/Editor/AgrCapture.cs") for path in sources)
+    assert sum(1 for path in sources if "/Assets/Scripts/" in path.as_posix()) >= 159
+    assert sum(1 for path in sources if "/Assets/Editor/" in path.as_posix()) >= 4
+
+    ui_path = root / "Assets/Scripts/UI/GameUi.cs"
+    ui = ui_path.read_text(encoding="utf-8")
+    original = "_title.horizontalOverflow = HorizontalWrapMode.Wrap;"
+    assert original in ui
+    assert "HorizontalWrapMode.Truncate" not in ui
+    bad = ui.replace(
+        original,
+        "_title.horizontalOverflow = HorizontalWrapMode.Truncate;\n"
+        "            if (false) { int unreachableWrap = 1; }",
+        1,
+    )
+    hits = core_roslyn_errors({"Assets/Scripts/UI/GameUi.cs": bad})
+    joined = "\n".join(hits)
+    assert "CS0117" in joined and "Truncate" in joined, joined
+    assert "HorizontalWrapMode" in joined
+    assert "warning CS0162" in joined, joined
+    assert "CS0162 warning count:" in joined
+    count_line = [line for line in hits if line.startswith("CS0162 warning count:")]
+    assert len(count_line) == 1
+    assert int(count_line[0].rsplit(":", 1)[-1].strip()) > 0
+
+
 def test_daily_shield_and_remainder_047() -> None:
     """Daily runs skip legacy and sink start shields. Remainders restart each configure."""
     import sys
@@ -8638,6 +8692,7 @@ def main() -> int:
     test_type_member_shadow_gate()
     test_b1_reintroduction_fails()
     test_unity6000_api_reintroduction_fails()
+    test_horizontal_wrap_truncate_fails_gate()
     test_roslyn_stub_artefact_gate()
     test_roslyn_non_cs_build_fails()
     test_monsters_arenas_040()

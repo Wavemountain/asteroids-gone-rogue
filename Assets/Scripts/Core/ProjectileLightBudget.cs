@@ -237,12 +237,12 @@ namespace AsteroidsGoneRogue
 
         public static bool SelfCheck()
         {
-            if (PoolSize != 4 || MaxFull != 4 || EffectScale.ProjectileLightMaxReduced != 2)
+            if (Bad(PoolSize != 4 || MaxFull != 4 || EffectScale.ProjectileLightMaxReduced != 2))
             {
                 return false;
             }
 
-            if (EffectScale.ProjectileLightMul != 0.5f)
+            if (Bad(EffectScale.ProjectileLightMul != 0.5f))
             {
                 return false;
             }
@@ -331,6 +331,11 @@ namespace AsteroidsGoneRogue
             }
 
             return true;
+        }
+
+        private static bool Bad(bool failed)
+        {
+            return failed;
         }
     }
 }

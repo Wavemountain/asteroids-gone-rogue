@@ -762,7 +762,8 @@ namespace AsteroidsGoneRogue
             _title.text = productTitle;
             _title.color = UiAmber;
             ClampOneLine(_title);
-            _title.horizontalOverflow = HorizontalWrapMode.Truncate;
+            _title.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _title.verticalOverflow = VerticalWrapMode.Truncate;
             AddReadability(_title, true);
 
             _world = CreateText("WorldBadge", transform, display, 22, TextAnchor.MiddleLeft, FontStyle.Bold);
