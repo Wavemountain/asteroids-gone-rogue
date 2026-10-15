@@ -2601,7 +2601,7 @@ def test_fair_death_042() -> None:
     on_primary = ui.split("private void OnPrimary()")[1].split("private void")[0]
     assert "PlayRetry" in on_primary
     assert "GamePhase.Failed" in on_primary
-    assert on_primary.index("PlayRetry") < on_primary.index("PlayUiClick")
+    assert on_primary.index("PlayRetry") < on_primary.index("PlayUiConfirm")
 
     assert "public void PlayWaveFail()" in audio
     assert "public void PlayRetry()" in audio
@@ -5909,7 +5909,9 @@ def test_confirm_restart() -> None:
     assert _confirm_route({"playing": True, "escape": True, "confirm_in_play": True}) == "open"
     assert "if (!_confirmOpen && confirmAction == ConfirmAction.None)" in update
     apply = ui.split("private void ApplyConfirmRoute")[1].split("private static ConfirmKind KindForRequest")[0]
-    assert "OnAbort()" in apply and "OnPrimary()" in apply
+    assert "BeginConfirmClose(false)" in apply and "BeginConfirmClose(true)" in apply
+    finish_confirm = ui.split("private void FinishConfirmClose()")[1].split("private void")[0]
+    assert "OnAbort()" in finish_confirm and "OnPrimary()" in finish_confirm
     assert "PrimaryRestartsRun" in ui
     primary = ui.split("private void OnPrimary()")[1].split("private void OnBuy")[0]
     assert "_settingsOpen || _creditsVisible" in primary
@@ -8133,6 +8135,325 @@ def EffectScale_feel(reduce: bool, value: float) -> float:
     return value * 0.35
 
 
+def test_ui_transition_048() -> None:
+    """0.48 menu motion, type tokens, and menu-sound wiring."""
+    import os
+    import shutil
+    import subprocess
+    import textwrap
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    motion = (root / "Assets/Scripts/Core/UiTransition.cs").read_text(encoding="utf-8")
+    theme = (root / "Assets/Scripts/UI/UiTheme.cs").read_text(encoding="utf-8")
+    fit = (root / "Assets/Scripts/Core/UiScreenFit.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    credits = (root / "Assets/Scripts/Core/EndCredits.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    pad = (root / "Assets/Scripts/Core/HangarPadNav.cs").read_text(encoding="utf-8")
+
+    assert "class UiTransition" in motion and "class UiMotion" in motion
+    assert "class UiCountUp" in motion and "class UiSfxGate" in motion
+    assert "MenuInSeconds = UiMotion.Base" in motion
+    assert "MenuOutSeconds = UiMotion.Exit" in motion
+    assert "ScreenHoldSeconds = 0.060f" in motion
+    assert "CardStaggerSeconds = 0.060f" in motion
+    assert "RunRng" not in motion
+    assert "TypeDisplay = 44" in theme and "TypeTitle = 28" in theme
+    assert "TypeBody = 18" in theme and "TypeCaption = 14" in theme
+    assert "Space4 = UiMotion.Space4" in theme
+    assert "EaseOut" in theme and "EaseInOut" in theme
+    assert "HeaderMin = 28" in theme and "BodyMin = 14" in theme
+    assert "CaptionFloor = 12f" in fit and "BodyFloor = 15f" in fit
+    assert "FitType" in fit
+    assert "BeginPanelIn" in ui and "BeginPanelOut" in ui and "TickMenuMotion" in ui
+    assert "Time.unscaledDeltaTime" in ui
+    assert "SettingsState.ReduceEffectsEnabled" in ui
+    assert "CanvasOrder.Overlay" in ui
+    assert "sortingOrder =" not in ui.split("private void ApplyScreenVeil()")[1].split("private void")[0]
+    assert "PlayUiHover" in ui and "PlayUiConfirm" in ui and "PlayUiBack" in ui
+    assert "PlayUiOpen" in ui and "PlayUiClose" in ui
+    assert "PlayMenuHover" in ui
+    assert "HangarPadNav" in pad and "SlotCount" in pad
+    for name in (
+        "agr_ui_hover",
+        "agr_ui_confirm",
+        "agr_ui_back",
+        "agr_ui_open",
+        "agr_ui_close",
+    ):
+        assert f"Audio/Sfx/{name}" in audio
+        path = root / "Assets/Resources/Audio/Sfx" / f"{name}.ogg"
+        assert path.is_file() and path.stat().st_size > 1000
+        assert path.read_bytes()[:4] == b"OggS"
+        assert (path.parent / f"{name}.ogg.meta").is_file()
+    assert "HoverScale" in audio and "UiSfxGate" in audio
+    assert "PlayUiClick" in ui.split("private void ToggleSettingsMute()")[1].split("private void")[0]
+    show = ui.split("private void ShowEndCredits()")[1].split("private void HideEndCredits")[0]
+    assert "PlayUiClick" not in show
+    assert "agr_ui_hover" in credits and "agr_death_whoosh" in credits and "agr_wave_whoosh" in credits
+    swedish = loc.split("Swedish = new Dictionary")[1].split("public static string T(")[0]
+    assert "agr_ui_confirm" in swedish and "agr_wave_whoosh" in swedish
+    assert "Ljud" in swedish and "Kenney Future" in swedish and "Speltest" in swedish
+
+    scale = _canvas_scale(1280, 800)
+    size = 18
+    guard = 0
+    while size * scale + 0.05 < 15 and guard < 32:
+        size += 1
+        guard += 1
+    assert size >= 22
+    assert size * scale + 0.05 >= 15
+
+    from roslyn_core_check import find_dotnet
+
+    dotnet = find_dotnet()
+    assert dotnet, "ui transition tests need dotnet"
+    work = Path(os.environ.get("TMPDIR", "/tmp")) / "agr-ui-048"
+    if work.exists():
+        shutil.rmtree(work)
+    work.mkdir(parents=True)
+    shutil.copyfile(root / "Assets/Scripts/Core/UiTransition.cs", work / "UiTransition.cs")
+    program = textwrap.dedent(
+        r'''
+        using System;
+        using AsteroidsGoneRogue;
+
+        class Program
+        {
+            static void Need(bool ok, string message)
+            {
+                if (!ok) throw new Exception(message);
+            }
+
+            static void Main()
+            {
+                Easing();
+                MenuIn();
+                MenuOut();
+                MenuSwap();
+                ScreenFade();
+                Cards();
+                HeldAndPause();
+                CountUp();
+                HoverGate();
+                Console.WriteLine("ui-ok");
+            }
+
+            static void Easing()
+            {
+                Need(Math.Abs(UiMotion.EaseOut(0f)) < 0.0001f, "ease out start");
+                Need(Math.Abs(UiMotion.EaseOut(1f) - 1f) < 0.0001f, "ease out end");
+                Need(UiMotion.EaseOut(0.5f) > 0.7f, "ease out is front-loaded");
+                Need(UiMotion.EaseIn(0.5f) < 0.4f, "ease in is back-loaded");
+                Need(UiMotion.EaseInOut(0f) == 0f && UiMotion.EaseInOut(1f) == 1f, "ease inout ends");
+                float previous = -0.01f;
+                for (int step = 0; step <= 10; step++)
+                {
+                    float sample = UiMotion.EaseOut(step / 10f);
+                    Need(sample + 0.0001f >= previous, "ease out dipped");
+                    previous = sample;
+                }
+            }
+
+            static void MenuIn()
+            {
+                UiTransition motion = new UiTransition();
+                motion.Begin(UiMotionKind.Menu, UiMotionDir.In, 1);
+                Need(motion.TakeOpenCue(), "open cue");
+                Need(!motion.TakeOpenCue(), "open cue once");
+                float alpha;
+                float slide;
+                float scale;
+                motion.SampleIn(false, out alpha, out slide, out scale);
+                Need(alpha < 0.05f, "in starts clear");
+                Need(slide > 15f, "in starts offset");
+                Need(scale < 0.99f, "in starts scaled");
+                motion.SampleIn(true, out alpha, out slide, out scale);
+                Need(slide < 0.01f, "reduce drops slide");
+                Need(Math.Abs(scale - 1f) < 0.0001f, "reduce drops scale");
+                while (motion.Running(false))
+                {
+                    motion.Advance(1f / 60f, false, false, false);
+                }
+                motion.SampleIn(false, out alpha, out slide, out scale);
+                Need(alpha > 0.99f, "in fades up");
+                Need(slide < 0.05f, "in settles");
+                Need(scale > 0.999f, "in scale settles");
+                Need(motion.Elapsed + 0.0001f >= UiTransition.MenuInSeconds, "in duration");
+            }
+
+            static void MenuOut()
+            {
+                UiTransition motion = new UiTransition();
+                motion.Begin(UiMotionKind.Menu, UiMotionDir.Out, 1);
+                Need(motion.TakeCloseCue(), "close cue");
+                motion.Advance(1f, false, false, false);
+                Need(motion.Elapsed < 0.051f, "step clamp");
+                while (motion.Running(false))
+                {
+                    motion.Advance(1f / 60f, false, false, false);
+                }
+                float alpha;
+                float slide;
+                float scale;
+                motion.SampleOut(false, out alpha, out slide, out scale);
+                Need(alpha < 0.02f, "out fades");
+                Need(slide > 15f, "out slides");
+                motion.SampleOut(true, out alpha, out slide, out scale);
+                Need(slide < 0.01f, "reduce out is fade only");
+                Need(Math.Abs(UiTransition.MenuOutSeconds - 0.15f) < 0.0001f, "exit token");
+            }
+
+            static void MenuSwap()
+            {
+                UiTransition motion = new UiTransition();
+                motion.Begin(UiMotionKind.Menu, UiMotionDir.Swap, 1);
+                Need(motion.TakeCloseCue(), "swap close");
+                Need(!motion.TakeOpenCue(), "swap open waits");
+                while (motion.Elapsed < 0.10f)
+                {
+                    motion.Advance(1f / 60f, false, false, false);
+                }
+                Need(motion.Elapsed + 0.0001f >= 0.10f, "reached overlap");
+                Need(motion.TakeOpenCue(), "swap open at overlap");
+                float alpha;
+                float slide;
+                float scale;
+                motion.SampleOut(false, out alpha, out slide, out scale);
+                Need(alpha < 1f, "outgoing has started");
+                motion.SampleIn(false, out alpha, out slide, out scale);
+                Need(alpha < 0.2f, "incoming just started");
+                Need(Math.Abs(motion.Span(false) - 0.30f) < 0.0001f, "swap span");
+            }
+
+            static void ScreenFade()
+            {
+                UiTransition motion = new UiTransition();
+                motion.Begin(UiMotionKind.Screen, UiMotionDir.Swap, 1);
+                Need(motion.TakeCloseCue(), "screen close");
+                while (motion.Elapsed < 0.25f)
+                {
+                    motion.Advance(1f / 60f, false, false, false);
+                }
+                Need(motion.Veil(true) > 0.98f, "veil covers");
+                float beforePause = motion.Elapsed;
+                motion.Advance(0.2f, false, false, true);
+                Need(Math.Abs(motion.Elapsed - beforePause) < 0.0001f, "pause freezes");
+                while (motion.Elapsed < 0.31f)
+                {
+                    motion.Advance(1f / 60f, false, false, false);
+                }
+                Need(motion.TakeOpenCue(), "screen open after hold");
+                Need(Math.Abs(motion.Span(false) - 0.56f) < 0.0001f, "screen span");
+            }
+
+            static void Cards()
+            {
+                UiTransition motion = new UiTransition();
+                motion.Begin(UiMotionKind.Cards, UiMotionDir.In, 3);
+                Need(motion.CardAlpha(1, false) == 0f, "second card waits");
+                Need(Math.Abs(motion.CardScale(0, true) - 1f) < 0.0001f, "reduce card scale");
+                Need(Math.Abs(motion.Span(true) - UiTransition.CardSeconds) < 0.0001f, "reduce stagger");
+                Need(motion.Span(false) > motion.Span(true), "stagger adds time");
+                motion.Elapsed = 0.05f;
+                Need(motion.CardAlpha(0, false) > 0.2f, "first card in");
+                Need(motion.CardAlpha(1, false) == 0f, "second card still waiting");
+            }
+
+            static void HeldAndPause()
+            {
+                UiTransition paused = new UiTransition();
+                paused.Begin(UiMotionKind.Menu, UiMotionDir.In, 1);
+                paused.Advance(0.2f, false, false, true);
+                Need(paused.Elapsed == 0f, "pause holds the menu");
+                UiTransition held = new UiTransition();
+                held.Begin(UiMotionKind.Menu, UiMotionDir.In, 1);
+                while (held.Running(false))
+                {
+                    held.Advance(1f / 60f, true, false, false);
+                }
+                Need(held.BlocksInput(false), "held press stays blocked");
+                held.Advance(1f / 60f, false, false, false);
+                Need(held.BlocksInput(false), "release frame is swallowed");
+                held.Advance(1f / 60f, false, false, false);
+                Need(!held.BlocksInput(false), "input opens after the swallow");
+            }
+
+            static void CountUp()
+            {
+                Need(Math.Abs(UiCountUp.Duration(0f) - 0.25f) < 0.0001f, "count floor");
+                Need(Math.Abs(UiCountUp.Duration(1000000000f) - 0.6f) < 0.0001f, "count ceiling");
+                UiCountUp combat = new UiCountUp();
+                combat.Snap(0f);
+                combat.Retarget(40f, true, false);
+                Need(Math.Abs(combat.Display() - 40f) < 0.0001f, "small hud gain snaps");
+                combat.Retarget(120f, true, false);
+                Need(Math.Abs(combat.Seconds - UiCountUp.HudSeconds) < 0.0001f, "hud count");
+                combat.Advance(1f, true);
+                Need(combat.Elapsed == 0f, "count pauses");
+                UiCountUp quiet = new UiCountUp();
+                quiet.Snap(0f);
+                quiet.Retarget(500f, false, true);
+                Need(Math.Abs(quiet.Display() - 500f) < 0.0001f, "reduce snaps");
+                Need(Math.Abs(UiCountUp.PopScale(0.075f, UiMotion.Fast, false) - UiCountUp.PopPeak) < 0.02f, "pop");
+                Need(Math.Abs(UiCountUp.PopScale(0.075f, UiMotion.Fast, true) - 1f) < 0.0001f, "reduce pop");
+            }
+
+            static void HoverGate()
+            {
+                Need(UiSfxGate.AllowHover(1f, 0f, false), "first hover");
+                Need(!UiSfxGate.AllowHover(1.05f, 1f, false), "hover gap");
+                Need(UiSfxGate.AllowHover(1.07f, 1f, false), "hover after gap");
+                Need(!UiSfxGate.AllowHover(2f, 1f, true), "hover yields to confirm");
+                Need(Math.Abs(UiSfxGate.HoverScale - 0.45f) < 0.0001f, "hover scale");
+                Need(Math.Abs(UiSfxGate.ConfirmScale - 0.55f) < 0.0001f, "confirm scale");
+                Need(Math.Abs(UiSfxGate.BackScale - 0.85f) < 0.0001f, "back scale");
+                Need(Math.Abs(UiSfxGate.OpenScale - 0.70f) < 0.0001f, "open scale");
+            }
+        }
+        '''
+    )
+    (work / "Program.cs").write_text(program, encoding="utf-8")
+    (work / "ui.csproj").write_text(
+        "\n".join(
+            (
+                '<Project Sdk="Microsoft.NET.Sdk">',
+                "  <PropertyGroup>",
+                "    <OutputType>Exe</OutputType>",
+                "    <TargetFramework>net8.0</TargetFramework>",
+                "    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>",
+                "    <Nullable>disable</Nullable>",
+                "    <ImplicitUsings>disable</ImplicitUsings>",
+                "  </PropertyGroup>",
+                "  <ItemGroup>",
+                '    <Compile Include="UiTransition.cs" />',
+                '    <Compile Include="Program.cs" />',
+                "  </ItemGroup>",
+                "</Project>",
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
+    env["DOTNET_NOLOGO"] = "1"
+    env["DOTNET_ROOT"] = str(Path(dotnet).resolve().parent)
+    result = subprocess.run(
+        [dotnet, "run", "--project", str(work / "ui.csproj"), "-v", "q"],
+        cwd=work,
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout
+    assert "ui-ok" in result.stdout
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -8218,6 +8539,7 @@ def main() -> int:
     test_rc_047_fixes()
     test_daily_shield_and_remainder_047()
     test_game_feel_048()
+    test_ui_transition_048()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

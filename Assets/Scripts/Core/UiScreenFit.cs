@@ -10,6 +10,8 @@ namespace AsteroidsGoneRogue
         public const float DeckWidth = 1280f;
         public const float DeckHeight = 800f;
         public const float MinOnScreenFont = 12f;
+        public const float CaptionFloor = 12f;
+        public const float BodyFloor = 15f;
 
         public static readonly float[] MatrixWidths = new float[]
         {
@@ -59,6 +61,33 @@ namespace AsteroidsGoneRogue
         public static bool MeetsDeckFloor(int fontSize)
         {
             return OnScreenFont(fontSize, DeckWidth, DeckHeight) + 0.05f >= MinOnScreenFont;
+        }
+
+        /// <summary>
+        /// Type-scale size at the 1080p reference. Raises the canvas size until
+        /// the on-screen result meets the floor (Deck caption 12, body 15).
+        /// </summary>
+        public static int FitType(int referencePx, float floorOnScreen, float screenW, float screenH)
+        {
+            int size = referencePx < 1 ? 1 : referencePx;
+            if (screenW < 320f || screenH < 240f)
+            {
+                return size;
+            }
+
+            if (floorOnScreen < 1f)
+            {
+                floorOnScreen = 1f;
+            }
+
+            int guard = 0;
+            while (OnScreenFont(size, screenW, screenH) + 0.05f < floorOnScreen && guard < 32)
+            {
+                size += 1;
+                guard += 1;
+            }
+
+            return size;
         }
 
         public static int WrappedLines(string text, float boxWidth, int fontSize)

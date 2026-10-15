@@ -165,6 +165,13 @@ namespace AsteroidsGoneRogue
         private AudioClip _playerDamage;
         private AudioClip _purchase;
         private AudioClip _uiClick;
+        private AudioClip _uiHover;
+        private AudioClip _uiConfirm;
+        private AudioClip _uiBack;
+        private AudioClip _uiOpen;
+        private AudioClip _uiClose;
+        private float _uiHoverT;
+        private float _uiPriorityUntil;
         private AudioClip _abort;
         private AudioClip _worldChange;
         private AudioClip _waveClear;
@@ -795,6 +802,46 @@ namespace AsteroidsGoneRogue
         public void PlayUiClick()
         {
             Play(_uiClick != null ? _uiClick : _purchase, 0.88f);
+        }
+
+        public void PlayUiHover()
+        {
+            if (_muted)
+            {
+                return;
+            }
+
+            float now = Time.unscaledTime;
+            bool priority = now < _uiPriorityUntil;
+            if (!UiSfxGate.AllowHover(now, _uiHoverT, priority))
+            {
+                return;
+            }
+
+            _uiHoverT = now;
+            Play(_uiHover != null ? _uiHover : _uiClick, UiSfxGate.HoverScale);
+        }
+
+        public void PlayUiConfirm()
+        {
+            _uiPriorityUntil = Time.unscaledTime + 0.20f;
+            Play(_uiConfirm != null ? _uiConfirm : _uiClick, UiSfxGate.ConfirmScale);
+        }
+
+        public void PlayUiBack()
+        {
+            _uiPriorityUntil = Time.unscaledTime + 0.08f;
+            Play(_uiBack != null ? _uiBack : _uiClick, UiSfxGate.BackScale);
+        }
+
+        public void PlayUiOpen()
+        {
+            Play(_uiOpen != null ? _uiOpen : _uiClick, UiSfxGate.OpenScale);
+        }
+
+        public void PlayUiClose()
+        {
+            Play(_uiClose != null ? _uiClose : _uiClick, UiSfxGate.CloseScale);
         }
 
         public void PlayAbortWhoosh()
@@ -1648,6 +1695,11 @@ namespace AsteroidsGoneRogue
             _playerDamage = Resources.Load<AudioClip>("Audio/Sfx/forceField_000");
             _purchase = Resources.Load<AudioClip>("Audio/Sfx/confirmation_002");
             _uiClick = Resources.Load<AudioClip>("Audio/Sfx/click_002");
+            _uiHover = Resources.Load<AudioClip>("Audio/Sfx/agr_ui_hover");
+            _uiConfirm = Resources.Load<AudioClip>("Audio/Sfx/agr_ui_confirm");
+            _uiBack = Resources.Load<AudioClip>("Audio/Sfx/agr_ui_back");
+            _uiOpen = Resources.Load<AudioClip>("Audio/Sfx/agr_ui_open");
+            _uiClose = Resources.Load<AudioClip>("Audio/Sfx/agr_ui_close");
             _abort = Resources.Load<AudioClip>("Audio/Sfx/minimize_005");
             _worldChange = Resources.Load<AudioClip>("Audio/Sfx/maximize_008");
             _waveClear = Resources.Load<AudioClip>("Audio/Sfx/jingles_HIT07");

@@ -20,3 +20,13 @@
 
 	Follow on Twitter for updates:
 	http://twitter.com/KenneyNL
+
+
+0.48 menu, death, and wave cues (CC0, Kenney)
+agr_ui_hover.ogg      - Kenney "Interface Sounds" select_002.ogg - CC0 1.0 - kenney.nl
+agr_ui_confirm.ogg    - Kenney "Interface Sounds" confirmation_001.ogg - CC0 1.0 - kenney.nl
+agr_ui_back.ogg       - Kenney "Interface Sounds" back_002.ogg - CC0 1.0 - kenney.nl
+agr_ui_open.ogg       - Kenney "Interface Sounds" open_002.ogg - CC0 1.0 - kenney.nl
+agr_ui_close.ogg      - Kenney "Interface Sounds" close_002.ogg - CC0 1.0 - kenney.nl
+agr_death_whoosh.ogg  - Kenney "Sci-fi Sounds" forceField_004.ogg (slowed 0.7x, low-passed, faded) - CC0 1.0 - kenney.nl
+agr_wave_whoosh.ogg   - Kenney "Sci-fi Sounds" doorOpen_000.ogg (high-passed, faded) - CC0 1.0 - kenney.nl

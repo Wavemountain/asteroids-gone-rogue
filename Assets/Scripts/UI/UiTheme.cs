@@ -45,6 +45,27 @@ namespace AsteroidsGoneRogue
         /// wider screens keep the previous 16px hint size. BodyMin stays 14.
         /// </summary>
         public const int HintMin = 18;
+        public const int TypeDisplay = 44;
+        public const int TypeTitle = 28;
+        public const int TypeBody = 18;
+        public const int TypeCaption = 14;
+        public const float DisplayLine = 1.0f;
+        public const float TitleLine = 1.05f;
+        public const float BodyLine = 1.15f;
+        public const float CaptionLine = 1.1f;
+        public const float DisplayTracking = 0.02f;
+        public const float CaptionTracking = 0.06f;
+        public const int Space1 = UiMotion.Space1;
+        public const int Space2 = UiMotion.Space2;
+        public const int Space3 = UiMotion.Space3;
+        public const int Space4 = UiMotion.Space4;
+        public const int Space5 = UiMotion.Space5;
+        public const int Space6 = UiMotion.Space6;
+        public const int Space7 = UiMotion.Space7;
+        public const float MotionFast = UiMotion.Fast;
+        public const float MotionBase = UiMotion.Base;
+        public const float MotionSlow = UiMotion.Slow;
+        public const float MotionExit = UiMotion.Exit;
         public const int DoctrineBadge = 18;
         public const int PanelPadMin = 16;
         public const int PanelPadMax = 24;
@@ -200,7 +221,7 @@ namespace AsteroidsGoneRogue
             colors.selectedColor = Color.Lerp(Color.white, Primary, FocusFillAlpha);
             colors.disabledColor = Disabled;
             colors.colorMultiplier = 1f;
-            colors.fadeDuration = 0.08f;
+            colors.fadeDuration = MotionFast;
             return colors;
         }
 
@@ -429,6 +450,21 @@ namespace AsteroidsGoneRogue
 
             label.transform.SetAsLastSibling();
             label.enabled = true;
+        }
+
+        public static float EaseOut(float t)
+        {
+            return UiMotion.EaseOut(t);
+        }
+
+        public static float EaseIn(float t)
+        {
+            return UiMotion.EaseIn(t);
+        }
+
+        public static float EaseInOut(float t)
+        {
+            return UiMotion.EaseInOut(t);
         }
 
         public static float ChannelLuminance(float channel)
