@@ -72,6 +72,11 @@ namespace AsteroidsGoneRogue
                 Health.ResetForWave(loadout, refillHull, applyWaveShield);
             }
 
+            if (Visuals != null)
+            {
+                Visuals.SetPresented(true);
+            }
+
             if (_shooter != null)
             {
                 _shooter.SyncFromLoadout();

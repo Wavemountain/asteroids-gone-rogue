@@ -89,6 +89,10 @@ namespace AsteroidsGoneRogue
         private Image _hitFlash;
         private GameObject _scrim;
         private GameObject _vignette;
+        private Image _hullEdge;
+        private float _hullEdgeUntil;
+        private float _hullEdgeAlpha;
+        private CanvasGroup _menuGroup;
         private GameObject _hudPlate;
         private GameObject _utilityHud;
         private Image _utilityRing;
@@ -643,6 +647,10 @@ namespace AsteroidsGoneRogue
             Font body = UiFonts.Body();
             _scrim = CreateFill("Scrim", transform, UiTheme.WithAlpha(UiTheme.Void, 0.22f), new Vector2(0f, 0f), new Vector2(1f, 1f));
             _vignette = BuildPlayVignette();
+            _hullEdge = CreateFill("HullEdge", transform, new Color(UiTheme.Danger.r, UiTheme.Danger.g, UiTheme.Danger.b, 0f),
+                new Vector2(0f, 0f), new Vector2(1f, 1f)).GetComponent<Image>();
+            _hullEdge.sprite = MakeVignetteSprite();
+            _hullEdge.raycastTarget = false;
             _hitFlash = CreateFill("ScreenFlash", transform, new Color(1f, 0.96f, 0.92f, 0f),
                 new Vector2(0f, 0f), new Vector2(1f, 1f)).GetComponent<Image>();
             RaiseCanvas(_hitFlash.gameObject, CanvasOrder.Toast);
@@ -2218,6 +2226,11 @@ namespace AsteroidsGoneRogue
 
         private void OnPrimaryClicked()
         {
+            if (FeelBlocksMenu())
+            {
+                return;
+            }
+
             if (FirstStartOpen())
             {
                 return;
@@ -2246,6 +2259,11 @@ namespace AsteroidsGoneRogue
 
         private void OnOneMoreTry()
         {
+            if (FeelBlocksMenu())
+            {
+                return;
+            }
+
             if (_confirmOpen || _settingsOpen || _creditsVisible || _game == null)
             {
                 return;
@@ -2263,6 +2281,11 @@ namespace AsteroidsGoneRogue
 
         private void OnPrimary()
         {
+            if (FeelBlocksMenu())
+            {
+                return;
+            }
+
             if (FirstStartOpen())
             {
                 return;
@@ -2674,6 +2697,138 @@ namespace AsteroidsGoneRogue
             {
                 _abortPlate.color = UiTheme.DangerTint;
             }
+        }
+
+        private void TickFeelClock()
+        {
+            if (_game == null)
+            {
+                return;
+            }
+
+            bool paused = _confirmOpen && _confirmKind == ConfirmKind.AbortWave;
+            _game.TickFeel(Time.unscaledDeltaTime, FeelMenuHeld(), paused);
+            ApplyFeelCard();
+        }
+
+        private static bool FeelMenuHeld()
+        {
+            if (Input.GetMouseButton(0))
+            {
+                return true;
+            }
+
+            if (Input.GetButton("Submit"))
+            {
+                return true;
+            }
+
+            if (Input.GetKey(KeyCode.Return) || Input.GetKey(KeyCode.Space) || Input.GetKey(KeyCode.KeypadEnter))
+            {
+                return true;
+            }
+
+            if (Input.GetKey(KeyCode.JoystickButton0))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool FeelBlocksMenu()
+        {
+            return _game != null && _game.MenuInputBlocked();
+        }
+
+        private void ApplyFeelCard()
+        {
+            if (_menuRoot == null || _game == null)
+            {
+                return;
+            }
+
+            if (_menuGroup == null)
+            {
+                _menuGroup = _menuRoot.GetComponent<CanvasGroup>();
+                if (_menuGroup == null)
+                {
+                    _menuGroup = _menuRoot.AddComponent<CanvasGroup>();
+                }
+            }
+
+            float alpha;
+            float slide;
+            _game.CopyCardMotion(out alpha, out slide);
+            bool card = _game.CardMotionActive();
+            if (!card)
+            {
+                _menuGroup.alpha = 1f;
+                _menuGroup.interactable = true;
+                _menuGroup.blocksRaycasts = true;
+                SlideCard(0f);
+                return;
+            }
+
+            _menuGroup.alpha = alpha;
+            bool open = alpha >= 0.99f && !_game.MenuInputBlocked();
+            _menuGroup.interactable = open;
+            _menuGroup.blocksRaycasts = true;
+            SlideCard(slide);
+        }
+
+        private void SlideCard(float pixels)
+        {
+            if (_summaryRoot == null)
+            {
+                return;
+            }
+
+            RectTransform card = _summaryRoot.GetComponent<RectTransform>();
+            if (card == null)
+            {
+                return;
+            }
+
+            card.anchoredPosition = new Vector2(0f, -pixels);
+        }
+
+        public void PulseHullEdge()
+        {
+            bool reduce = SettingsState.ReduceEffectsEnabled;
+            _hullEdgeAlpha = EffectScale.HullEdge(reduce);
+            float seconds = reduce ? 0.08f : 0.16f;
+            _hullEdgeUntil = Time.unscaledTime + seconds;
+            ApplyHullEdge();
+        }
+
+        private void ApplyHullEdge()
+        {
+            if (_hullEdge == null)
+            {
+                return;
+            }
+
+            float remain = _hullEdgeUntil - Time.unscaledTime;
+            if (remain <= 0f || _hullEdgeAlpha <= 0.001f)
+            {
+                _hullEdge.color = new Color(UiTheme.Danger.r, UiTheme.Danger.g, UiTheme.Danger.b, 0f);
+                return;
+            }
+
+            float span = 0.16f;
+            float pulse = remain / span;
+            if (pulse < 0f)
+            {
+                pulse = 0f;
+            }
+
+            if (pulse > 1f)
+            {
+                pulse = 1f;
+            }
+
+            _hullEdge.color = new Color(UiTheme.Danger.r, UiTheme.Danger.g, UiTheme.Danger.b, _hullEdgeAlpha * pulse);
         }
 
         public void FlashHit(float strength)
@@ -3728,6 +3883,11 @@ namespace AsteroidsGoneRogue
 
         private void ChooseBoon(int index)
         {
+            if (FeelBlocksMenu())
+            {
+                return;
+            }
+
             if (_game == null)
             {
                 return;
@@ -3806,6 +3966,7 @@ namespace AsteroidsGoneRogue
 
         private void Update()
         {
+            TickFeelClock();
             NoteControlDevice();
             TickTutorialPrompts();
             if (_settingsOpen && _session != null && _session.Phase == GamePhase.Playing)
@@ -3957,6 +4118,7 @@ namespace AsteroidsGoneRogue
             PulseRecommendedUpgrade();
             PulseAbortIfUrgent();
             ApplyHitFlash();
+            ApplyHullEdge();
             PulseAchievementToast();
 
             if (_world == null)
@@ -4097,6 +4259,11 @@ namespace AsteroidsGoneRogue
 
         private void OnHangarStart()
         {
+            if (FeelBlocksMenu())
+            {
+                return;
+            }
+
             if (FirstStartOpen())
             {
                 return;
@@ -8108,6 +8275,15 @@ namespace AsteroidsGoneRogue
             }
 
             Time.timeScale = ConfirmPause.TimeScale(abortDialog, waveLive);
+            if (_game != null)
+            {
+                float feelScale = _game.FeelTimeScale(Time.timeScale);
+                if (feelScale < Time.timeScale)
+                {
+                    Time.timeScale = feelScale;
+                }
+            }
+
             bool silenceNow = ConfirmPause.SilenceShip(abortDialog, waveLive);
             if (silenceNow)
             {
@@ -8117,11 +8293,21 @@ namespace AsteroidsGoneRogue
                     _confirmSilencedShip = true;
                 }
 
+                if (_game != null)
+                {
+                    _game.HoldFeelInput();
+                }
+
                 return;
             }
 
             if (!_confirmSilencedShip)
             {
+                if (_game != null)
+                {
+                    _game.HoldFeelInput();
+                }
+
                 return;
             }
 
@@ -8129,6 +8315,11 @@ namespace AsteroidsGoneRogue
             if (ConfirmPause.RestoreShipInput(true, false, waveLive) && _ship != null)
             {
                 _ship.SetInputPaused(false);
+            }
+
+            if (_game != null)
+            {
+                _game.HoldFeelInput();
             }
         }
 

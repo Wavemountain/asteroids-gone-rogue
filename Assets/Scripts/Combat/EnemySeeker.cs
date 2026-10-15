@@ -249,10 +249,8 @@ namespace AsteroidsGoneRogue
                 {
                     AudioCues.Instance.PlayBossFinale(transform.position);
                 }
-                else
-                {
-                    CombatJuice.HeavyKill(transform.position, CombatJuice.ExplosionShake);
-                }
+
+                CombatJuice.HeavyKill(transform.position, CombatJuice.ExplosionShake);
             }
             else
             {
@@ -631,6 +629,7 @@ namespace AsteroidsGoneRogue
                 _radialAt = 0f;
                 _bossPattern = 0;
                 _bossNext = now + BossRules.RadialGapSeconds;
+                CombatJuice.BossPhase(transform.position, toPlayerDir);
                 return;
             }
 
@@ -662,6 +661,7 @@ namespace AsteroidsGoneRogue
                 FireAimedBurst(_aimedDir);
                 _bossPattern = 1;
                 _bossNext = now + BossRules.AimedGapSeconds;
+                CombatJuice.BossPhase(transform.position, _aimedDir);
                 return;
             }
 

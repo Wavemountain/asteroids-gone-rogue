@@ -18,6 +18,20 @@ namespace AsteroidsGoneRogue
         private Vector3 _capturePos;
         private Vector3 _captureLook;
         private float _captureFov = 54f;
+        private float _springX;
+        private float _springY;
+        private float _springZ;
+        private float _springVx;
+        private float _springVy;
+        private float _springVz;
+        private bool _springReady;
+        private float _ox;
+        private float _oy;
+        private float _oz;
+        private float _vx;
+        private float _vy;
+        private float _vz;
+        private WaveManager _pressureWaves;
 
         public void HoldCapturePose(Vector3 position, Vector3 look, float fov)
         {
@@ -44,8 +58,16 @@ namespace AsteroidsGoneRogue
             _target = target;
             if (_target != null)
             {
-                transform.position = _target.position + Offset;
+                Vector3 snapped = _target.position + Offset;
+                transform.position = snapped;
                 transform.LookAt(_target.position);
+                _springX = snapped.x;
+                _springY = snapped.y;
+                _springZ = snapped.z;
+                _springVx = 0f;
+                _springVy = 0f;
+                _springVz = 0f;
+                _springReady = true;
             }
         }
 
@@ -56,14 +78,20 @@ namespace AsteroidsGoneRogue
             {
                 transform.position = HangarLook + HangarOffset;
                 transform.LookAt(HangarLook);
+                _springReady = false;
             }
         }
 
         public void AddShake(float amplitude)
         {
+            AddShake(amplitude, Vector3.zero);
+        }
+
+        public void AddShake(float amplitude, Vector3 direction)
+        {
             if (!SettingsState.ScreenShakeEnabled)
             {
-                _shake = 0f;
+                ClearShake();
                 return;
             }
 
@@ -74,15 +102,38 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            CameraFeel.Impulse(ref _vx, ref _vy, ref _vz, direction.x, direction.y, direction.z, applied);
             float shakeCap = EffectScale.ShakeCap(SettingsState.ReduceEffectsEnabled, MaxShake);
-            _shake = Mathf.Min(shakeCap, _shake + applied);
+            _shake = shakeCap;
+        }
+
+        public void AddShakeWorld(float amplitude, Vector3 worldPosition)
+        {
+            Vector3 direction = worldPosition;
+            if (_target != null)
+            {
+                direction = worldPosition - _target.position;
+            }
+
+            AddShake(amplitude, direction);
+        }
+
+        private void ClearShake()
+        {
+            _shake = 0f;
+            _ox = 0f;
+            _oy = 0f;
+            _oz = 0f;
+            _vx = 0f;
+            _vy = 0f;
+            _vz = 0f;
         }
 
         private void LateUpdate()
         {
             if (!SettingsState.ScreenShakeEnabled)
             {
-                _shake = 0f;
+                ClearShake();
             }
 
             if (_captureHold)
@@ -104,6 +155,12 @@ namespace AsteroidsGoneRogue
                 Vector3 desiredHangar = HangarLook + HangarOffset;
                 transform.position = Vector3.Lerp(transform.position, desiredHangar, 1f - Mathf.Exp(-Follow * Time.deltaTime));
                 transform.LookAt(HangarLook);
+                Camera hangarCam = GetComponent<Camera>();
+                if (hangarCam != null)
+                {
+                    hangarCam.fieldOfView = ArenaFraming.BaseFov;
+                }
+
                 ApplyPlayViewport();
                 return;
             }
@@ -114,26 +171,125 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            Vector3 desired = _target.position + Offset;
-            if (SettingsState.ScreenShakeEnabled && _shake > 0.001f)
+            float aimX;
+            float aimZ;
+            float speed;
+            ReadAim(out aimX, out aimZ, out speed);
+            bool reduce = SettingsState.ReduceEffectsEnabled;
+            float leadX;
+            float leadZ;
+            CameraFeel.LookAhead(
+                _target.position.x,
+                _target.position.z,
+                aimX,
+                aimZ,
+                speed,
+                WaveManager.ArenaRadius,
+                CameraFeel.FairHalfExtent,
+                reduce,
+                out leadX,
+                out leadZ);
+            Vector3 look = _target.position + new Vector3(leadX, 0f, leadZ);
+            Vector3 desired = look + Offset;
+            float step = Time.deltaTime;
+            if (!_springReady)
             {
-                Vector2 n = Random.insideUnitCircle * _shake;
-                desired += new Vector3(n.x, 0f, n.y);
-                _shake = Mathf.MoveTowards(_shake, 0f, ShakeDecay * Time.deltaTime);
-            }
-            else if (!SettingsState.ScreenShakeEnabled)
-            {
-                _shake = 0f;
+                _springX = desired.x;
+                _springY = desired.y;
+                _springZ = desired.z;
+                _springVx = 0f;
+                _springVy = 0f;
+                _springVz = 0f;
+                _springReady = true;
             }
 
-            transform.position = Vector3.Lerp(transform.position, desired, 1f - Mathf.Exp(-Follow * Time.deltaTime));
-            transform.LookAt(_target.position);
+            CameraFeel.SpringLimited(ref _springX, ref _springVx, desired.x, CameraFeel.FollowOmega, step, CameraFeel.MaxLag);
+            CameraFeel.SpringLimited(ref _springY, ref _springVy, desired.y, CameraFeel.FollowOmega, step, CameraFeel.MaxLag);
+            CameraFeel.SpringLimited(ref _springZ, ref _springVz, desired.z, CameraFeel.FollowOmega, step, CameraFeel.MaxLag);
+
+            if (SettingsState.ScreenShakeEnabled)
+            {
+                float shakeCap = EffectScale.ShakeCap(reduce, MaxShake);
+                CameraFeel.DecayShake(
+                    ref _ox,
+                    ref _oy,
+                    ref _oz,
+                    ref _vx,
+                    ref _vy,
+                    ref _vz,
+                    CameraFeel.ShakeOmega,
+                    step,
+                    shakeCap);
+                _shake = Mathf.Sqrt((_ox * _ox) + (_oy * _oy) + (_oz * _oz));
+            }
+            else
+            {
+                ClearShake();
+            }
+
+            transform.position = new Vector3(_springX + _ox, _springY + _oy, _springZ + _oz);
+            transform.LookAt(look);
+            Camera playCam = GetComponent<Camera>();
+            if (playCam != null)
+            {
+                float shipRadius = Mathf.Sqrt((_target.position.x * _target.position.x) + (_target.position.z * _target.position.z));
+                float zoom = CameraFeel.ZoomAdd(speed, ReadPressure(), shipRadius, WaveManager.ArenaRadius, reduce);
+                playCam.fieldOfView = ArenaFraming.BaseFov + zoom;
+            }
+
             ApplyPlayViewport();
+        }
+
+        private void ReadAim(out float aimX, out float aimZ, out float speed)
+        {
+            aimX = 0f;
+            aimZ = 1f;
+            speed = 0f;
+            if (_target == null)
+            {
+                return;
+            }
+
+            Rigidbody body = _target.GetComponent<Rigidbody>();
+            Vector3 velocity = body != null ? body.linearVelocity : Vector3.zero;
+            velocity.y = 0f;
+            speed = velocity.magnitude;
+            if (velocity.sqrMagnitude > 0.25f)
+            {
+                aimX = velocity.x;
+                aimZ = velocity.z;
+                return;
+            }
+
+            Vector3 forward = _target.forward;
+            aimX = forward.x;
+            aimZ = forward.z;
+        }
+
+        private int ReadPressure()
+        {
+            if (_hangarFraming || _target == null)
+            {
+                return 0;
+            }
+
+            if (_pressureWaves == null)
+            {
+                _pressureWaves = UnityEngine.Object.FindAnyObjectByType<WaveManager>();
+            }
+
+            if (_pressureWaves == null)
+            {
+                return 0;
+            }
+
+            return _pressureWaves.RemainingThreats;
         }
 
         /// <summary>
         /// Pillarbox or letterbox so the 16:9 playfield is neither wider nor cropped.
-        /// Vertical FOV stays at ArenaFraming.BaseFov. UI is a screen-space overlay.
+        /// Vertical FOV stays at ArenaFraming.BaseFov plus a small clamped zoom.
+        /// UI is a screen-space overlay. The viewport rect is unchanged.
         /// </summary>
         private void ApplyPlayViewport()
         {

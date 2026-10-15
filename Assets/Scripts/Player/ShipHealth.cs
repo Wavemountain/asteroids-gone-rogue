@@ -443,6 +443,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            CombatJuice.NoteHitDirection(other.transform.position - transform.position);
             if (cause == DamageCause.EnemyContact)
             {
                 EnemySeeker seeker = other.GetComponentInParent<EnemySeeker>();

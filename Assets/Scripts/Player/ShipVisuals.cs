@@ -86,8 +86,22 @@ namespace AsteroidsGoneRogue
             ApplyLoadout(loadout, null);
         }
 
+        public void SetPresented(bool visible)
+        {
+            Renderer[] shown = GetComponentsInChildren<Renderer>(true);
+            for (int rendererIndex = 0; rendererIndex < shown.Length; rendererIndex++)
+            {
+                Renderer piece = shown[rendererIndex];
+                if (piece != null)
+                {
+                    piece.enabled = visible;
+                }
+            }
+        }
+
         public void ApplyLoadout(LoadoutState loadout, LoadoutState owned)
         {
+            SetPresented(true);
             ClearGhost();
             bool bodyUpgrade = loadout != null && loadout.BodyUpgrade01;
             if (DefaultBody != null)

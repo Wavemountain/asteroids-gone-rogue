@@ -14,8 +14,16 @@ namespace AsteroidsGoneRogue
         private ShipController _ship;
         private HangarShipPreview _hangarPreview;
         private FollowCamera _follow;
+        private readonly HitstopBudget _hitstop = new HitstopBudget();
+        private readonly TransitionTimeline _feel = new TransitionTimeline();
+        private bool _pendingDeathStructured;
+        private string _pendingDeathText = string.Empty;
+        private DamageCause _pendingDeathCause = DamageCause.Unknown;
+        private EnemyKind _pendingDeathKind = EnemyKind.Mid01;
         private bool _keepDailyOnReset;
         private int _grantedStartShield;
+
+        public static GameManager Live { get; private set; }
 
         public GameSession Session
         {
@@ -141,6 +149,7 @@ namespace AsteroidsGoneRogue
             ContentFactory factory,
             ShipController ship)
         {
+            Live = this;
             _session = session;
             _loadout = loadout;
             _waves = waves;
@@ -562,9 +571,13 @@ namespace AsteroidsGoneRogue
                 {
                     FinishTutorial();
                 }
+                else if (_ship != null && _ship.Health != null && _ship.Health.Hull <= 0)
+                {
+                    RaiseStateChanged();
+                }
                 else
                 {
-                    CompleteWave();
+                    BeginWaveClear();
                 }
             }
             else
@@ -761,7 +774,10 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            FailRun(cause, false, DamageCause.Unknown, EnemyKind.Mid01);
+            if (!BeginFinalDeath(cause, false, DamageCause.Unknown, EnemyKind.Mid01))
+            {
+                FailRun(cause, false, DamageCause.Unknown, EnemyKind.Mid01);
+            }
         }
 
         public void NotifyPlayerDestroyed(DamageCause cause, EnemyKind kind)
@@ -776,7 +792,10 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            FailRun(null, true, cause, kind);
+            if (!BeginFinalDeath(null, true, cause, kind))
+            {
+                FailRun(null, true, cause, kind);
+            }
         }
 
         private bool BeginPlayerDeath()
@@ -987,6 +1006,160 @@ namespace AsteroidsGoneRogue
 
             RaiseStateChanged();
             return true;
+        }
+
+        public void RequestHitstop(float seconds)
+        {
+            if (_session == null || _session.Phase != GamePhase.Playing)
+            {
+                return;
+            }
+
+            if (_feel.Kind == TransitionKind.Death)
+            {
+                return;
+            }
+
+            _hitstop.Request(Time.unscaledTime, seconds, SettingsState.ReduceEffectsEnabled);
+        }
+
+        public void HoldFeelInput()
+        {
+            if (_feel.Kind == TransitionKind.None || _feel.Committed || _ship == null)
+            {
+                return;
+            }
+
+            _ship.SetInputPaused(true);
+        }
+
+        public void TickFeel(float unscaledDelta, bool held, bool paused)
+        {
+            if (_feel.Kind == TransitionKind.None)
+            {
+                return;
+            }
+
+            bool reduce = SettingsState.ReduceEffectsEnabled;
+            if (_session == null || (_session.Phase != GamePhase.Playing && !_feel.Committed))
+            {
+                _feel.Clear();
+                return;
+            }
+
+            _feel.Advance(unscaledDelta, held, reduce, paused);
+            if (_feel.ShatterDue(reduce))
+            {
+                ShatterShip();
+                _feel.MarkShatter();
+            }
+
+            if (_feel.ReadyToCommit(reduce))
+            {
+                if (_feel.Kind == TransitionKind.Death)
+                {
+                    FailRun(_pendingDeathText, _pendingDeathStructured, _pendingDeathCause, _pendingDeathKind);
+                }
+                else if (_feel.Kind == TransitionKind.WaveClear)
+                {
+                    CompleteWave();
+                }
+
+                _feel.MarkCommitted();
+            }
+
+            if (_feel.InputOpen(reduce) && !_feel.BlocksInput(reduce))
+            {
+                _feel.Clear();
+            }
+        }
+
+        public void CopyCardMotion(out float alpha, out float slide)
+        {
+            bool reduce = SettingsState.ReduceEffectsEnabled;
+            alpha = _feel.CardAlpha(reduce);
+            slide = _feel.CardSlide(reduce);
+        }
+
+        public bool CardMotionActive()
+        {
+            return _feel.Kind != TransitionKind.None && _feel.Committed;
+        }
+
+        public bool MenuInputBlocked()
+        {
+            return _feel.BlocksInput(SettingsState.ReduceEffectsEnabled);
+        }
+
+        public float FeelTimeScale(float pauseScale)
+        {
+            bool reduce = SettingsState.ReduceEffectsEnabled;
+            bool hitstop = _hitstop.Active(Time.unscaledTime);
+            return FeelClock.Compose(pauseScale, hitstop, _feel.TimeScale(reduce));
+        }
+
+        private bool BeginFinalDeath(string cause, bool structured, DamageCause failCause, EnemyKind kind)
+        {
+            if (_feel.Kind != TransitionKind.None)
+            {
+                return false;
+            }
+
+            _pendingDeathText = cause == null ? string.Empty : cause;
+            _pendingDeathStructured = structured;
+            _pendingDeathCause = failCause;
+            _pendingDeathKind = kind;
+            if (_ship != null)
+            {
+                _ship.SetInputPaused(true);
+            }
+
+            _feel.Begin(TransitionKind.Death);
+            return true;
+        }
+
+        private void BeginWaveClear()
+        {
+            if (_feel.Kind != TransitionKind.None)
+            {
+                return;
+            }
+
+            if (_ship != null)
+            {
+                _ship.SetInputPaused(true);
+            }
+
+            _feel.Begin(TransitionKind.WaveClear);
+        }
+
+        private void ShatterShip()
+        {
+            if (_ship == null)
+            {
+                return;
+            }
+
+            Vector3 position = _ship.transform.position;
+            JuiceBurst.KillBloom(position, true);
+            int pieces = 5;
+            for (int piece = 0; piece < pieces; piece++)
+            {
+                float angle = (6.2831853f * piece) / pieces;
+                float px = position.x + ((float)System.Math.Cos(angle) * 0.85f);
+                float pz = position.z + ((float)System.Math.Sin(angle) * 0.85f);
+                JuiceBurst.ColoredBloom(new Vector3(px, position.y, pz), UiTheme.Primary, 0.36f, 0.12f, 0.7f);
+            }
+
+            if (_factory != null)
+            {
+                _factory.SpawnVfx("Vfx_Explosion_Lowpoly", position, 0.6f);
+            }
+
+            if (_ship.Visuals != null)
+            {
+                _ship.Visuals.SetPresented(false);
+            }
         }
 
         private void FailRun(string cause, bool structured, DamageCause failCause, EnemyKind kind)

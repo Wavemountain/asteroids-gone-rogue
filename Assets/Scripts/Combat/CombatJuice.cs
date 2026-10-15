@@ -16,6 +16,17 @@ namespace AsteroidsGoneRogue
         public const float HeavyKillFlash = 0.12f;
         public const float ExtraLifeFlash = 0.20f;
         public const float ExtraLifeShake = 0.12f;
+        public const float BossPhaseShake = 0.08f;
+
+        private static Vector3 _hitDir;
+
+        public static void NoteHitDirection(Vector3 direction)
+        {
+            if (direction.sqrMagnitude > 0.0001f)
+            {
+                _hitDir = direction;
+            }
+        }
 
         public static void PlayerDamaged(bool lethal)
         {
@@ -29,12 +40,19 @@ namespace AsteroidsGoneRogue
 
         public static void PlayerHullHit()
         {
-            Shake(PlayerHitShake);
+            Vector3 direction = ConsumeHitDirection();
+            Shake(PlayerHitShake, direction);
+            RequestStop(HitstopBudget.HullSeconds);
             FlashScreen(PlayerHitFlash, UiTheme.Danger, HitFlashLimiter.DefaultDecay, false);
+            if (GameUi.Instance != null)
+            {
+                GameUi.Instance.PulseHullEdge();
+            }
         }
 
         public static void PlayerShieldHit(Transform ship)
         {
+            _hitDir = Vector3.zero;
             Shake(ShieldHitShake);
             if (ship != null)
             {
@@ -45,6 +63,7 @@ namespace AsteroidsGoneRogue
 
         public static void PlayerShieldBreak(Transform ship)
         {
+            _hitDir = Vector3.zero;
             Shake(PlayerHitShake);
             FlashScreen(ShieldBreakFlash, UiTheme.Secondary, 0.14f, false);
             if (ship != null)
@@ -56,8 +75,23 @@ namespace AsteroidsGoneRogue
         public static void HeavyKill(Vector3 position, float shake)
         {
             JuiceBurst.KillBloom(position, true);
-            Shake(shake);
+            ShakeWorld(shake, position);
+            RequestStop(HitstopBudget.HeavySeconds);
             FlashScreen(HeavyKillFlash, UiTheme.Primary, HitFlashLimiter.DefaultDecay, true);
+        }
+
+        public static void BossPhase(Vector3 origin, Vector3 direction)
+        {
+            if (direction.sqrMagnitude > 0.0001f)
+            {
+                Shake(BossPhaseShake, direction);
+            }
+            else
+            {
+                ShakeWorld(BossPhaseShake, origin);
+            }
+
+            RequestStop(HitstopBudget.BossSeconds);
         }
 
         public static void Ripple(Vector3 position, Color color, float seconds)
@@ -128,7 +162,20 @@ namespace AsteroidsGoneRogue
                 JuiceBurst.KillBloom(target.position, heavy);
             }
 
-            Shake(exploded ? ExplosionShake : ThreatHitShake);
+            if (target != null)
+            {
+                ShakeWorld(exploded ? ExplosionShake : ThreatHitShake, target.position);
+            }
+            else
+            {
+                Shake(exploded ? ExplosionShake : ThreatHitShake);
+            }
+
+            if (exploded && heavy)
+            {
+                RequestStop(HitstopBudget.HeavySeconds);
+            }
+
             if (exploded && monster)
             {
                 FlashScreen(HeavyKillFlash, UiTheme.Primary, HitFlashLimiter.DefaultDecay, true);
@@ -154,6 +201,11 @@ namespace AsteroidsGoneRogue
 
         public static void Shake(float amplitude)
         {
+            Shake(amplitude, Vector3.zero);
+        }
+
+        public static void Shake(float amplitude, Vector3 direction)
+        {
             Camera camera = Camera.main;
             if (camera == null)
             {
@@ -163,8 +215,41 @@ namespace AsteroidsGoneRogue
             FollowCamera follow = camera.GetComponent<FollowCamera>();
             if (follow != null)
             {
-                follow.AddShake(amplitude);
+                follow.AddShake(amplitude, direction);
             }
+        }
+
+        public static void ShakeWorld(float amplitude, Vector3 worldPosition)
+        {
+            Camera camera = Camera.main;
+            if (camera == null)
+            {
+                return;
+            }
+
+            FollowCamera follow = camera.GetComponent<FollowCamera>();
+            if (follow != null)
+            {
+                follow.AddShakeWorld(amplitude, worldPosition);
+            }
+        }
+
+        private static Vector3 ConsumeHitDirection()
+        {
+            Vector3 direction = _hitDir;
+            _hitDir = Vector3.zero;
+            return direction;
+        }
+
+        private static void RequestStop(float seconds)
+        {
+            GameManager live = GameManager.Live;
+            if (live == null)
+            {
+                return;
+            }
+
+            live.RequestHitstop(seconds);
         }
 
         public static void FlashScreen(float strength)
