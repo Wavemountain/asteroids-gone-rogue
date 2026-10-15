@@ -281,6 +281,10 @@ namespace AsteroidsGoneRogue
             return pulsed;
         }
 
+        public const float PostBloomMul = 0.5f;
+        public const float PostVignetteMul = 0.5f;
+        public const float PostGrainMul = 0f;
+        public const float PostThresholdAdd = 0.15f;
         public const float FeelMul = 0.35f;
         public const float HullEdgeFull = 0.55f;
         public const float HullEdgeReduced = 0.1f;
