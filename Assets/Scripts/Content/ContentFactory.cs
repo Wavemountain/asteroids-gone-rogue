@@ -56,8 +56,14 @@ namespace AsteroidsGoneRogue
         private Material _launchGlow;
         private Material _launchDecal;
         private Material _brute;
+        private Material _bruteGlow;
         private Material _swarm;
+        private Material _swarmGlow;
         private Material _swarmling;
+        private Material _enemyGlow;
+        private Material _projectileRail;
+        private Material _pickupHeart;
+        private Material _pickupGeneric;
         private Material _hazardSpike;
         private Material _layoutCyan;
         private Material _layoutMagenta;
@@ -150,32 +156,55 @@ namespace AsteroidsGoneRogue
                 0f,
                 0.15f,
                 false);
-            _asteroid = MakeMaterial(
+            _asteroid = MakeShipRim(
                 "Mat_Asteroid",
                 new Color(ReadabilityPalette.AsteroidR, ReadabilityPalette.AsteroidG, ReadabilityPalette.AsteroidB) * ReadabilityPalette.AsteroidAlbedoScale,
+                steelEmit * EmissionTargets.AsteroidRimColorMul,
+                EmissionTargets.AsteroidRimPower,
+                EmissionTargets.AsteroidRimStrength,
+                steelEmit * EmissionTargets.AsteroidEmission(ReadabilityPalette.AsteroidEmissionScale),
                 0.05f,
                 0.18f,
-                steelEmit * ReadabilityPalette.AsteroidEmissionScale);
-            _asteroidB = MakeMaterial(
+                false);
+            _asteroidB = MakeShipRim(
                 "Mat_Asteroid_B",
                 new Color(ReadabilityPalette.AsteroidVariantR, ReadabilityPalette.AsteroidVariantG, ReadabilityPalette.AsteroidVariantB) * ReadabilityPalette.AsteroidAlbedoScale,
+                steelEmit * EmissionTargets.AsteroidRimColorMul,
+                EmissionTargets.AsteroidRimPower,
+                EmissionTargets.AsteroidRimStrength,
+                steelEmit * EmissionTargets.AsteroidEmission(ReadabilityPalette.AsteroidEmissionScale),
                 0.04f,
                 0.14f,
-                steelEmit * ReadabilityPalette.AsteroidEmissionScale);
-            _enemy = MakeMaterial(
+                false);
+            _enemy = MakeShipRim(
                 "Mat_Enemy",
                 new Color(ReadabilityPalette.EnemyBodyR, ReadabilityPalette.EnemyBodyG, ReadabilityPalette.EnemyBodyB),
+                dangerEmit,
+                EmissionTargets.EnemyRimPower,
+                EmissionTargets.EnemyRimStrength,
+                dangerEmit * ReadabilityPalette.EnemyEmissionScale,
                 0.22f,
                 0.35f,
-                dangerEmit * ReadabilityPalette.EnemyEmissionScale);
+                false);
+            _enemyGlow = MakeShipRim(
+                "Mat_Enemy_Glow",
+                dangerEmit,
+                dangerEmit,
+                EmissionTargets.EnemyRimPower,
+                EmissionTargets.EnemyRimStrength,
+                dangerEmit * EmissionTargets.EnemyGlow,
+                0.15f,
+                0.4f,
+                false);
             _arena = MakeMaterial("Mat_Arena", new Color(0.039f, 0.063f, 0.086f), 0.08f, 0.1f);
             _astroRim = MakeMaterial("Mat_AstroRim", new Color(0.357f, 0.561f, 0.659f), 0.12f, 0.38f, new Color(0.357f, 0.561f, 0.659f) * 0.55f);
-            _projectile = MakeMaterial("Mat_Projectile", new Color(0.831f, 0.627f, 0.29f), 0f, 0.32f, new Color(0.831f, 0.627f, 0.29f) * 1.6f);
-            _projectileSpread = MakeMaterial("Mat_Projectile_Spread", new Color(0.788f, 0.537f, 0.227f), 0f, 0.28f, new Color(0.788f, 0.537f, 0.227f) * 1.5f);
-            _projectilePierce = MakeMaterial("Mat_Projectile_Pierce", new Color(0.373f, 0.627f, 0.722f), 0f, 0.3f, new Color(0.373f, 0.627f, 0.722f) * 1.7f);
-            _projectileSeeker = MakeMaterial("Mat_Projectile_Seeker", new Color(0.4f, 0.58f, 0.68f), 0f, 0.28f, new Color(0.373f, 0.627f, 0.722f) * 1.4f);
-            _projectileRicochet = MakeMaterial("Mat_Projectile_Ricochet", new Color(0.78f, 0.6f, 0.32f), 0f, 0.3f, new Color(0.831f, 0.627f, 0.29f) * 1.4f);
-            _projectileEnemy = MakeMaterial("Mat_Projectile_Enemy", new Color(0.722f, 0.353f, 0.157f), 0f, 0.28f, new Color(0.722f, 0.353f, 0.157f) * 1.2f);
+            _projectile = MakeMaterial("Mat_Projectile", primaryEmit, 0f, 0.32f, primaryEmit * EmissionTargets.PlayerShot);
+            _projectileSpread = MakeMaterial("Mat_Projectile_Spread", primaryEmit, 0f, 0.28f, primaryEmit * EmissionTargets.PlayerShot);
+            _projectilePierce = MakeMaterial("Mat_Projectile_Pierce", steelEmit, 0f, 0.3f, steelEmit * EmissionTargets.PlayerShot);
+            _projectileSeeker = MakeMaterial("Mat_Projectile_Seeker", steelEmit, 0f, 0.28f, steelEmit * EmissionTargets.PlayerShot);
+            _projectileRicochet = MakeMaterial("Mat_Projectile_Ricochet", primaryEmit, 0f, 0.3f, primaryEmit * EmissionTargets.PlayerShot);
+            _projectileRail = MakeMaterial("Mat_Projectile_Rail", primaryEmit, 0f, 0.4f, primaryEmit * EmissionTargets.PlayerRail);
+            _projectileEnemy = MakeMaterial("Mat_Projectile_Enemy", dangerEmit, 0f, 0.28f, dangerEmit * EmissionTargets.EnemyShot);
             _projectileHalo = MakeTransparent("Mat_Projectile_Halo", new Color(0.831f, 0.627f, 0.29f, 0.26f), new Color(0.831f, 0.627f, 0.29f) * 0.9f);
             _hangarMetal = MakeMaterial("Mat_Hangar_Metal", new Color(0.28f, 0.32f, 0.36f), 0.55f, 0.42f);
             _hangarAmber = MakeMaterial("Mat_Hangar_Amber", new Color(1f, 0.58f, 0.16f), 0.2f, 0.5f, new Color(1f, 0.42f, 0.06f) * 1.6f);
@@ -184,9 +213,69 @@ namespace AsteroidsGoneRogue
             _launchAmber = MakeMaterial("Mat_LaunchSign_Amber", new Color(1f, 0.62f, 0.14f), 0.12f, 0.42f, new Color(1f, 0.48f, 0.06f) * 3.8f);
             _launchGlow = MakeMaterial("Mat_LaunchSign_Glow", new Color(1f, 0.86f, 0.32f), 0f, 0.18f, new Color(1f, 0.7f, 0.12f) * 5.2f);
             _launchDecal = MakeMaterial("Mat_LaunchSign_Decal", new Color(1f, 0.94f, 0.42f), 0f, 0.12f, new Color(1f, 0.82f, 0.18f) * 6.4f);
-            _brute = MakeMaterial("Mat_Monster_Brute", new Color(0.58f, 0.34f, 0.36f), 0.22f, 0.36f, new Color(0.7f, 0.28f, 0.18f) * 0.42f);
-            _swarm = MakeMaterial("Mat_Monster_Swarm", new Color(0.28f, 0.44f, 0.46f), 0.18f, 0.35f, new Color(0.2f, 0.45f, 0.55f) * 0.42f);
-            _swarmling = MakeMaterial("Mat_Monster_Swarmling", new Color(0.36f, 0.46f, 0.4f), 0.12f, 0.32f, new Color(0.28f, 0.5f, 0.38f) * 0.42f);
+            _brute = MakeShipRim(
+                "Mat_Monster_Brute",
+                new Color(0.58f, 0.34f, 0.36f),
+                dangerEmit * EmissionTargets.BruteRimColorMul,
+                EmissionTargets.BruteRimPower,
+                EmissionTargets.BruteRimStrength,
+                dangerEmit * ReadabilityPalette.EnemyEmissionScale,
+                0.22f,
+                0.36f,
+                false);
+            _bruteGlow = MakeShipRim(
+                "Mat_Enemy_Brute_Glow",
+                dangerEmit,
+                dangerEmit * EmissionTargets.BruteRimColorMul,
+                EmissionTargets.BruteRimPower,
+                EmissionTargets.BruteRimStrength,
+                dangerEmit * EmissionTargets.EnemyBrute,
+                0.12f,
+                0.45f,
+                false);
+            _swarm = MakeShipRim(
+                "Mat_Monster_Swarm",
+                new Color(0.42f, 0.28f, 0.26f),
+                dangerEmit,
+                EmissionTargets.EnemyRimPower,
+                EmissionTargets.EnemyRimStrength,
+                dangerEmit * ReadabilityPalette.EnemyEmissionScale,
+                0.18f,
+                0.35f,
+                false);
+            _swarmGlow = MakeShipRim(
+                "Mat_Enemy_Swarm_Glow",
+                dangerEmit,
+                dangerEmit,
+                EmissionTargets.EnemyRimPower,
+                EmissionTargets.EnemyRimStrength,
+                dangerEmit * EmissionTargets.EnemyGlow,
+                0.12f,
+                0.4f,
+                false);
+            _swarmling = MakeShipRim(
+                "Mat_Monster_Swarmling",
+                new Color(0.36f, 0.46f, 0.4f),
+                dangerEmit,
+                EmissionTargets.EnemyRimPower,
+                EmissionTargets.EnemyRimStrength,
+                dangerEmit * ReadabilityPalette.EnemyEmissionScale,
+                0.12f,
+                0.32f,
+                false);
+            Color healEmit = new Color(EmissionTargets.HealR, EmissionTargets.HealG, EmissionTargets.HealB);
+            _pickupHeart = MakeMaterial(
+                "Mat_FX_Pickup_Heart",
+                healEmit,
+                0.1f,
+                0.62f,
+                healEmit * EmissionTargets.FxPickupHeart);
+            _pickupGeneric = MakeMaterial(
+                "Mat_FX_Pickup_Generic",
+                steelEmit,
+                0.2f,
+                0.4f,
+                steelEmit * 0.35f);
             _hazardSpike = MakeMaterial("Mat_Arena_Hazard", new Color(0.722f, 0.353f, 0.157f), 0.28f, 0.24f, new Color(0.722f, 0.353f, 0.157f) * 0.45f);
             _layoutCyan = MakeMaterial("Mat_Arena_Layout_Cyan", new Color(0.12f, 0.55f, 0.72f), 0.15f, 0.2f, new Color(0.1f, 0.7f, 1f) * 1.3f);
             _layoutMagenta = MakeMaterial("Mat_Arena_Layout_Magenta", new Color(0.62f, 0.12f, 0.48f), 0.15f, 0.2f, new Color(0.9f, 0.1f, 0.7f) * 1.2f);
@@ -900,8 +989,26 @@ namespace AsteroidsGoneRogue
             collider.height = EnemyCatalog.ColliderHeight(kind);
             collider.center = EnemyCatalog.ColliderCenter(kind);
 
-            if (!TryEnemyVisual(visualName, root.transform)
-                && !(kind == EnemyKind.Swarmling && TryEnemyVisual("Monster_Swarm", root.transform)))
+            string meshAsset = EnemyCatalog.MeshAsset(kind);
+            bool premiumMesh = false;
+            bool importedMesh = false;
+            if (meshAsset != visualName)
+            {
+                importedMesh = TryEnemyVisual(meshAsset, root.transform);
+                premiumMesh = importedMesh;
+            }
+
+            if (!importedMesh)
+            {
+                importedMesh = TryEnemyVisual(visualName, root.transform);
+            }
+
+            if (!importedMesh && kind == EnemyKind.Swarmling)
+            {
+                importedMesh = TryEnemyVisual("Monster_Swarm", root.transform);
+            }
+
+            if (!importedMesh)
             {
                 if (!BuildMonsterPlaceholder(kind, root.transform))
                 {
@@ -930,22 +1037,26 @@ namespace AsteroidsGoneRogue
             {
                 DressSniperMesh(root.transform);
             }
-            else if (kind == EnemyKind.Bomber)
+            else if (!premiumMesh && kind == EnemyKind.Bomber)
             {
                 DressBomberMesh(root.transform);
             }
-            else if (kind == EnemyKind.Brute)
+            else if (!premiumMesh && kind == EnemyKind.Brute)
             {
                 DressBruteMesh(root.transform);
             }
-            else if (kind == EnemyKind.Swarm || kind == EnemyKind.Swarmling)
+            else if (!premiumMesh && (kind == EnemyKind.Swarm || kind == EnemyKind.Swarmling))
             {
                 DressSwarmMesh(root.transform, kind == EnemyKind.Swarmling);
             }
 
-            if (kind == EnemyKind.Swarmling)
+            if (importedMesh)
             {
-                ScaleImportedVisual(root.transform, 0.45f);
+                ScaleImportedToRadius(root.transform, MeshFit.LegacyRadius(EnemyCatalog.MeshFitId(kind)));
+            }
+            else if (kind == EnemyKind.Swarmling)
+            {
+                ScaleImportedVisual(root.transform, MeshFit.SwarmlingScale);
             }
 
             FitEnemyCollider(collider, root.transform);
@@ -1105,12 +1216,13 @@ namespace AsteroidsGoneRogue
             bool ricochet = !hostile && style == FireMode.Ricochet;
             bool twin = !hostile && style == FireMode.Twin;
             bool rail = !hostile && style == FireMode.Rail;
+            Material railMat = _projectileRail != null ? _projectileRail : _glow;
             Material boltMat = hostile
                 ? _projectileEnemy
                 : (pierce ? _projectilePierce
                     : (spread ? _projectileSpread
                         : (seeker ? _projectileSeeker
-                            : (ricochet ? _projectileRicochet : (rail ? _glow : _projectile)))));
+                            : (ricochet ? _projectileRicochet : (rail ? railMat : _projectile)))));
             string visual = hostile ? "Projectile_EnemyBolt" : "Projectile_Bolt";
             GameObject mesh = null;
             bool railSeeker = false;
@@ -1178,7 +1290,7 @@ namespace AsteroidsGoneRogue
             }
             else if (rail)
             {
-                CreatePrimitive(PrimitiveType.Capsule, "RailCore", root.transform, _glow,
+                CreatePrimitive(PrimitiveType.Capsule, "RailCore", root.transform, railMat,
                     Vector3.zero, new Vector3(0.16f, 0.16f, 1.8f), Quaternion.Euler(90f, 0f, 0f));
             }
             else if (ricochet)
@@ -1266,7 +1378,8 @@ namespace AsteroidsGoneRogue
         private Asteroid CreateAsteroid(AsteroidSize size, Vector3 position, Vector3 drift, WaveManager waves)
         {
             float meters = size == AsteroidSize.Large ? LargeAsteroidMeters : SmallAsteroidMeters;
-            string propName = PickAsteroidVisual(size);
+            int rockBucket;
+            string propName = PickAsteroidVisual(size, out rockBucket);
             GameObject root = new GameObject(propName);
             root.tag = GameTags.Asteroid;
             root.transform.SetParent(_threatRoot, false);
@@ -1290,11 +1403,16 @@ namespace AsteroidsGoneRogue
             SphereCollider collider = root.AddComponent<SphereCollider>();
             collider.radius = meters * 0.5f;
 
-            Material rock = propName.IndexOf("VariantB", System.StringComparison.Ordinal) >= 0
+            Material rock = propName.IndexOf("_B", System.StringComparison.Ordinal) >= 0
+                || propName.IndexOf("_C", System.StringComparison.Ordinal) >= 0
+                || propName.IndexOf("VariantB", System.StringComparison.Ordinal) >= 0
                 ? _asteroidB
                 : _asteroid;
-            if (!TryVisual(propName, root.transform, rock)
-                && !TryVisual(size == AsteroidSize.Large ? "Asteroid_Large" : "Asteroid_Small", root.transform, _asteroid))
+            string legacyName = size == AsteroidSize.Large ? "Asteroid_VariantC_Large" : "Asteroid_VariantD_Small";
+            bool importedRock = TryVisual(propName, root.transform, rock)
+                || TryVisual(size == AsteroidSize.Large ? "Asteroid_Large" : "Asteroid_Small", root.transform, _asteroid)
+                || TryVisual(legacyName, root.transform, _asteroid);
+            if (!importedRock)
             {
                 float wobble = size == AsteroidSize.Large ? 0.18f : 0.12f;
                 bool faceted = propName.IndexOf("Variant", System.StringComparison.Ordinal) >= 0;
@@ -1304,6 +1422,10 @@ namespace AsteroidsGoneRogue
                     meters * (1f + Random.Range(-wobble, wobble)));
                 CreatePrimitive(faceted ? PrimitiveType.Cube : PrimitiveType.Sphere, "Mesh", root.transform, rock,
                     Vector3.zero, scale, Quaternion.identity);
+            }
+            else
+            {
+                ScaleImportedToSphere(root.transform, MeshFit.AsteroidRadius(size == AsteroidSize.Large, rockBucket));
             }
 
             FitAsteroidCollider(collider, root.transform);
@@ -1332,30 +1454,38 @@ namespace AsteroidsGoneRogue
             root.transform.position = position;
             Pickup.Kind kind = Pickup.KindFromName(visualName);
             Material fallback = _accent;
+            string pickupMesh = "Pickup_Generic";
             if (kind == Pickup.Kind.Shield)
             {
                 fallback = _shield;
             }
-            else if (kind == Pickup.Kind.ExtraLife)
+            else if (kind == Pickup.Kind.ExtraLife || kind == Pickup.Kind.Health)
             {
-                fallback = MakeMaterial(
-                    "Mat_Pickup_ExtraLife",
-                    new Color(0.92f, 0.16f, 0.28f),
-                    0.1f,
-                    0.62f,
-                    new Color(1f, 0.22f, 0.38f));
+                pickupMesh = "Pickup_Heart";
+                fallback = _pickupHeart != null ? _pickupHeart : fallback;
             }
-            if (kind == Pickup.Kind.ExtraLife || !TryVisual(visualName, root.transform, fallback))
+            else
             {
-                if (kind == Pickup.Kind.ExtraLife)
+                fallback = _pickupGeneric != null ? _pickupGeneric : fallback;
+            }
+
+            if (kind == Pickup.Kind.ExtraLife)
+            {
+                if (!TryVisual(pickupMesh, root.transform, fallback))
                 {
-                    DressExtraLifeHeart(root.transform, fallback);
+                    Material heartFallback = MakeMaterial(
+                        "Mat_Pickup_ExtraLife",
+                        new Color(0.92f, 0.16f, 0.28f),
+                        0.1f,
+                        0.62f,
+                        new Color(1f, 0.22f, 0.38f));
+                    DressExtraLifeHeart(root.transform, heartFallback);
                 }
-                else
-                {
-                    CreatePrimitive(PrimitiveType.Sphere, "Mesh", root.transform, fallback,
-                        Vector3.zero, new Vector3(0.7f, 0.7f, 0.7f), Quaternion.identity);
-                }
+            }
+            else if (!TryVisual(pickupMesh, root.transform, fallback) && !TryVisual(visualName, root.transform, fallback))
+            {
+                CreatePrimitive(PrimitiveType.Sphere, "Mesh", root.transform, fallback,
+                    Vector3.zero, new Vector3(0.7f, 0.7f, 0.7f), Quaternion.identity);
             }
 
             SphereCollider trigger = root.AddComponent<SphereCollider>();
@@ -1472,26 +1602,11 @@ namespace AsteroidsGoneRogue
             CreatePickup("Pickup_ExtraLife", position);
         }
 
-        private static string PickAsteroidVisual(AsteroidSize size)
+        private static string PickAsteroidVisual(AsteroidSize size, out int bucket)
         {
-            string suffix = size == AsteroidSize.Large ? "Large" : "Small";
             float roll = RunRng.Unit();
-            if (roll < 0.25f)
-            {
-                return "Asteroid_VariantC_" + suffix;
-            }
-
-            if (roll < 0.5f)
-            {
-                return "Asteroid_VariantD_" + suffix;
-            }
-
-            if (roll < 0.75f)
-            {
-                return "Asteroid_VariantB_" + suffix;
-            }
-
-            return "Asteroid_" + suffix;
+            bucket = MeshFit.AsteroidBucket(roll);
+            return MeshFit.AsteroidAsset(size == AsteroidSize.Large, bucket);
         }
 
         private bool TryEnemyVisual(string visualName, Transform parent)
@@ -1876,6 +1991,42 @@ namespace AsteroidsGoneRogue
             }
 
             root.GetChild(0).localScale = Vector3.one * scale;
+        }
+
+        private static void ScaleImportedToRadius(Transform root, float authoredRadius)
+        {
+            if (root == null || authoredRadius <= 0.01f)
+            {
+                return;
+            }
+
+            Bounds local;
+            if (!TryEnemyMeshBounds(root, out local))
+            {
+                return;
+            }
+
+            float measured;
+            float unusedHeight;
+            MeshFit.Capsule(local.size.x, local.size.y, local.size.z, out measured, out unusedHeight);
+            ScaleImportedVisual(root, MeshFit.Uniform(measured, authoredRadius));
+        }
+
+        private static void ScaleImportedToSphere(Transform root, float authoredRadius)
+        {
+            if (root == null || authoredRadius <= 0.01f)
+            {
+                return;
+            }
+
+            Bounds local;
+            if (!TryRendererLocalBounds(root, out local, false))
+            {
+                return;
+            }
+
+            float measured = MeshFit.SphereRadius(local.size.x, local.size.y, local.size.z);
+            ScaleImportedVisual(root, MeshFit.Uniform(measured, authoredRadius));
         }
 
         private bool BuildMonsterPlaceholder(EnemyKind kind, Transform parent)
@@ -2297,9 +2448,36 @@ namespace AsteroidsGoneRogue
                 return _launchAmber;
             }
 
+            if (ContainsIgnoreCase(name, "Mat_FX_Pickup_Heart"))
+            {
+                return _pickupHeart != null ? _pickupHeart : fallback;
+            }
+
+            if (ContainsIgnoreCase(name, "Mat_FX_Pickup") || ContainsIgnoreCase(name, "Mat_FX_Cyan"))
+            {
+                if (fallback != null)
+                {
+                    return fallback;
+                }
+
+                return _pickupGeneric;
+            }
+
             if (ContainsIgnoreCase(name, "Hazard") || ContainsIgnoreCase(name, "Spike"))
             {
                 return _hazardSpike;
+            }
+
+            if (ContainsIgnoreCase(name, "Mat_Enemy_Brute_Glow")
+                || (ContainsIgnoreCase(name, "Brute") && ContainsIgnoreCase(name, "Glow")))
+            {
+                return _bruteGlow != null ? _bruteGlow : _accentHot;
+            }
+
+            if ((ContainsIgnoreCase(name, "Swarm") || ContainsIgnoreCase(name, "Bomber"))
+                && ContainsIgnoreCase(name, "Glow"))
+            {
+                return _swarmGlow != null ? _swarmGlow : _enemyGlow;
             }
 
             if (ContainsIgnoreCase(name, "Monster") || ContainsIgnoreCase(name, "Brute"))
@@ -2307,12 +2485,12 @@ namespace AsteroidsGoneRogue
                 if (ContainsIgnoreCase(name, "Swarm") || ContainsIgnoreCase(name, "Swarmling"))
                 {
                     return ContainsIgnoreCase(name, "Accent") || ContainsIgnoreCase(name, "Glow")
-                        ? _swarmling
+                        ? _swarmGlow
                         : _swarm;
                 }
 
                 return ContainsIgnoreCase(name, "Accent") || ContainsIgnoreCase(name, "Glow")
-                    ? _accentHot
+                    ? _bruteGlow
                     : _brute;
             }
 
@@ -2323,7 +2501,7 @@ namespace AsteroidsGoneRogue
                     || ContainsIgnoreCase(name, "Glow") || ContainsIgnoreCase(name, "Engine")
                     || ContainsIgnoreCase(name, "Bay"))
                 {
-                    return _accentHot;
+                    return _enemyGlow != null ? _enemyGlow : _accentHot;
                 }
 
                 return _enemy;
@@ -2355,9 +2533,28 @@ namespace AsteroidsGoneRogue
                 || ContainsIgnoreCase(name, "Scout") || ContainsIgnoreCase(name, "Gunner")
                 || ContainsIgnoreCase(name, "Drone") || ContainsIgnoreCase(name, "Sniper"))
             {
+                if (ContainsIgnoreCase(name, "Swarm"))
+                {
+                    if (ContainsIgnoreCase(name, "Accent") || ContainsIgnoreCase(name, "Glow"))
+                    {
+                        return _swarmGlow != null ? _swarmGlow : _enemy;
+                    }
+
+                    if (ContainsIgnoreCase(name, "Swarmling"))
+                    {
+                        return _swarmling != null ? _swarmling : _swarm;
+                    }
+
+                    return _swarm != null ? _swarm : _enemy;
+                }
+
+                if (ContainsIgnoreCase(name, "Glow") || ContainsIgnoreCase(name, "Core"))
+                {
+                    return _enemyGlow != null ? _enemyGlow : _accentHot;
+                }
+
                 if (ContainsIgnoreCase(name, "Accent") || ContainsIgnoreCase(name, "Canopy")
-                    || ContainsIgnoreCase(name, "Eye") || ContainsIgnoreCase(name, "Stripe")
-                    || ContainsIgnoreCase(name, "Glow"))
+                    || ContainsIgnoreCase(name, "Eye") || ContainsIgnoreCase(name, "Stripe"))
                 {
                     return _accentHot;
                 }
@@ -2382,7 +2579,7 @@ namespace AsteroidsGoneRogue
 
             if (ContainsIgnoreCase(name, "Asteroid"))
             {
-                return ContainsIgnoreCase(name, "_B") || ContainsIgnoreCase(name, "Variant")
+                return ContainsIgnoreCase(name, "Asteroid_B") || ContainsIgnoreCase(name, "Asteroid_C") || ContainsIgnoreCase(name, "Variant")
                     ? _asteroidB
                     : _asteroid;
             }

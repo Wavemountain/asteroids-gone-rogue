@@ -36,10 +36,30 @@ namespace AsteroidsGoneRogue
         public const float EnemyShot = 9.0f;
         public const float AsteroidHero = 0.3f;
         public const float FxRing = 4.5f;
+        public const float FxPickupHeart = 1.5f;
+
+        public const float HealR = 143f / 255f;
+        public const float HealG = 209f / 255f;
+        public const float HealB = 143f / 255f;
+
+        public const int Heal = 4;
 
         public const float HullRimPower = 3.0f;
         public const float HullRimStrength = 0.6f;
         public const float GlowRimStrength = 0.25f;
+        public const float EnemyRimPower = 2.5f;
+        public const float EnemyRimStrength = 0.8f;
+        public const float BruteRimPower = 2.0f;
+        public const float BruteRimStrength = 1.0f;
+        public const float BruteRimColorMul = 1.2f;
+        public const float AsteroidRimPower = 4.0f;
+        public const float AsteroidRimStrength = 0.25f;
+        public const float AsteroidRimColorMul = 0.5f;
+
+        public const int RimHull = 10;
+        public const int RimEnemy = 11;
+        public const int RimBrute = 12;
+        public const int RimAsteroid = 13;
 
         public static bool TryMatch(string materialName, out int colorId, out float multiplier)
         {
@@ -120,6 +140,13 @@ namespace AsteroidsGoneRogue
                 return true;
             }
 
+            if (Has(name, "Mat_FX_Pickup_Heart"))
+            {
+                colorId = Heal;
+                multiplier = FxPickupHeart;
+                return true;
+            }
+
             if (Has(name, "Mat_Asteroid") && Has(name, "Hero"))
             {
                 colorId = Steel;
@@ -155,6 +182,14 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (colorId == Heal)
+            {
+                red = HealR;
+                green = HealG;
+                blue = HealB;
+                return;
+            }
+
             red = PrimaryR;
             green = PrimaryG;
             blue = PrimaryB;
@@ -170,6 +205,128 @@ namespace AsteroidsGoneRogue
             }
 
             return materialName;
+        }
+
+        /// <summary>
+        /// 0.47 asteroid emission stays, and never climbs past the hero cap.
+        /// </summary>
+        public static float AsteroidEmission(float readabilityScale)
+        {
+            if (readabilityScale < 0f)
+            {
+                return 0f;
+            }
+
+            if (readabilityScale > AsteroidHero)
+            {
+                return AsteroidHero;
+            }
+
+            return readabilityScale;
+        }
+
+        /// <summary>
+        /// Rim strength is readability. Reduce effects does not change it.
+        /// </summary>
+        public static float RimStrength(int target, bool reduce)
+        {
+            float strength = HullRimStrength;
+            if (target == RimBrute)
+            {
+                strength = BruteRimStrength;
+            }
+            else if (target == RimAsteroid)
+            {
+                strength = AsteroidRimStrength;
+            }
+            else if (target == RimEnemy)
+            {
+                strength = EnemyRimStrength;
+            }
+
+            if (reduce)
+            {
+                return strength;
+            }
+
+            return strength;
+        }
+
+        public static bool SelfCheck()
+        {
+            int colorId;
+            float multiplier;
+            if (TryMatch("Mat_Ship_Accent_Hot", out colorId, out multiplier))
+            {
+                return false;
+            }
+
+            if (!TryMatch("Mat_Ship_AccentHot_Hero", out colorId, out multiplier) || colorId != Primary || multiplier != ShipAccentHotHero)
+            {
+                return false;
+            }
+
+            if (!TryMatch("Mat_Ship_Glow", out colorId, out multiplier) || multiplier != ShipGlow)
+            {
+                return false;
+            }
+
+            if (!TryMatch("Mat_Enemy_Brute_Glow", out colorId, out multiplier) || colorId != Danger || multiplier != EnemyBrute)
+            {
+                return false;
+            }
+
+            if (!TryMatch("Mat_Enemy_Core", out colorId, out multiplier) || multiplier != EnemyGlow)
+            {
+                return false;
+            }
+
+            if (!TryMatch("Mat_Projectile_Enemy", out colorId, out multiplier) || multiplier != EnemyShot)
+            {
+                return false;
+            }
+
+            if (!TryMatch("Mat_Projectile_Rail", out colorId, out multiplier) || multiplier != PlayerRail)
+            {
+                return false;
+            }
+
+            if (!TryMatch("Mat_Projectile", out colorId, out multiplier) || multiplier != PlayerShot)
+            {
+                return false;
+            }
+
+            if (!TryMatch("Mat_Asteroid_Hero", out colorId, out multiplier) || multiplier != AsteroidHero)
+            {
+                return false;
+            }
+
+            if (!TryMatch("Mat_FX_Ring", out colorId, out multiplier) || multiplier != FxRing)
+            {
+                return false;
+            }
+
+            if (!TryMatch("Mat_FX_Pickup_Heart", out colorId, out multiplier) || colorId != Heal || multiplier != FxPickupHeart)
+            {
+                return false;
+            }
+
+            if (AsteroidEmission(0.15f) != 0.15f || AsteroidEmission(0.9f) != AsteroidHero)
+            {
+                return false;
+            }
+
+            if (RimStrength(RimEnemy, false) != RimStrength(RimEnemy, true))
+            {
+                return false;
+            }
+
+            if (RimStrength(RimBrute, true) != BruteRimStrength || RimStrength(RimAsteroid, false) != AsteroidRimStrength)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         private static bool Has(string materialName, string token)

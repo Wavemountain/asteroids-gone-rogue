@@ -29,10 +29,12 @@ namespace AsteroidsGoneRogue
 
         private static readonly string[] BeltRocks =
         {
-            "Asteroid_Large",
-            "Asteroid_VariantB_Large",
-            "Asteroid_VariantC_Large",
-            "Asteroid_VariantD_Large"
+            "Asteroid_Frag_01",
+            "Asteroid_Frag_02",
+            "Asteroid_Frag_03",
+            "Asteroid_Frag_04",
+            "Asteroid_M_C",
+            "Asteroid_L_A"
         };
 
         private Material _starFar;
