@@ -145,6 +145,7 @@ namespace AsteroidsGoneRogue
                     AudioCues.Instance.PlayHazardHit();
                 }
 
+                CombatJuice.NoteHitDirection(transform.position - health.transform.position);
                 health.ApplyDamage(Damage, DamageCause.HazardContact);
             }
         }

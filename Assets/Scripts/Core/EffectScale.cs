@@ -280,5 +280,86 @@ namespace AsteroidsGoneRogue
 
             return pulsed;
         }
+
+        public const float FeelMul = 0.35f;
+        public const float HullEdgeFull = 0.55f;
+        public const float HullEdgeReduced = 0.1f;
+        public const float KillPopPeak = 1.16f;
+
+        public static float Feel(bool reduce, float value)
+        {
+            if (value < 0f)
+            {
+                value = 0f;
+            }
+
+            if (!reduce)
+            {
+                return value;
+            }
+
+            return value * FeelMul;
+        }
+
+        public static float HullEdge(bool reduce)
+        {
+            if (reduce)
+            {
+                return HullEdgeReduced;
+            }
+
+            return HullEdgeFull;
+        }
+
+        public static float KillPop(bool reduce, float t)
+        {
+            if (reduce)
+            {
+                return 1f;
+            }
+
+            if (t < 0f)
+            {
+                t = 0f;
+            }
+
+            if (t > 1f)
+            {
+                t = 1f;
+            }
+
+            float rise = 0.35f;
+            float shaped;
+            if (t < rise)
+            {
+                shaped = t / rise;
+            }
+            else
+            {
+                shaped = (1f - t) / (1f - rise);
+            }
+
+            if (shaped < 0f)
+            {
+                shaped = 0f;
+            }
+
+            if (shaped > 1f)
+            {
+                shaped = 1f;
+            }
+
+            return 1f + ((KillPopPeak - 1f) * shaped);
+        }
+
+        public static bool AllowsSlowMo(bool reduce)
+        {
+            return !reduce;
+        }
+
+        public static bool AllowsHitstop(bool reduce)
+        {
+            return !reduce;
+        }
     }
 }

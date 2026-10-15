@@ -261,6 +261,7 @@ namespace AsteroidsGoneRogue
             ShipHealth health = damageable as ShipHealth;
             if (health != null)
             {
+                CombatJuice.NoteHitDirection(transform.position - health.transform.position);
                 health.ApplyDamage(_damage, _playerCause, _enemyKind, _eliteSource, _sourceModifier);
             }
             else
@@ -343,6 +344,7 @@ namespace AsteroidsGoneRogue
             ShipHealth health = chosen as ShipHealth;
             if (health != null)
             {
+                CombatJuice.NoteHitDirection(transform.position - health.transform.position);
                 health.ApplyDamage(_damage, _playerCause, _enemyKind, _eliteSource, _sourceModifier);
             }
             else

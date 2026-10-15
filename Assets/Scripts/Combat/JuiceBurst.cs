@@ -16,13 +16,14 @@ namespace AsteroidsGoneRogue
         private float _life = HitSeconds;
         private float _startScale = 0.18f;
         private float _endScale = 1.1f;
+        private bool _killPop;
         private Transform _mesh;
         private Material _mat;
         private Color _color = Color.white;
 
         public static void HitSpark(Vector3 position)
         {
-            Spawn(position, new Color(1f, 0.93f, 0.78f), HitSeconds, 0.12f, 0.58f);
+            Spawn(position, new Color(1f, 0.93f, 0.78f), HitSeconds, 0.12f, 0.58f, false);
         }
 
         public static void KillBloom(Vector3 position, bool heavy)
@@ -32,34 +33,35 @@ namespace AsteroidsGoneRogue
                 : new Color(0.95f, 0.88f, 0.72f);
             float end = heavy ? 2.45f : 1.55f;
             float start = heavy ? 0.38f : 0.22f;
-            Spawn(position, color, heavy ? 0.4f : KillSeconds, start, end);
+            Spawn(position, color, heavy ? 0.4f : KillSeconds, start, end, true);
         }
 
         public static void HeartBloom(Vector3 position)
         {
-            Spawn(position, new Color(1f, 0.22f, 0.38f), HeartSeconds, 0.42f, 2.25f);
+            Spawn(position, new Color(1f, 0.22f, 0.38f), HeartSeconds, 0.42f, 2.25f, false);
         }
 
         public static void ColoredBloom(Vector3 position, Color color, float seconds, float startScale, float endScale)
         {
-            Spawn(position, color, seconds, startScale, endScale);
+            Spawn(position, color, seconds, startScale, endScale, false);
         }
 
-        private static void Spawn(Vector3 position, Color color, float seconds, float startScale, float endScale)
+        private static void Spawn(Vector3 position, Color color, float seconds, float startScale, float endScale, bool killPop)
         {
             GameObject go = new GameObject("JuiceBurst");
             go.transform.position = position;
             JuiceBurst burst = go.AddComponent<JuiceBurst>();
-            burst.Play(color, seconds, startScale, endScale);
+            burst.Play(color, seconds, startScale, endScale, killPop);
         }
 
-        private void Play(Color color, float seconds, float startScale, float endScale)
+        private void Play(Color color, float seconds, float startScale, float endScale, bool killPop)
         {
             _color = color;
             _life = Mathf.Max(0.08f, seconds);
             _until = Time.time + _life;
             _startScale = startScale;
             _endScale = endScale;
+            _killPop = killPop;
             EnsureMesh();
         }
 
@@ -81,7 +83,14 @@ namespace AsteroidsGoneRogue
             bool reduce = SettingsState.ReduceEffectsEnabled;
             float endScale = EffectScale.BurstEnd(reduce, _endScale);
             float scale = Mathf.Lerp(_startScale, endScale, t);
-            _mesh.localScale = new Vector3(scale, scale, scale);
+            float pop = 1f;
+            if (_killPop)
+            {
+                pop = EffectScale.KillPop(reduce, t);
+            }
+
+            float popped = scale * pop;
+            _mesh.localScale = new Vector3(popped, popped, popped);
             if (_mat != null)
             {
                 float alpha = EffectScale.BurstAlpha(reduce, 0.7f * (1f - t));

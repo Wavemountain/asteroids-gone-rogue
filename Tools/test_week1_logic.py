@@ -7798,6 +7798,341 @@ def test_c0_part_b_fixes() -> None:
     assert _contrast(maxed["text"], maxed["fill"]) >= 4.5
 
 
+def test_game_feel_048() -> None:
+    """0.48 game feel: spring camera, hitstop budget, soft death and wave-clear."""
+    import math
+    import os
+    import shutil
+    import subprocess
+    import textwrap
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    feel = (root / "Assets/Scripts/Core/CameraFeel.cs").read_text(encoding="utf-8")
+    budget = (root / "Assets/Scripts/Core/HitstopBudget.cs").read_text(encoding="utf-8")
+    timeline = (root / "Assets/Scripts/Core/TransitionTimeline.cs").read_text(encoding="utf-8")
+    effect = (root / "Assets/Scripts/Core/EffectScale.cs").read_text(encoding="utf-8")
+    follow = (root / "Assets/Scripts/Player/FollowCamera.cs").read_text(encoding="utf-8")
+    juice = (root / "Assets/Scripts/Combat/CombatJuice.cs").read_text(encoding="utf-8")
+    burst = (root / "Assets/Scripts/Combat/JuiceBurst.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    cause = (root / "Assets/Scripts/Core/DamageCause.cs").read_text(encoding="utf-8")
+    framing = (root / "Assets/Scripts/Core/ArenaFraming.cs").read_text(encoding="utf-8")
+
+    assert "class CameraFeel" in feel
+    assert "not a fixed arena camera" in feel
+    assert "SpringLimited" in feel and "EffectScale.Feel" in feel
+    assert "class HitstopBudget" in budget and "CapSeconds = 0.12f" in budget
+    assert "class TransitionTimeline" in timeline and "class FeelClock" in timeline
+    assert "DeathSlowSeconds = 0.4f" in timeline and "DeathFadeSeconds = 0.35f" in timeline
+    assert "WaveBreathSeconds = 0.25f" in timeline
+    assert "AllowsSlowMo" in effect and "AllowsHitstop" in effect and "KillPop" in effect
+    assert "CameraFeel.SpringLimited" in follow and "CameraFeel.LookAhead" in follow
+    assert "CameraFeel.DecayShake" in follow and "ArenaFraming.Viewport" in follow
+    assert "ArenaFraming.BaseFov" in follow
+    assert "Random.insideUnitCircle" not in follow
+    assert "SettingsState.ScreenShakeEnabled" in follow and "SettingsState.ShakeAmplitude" in follow
+    assert "EffectScale.ShakeAdd" in follow and "EffectScale.ShakeCap" in follow
+    assert "_shake = 0f" in follow and "PlayerPrefs" not in follow
+    assert "new Vector3(0f, 35f, -22f)" in follow
+    assert "HitstopBudget.HullSeconds" in juice and "HitstopBudget.HeavySeconds" in juice
+    assert "HitstopBudget.BossSeconds" in juice and "PulseHullEdge" in juice
+    assert "EffectScale.KillPop" in burst
+    lethal = juice.split("public static void PlayerDamaged(bool lethal)")[1].split("public static void")[0]
+    assert lethal.index("PlayerHullHit()") < lethal.index("FlashScreen(")
+    assert "RequestHitstop" in manager and "ShatterShip" in manager
+    assert "JuiceBurst.KillBloom" in manager and "SpawnVfx" in manager
+    assert "RunRng" not in feel and "RunRng" not in budget and "RunRng" not in timeline
+    assert "RunRng" not in manager.split("private void ShatterShip()")[1].split("private void FailRun")[0]
+    assert "BeginWaveClear" in manager and "BeginFinalDeath" in manager
+    assert "FeelClock.Compose" in manager
+    assert "Time.timeScale = ConfirmPause.TimeScale" in ui
+    assert "TickFeel" in ui and "MenuInputBlocked" in ui and "PulseHullEdge" in ui
+    assert "Killed by:" in cause
+    assert "BaseFov = 54f" in framing and "Viewport(" in framing
+
+    from roslyn_core_check import find_dotnet
+
+    dotnet = find_dotnet()
+    assert dotnet, "game-feel tests need dotnet"
+    work = Path(os.environ.get("TMPDIR", "/tmp")) / "agr-feel-048"
+    if work.exists():
+        shutil.rmtree(work)
+    work.mkdir(parents=True)
+    for name in ("CameraFeel.cs", "HitstopBudget.cs", "TransitionTimeline.cs", "EffectScale.cs"):
+        source = root / "Assets/Scripts/Core" / name
+        shutil.copyfile(source, work / name)
+        program = textwrap.dedent(
+        r'''
+        using System;
+        using AsteroidsGoneRogue;
+
+        namespace AsteroidsGoneRogue
+        {
+            public static class HitFlashLimiter
+            {
+                public const float MaxAlpha = 0.34f;
+                public const float MinGapSeconds = 0.12f;
+                public const float DefaultDecay = 0.18f;
+            }
+        }
+
+        class Program
+        {
+            static void Need(bool ok, string message)
+            {
+                if (!ok) throw new Exception(message);
+            }
+
+            static void Main()
+            {
+                SpringConverges();
+                SpringDoesNotOvershoot();
+                SpringClamps();
+                LookAheadStaysInside();
+                ZoomClamps();
+                ShakeStaysCapped();
+                HitstopCaps();
+                TransitionPlays();
+                ClockComposes();
+                Console.WriteLine("feel-ok");
+            }
+
+            static void SpringConverges()
+            {
+                float position = 0f;
+                float velocity = 0f;
+                float previous = position;
+                for (int step = 0; step < 240; step++)
+                {
+                    CameraFeel.Spring(ref position, ref velocity, 8f, CameraFeel.FollowOmega, 1f / 60f);
+                    Need(position <= 8f + 0.0001f, "spring overshot the target");
+                    Need(position + 0.0001f >= previous, "spring moved away from the target");
+                    previous = position;
+                }
+                Need(Math.Abs(position - 8f) < 0.02f, "spring did not converge");
+                Need(Math.Abs(velocity) < 0.05f, "spring velocity did not settle");
+            }
+
+            static void SpringDoesNotOvershoot()
+            {
+                float position = 0f;
+                float velocity = 80f;
+                for (int step = 0; step < 180; step++)
+                {
+                    CameraFeel.Spring(ref position, ref velocity, 1f, CameraFeel.FollowOmega, 1f / 60f);
+                    Need(position <= 1f + 0.0001f, "impulse crossed the target");
+                    Need(position >= -0.0001f, "impulse reversed through the rest point");
+                }
+                Need(Math.Abs(position - 1f) < 0.02f, "impulse did not settle on the target");
+            }
+
+            static void SpringClamps()
+            {
+                Need(CameraFeel.ClampRange(5f, 2f) == 2f, "positive clamp");
+                Need(CameraFeel.ClampRange(-5f, 2f) == -2f, "negative clamp");
+                Need(CameraFeel.ClampRange(1f, 2f) == 1f, "inside clamp");
+                float position = 0f;
+                float velocity = 40f;
+                for (int step = 0; step < 180; step++)
+                {
+                    CameraFeel.SpringLimited(ref position, ref velocity, 0f, CameraFeel.ShakeOmega, 1f / 60f, 0.25f);
+                    Need(Math.Abs(position) <= 0.2501f, "limited spring left the cap");
+                }
+                Need(Math.Abs(position) < 0.02f, "limited spring did not return");
+            }
+
+            static void LookAheadStaysInside()
+            {
+                float distance = CameraFeel.LookAheadDistance(CameraFeel.FullSpeed, CameraFeel.FairHalfExtent, false);
+                Need(distance <= CameraFeel.MaxLookAhead + 0.0001f, "look-ahead above the cap");
+                Need(CameraFeel.ScreenInset(distance, CameraFeel.FairHalfExtent) + 0.0001f >= CameraFeel.SafeMargin, "ship too close to the edge");
+                float leadX;
+                float leadZ;
+                CameraFeel.LookAhead(30f, 0f, 1f, 0f, 16f, 30f, CameraFeel.FairHalfExtent, false, out leadX, out leadZ);
+                Need(30f + leadX <= 30.0001f, "look-ahead revealed arena past the rim");
+                CameraFeel.LookAhead(0f, 0f, 0f, 1f, 16f, 30f, CameraFeel.FairHalfExtent, false, out leadX, out leadZ);
+                float mag = (float)Math.Sqrt((leadX * leadX) + (leadZ * leadZ));
+                Need(mag <= CameraFeel.MaxLookAhead + 0.0001f, "centered look-ahead too long");
+                float reduced = CameraFeel.LookAheadDistance(CameraFeel.FullSpeed, CameraFeel.FairHalfExtent, true);
+                Need(reduced <= distance * EffectScale.FeelMul + 0.0001f, "reduce did not scale look-ahead");
+            }
+
+            static void ZoomClamps()
+            {
+                Need(CameraFeel.ZoomAdd(0f, 0f, 0f, 30f, false) == 0f, "idle zoom");
+                float full = CameraFeel.ZoomAdd(16f, 10f, 0f, 30f, false);
+                Need(Math.Abs(full - CameraFeel.MaxZoomDegrees) < 0.0001f, "full zoom");
+                Need(CameraFeel.ZoomAdd(16f, 10f, 30f, 30f, false) == 0f, "rim zoom");
+                float quiet = CameraFeel.ZoomAdd(16f, 10f, 0f, 30f, true);
+                Need(Math.Abs(quiet - (CameraFeel.MaxZoomDegrees * EffectScale.FeelMul)) < 0.0001f, "reduce zoom");
+                Need(CameraFeel.ZoomAdd(100f, 100f, 0f, 30f, false) <= CameraFeel.MaxZoomDegrees, "zoom ceiling");
+            }
+
+            static void ShakeStaysCapped()
+            {
+                float ox = 0f, oy = 0f, oz = 0f, vx = 0f, vy = 0f, vz = 0f;
+                CameraFeel.Impulse(ref vx, ref vy, ref vz, 1f, 0f, 0f, 0.36f);
+                for (int step = 0; step < 180; step++)
+                {
+                    CameraFeel.DecayShake(ref ox, ref oy, ref oz, ref vx, ref vy, ref vz, CameraFeel.ShakeOmega, 1f / 60f, 0.36f);
+                    float mag = (float)Math.Sqrt((ox * ox) + (oy * oy) + (oz * oz));
+                    Need(mag <= 0.3601f, "shake left the cap");
+                    Need(ox >= -0.0001f, "shake overshot through rest");
+                }
+                Need(Math.Abs(ox) < 0.02f, "shake did not settle");
+            }
+
+            static void HitstopCaps()
+            {
+                HitstopBudget budget = new HitstopBudget();
+                float small = budget.Request(0f, 0.01f, false);
+                Need(Math.Abs(small - HitstopBudget.MinSeconds) < 0.0001f, "hitstop floor");
+                HitstopBudget high = new HitstopBudget();
+                float tall = high.Request(0f, 0.2f, false);
+                Need(Math.Abs(tall - HitstopBudget.MaxSeconds) < 0.0001f, "hitstop ceiling");
+                HitstopBudget chain = new HitstopBudget();
+                float first = chain.Request(0f, 0.06f, false);
+                float second = chain.Request(0.01f, 0.06f, false);
+                float third = chain.Request(0.02f, 0.06f, false);
+                Need(Math.Abs(first - 0.06f) < 0.0001f, "first hitstop");
+                Need(Math.Abs(second - 0.06f) < 0.0001f, "second hitstop");
+                Need(third == 0f, "third hitstop should be refused");
+                Need(chain.UsedInWindow(0.02f) <= HitstopBudget.CapSeconds + 0.0001f, "window cap");
+                Need(chain.Active(0.05f), "chain should still be active");
+                Need(!chain.Active(chain.ActiveUntil), "chain should end at the cap");
+                Need(chain.ActiveUntil <= 0.12f + 0.0001f, "chain longer than 120 ms");
+                HitstopBudget later = new HitstopBudget();
+                later.Request(0f, 0.06f, false);
+                float again = later.Request(1f, 0.06f, false);
+                Need(Math.Abs(again - 0.06f) < 0.0001f, "window did not roll");
+                Need(later.Request(1f, 0.06f, true) == 0f, "reduce hitstop");
+            }
+
+            static void TransitionPlays()
+            {
+                TransitionTimeline death = new TransitionTimeline();
+                death.Begin(TransitionKind.Death);
+                Need(death.TimeScale(false) <= 1f, "death scale");
+                Need(Math.Abs(death.TimeScale(true) - 1f) < 0.0001f, "reduce skips slow-mo");
+                death.Advance(0.2f, false, false, false);
+                Need(death.Elapsed > 0.049f && death.Elapsed < 0.051f, "step clamp");
+                while (death.Elapsed < 0.2f)
+                {
+                    death.Advance(1f / 60f, false, false, false);
+                }
+                Need(Math.Abs(death.TimeScale(false) - 0.35f) < 0.02f, "death slow scale");
+                Need(death.BlocksInput(false), "input during slow-mo");
+                while (!death.InputOpen(false))
+                {
+                    death.Advance(1f / 60f, false, false, false);
+                }
+                Need(death.Elapsed + 0.0001f >= 0.75f, "death ran short");
+                Need(!death.BlocksInput(false), "input should open after the fade");
+                death.MarkCommitted();
+                Need(death.CardAlpha(false) > 0.99f, "card should be opaque at the end");
+
+                TransitionTimeline held = new TransitionTimeline();
+                held.Begin(TransitionKind.Death);
+                while (!held.InputOpen(false))
+                {
+                    held.Advance(1f / 60f, true, false, false);
+                }
+                Need(held.BlocksInput(false), "held press must stay blocked");
+                held.Advance(1f / 60f, false, false, false);
+                Need(held.BlocksInput(false), "release frame must be swallowed");
+                held.Advance(1f / 60f, false, false, false);
+                Need(!held.BlocksInput(false), "input should open after the swallow");
+
+                TransitionTimeline paused = new TransitionTimeline();
+                paused.Begin(TransitionKind.WaveClear);
+                paused.Advance(0.2f, false, false, true);
+                Need(paused.Elapsed == 0f, "pause must freeze the timeline");
+                while (paused.Elapsed < 0.12f)
+                {
+                    paused.Advance(1f / 60f, false, false, false);
+                }
+                float mid = paused.TimeScale(false);
+                Need(mid < 0.55f && mid > 0.44f, "wave breath ease");
+                Need(Math.Abs(paused.TimeScale(true) - 1f) < 0.0001f, "reduce wave scale");
+                TransitionTimeline fade = new TransitionTimeline();
+                fade.Begin(TransitionKind.WaveClear);
+                fade.Advance(0.25f, false, true, false);
+                Need(fade.ReadyToCommit(true), "reduce commits without slow-mo");
+                Need(fade.CardAlpha(true) == 0f, "card waits for commit");
+                fade.MarkCommitted();
+                fade.Elapsed = fade.SlowSeconds(true) + fade.FadeSeconds();
+                Need(fade.CardAlpha(true) > 0.99f, "reduce still fades");
+                Need(fade.CardSlide(true) < 0.01f, "slide settles");
+            }
+
+            static void ClockComposes()
+            {
+                Need(FeelClock.Compose(0f, true, 0.35f) == 0f, "pause wins");
+                Need(Math.Abs(FeelClock.Compose(1f, true, 1f) - FeelClock.HitstopTimeScale) < 0.0001f, "hitstop scale");
+                Need(FeelClock.HitstopTimeScale > 0.0001f, "hitstop must not trip the music hold");
+                Need(Math.Abs(FeelClock.Compose(1f, false, 0.35f) - 0.35f) < 0.0001f, "transition scale");
+                Need(Math.Abs(FeelClock.Compose(1f, false, 1f) - 1f) < 0.0001f, "live scale");
+                Need(Math.Abs(EffectScale.KillPop(true, 0.35f) - 1f) < 0.0001f, "reduce pop");
+                Need(EffectScale.KillPop(false, 0.35f) > 1.1f, "kill pop");
+                Need(EffectScale.HullEdge(true) < EffectScale.HullEdge(false), "edge scales down");
+            }
+        }
+        '''
+    )
+    (work / "Program.cs").write_text(program, encoding="utf-8")
+    (work / "feel.csproj").write_text(
+        "\n".join(
+            (
+                '<Project Sdk="Microsoft.NET.Sdk">',
+                "  <PropertyGroup>",
+                "    <OutputType>Exe</OutputType>",
+                "    <TargetFramework>net8.0</TargetFramework>",
+                "    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>",
+                "    <Nullable>disable</Nullable>",
+                "    <ImplicitUsings>disable</ImplicitUsings>",
+                "  </PropertyGroup>",
+                "  <ItemGroup>",
+                '    <Compile Include="CameraFeel.cs" />',
+                '    <Compile Include="HitstopBudget.cs" />',
+                '    <Compile Include="TransitionTimeline.cs" />',
+                '    <Compile Include="EffectScale.cs" />',
+                '    <Compile Include="Program.cs" />',
+                "  </ItemGroup>",
+                "</Project>",
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
+    env["DOTNET_NOLOGO"] = "1"
+    env["DOTNET_ROOT"] = str(Path(dotnet).resolve().parent)
+    result = subprocess.run(
+        [dotnet, "run", "--project", str(work / "feel.csproj"), "-v", "q"],
+        cwd=work,
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout
+    assert "feel-ok" in result.stdout
+    assert math.isclose(EffectScale_feel(False, 2.2), 2.2)
+    assert math.isclose(EffectScale_feel(True, 2.2), 2.2 * 0.35)
+
+
+def EffectScale_feel(reduce: bool, value: float) -> float:
+    if value < 0.0:
+        value = 0.0
+    if not reduce:
+        return value
+    return value * 0.35
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -7882,6 +8217,7 @@ def main() -> int:
     test_mutators_047f()
     test_rc_047_fixes()
     test_daily_shield_and_remainder_047()
+    test_game_feel_048()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
