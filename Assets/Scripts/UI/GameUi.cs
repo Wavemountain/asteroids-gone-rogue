@@ -140,6 +140,8 @@ namespace AsteroidsGoneRogue
         private float _hullEdgeAlpha;
         private CanvasGroup _menuGroup;
         private GameObject _hudPlate;
+        private int _playHudLayoutW = -1;
+        private int _playHudLayoutH = -1;
         private GameObject _utilityHud;
         private Image _utilityRing;
         private Text _utilityHudLabel;
@@ -751,11 +753,14 @@ namespace AsteroidsGoneRogue
             _hud = CreateText("Hud", transform, body, 22, TextAnchor.UpperLeft, FontStyle.Normal);
             Stretch(_hud.rectTransform, new Vector2(0.03f, 0.62f), new Vector2(0.5f, 0.775f));
             _hud.color = UiBody;
+            _hud.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _hud.verticalOverflow = VerticalWrapMode.Overflow;
             AddReadability(_hud, false);
             _hud.gameObject.SetActive(false);
             BuildHealthRack(display, body);
             BuildUtilityHud(display, body);
             BuildBossBar(display, body);
+            ApplyPlayHudLayout();
 
             _badgeRow = CreateText("BadgeRow", transform, display, 14, TextAnchor.MiddleLeft, FontStyle.Bold);
             // Top-bar left: MEDALS. Same row as title/WORLD; stretch anchors, zero offset.
@@ -4800,6 +4805,7 @@ namespace AsteroidsGoneRogue
 
         private void Update()
         {
+            NotePlayHudLayout();
             TickFeelClock();
             TickMenuMotion();
             NoteDailyClock();
@@ -6134,7 +6140,8 @@ namespace AsteroidsGoneRogue
             _utilityHudName = CreateText("UtilityHudName", _utilityHud.transform, body, 14, TextAnchor.MiddleLeft, FontStyle.Bold);
             Stretch(_utilityHudName.rectTransform, new Vector2(0.28f, 0.08f), new Vector2(0.96f, 0.48f));
             _utilityHudName.color = UiBody;
-            ClampOneLine(_utilityHudName);
+            _utilityHudName.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _utilityHudName.verticalOverflow = VerticalWrapMode.Truncate;
             AddReadability(_utilityHudName, false);
 
             GameObject icon = CreateFill(
@@ -6520,7 +6527,81 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            Stretch(rt, new Vector2(0.012f, 0.105f), new Vector2(0.38f, 0.305f));
+            float width = Screen.width;
+            if (width < 1f)
+            {
+                width = 1920f;
+            }
+
+            PlacePlayPlate(_healthRoot, PlayHudLayout.HealthMinY, PlayHudLayout.HealthMaxY, PlayHudLayout.ColumnMaxX(width));
+        }
+
+        private void NotePlayHudLayout()
+        {
+            if (Screen.width == _playHudLayoutW && Screen.height == _playHudLayoutH)
+            {
+                return;
+            }
+
+            ApplyPlayHudLayout();
+        }
+
+        private void ApplyPlayHudLayout()
+        {
+            int width = Screen.width;
+            int height = Screen.height;
+            _playHudLayoutW = width;
+            _playHudLayoutH = height;
+            if (width < 1)
+            {
+                width = 1920;
+            }
+
+            if (height < 1)
+            {
+                height = 1080;
+            }
+
+            float maxX = PlayHudLayout.ColumnMaxX(width);
+            float textMax = PlayHudLayout.TextMaxX(width);
+            PlacePlayPlate(_hudPlate, PlayHudLayout.StatusMinY, PlayHudLayout.StatusMaxY, maxX);
+            PlacePlayPlate(_utilityHud, PlayHudLayout.UtilityMinY, PlayHudLayout.UtilityMaxY, maxX);
+            PlacePlayPlate(_bossRoot, PlayHudLayout.BossMinY, PlayHudLayout.BossMaxY, maxX);
+            bool failed = _session != null && _session.Phase == GamePhase.Failed;
+            if (!failed)
+            {
+                PlacePlayPlate(_healthRoot, PlayHudLayout.HealthMinY, PlayHudLayout.HealthMaxY, maxX);
+            }
+
+            if (_hud != null)
+            {
+                Stretch(
+                    _hud.rectTransform,
+                    new Vector2(PlayHudLayout.Left + PlayHudLayout.TextInset, PlayHudLayout.StatusMinY + 0.02f),
+                    new Vector2(textMax, PlayHudLayout.StatusMaxY - 0.015f));
+                _hud.horizontalOverflow = HorizontalWrapMode.Wrap;
+                _hud.verticalOverflow = VerticalWrapMode.Overflow;
+            }
+        }
+
+        private static void PlacePlayPlate(GameObject plate, float minY, float maxY, float maxX)
+        {
+            if (plate == null)
+            {
+                return;
+            }
+
+            RectTransform rect = plate.GetComponent<RectTransform>();
+            if (rect != null)
+            {
+                Stretch(rect, new Vector2(PlayHudLayout.Left, minY), new Vector2(maxX, maxY));
+            }
+
+            Image image = plate.GetComponent<Image>();
+            if (image != null)
+            {
+                image.color = UiTheme.WithAlpha(UiTheme.Surface, PlayHudLayout.PlayHudAlpha);
+            }
         }
 
         private static void AddReadability(Text text, bool strong)

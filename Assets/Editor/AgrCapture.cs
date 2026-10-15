@@ -48,6 +48,8 @@ namespace AsteroidsGoneRogue.EditorTools
         const string KeyRestored = "AgrCapture.Restored";
         const string KeySceneLogged = "AgrCapture.SceneLogged";
         const string KeyLoggedPhase = "AgrCapture.LoggedPhase";
+        const string KeyBootKicked = "AgrCapture.BootKicked";
+        const float PlayerClearRadius = 8f;
 
         const int PhaseEnter = 0;
         const int PhaseWait = 1;
@@ -337,6 +339,11 @@ namespace AsteroidsGoneRogue.EditorTools
                         "AgrCapture phase wait GameSession missing frame=" + frame.ToString()
                         + " scene=" + UnityEngine.SceneManagement.SceneManager.GetActiveScene().path
                         + " game=" + (game != null ? "found" : "missing"));
+                    if (game == null && Since(KeyPlayStart) > 1.0)
+                    {
+                        EnsureBootstrap();
+                    }
+
                     if (Since(KeyPlayStart) > SessionLimitSeconds)
                     {
                         Fail(
@@ -632,6 +639,7 @@ namespace AsteroidsGoneRogue.EditorTools
         static void CaptureCurrent()
         {
             QuietBanners();
+            ApplyReduceCache();
             int shot = SessionState.GetInt(KeyShot, 0);
             bool reduce = SessionState.GetInt(KeyReduce, 0) != 0;
             string folder = SessionState.GetString(KeyOut, string.Empty);
@@ -646,6 +654,7 @@ namespace AsteroidsGoneRogue.EditorTools
 
             System.IO.File.WriteAllBytes(path, png);
             Debug.Log("AgrCapture: wrote " + path + " (" + png.Length.ToString() + " bytes)");
+            LogGrade("shot " + shot.ToString());
         }
 
         static void AdvanceShot()
@@ -814,13 +823,98 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             Rigidbody body = ship.GetComponent<Rigidbody>();
-            if (body == null)
+            if (body != null)
+            {
+                body.linearVelocity = Vector3.zero;
+                body.angularVelocity = Vector3.zero;
+            }
+
+            ClearAroundPlayer();
+        }
+
+        static void ClearAroundPlayer()
+        {
+            string[] names = new string[] { "Asteroid", "EnemySeeker", "ArenaHazard", "Pickup" };
+            for (int nameIndex = 0; nameIndex < names.Length; nameIndex++)
+            {
+                PushClear(names[nameIndex], nameIndex);
+            }
+        }
+
+        static void PushClear(string typeName, int lane)
+        {
+            System.Type type = FindType(typeName);
+            if (type == null || !typeof(Component).IsAssignableFrom(type))
             {
                 return;
             }
 
-            body.linearVelocity = Vector3.zero;
-            body.angularVelocity = Vector3.zero;
+            UnityEngine.Object[] found = FindAllOf(type);
+            if (found == null)
+            {
+                return;
+            }
+
+            for (int pieceIndex = 0; pieceIndex < found.Length; pieceIndex++)
+            {
+                Component piece = found[pieceIndex] as Component;
+                if (piece == null)
+                {
+                    continue;
+                }
+
+                Renderer renderer = piece.GetComponent<Renderer>();
+                if (renderer == null)
+                {
+                    renderer = piece.GetComponentInChildren<Renderer>();
+                }
+
+                Vector3 center = piece.transform.position;
+                float reach = 0.5f;
+                if (renderer != null)
+                {
+                    center = renderer.bounds.center;
+                    Vector3 ext = renderer.bounds.extents;
+                    reach = ext.x;
+                    if (ext.y > reach)
+                    {
+                        reach = ext.y;
+                    }
+
+                    if (ext.z > reach)
+                    {
+                        reach = ext.z;
+                    }
+                }
+
+                Vector3 flat = new Vector3(center.x, 0f, center.z);
+                float dist = flat.magnitude;
+                float need = PlayerClearRadius + reach;
+                if (dist >= need)
+                {
+                    continue;
+                }
+
+                Vector3 dir;
+                if (dist > 0.2f)
+                {
+                    dir = flat / dist;
+                }
+                else
+                {
+                    float angle = (lane * 1.7f) + (pieceIndex * 0.9f);
+                    dir = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+                }
+
+                Vector3 target = dir * need;
+                piece.transform.position += new Vector3(target.x - center.x, 0f, target.z - center.z);
+                Rigidbody body = piece.GetComponent<Rigidbody>();
+                if (body != null)
+                {
+                    body.linearVelocity = Vector3.zero;
+                    body.angularVelocity = Vector3.zero;
+                }
+            }
         }
 
         static void KeepShipAlive()
@@ -927,16 +1021,109 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             PinVignette(mid);
-            if (SessionState.GetInt(KeyReduce, 0) != 0)
+            bool reduce = SessionState.GetInt(KeyReduce, 0) != 0;
+            float scale = 1f;
+            System.Reflection.MethodInfo timeScale = feel.GetType().GetMethod("TimeScale", new System.Type[] { typeof(bool) });
+            if (timeScale != null)
             {
-                Debug.Log("AgrCapture: reduce is on; slow-mo stays off. Death vignette pinned at " + mid.ToString("0.00") + "s");
-            }
-            else
-            {
-                Debug.Log("AgrCapture: pinned death mid slow-mo at " + mid.ToString("0.00") + "s");
+                object scaled = timeScale.Invoke(feel, new object[] { reduce });
+                if (scaled is float)
+                {
+                    scale = (float)scaled;
+                }
             }
 
+            Time.timeScale = scale;
+            RememberGrade();
+            float vignette = ReadStaticFloat(FindType("PostStack"), "LastVignette");
+            Debug.Log(
+                "AgrCapture: pinned death timescale="
+                + scale.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
+                + " vignette="
+                + vignette.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
             return true;
+        }
+
+        static void RememberGrade()
+        {
+            System.Type stack = FindType("PostStack");
+            if (stack == null)
+            {
+                return;
+            }
+
+            System.Reflection.MethodInfo remember = stack.GetMethod("RememberGrade", Flags);
+            if (remember == null)
+            {
+                return;
+            }
+
+            remember.Invoke(null, new object[0]);
+        }
+
+        static void LogGrade(string where)
+        {
+            System.Type stack = FindType("PostStack");
+            if (stack == null)
+            {
+                Debug.Log("AgrCapture grade " + where + " PostStack missing");
+                return;
+            }
+
+            float bloom = ReadStaticFloat(stack, "LastBloom");
+            float grain = ReadStaticFloat(stack, "LastGrain");
+            float vignette = ReadStaticFloat(stack, "LastVignette");
+            int reduce = ReadStaticInt(stack, "LastReduce");
+            Debug.Log(
+                "AgrCapture grade " + where
+                + " reduce=" + reduce.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " bloom=" + bloom.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
+                + " grain=" + grain.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
+                + " vignette=" + vignette.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        static float ReadStaticFloat(System.Type type, string fieldName)
+        {
+            if (type == null)
+            {
+                return 0f;
+            }
+
+            System.Reflection.FieldInfo field = type.GetField(fieldName, Flags);
+            if (field == null)
+            {
+                return 0f;
+            }
+
+            object raw = field.GetValue(null);
+            if (raw is float)
+            {
+                return (float)raw;
+            }
+
+            return 0f;
+        }
+
+        static int ReadStaticInt(System.Type type, string fieldName)
+        {
+            if (type == null)
+            {
+                return 0;
+            }
+
+            System.Reflection.FieldInfo field = type.GetField(fieldName, Flags);
+            if (field == null)
+            {
+                return 0;
+            }
+
+            object raw = field.GetValue(null);
+            if (raw is int)
+            {
+                return (int)raw;
+            }
+
+            return 0;
         }
 
         static void PinVignette(float seconds)
@@ -1411,6 +1598,107 @@ namespace AsteroidsGoneRogue.EditorTools
             EditorApplication.QueuePlayerLoopUpdate();
         }
 
+        static UnityEngine.Object[] FindAllOf(System.Type type)
+        {
+            if (type == null)
+            {
+                return null;
+            }
+
+            System.Reflection.MethodInfo[] methods = typeof(UnityEngine.Object).GetMethods(
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            for (int methodIndex = 0; methodIndex < methods.Length; methodIndex++)
+            {
+                System.Reflection.MethodInfo method = methods[methodIndex];
+                if (method.Name != "FindObjectsByType" || !method.IsGenericMethodDefinition)
+                {
+                    continue;
+                }
+
+                if (method.GetParameters().Length != 0)
+                {
+                    continue;
+                }
+
+                System.Reflection.MethodInfo closed = method.MakeGenericMethod(type);
+                object raw = closed.Invoke(null, new object[0]);
+                return raw as UnityEngine.Object[];
+            }
+
+            return null;
+        }
+
+        static void EnsureBootstrap()
+        {
+            if (SessionState.GetInt(KeyBootKicked, 0) != 0)
+            {
+                return;
+            }
+
+            UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            string path = scene.IsValid() ? scene.path : string.Empty;
+            int roots = scene.IsValid() ? scene.rootCount : 0;
+            Debug.Log(
+                "AgrCapture bootstrap scene=" + path
+                + " roots=" + roots.ToString()
+                + " frame=" + Time.frameCount.ToString());
+            if (path.Length == 0 || !path.EndsWith("Play.unity"))
+            {
+                Debug.Log("AgrCapture bootstrap loading Play");
+                try
+                {
+                    UnityEngine.SceneManagement.SceneManager.LoadScene("Play");
+                }
+                catch (System.Exception loadEx)
+                {
+                    SessionState.SetInt(KeyBootKicked, 1);
+                    Debug.Log("AgrCapture bootstrap load failed: " + loadEx.Message);
+                }
+
+                return;
+            }
+
+            SessionState.SetInt(KeyBootKicked, 1);
+            if (FindComponent("GameManager") != null)
+            {
+                return;
+            }
+
+            Component bootstrap = FindComponent("GameBootstrap");
+            if (bootstrap == null)
+            {
+                System.Type type = FindType("GameBootstrap");
+                if (type == null)
+                {
+                    Debug.Log("AgrCapture bootstrap GameBootstrap type missing");
+                    return;
+                }
+
+                GameObject created = new GameObject("GameSystems");
+                created.AddComponent(type);
+                Debug.Log("AgrCapture bootstrap added GameSystems");
+                return;
+            }
+
+            System.Reflection.MethodInfo boot = bootstrap.GetType().GetMethod("Boot", Flags);
+            if (boot == null)
+            {
+                Debug.Log("AgrCapture bootstrap Boot missing");
+                return;
+            }
+
+            try
+            {
+                boot.Invoke(bootstrap, new object[0]);
+                Debug.Log("AgrCapture bootstrap invoked Boot");
+            }
+            catch (System.Reflection.TargetInvocationException ex)
+            {
+                System.Exception inner = ex.InnerException != null ? ex.InnerException : ex;
+                Debug.Log("AgrCapture bootstrap Boot failed: " + inner.GetType().Name + " " + inner.Message);
+            }
+        }
+
         static Component FindComponent(string typeName)
         {
             System.Type type = FindType(typeName);
@@ -1721,6 +2009,22 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static void ApplyTempPrefs(int reduce)
         {
+            int version = 7;
+            System.Type settings = FindType("SettingsState");
+            if (settings != null)
+            {
+                System.Reflection.FieldInfo versionField = settings.GetField("CurrentVersion", Flags);
+                if (versionField != null)
+                {
+                    object raw = versionField.GetRawConstantValue();
+                    if (raw is int)
+                    {
+                        version = (int)raw;
+                    }
+                }
+            }
+
+            PlayerPrefs.SetInt("agr.settings.version", version);
             PlayerPrefs.SetInt("agr.settings.reduceEffects", reduce);
             PlayerPrefs.SetString("agr.difficulty", "normal");
             PlayerPrefs.SetInt("agr.ui.firstHangarHint", 1);
