@@ -10,18 +10,50 @@ namespace AsteroidsGoneRogue
     {
         public const float LegacySpinDegrees = 18f;
         public const float TurntableScale = 0.5f;
-        public const float KeyIntensity = 2.05f;
-        public const float FillIntensity = 0.48f;
-        public const float RimIntensity = 1.7f;
+        public const float KeyIntensity = 2.2f;
+        public const float FillIntensity = 0.40f;
+        public const float RimIntensity = 2.0f;
+        public const float RimReduceScale = 0.45f;
+        public const float BounceIntensity = 0.30f;
         public const float KeyR = 1f;
-        public const float KeyG = 0.84f;
-        public const float KeyB = 0.62f;
+        public const float KeyG = 0.86f;
+        public const float KeyB = 0.66f;
         public const float FillR = 0.42f;
         public const float FillG = 0.62f;
         public const float FillB = 0.84f;
         public const float RimR = 0.62f;
         public const float RimG = 0.78f;
         public const float RimB = 1f;
+        public const float BounceR = (212f / 255f) * 0.3f;
+        public const float BounceG = (160f / 255f) * 0.3f;
+        public const float BounceB = (74f / 255f) * 0.3f;
+        public const float KeyLocalX = -3.0f;
+        public const float KeyLocalY = 4.0f;
+        public const float KeyLocalZ = -3.5f;
+        public const float FillLocalX = 3.5f;
+        public const float FillLocalY = 1.5f;
+        public const float FillLocalZ = -2.5f;
+        public const float RimLocalX = 0.5f;
+        public const float RimLocalY = 3.0f;
+        public const float RimLocalZ = 4.0f;
+        public const float BounceLocalX = 0f;
+        public const float BounceLocalY = -1.2f;
+        public const float BounceLocalZ = 0f;
+        public const float KeySpotAngle = 40f;
+        public const float RimSpotAngle = 30f;
+        public const float SpotInnerFraction = 0.55f;
+        public const float KeyRange = 16f;
+        public const float FillRange = 10f;
+        public const float RimRange = 14f;
+        public const float BounceRange = 4f;
+        public const float SurfaceR = 14f / 255f;
+        public const float SurfaceG = 21f / 255f;
+        public const float SurfaceB = 32f / 255f;
+        public const float Surface2R = 20f / 255f;
+        public const float Surface2G = 28f / 255f;
+        public const float Surface2B = 40f / 255f;
+        public const float BackdropPastLook = 6f;
+        public const float BackdropMargin = 1.35f;
         public const float CameraX = 0.2f;
         public const float CameraY = 4.55f;
         public const float CameraZ = -10f;
@@ -66,6 +98,43 @@ namespace AsteroidsGoneRogue
         public static bool GlowPulses(bool reduceEffects)
         {
             return false;
+        }
+
+        /// <summary>
+        /// Full studio rim, or a calmer rim when Reduce effects is on.
+        /// The turntable already stops for that flag; this only dims the rim light.
+        /// </summary>
+        public static float StudioRim(bool reduceEffects)
+        {
+            if (reduceEffects)
+            {
+                return RimIntensity * RimReduceScale;
+            }
+
+            return RimIntensity;
+        }
+
+        /// <summary>
+        /// Radial backdrop: Surface2 at the centre, Surface at the edge. Never pure black.
+        /// </summary>
+        public static void BackdropRgb(float u, float v, out float red, out float green, out float blue)
+        {
+            float du = u - 0.5f;
+            float dv = v - 0.5f;
+            float dist = (float)Math.Sqrt((du * du) + (dv * dv)) / 0.70710678f;
+            if (dist < 0f)
+            {
+                dist = 0f;
+            }
+
+            if (dist > 1f)
+            {
+                dist = 1f;
+            }
+
+            red = Surface2R + ((SurfaceR - Surface2R) * dist);
+            green = Surface2G + ((SurfaceG - Surface2G) * dist);
+            blue = Surface2B + ((SurfaceB - Surface2B) * dist);
         }
 
         public static Accent FromMasks(int upgradeMask, int mk2Mask, int paintId, int trailId)

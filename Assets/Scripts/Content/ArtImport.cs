@@ -20,6 +20,7 @@ namespace AsteroidsGoneRogue
 
         public static readonly string[] PlayModeAssets =
         {
+            "Ship_Hero",
             "Ship_Body",
             "Ship_Nose",
             "Ship_Engine",
@@ -77,6 +78,10 @@ namespace AsteroidsGoneRogue
             "Rail_Hardpoint",
             "Rail_Muzzle",
             "Rail_Seeker",
+            "Weapon_Rail",
+            "Weapon_Twin",
+            "Weapon_Pierce",
+            "Weapon_Seeker",
         };
 
         private static readonly Dictionary<string, GameObject> Cache = new Dictionary<string, GameObject>();

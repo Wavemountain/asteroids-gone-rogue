@@ -1851,7 +1851,7 @@ def test_monsters_arenas_040() -> None:
     assert "DressPulse" in hazard
 
     warm = art.split("PlayModeAssets")[1].split("};")[0]
-    assert warm.count("\n            \"") == 57
+    assert warm.count("\n            \"") == 62
     assert "Monster_Brute" in warm
     assert "Monster_Swarm" in warm
     assert "Arena_Hazard_Spike" in warm
@@ -2178,7 +2178,7 @@ def test_art_parity_040c() -> None:
     require_mesh = enemies.split("public static bool RequiresImportedMesh")[1].split("public static")[0]
     assert "EnemyKind.Bomber" in require_mesh
     warm = art.split("PlayModeAssets")[1].split("};")[0]
-    assert warm.count("\n            \"") == 57
+    assert warm.count("\n            \"") == 62
     assert "Ship_Complete" in warm and "Enemy_Bomber" in warm
     assert "Ship_Body_Upgrade02" not in warm
 
@@ -2490,7 +2490,7 @@ def test_astro_env_040() -> None:
     assert "Arena_AstroFloor_v2" in blockout
     assert "Arena_AstroFloor" in blockout
     warm = art.split("PlayModeAssets")[1].split("};")[0]
-    assert warm.count("\n            \"") == 57
+    assert warm.count("\n            \"") == 62
     assert "Arena_AstroFloor" not in warm
     assert "AstroFloor_v2" not in warm
     assert "Arena_AstroFloor_v2" not in warm
@@ -8540,6 +8540,7 @@ def main() -> int:
     test_daily_shield_and_remainder_047()
     test_game_feel_048()
     test_ui_transition_048()
+    test_p3_hangar_hero_preview()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -14454,6 +14455,196 @@ def RunSetupNav_selfcheck() -> bool:
         and step(3, 0, -1) == 3
         and step(2, 1, 0) == 2
     )
+
+
+def test_p3_hangar_hero_preview() -> None:
+    """0.48 P3: hero ship, weapon sockets, emission table, studio rim."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    targets = (root / "Assets/Scripts/Core/EmissionTargets.cs").read_text(encoding="utf-8")
+    sockets = (root / "Assets/Scripts/Core/WeaponSockets.cs").read_text(encoding="utf-8")
+    rig = (root / "Assets/Scripts/Core/HangarPreviewRig.cs").read_text(encoding="utf-8")
+    preview = (root / "Assets/Scripts/Hangar/HangarShipPreview.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    visuals = (root / "Assets/Scripts/Player/ShipVisuals.cs").read_text(encoding="utf-8")
+    art = (root / "Assets/Scripts/Content/ArtImport.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    order = (root / "Assets/Scripts/Core/CanvasOrder.cs").read_text(encoding="utf-8")
+    clear = (root / "Assets/Scripts/Core/LetterboxClear.cs").read_text(encoding="utf-8")
+    pad = (root / "Assets/Scripts/Core/HangarPadNav.cs").read_text(encoding="utf-8")
+
+    assert "ShipAccentHotHero = 3.2f" in targets
+    assert "ShipGlow = 4.0f" in targets
+    assert "ShipCyan = 3.5f" in targets
+    assert "MagentaMul = 2.0f" in targets
+    assert "EnemyGlow = 7.0f" in targets and "EnemyBrute = 9.0f" in targets
+    assert "PlayerShot = 4.0f" in targets and "PlayerRail = 5.0f" in targets
+    assert "EnemyShot = 9.0f" in targets
+    assert "AsteroidHero = 0.3f" in targets and "FxRing = 4.5f" in targets
+    assert "HullRimPower = 3.0f" in targets and "HullRimStrength = 0.6f" in targets
+    assert 'Has(name, "Mat_Ship_Accent_Hot")' in targets
+    assert "Mat_Ship_Accent_Hot" in factory and "* 1.8f" in factory
+    assert 'MakeMaterial("Mat_Ship_Accent_Hot"' in factory
+    assert "Shader.Find(\"AGR/RimLit\")" in factory
+    assert "Shader.Find(\"Standard\")" in factory
+    assert "? Shader.Find" not in factory
+    assert "TryAdoptHero" in factory and "Ship_Hero" in factory
+    assert "WeaponSockets.MuzzleZ" in factory
+    assert "hull.radius = 0.55f" in factory
+    assert "ShipLengthMeters = 3f" in factory
+    assert "Rail_Hardpoint" in factory and "localPosition = Vector3.zero" in factory
+    warm = art.split("PlayModeAssets")[1].split("};")[0]
+    for asset in ("Ship_Hero", "Weapon_Rail", "Weapon_Twin", "Weapon_Pierce", "Weapon_Seeker"):
+        assert asset in warm
+        assert (root / "Assets/Art/Import" / f"{asset}.fbx").is_file()
+        assert (root / "Assets/Resources/Art/Import" / f"{asset}.fbx").is_file()
+    assert "RunRng" not in targets and "RunRng" not in sockets and "RunRng" not in preview
+
+    def match(name: str):
+        if not name:
+            return None
+        if " (Instance)" in name:
+            name = name.split(" (Instance)", 1)[0]
+        folded = name.casefold()
+
+        def has(token: str) -> bool:
+            return token.casefold() in folded
+
+        if has("Mat_Ship_Accent_Hot"):
+            return None
+        if has("Mat_Ship_AccentHot_Hero"):
+            return (1, 3.2)
+        if has("Mat_Ship_Glow"):
+            return (1, 4.0)
+        if has("Magenta") and (has("Ship") or has("Weapon")):
+            return (1, 2.0)
+        if has("Cyan") and (has("Ship") or has("Weapon")) and not has("Hangar"):
+            return (2, 3.5)
+        if (has("Mat_Enemy_Brute") or has("Boss")) and (has("Glow") or has("Core") or has("Mat_Enemy")):
+            return (3, 9.0)
+        if has("Mat_Enemy") and (has("Glow") or has("Core")):
+            return (3, 7.0)
+        if has("Projectile") or has("Bolt"):
+            if has("Enemy"):
+                return (3, 9.0)
+            if has("Rail"):
+                return (1, 5.0)
+            return (1, 4.0)
+        if has("Mat_Asteroid") and has("Hero"):
+            return (2, 0.3)
+        if has("Mat_FX") and (has("Ring") or has("Shock")):
+            return (2, 4.5)
+        return None
+
+    assert match("Mat_Ship_Accent_Hot") is None
+    assert match("Mat_Ship_Accent_Hot (Instance)") is None
+    assert match("Mat_Ship_AccentHot_Hero") == (1, 3.2)
+    assert match("Mat_Ship_Glow") == (1, 4.0)
+    assert match("Mat_Weapon_Cyan") == (2, 3.5)
+    assert match("Mat_Hangar_Cyan") is None
+    assert match("Mat_Ship_Magenta") == (1, 2.0)
+    assert match("Mat_Enemy_Brute_Glow") == (3, 9.0)
+    assert match("Mat_Enemy_Core") == (3, 7.0)
+    assert match("Mat_Projectile") == (1, 4.0)
+    assert match("Mat_Projectile_Rail") == (1, 5.0)
+    assert match("Mat_Projectile_Enemy") == (3, 9.0)
+    assert match("Mat_Asteroid_Hero") == (2, 0.3)
+    assert match("Mat_FX_Ring") == (2, 4.5)
+    primary = (212 / 255, 160 / 255, 74 / 255)
+
+    def luma(rgb, scale):
+        def linear(channel):
+            if channel <= 0.04045:
+                return channel / 12.92
+            return ((channel + 0.055) / 1.055) ** 2.4
+
+        red, green, blue = (linear(channel) for channel in rgb)
+        return (0.2126 * red + 0.7152 * green + 0.0722 * blue) * scale
+
+    assert abs(luma(primary, 3.2) - 1.25) < 0.08
+    assert abs(luma(primary, 4.0) - 1.6) < 0.08
+
+    def shown(socket, rail, twin, pierce, seeker, doctrine):
+        if doctrine < 0 or doctrine > 3:
+            doctrine = 0
+        owned = {0: rail, 1: twin, 2: pierce, 3: seeker}.get(socket)
+        if owned is None or not owned:
+            return False
+        return doctrine in (0, 1, 2, 3)
+
+    for doctrine in (-4, 0, 1, 2, 3, 9):
+        assert shown(0, True, False, False, False, doctrine)
+        assert not shown(0, False, True, True, True, doctrine)
+        assert shown(3, False, False, False, True, doctrine)
+        assert not shown(7, True, True, True, True, doctrine)
+    assert "MuzzleZ = 1.65f" in sockets
+    assert "HeroSpanMeters = 3.3f" in sockets
+    mounts = {0: (0.0, 0.16, 0.87), 1: (0.0, 0.02, 1.15), 2: (0.0, 0.10, 1.05), 3: (0.0, 0.22, 1.28)}
+    for socket, (x, y, z) in mounts.items():
+        assert 0.0 <= z <= 1.65
+        assert abs(x) < 0.01
+    assert "WeaponSockets.Shown" in visuals
+    assert "NoseUpgrade03 || loadout.NoseUpgrade02" in visuals
+
+    def snap(measured, authored):
+        if measured <= 0.00001 or authored <= 0:
+            return 1.0
+        ratio = authored / measured
+        if 50 <= ratio <= 200:
+            return 100.0
+        if 0.005 <= ratio <= 0.02:
+            return 0.01
+        return 1.0
+
+    assert snap(3.3, 3.3) == 1.0
+    assert snap(0.033, 3.3) == 100.0
+    assert snap(330.0, 3.3) == 0.01
+    assert snap(2.4, 3.3) == 1.0
+
+    assert "KeyIntensity = 2.2f" in rig and "RimIntensity = 2.0f" in rig
+    assert "BounceIntensity = 0.30f" in rig
+    assert "RimReduceScale = 0.45f" in rig
+    assert "StudioRim" in rig and "HangarPreviewRig.StudioRim" in preview
+    assert "interacting || reduceEffects" in rig
+    assert "KeyLocalX = -3.0f" in rig and "RimSpotAngle = 30f" in rig
+    assert "SurfaceR = 14f / 255f" in rig
+    assert "BackdropRgb" in rig
+
+    def studio_rim(reduce):
+        if reduce:
+            return 2.0 * 0.45
+        return 2.0
+
+    assert studio_rim(False) == 2.0
+    assert studio_rim(True) < studio_rim(False)
+    assert abs(studio_rim(True) - 0.9) < 1e-6
+
+    def backdrop(u, v):
+        du, dv = u - 0.5, v - 0.5
+        dist = (du * du + dv * dv) ** 0.5 / 0.70710678
+        dist = 0.0 if dist < 0 else (1.0 if dist > 1 else dist)
+        surface = (14 / 255, 21 / 255, 32 / 255)
+        surface2 = (20 / 255, 28 / 255, 40 / 255)
+        return tuple(surface2[i] + (surface[i] - surface2[i]) * dist for i in range(3))
+
+    center = backdrop(0.5, 0.5)
+    edge = backdrop(0.0, 0.0)
+    assert abs(center[0] - 20 / 255) < 1e-6
+    assert edge[0] < center[0]
+    assert min(edge) > 0.02
+
+    assert "LightType.Spot" in preview
+    assert "HangarPreviewBounce" in preview
+    assert "HangarPreviewBackdrop" in preview
+    assert "new Vector3(0.2f, 4.55f, -10f)" in preview
+    assert "ShowcaseScale = 1.25f" in preview
+    assert "CameraFov = 40f" in preview
+    assert "sortingOrder = CanvasOrder.ShipPreview" in ui
+    assert "ShipPreview = 80" in order
+    assert "Depth = -100f" in clear and "CullingMask = 0" in clear
+    assert "public static int SlotCount" in pad
+    assert "UiTheme.Surface" in ui
 
 
 if __name__ == "__main__":
