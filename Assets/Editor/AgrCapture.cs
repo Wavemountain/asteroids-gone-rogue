@@ -11,6 +11,13 @@ namespace AsteroidsGoneRogue.EditorTools
     /// and skipped. Do not pass -nographics; the post stack needs a GPU.
     ///
     /// "C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe" -batchmode -projectPath . -executeMethod AsteroidsGoneRogue.EditorTools.AgrCapture.Run -logFile - -captureOut Captures\compare -reduce 0 -seed 48048
+    ///
+    /// Play mode is entered with EditorApplication.EnterPlaymode. 6000.6 keeps
+    /// the scripting domain by default (scene reload only) unless Enter Play
+    /// Mode Options say otherwise; SessionState plus playModeStateChanged cover
+    /// both. A missing GameSession fails in seconds. PlayerPrefs and
+    /// run_save.json / meta_save.json are copied to a timestamped temp folder
+    /// before anything else, restored on every exit path, and left on disk.
     /// </summary>
     [InitializeOnLoad]
     public static class AgrCapture
@@ -21,6 +28,8 @@ namespace AsteroidsGoneRogue.EditorTools
         const int SettleFrames = 60;
         const int CardFrames = 3;
         const double TimeoutSeconds = 300.0;
+        const double EnterLimitSeconds = 20.0;
+        const double SessionLimitSeconds = 15.0;
         const float FallbackDeathMid = 0.2f;
         const string PlayScene = "Assets/Scenes/Play.unity";
 
@@ -35,7 +44,10 @@ namespace AsteroidsGoneRogue.EditorTools
         const string KeySeen = "AgrCapture.Seen";
         const string KeyError = "AgrCapture.Error";
         const string KeyStart = "AgrCapture.Start";
+        const string KeyPlayStart = "AgrCapture.PlayStart";
         const string KeyRestored = "AgrCapture.Restored";
+        const string KeySceneLogged = "AgrCapture.SceneLogged";
+        const string KeyLoggedPhase = "AgrCapture.LoggedPhase";
 
         const int PhaseEnter = 0;
         const int PhaseWait = 1;
@@ -56,13 +68,32 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static System.Collections.Generic.Dictionary<string, System.Type> _types;
         static bool _loggedPost;
+        static string _backupPath = string.Empty;
 
         static AgrCapture()
         {
+            HookLifecycle();
             if (SessionState.GetBool(KeyRunning, false))
             {
+                _backupPath = SessionState.GetString(KeyBackup, string.Empty);
                 EnsureHook();
+                Debug.Log("AgrCapture phase editor reloaded; capture still running backup=" + _backupPath);
             }
+        }
+
+        [InitializeOnEnterPlayMode]
+        static void OnEnterPlayMode(EnterPlayModeOptions options)
+        {
+            if (!SessionState.GetBool(KeyRunning, false))
+            {
+                return;
+            }
+
+            Debug.Log(
+                "AgrCapture phase entered play mode options=" + options.ToString()
+                + " frame=" + Time.frameCount.ToString());
+            EnsureHook();
+            EditorApplication.QueuePlayerLoopUpdate();
         }
 
         public static void Run()
@@ -85,43 +116,124 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
+            string backup = string.Empty;
+            bool handedOff = false;
             try
             {
-                string backup = System.IO.Path.Combine(
-                    System.IO.Path.GetTempPath(),
-                    "agr-capture-" + System.Diagnostics.Process.GetCurrentProcess().Id.ToString());
-                System.IO.Directory.CreateDirectory(backup);
+                backup = MakeBackupFolder();
+                _backupPath = backup;
                 ParkUserData(backup);
+                Debug.Log("AgrCapture backup " + backup);
+                LogSaveBackup(backup);
                 ApplyTempPrefs(reduce);
                 System.IO.Directory.CreateDirectory(outDir);
                 EditorSceneManager.OpenScene(PlayScene);
+                Debug.Log("AgrCapture phase scene opened " + PlayScene);
                 SessionState.SetBool(KeyRunning, true);
                 SessionState.SetString(KeyOut, outDir);
                 SessionState.SetInt(KeyReduce, reduce);
                 SessionState.SetInt(KeySeed, seed);
                 SessionState.SetString(KeyBackup, backup);
                 SessionState.SetInt(KeyPhase, PhaseEnter);
+                SessionState.SetInt(KeyLoggedPhase, -1);
                 SessionState.SetInt(KeyShot, 0);
                 SessionState.SetInt(KeyWaited, 0);
                 SessionState.SetInt(KeySeen, -1);
                 SessionState.SetString(KeyError, string.Empty);
                 SessionState.SetBool(KeyRestored, false);
-                SessionState.SetString(
-                    KeyStart,
-                    EditorApplication.timeSinceStartup.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                SessionState.SetBool(KeySceneLogged, false);
+                string now = StampNow();
+                SessionState.SetString(KeyStart, now);
+                SessionState.SetString(KeyPlayStart, now);
                 Debug.Log(
                     "AgrCapture: out=" + outDir
                     + " reduce=" + reduce.ToString()
                     + " seed=" + seed.ToString()
                     + " res=" + Width.ToString() + "x" + Height.ToString()
+                    + " backup=" + backup
                     + " W1=wave 1, W3=world 3 wave 11, W4=world 4 wave 16, death=wave 1");
+                LogPlayModeSettings();
+                HookLifecycle();
                 EnsureHook();
+                SessionState.SetString(KeyPlayStart, StampNow());
+                Debug.Log("AgrCapture phase enter play mode");
+                EditorApplication.EnterPlaymode();
+                handedOff = true;
             }
             catch (System.Exception bootEx)
             {
-                Debug.LogError("AgrCapture FAIL: " + bootEx.Message);
+                Debug.LogError("AgrCapture FAIL: " + bootEx);
+                RestoreOrLog(backup);
+                ClearSession();
+                EditorApplication.update -= Tick;
                 Quit(1);
             }
+            finally
+            {
+                if (!handedOff)
+                {
+                    RestoreOrLog(backup);
+                }
+            }
+        }
+
+        static void HookLifecycle()
+        {
+            EditorApplication.playModeStateChanged -= OnPlayModeState;
+            EditorApplication.playModeStateChanged += OnPlayModeState;
+            EditorApplication.quitting -= OnQuitting;
+            EditorApplication.quitting += OnQuitting;
+        }
+
+        static void OnPlayModeState(PlayModeStateChange state)
+        {
+            if (!SessionState.GetBool(KeyRunning, false))
+            {
+                return;
+            }
+
+            Debug.Log("AgrCapture phase playModeStateChanged " + state.ToString());
+            if (state == PlayModeStateChange.EnteredPlayMode)
+            {
+                string scenePath = UnityEngine.SceneManagement.SceneManager.GetActiveScene().path;
+                Debug.Log(
+                    "AgrCapture phase entered play mode scene=" + scenePath
+                    + " frame=" + Time.frameCount.ToString());
+                EnsureHook();
+                EditorApplication.QueuePlayerLoopUpdate();
+                return;
+            }
+
+            if (state == PlayModeStateChange.ExitingPlayMode)
+            {
+                Debug.Log("AgrCapture phase exiting play mode");
+                return;
+            }
+
+            if (state == PlayModeStateChange.EnteredEditMode)
+            {
+                int phase = SessionState.GetInt(KeyPhase, PhaseEnter);
+                if (phase == PhaseEnter && !HasError())
+                {
+                    Debug.Log("AgrCapture phase entered edit mode before play; backup left in place");
+                    return;
+                }
+
+                Debug.Log("AgrCapture phase entered edit mode; restoring saves");
+                RestoreUserData();
+                EnsureHook();
+            }
+        }
+
+        static void OnQuitting()
+        {
+            if (!SessionState.GetBool(KeyRunning, false))
+            {
+                return;
+            }
+
+            Debug.Log("AgrCapture phase quitting; restoring saves");
+            RestoreUserData();
         }
 
         static void EnsureHook()
@@ -132,48 +244,77 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static void Tick()
         {
+            bool failed = false;
             try
             {
                 TickBody();
             }
             catch (System.Exception tickEx)
             {
+                failed = true;
                 Debug.LogError("AgrCapture FAIL: " + tickEx);
-                try
+            }
+            finally
+            {
+                if (failed)
                 {
                     RestoreUserData();
+                    ClearSession();
+                    EditorApplication.update -= Tick;
+                    Quit(1);
                 }
-                catch (System.Exception restoreEx)
-                {
-                    Debug.LogError("AgrCapture FAIL: restore " + restoreEx.Message);
-                }
-
-                ClearSession();
-                EditorApplication.update -= Tick;
-                Quit(1);
             }
         }
 
         static void TickBody()
         {
-            int phase = SessionState.GetInt(KeyPhase, PhaseEnter);
-            if (TimedOut() && phase != PhaseRestore && phase != PhaseWaitStop)
+            if (EditorApplication.isPlaying)
             {
-                Fail("timed out after 300s");
-                phase = SessionState.GetInt(KeyPhase, PhaseEnter);
+                EditorApplication.QueuePlayerLoopUpdate();
+            }
+
+            int phase = SessionState.GetInt(KeyPhase, PhaseEnter);
+            NotePhase(phase);
+            NoteScene();
+            if (TimedOut() && phase != PhaseRestore)
+            {
+                if (phase == PhaseWaitStop)
+                {
+                    Debug.LogError("AgrCapture FAIL: play mode did not exit; restoring saves");
+                    SessionState.SetString(KeyError, "play mode did not exit");
+                    RestoreUserData();
+                    SessionState.SetInt(KeyPhase, PhaseRestore);
+                    phase = PhaseRestore;
+                }
+                else
+                {
+                    Fail("timed out after 300s");
+                    phase = SessionState.GetInt(KeyPhase, PhaseEnter);
+                }
             }
 
             if (phase == PhaseEnter)
             {
-                if (!EditorApplication.isPlaying && !EditorApplication.isPlayingOrWillChangePlaymode)
+                if (EditorApplication.isPlaying)
                 {
-                    EditorApplication.isPlaying = true;
+                    SessionState.SetString(KeyPlayStart, StampNow());
+                    Debug.Log(
+                        "AgrCapture phase play mode active scene="
+                        + UnityEngine.SceneManagement.SceneManager.GetActiveScene().path
+                        + " frame=" + Time.frameCount.ToString());
+                    SessionState.SetInt(KeyPhase, PhaseWait);
                     return;
                 }
 
-                if (EditorApplication.isPlaying)
+                if (Since(KeyPlayStart) > EnterLimitSeconds)
                 {
-                    SessionState.SetInt(KeyPhase, PhaseWait);
+                    string why = "play mode transition stalled after EnterPlaymode. ";
+                    if (!EditorApplication.isPlayingOrWillChangePlaymode)
+                    {
+                        why = "play mode did not start within 20s after EnterPlaymode. ";
+                    }
+
+                    Fail(why + PlayModeSettingText());
                 }
 
                 return;
@@ -183,11 +324,32 @@ namespace AsteroidsGoneRogue.EditorTools
             {
                 Nudge();
                 Component game = FindComponent("GameManager");
-                if (game == null)
+                object session = null;
+                if (game != null)
                 {
+                    session = GetProp(game, "Session");
+                }
+
+                int frame = Time.frameCount;
+                if (session == null)
+                {
+                    Debug.Log(
+                        "AgrCapture phase wait GameSession missing frame=" + frame.ToString()
+                        + " scene=" + UnityEngine.SceneManagement.SceneManager.GetActiveScene().path
+                        + " game=" + (game != null ? "found" : "missing"));
+                    if (Since(KeyPlayStart) > SessionLimitSeconds)
+                    {
+                        Fail(
+                            "GameSession missing after "
+                            + SessionLimitSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)
+                            + "s (frame " + frame.ToString()
+                            + "). UI setup may have aborted before the session was created.");
+                    }
+
                     return;
                 }
 
+                Debug.Log("AgrCapture phase wait GameSession found frame=" + frame.ToString());
                 ApplyRuntime();
                 Debug.Log(
                     "AgrCapture: play ready, screen "
@@ -322,15 +484,11 @@ namespace AsteroidsGoneRogue.EditorTools
 
             if (phase == PhaseRestore)
             {
-                if (!SessionState.GetBool(KeyRestored, false))
+                RestoreUserData();
+                string kept = CurrentBackup();
+                if (kept.Length > 0)
                 {
-                    RestoreUserData();
-                    SessionState.SetBool(KeyRestored, true);
-                    string backup = SessionState.GetString(KeyBackup, string.Empty);
-                    if (backup.Length > 0 && System.IO.Directory.Exists(backup))
-                    {
-                        System.IO.Directory.Delete(backup, true);
-                    }
+                    Debug.Log("AgrCapture backup kept " + kept);
                 }
 
                 int code = 0;
@@ -349,7 +507,10 @@ namespace AsteroidsGoneRogue.EditorTools
         {
             int shot = SessionState.GetInt(KeyShot, 0);
             bool reduce = SessionState.GetInt(KeyReduce, 0) != 0;
-            Debug.Log("AgrCapture: staging " + ShotFile(shot, reduce));
+            Debug.Log(
+                "AgrCapture phase shot " + shot.ToString()
+                + " " + ShotFile(shot, reduce)
+                + " frame=" + Time.frameCount.ToString());
             Component game = FindComponent("GameManager");
             if (game == null)
             {
@@ -1570,21 +1731,233 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static void RestoreUserData()
         {
-            string backup = SessionState.GetString(KeyBackup, string.Empty);
+            string backup = CurrentBackup();
+            if (backup.Length == 0)
+            {
+                Debug.LogError("AgrCapture restore FAIL: backup path is empty");
+                return;
+            }
+
+            if (SessionState.GetBool(KeyRestored, false))
+            {
+                Debug.Log("AgrCapture restore OK " + backup);
+                return;
+            }
+
+            try
+            {
+                string prefsPath = System.IO.Path.Combine(backup, "prefs.txt");
+                if (!System.IO.File.Exists(prefsPath))
+                {
+                    throw new System.IO.FileNotFoundException("prefs snapshot missing", prefsPath);
+                }
+
+                ReadPrefs(prefsPath);
+                ReleaseRuntimeCache();
+                PlayerPrefs.Save();
+                string data = Application.persistentDataPath;
+                MirrorBack(System.IO.Path.Combine(backup, "persistent"), data);
+                Time.captureDeltaTime = 0f;
+                AudioListener.pause = false;
+                AudioListener.volume = 1f;
+                EditorApplication.isPaused = false;
+                SessionState.SetBool(KeyRestored, true);
+                Debug.Log("AgrCapture restore OK " + backup);
+                Debug.Log("AgrCapture backup kept " + backup);
+            }
+            catch (System.Exception restoreEx)
+            {
+                Debug.LogError("AgrCapture restore FAIL " + backup + ": " + restoreEx.Message);
+            }
+        }
+
+        static void RestoreOrLog(string backup)
+        {
             if (backup.Length == 0)
             {
                 return;
             }
 
-            ReadPrefs(System.IO.Path.Combine(backup, "prefs.txt"));
-            ReleaseRuntimeCache();
-            PlayerPrefs.Save();
-            string data = Application.persistentDataPath;
-            MirrorBack(System.IO.Path.Combine(backup, "persistent"), data);
-            Time.captureDeltaTime = 0f;
-            AudioListener.pause = false;
-            AudioListener.volume = 1f;
-            EditorApplication.isPaused = false;
+            _backupPath = backup;
+            SessionState.SetString(KeyBackup, backup);
+            RestoreUserData();
+        }
+
+        static string CurrentBackup()
+        {
+            if (_backupPath.Length > 0)
+            {
+                return _backupPath;
+            }
+
+            _backupPath = SessionState.GetString(KeyBackup, string.Empty);
+            return _backupPath;
+        }
+
+        static string MakeBackupFolder()
+        {
+            string stamp = System.DateTime.UtcNow.ToString(
+                "yyyyMMdd-HHmmss",
+                System.Globalization.CultureInfo.InvariantCulture);
+            string name = "agr-capture-" + stamp + "-" + System.Diagnostics.Process.GetCurrentProcess().Id.ToString();
+            string backup = System.IO.Path.Combine(System.IO.Path.GetTempPath(), name);
+            System.IO.Directory.CreateDirectory(backup);
+            return backup;
+        }
+
+        static void LogSaveBackup(string backup)
+        {
+            string parked = System.IO.Path.Combine(backup, "persistent");
+            LogBackedFile(parked, "run_save.json");
+            LogBackedFile(parked, "meta_save.json");
+        }
+
+        static void LogBackedFile(string folder, string name)
+        {
+            string path = System.IO.Path.Combine(folder, name);
+            string state = "absent";
+            if (System.IO.File.Exists(path))
+            {
+                state = "present";
+            }
+
+            Debug.Log("AgrCapture backup " + name + " " + state + " " + path);
+        }
+
+        static void LogPlayModeSettings()
+        {
+            Debug.Log("AgrCapture phase " + PlayModeSettingText());
+        }
+
+        static string PlayModeSettingText()
+        {
+            bool enabled = EditorSettings.enterPlayModeOptionsEnabled;
+            EnterPlayModeOptions options = EditorSettings.enterPlayModeOptions;
+            bool disableDomain = enabled
+                && (options & EnterPlayModeOptions.DisableDomainReload) != 0;
+            bool disableScene = enabled
+                && (options & EnterPlayModeOptions.DisableSceneReload) != 0;
+            string fallback = "6000.6 default keeps the domain and reloads the scene";
+            if (enabled)
+            {
+                fallback = "project Enter Play Mode Options are enabled";
+            }
+
+            return "playmode optionsEnabled=" + enabled.ToString()
+                + " options=" + options.ToString()
+                + " disableDomain=" + disableDomain.ToString()
+                + " disableScene=" + disableScene.ToString()
+                + " (" + fallback + ")";
+        }
+
+        static string StampNow()
+        {
+            return EditorApplication.timeSinceStartup.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        static double Since(string key)
+        {
+            string startText = SessionState.GetString(key, string.Empty);
+            if (startText.Length == 0)
+            {
+                return 0.0;
+            }
+
+            double start;
+            if (!double.TryParse(
+                startText,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out start))
+            {
+                return 0.0;
+            }
+
+            return EditorApplication.timeSinceStartup - start;
+        }
+
+        static void NotePhase(int phase)
+        {
+            int logged = SessionState.GetInt(KeyLoggedPhase, -1);
+            if (logged == phase)
+            {
+                return;
+            }
+
+            SessionState.SetInt(KeyLoggedPhase, phase);
+            Debug.Log(
+                "AgrCapture phase " + PhaseLabel(phase)
+                + " shot=" + SessionState.GetInt(KeyShot, 0).ToString()
+                + " frame=" + Time.frameCount.ToString());
+        }
+
+        static void NoteScene()
+        {
+            if (!EditorApplication.isPlaying || SessionState.GetBool(KeySceneLogged, false))
+            {
+                return;
+            }
+
+            UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            if (!scene.IsValid() || !scene.isLoaded)
+            {
+                return;
+            }
+
+            SessionState.SetBool(KeySceneLogged, true);
+            Debug.Log(
+                "AgrCapture phase scene loaded " + scene.path
+                + " frame=" + Time.frameCount.ToString());
+        }
+
+        static string PhaseLabel(int phase)
+        {
+            if (phase == PhaseEnter)
+            {
+                return "enter";
+            }
+
+            if (phase == PhaseWait)
+            {
+                return "wait";
+            }
+
+            if (phase == PhaseStage)
+            {
+                return "stage";
+            }
+
+            if (phase == PhaseSettle)
+            {
+                return "settle";
+            }
+
+            if (phase == PhaseArm)
+            {
+                return "arm";
+            }
+
+            if (phase == PhaseFire)
+            {
+                return "fire";
+            }
+
+            if (phase == PhaseCard)
+            {
+                return "card";
+            }
+
+            if (phase == PhaseStop)
+            {
+                return "stop";
+            }
+
+            if (phase == PhaseWaitStop)
+            {
+                return "wait-stop";
+            }
+
+            return "restore";
         }
 
         static string[] PrefRows()
@@ -1865,12 +2238,18 @@ namespace AsteroidsGoneRogue.EditorTools
             {
                 EditorApplication.isPaused = false;
                 SessionState.SetInt(KeyPhase, PhaseStop);
+                if (EditorApplication.isPlaying)
+                {
+                    EditorApplication.isPlaying = false;
+                }
+
                 return;
             }
 
             if (!playing && phase != PhaseRestore)
             {
                 SessionState.SetInt(KeyPhase, PhaseRestore);
+                RestoreUserData();
             }
         }
 
@@ -1887,7 +2266,11 @@ namespace AsteroidsGoneRogue.EditorTools
             SessionState.EraseInt(KeySeen);
             SessionState.EraseString(KeyError);
             SessionState.EraseString(KeyStart);
+            SessionState.EraseString(KeyPlayStart);
             SessionState.EraseBool(KeyRestored);
+            SessionState.EraseBool(KeySceneLogged);
+            SessionState.EraseInt(KeyLoggedPhase);
+            _backupPath = string.Empty;
         }
 
         static void Quit(int code)
