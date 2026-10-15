@@ -314,6 +314,21 @@ namespace UnityEngine
     public class RectTransform { }
     public class RawImage { }
     public class RenderTexture { }
+
+    public enum RenderTextureFormat
+    {
+        ARGB32,
+        ARGBHalf,
+        DefaultHDR,
+    }
+
+    public static class SystemInfo
+    {
+        public static bool SupportsRenderTextureFormat(RenderTextureFormat format)
+        {
+            return format == RenderTextureFormat.ARGB32;
+        }
+    }
     public class Scrollbar { }
     public class EntityId { }
     public class MeshRenderer { }

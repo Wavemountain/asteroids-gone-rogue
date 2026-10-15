@@ -122,7 +122,7 @@ TextScriptImporter:
 """
 
 
-def fbx_meta(guid: str) -> str:
+def fbx_meta(guid: str, preserve: int = 0) -> str:
     """Unity ModelImporter: scale 1, no colliders, no animation."""
     return f"""fileFormatVersion: 2
 guid: {guid}
@@ -176,7 +176,7 @@ ModelImporter:
     keepQuads: 0
     weldVertices: 1
     bakeAxisConversion: 0
-    preserveHierarchy: 0
+    preserveHierarchy: {preserve}
     skinWeightsMode: 0
     maxBonesPerVertex: 4
     minBoneWeight: 0.001
@@ -989,9 +989,17 @@ def main() -> None:
         rel = ttf.relative_to(ROOT).as_posix()
         write(Path(str(ttf) + ".meta"), font_meta(guid_for(rel), font_names.get(ttf.name, ttf.stem)))
 
+    hierarchy_names = {
+        "Ship_Hero.fbx",
+        "Weapon_Rail.fbx",
+        "Weapon_Twin.fbx",
+        "Weapon_Pierce.fbx",
+        "Weapon_Seeker.fbx",
+    }
     for fbx in ROOT.joinpath("Assets").rglob("*.fbx"):
         rel = fbx.relative_to(ROOT).as_posix()
-        write(Path(str(fbx) + ".meta"), fbx_meta(guid_for(rel)))
+        keep = 1 if fbx.name in hierarchy_names else 0
+        write(Path(str(fbx) + ".meta"), fbx_meta(guid_for(rel), keep))
 
     materials = {
         "Mat_Ship_Hull": ((0.45, 0.52, 0.58, 1.0), 0.45, 0.35, None),

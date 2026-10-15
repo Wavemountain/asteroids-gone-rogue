@@ -51,6 +51,7 @@ BUTTON_KEYS = {
     "ui.confirm.yes",
     "ui.confirm.no",
     "ui.settings.confirm_new_run",
+    "ui.settings.reset_tutorial",
     "sink.entry",
     "sink.close",
     "daily.normal",
