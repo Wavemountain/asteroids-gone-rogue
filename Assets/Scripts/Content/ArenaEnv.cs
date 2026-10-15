@@ -626,7 +626,7 @@ namespace AsteroidsGoneRogue
             {
                 Vector3 velocity = (camPos - _dustCam) / dt;
                 Vector3 drift = velocity * ArenaDepth.DustParallax;
-                ParticleSystem.VelocityModule motion = _dust.velocityOverLifetime;
+                ParticleSystem.VelocityOverLifetimeModule motion = _dust.velocityOverLifetime;
                 motion.enabled = true;
                 motion.space = ParticleSystemSimulationSpace.World;
                 motion.x = drift.x;

@@ -245,7 +245,7 @@ namespace AsteroidsGoneRogue
                 _material.SetTexture("_BloomTex", bloom);
                 if (destination == null)
                 {
-                    Graphics.Blit(source, null, _material, PassUber);
+                    Graphics.Blit(source, (RenderTexture)null, _material, PassUber);
                 }
                 else
                 {

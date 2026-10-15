@@ -316,7 +316,11 @@ namespace UnityEngine
     public class SphereCollider { }
     public class Bounds { }
     public class Font { }
-    public class Texture2D { }
+    public class Texture : Object { }
+
+    public class Texture2D : Texture { }
+
+    public class GraphicsTexture { }
     public class Button { }
     public class Text { }
     public class Image { }
@@ -326,10 +330,29 @@ namespace UnityEngine
     public class Slider { }
     public class RectTransform { }
     public class RawImage { }
-    public class RenderTexture
+    public class RenderTexture : Texture
     {
         public int width { get; set; }
         public int height { get; set; }
+    }
+
+    // Unity 6000.6 Graphics.Blit. dest is RenderTexture or GraphicsTexture, so a
+    // bare null is CS0121. Material+pass and the (Texture, RenderTexture, ...)
+    // family are both present, matching the editor overloads.
+    public static class Graphics
+    {
+        public static void Blit(Texture source, Material mat, int pass = -1) { }
+        public static void Blit(Texture source, Material mat, int pass, int destDepthSlice) { }
+        public static void Blit(Texture source, RenderTexture dest) { }
+        public static void Blit(Texture source, RenderTexture dest, Material mat, int pass = -1) { }
+        public static void Blit(Texture source, RenderTexture dest, Vector2 scale, Vector2 offset) { }
+        public static void Blit(Texture source, RenderTexture dest, int sourceDepthSlice, int destDepthSlice) { }
+        public static void Blit(Texture source, RenderTexture dest, Vector2 scale, Vector2 offset, int sourceDepthSlice, int destDepthSlice) { }
+        public static void Blit(Texture source, GraphicsTexture dest) { }
+        public static void Blit(Texture source, GraphicsTexture dest, Material mat, int pass = -1) { }
+        public static void Blit(Texture source, GraphicsTexture dest, Vector2 scale, Vector2 offset) { }
+        public static void Blit(Texture source, GraphicsTexture dest, int sourceDepthSlice, int destDepthSlice) { }
+        public static void Blit(Texture source, GraphicsTexture dest, Vector2 scale, Vector2 offset, int sourceDepthSlice, int destDepthSlice) { }
     }
 
     public enum RenderTextureFormat
@@ -457,7 +480,7 @@ namespace UnityEngine
             public static implicit operator MinMaxCurve(float v) { return new MinMaxCurve(v); }
         }
 
-        public struct VelocityModule
+        public struct VelocityOverLifetimeModule
         {
             public bool enabled { get; set; }
             public ParticleSystemSimulationSpace space { get; set; }
@@ -469,7 +492,7 @@ namespace UnityEngine
         public MainModule main { get { return new MainModule(); } }
         public EmissionModule emission { get { return new EmissionModule(); } }
         public ShapeModule shape { get { return new ShapeModule(); } }
-        public VelocityModule velocityOverLifetime { get { return new VelocityModule(); } }
+        public VelocityOverLifetimeModule velocityOverLifetime { get { return new VelocityOverLifetimeModule(); } }
         public void Emit(EmitParams emitParams, int count) { }
         public void Clear() { }
         public void Stop() { }

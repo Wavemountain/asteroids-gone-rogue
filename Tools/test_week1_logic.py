@@ -1631,6 +1631,90 @@ def test_b1_reintroduction_fails() -> None:
     assert "Mix" in joined
 
 
+def test_unity6000_api_reintroduction_fails() -> None:
+    """Bare Graphics.Blit null is CS0121 and ParticleSystem.VelocityModule is CS0426.
+
+    Unity 6000.6 Blit(Texture, RenderTexture, Material, int) and
+    Blit(Texture, GraphicsTexture, Material, int) both accept a null dest.
+    VelocityModule is not a ParticleSystem nested type; the property is
+    velocityOverLifetime of type VelocityOverLifetimeModule.
+    """
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    from roslyn_core_check import core_roslyn_errors
+
+    post = (root / "Assets/Scripts/Content/PostStack.cs").read_text(encoding="utf-8")
+    arena = (root / "Assets/Scripts/Content/ArenaEnv.cs").read_text(encoding="utf-8")
+    stub = (root / "Tools/roslyn/UnityStub.cs").read_text(encoding="utf-8")
+    fixed_blit = "Graphics.Blit(source, (RenderTexture)null, _material, PassUber)"
+    bare_blit = "Graphics.Blit(source, null, _material, PassUber)"
+    assert fixed_blit in post
+    assert bare_blit not in post
+    assert "ParticleSystem.VelocityOverLifetimeModule motion = _dust.velocityOverLifetime" in arena
+    assert "VelocityModule" not in arena
+    assert "struct VelocityModule" not in stub
+    assert "struct VelocityOverLifetimeModule" in stub
+    assert "void Blit(Texture source, RenderTexture dest, Material mat, int pass = -1)" in stub
+    assert "void Blit(Texture source, GraphicsTexture dest, Material mat, int pass = -1)" in stub
+    assert "void Blit(Texture source, RenderTexture dest)" in stub
+
+    carrier = (root / "Assets/Scripts/Core/MeshFit.cs").read_text(encoding="utf-8")
+    bad = carrier + """
+namespace AsteroidsGoneRogue
+{
+    public static class Unity6000ApiRepro
+    {
+        public static void BadBlit(UnityEngine.RenderTexture source, UnityEngine.Material material)
+        {
+            UnityEngine.Graphics.Blit(source, null, material, 0);
+        }
+
+        public static void BadDust(UnityEngine.ParticleSystem dust)
+        {
+            UnityEngine.ParticleSystem.VelocityModule motion = dust.velocityOverLifetime;
+            motion.enabled = true;
+        }
+    }
+}
+"""
+    assert bad != carrier
+    hits = core_roslyn_errors({"Assets/Scripts/Core/MeshFit.cs": bad})
+    assert hits, "reintroduced Blit null and VelocityModule must not pass the Roslyn gate silently"
+    joined = "\n".join(hits)
+    assert "CS0121" in joined, joined
+    assert "CS0426" in joined, joined
+    assert "VelocityModule" in joined
+
+    good = carrier + """
+namespace AsteroidsGoneRogue
+{
+    public static class Unity6000ApiRepro
+    {
+        public static void OkBlit(UnityEngine.RenderTexture source, UnityEngine.Material material)
+        {
+            UnityEngine.Graphics.Blit(source, (UnityEngine.RenderTexture)null, material, 0);
+        }
+
+        public static void OkDust(UnityEngine.ParticleSystem dust)
+        {
+            UnityEngine.ParticleSystem.VelocityOverLifetimeModule motion = dust.velocityOverLifetime;
+            motion.enabled = true;
+            motion.space = UnityEngine.ParticleSystemSimulationSpace.World;
+            motion.x = 1f;
+        }
+    }
+}
+"""
+    good_hits = core_roslyn_errors({"Assets/Scripts/Core/MeshFit.cs": good})
+    good_joined = "\n".join(good_hits)
+    assert "CS0121" not in good_joined and "CS0426" not in good_joined, good_joined
+
+
 def test_daily_shield_and_remainder_047() -> None:
     """Daily runs skip legacy and sink start shields. Remainders restart each configure."""
     import sys
@@ -8512,6 +8596,7 @@ def main() -> int:
     test_cs0136_local_shadow_gate()
     test_type_member_shadow_gate()
     test_b1_reintroduction_fails()
+    test_unity6000_api_reintroduction_fails()
     test_roslyn_stub_artefact_gate()
     test_roslyn_non_cs_build_fails()
     test_monsters_arenas_040()
@@ -15246,7 +15331,7 @@ def test_p7_post_and_light() -> None:
     assert "Fallback Off" in shader
     assert "OnRenderImage" in stack
     assert "Graphics.Blit(source, destination)" in stack
-    assert "Graphics.Blit(source, null, _material, PassUber)" in stack
+    assert "Graphics.Blit(source, (RenderTexture)null, _material, PassUber)" in stack
     assert "isSupported" in stack
     assert "LooksLikeDeck" in stack
     assert "TargetsNeedRebuild" in stack
