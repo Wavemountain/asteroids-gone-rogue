@@ -12,6 +12,16 @@ namespace AsteroidsGoneRogue
 
         private void Awake()
         {
+            if (GetComponent<GameManager>() != null)
+            {
+                return;
+            }
+
+            Boot();
+        }
+
+        private void Boot()
+        {
             Application.targetFrameRate = 60;
             Physics.gravity = Vector3.zero;
 
