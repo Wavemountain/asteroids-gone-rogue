@@ -184,9 +184,13 @@ namespace UnityEngine
         public static void SetResolution(int width, int height, FullScreenMode mode) { }
     }
 
+    public enum ColorSpace { Gamma, Linear }
+
     public static class QualitySettings
     {
         public static int vSyncCount { get; set; }
+        public static int pixelLightCount { get; set; }
+        public static ColorSpace activeColorSpace { get { return ColorSpace.Linear; } }
     }
 
     public static class Input
@@ -249,9 +253,15 @@ namespace UnityEngine
     public class Shader : Object
     {
         public static int PropertyToID(string name) { return 0; }
+        public static Shader Find(string name) { return null; }
+        public bool isSupported { get { return true; } }
     }
 
-    public class Material : Object { }
+    public class Material : Object
+    {
+        public Shader shader { get; set; }
+        public Material(Shader shader) { this.shader = shader; }
+    }
 
     public class Rigidbody : Component
     {
@@ -316,7 +326,11 @@ namespace UnityEngine
     public class Slider { }
     public class RectTransform { }
     public class RawImage { }
-    public class RenderTexture { }
+    public class RenderTexture
+    {
+        public int width { get; set; }
+        public int height { get; set; }
+    }
 
     public enum RenderTextureFormat
     {
@@ -331,6 +345,10 @@ namespace UnityEngine
         {
             return format == RenderTextureFormat.ARGB32;
         }
+
+        public static int graphicsMemorySize { get { return 2048; } }
+        public static string graphicsDeviceName { get { return ""; } }
+        public static string deviceModel { get { return ""; } }
     }
     public class Scrollbar { }
     public class EntityId { }

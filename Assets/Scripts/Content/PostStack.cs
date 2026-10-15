@@ -21,6 +21,10 @@ namespace AsteroidsGoneRogue
         private Material _material;
         private PostBlendState _state;
         private int _passThrough;
+        private RenderTexture[] _chain;
+        private int _chainWidth;
+        private int _chainHeight;
+        private int _chainFormat;
 
         public static void Attach(Camera gameplay)
         {
@@ -100,6 +104,16 @@ namespace AsteroidsGoneRogue
             _active = this;
         }
 
+        private void OnDisable()
+        {
+            ReleaseChain();
+        }
+
+        private void OnDestroy()
+        {
+            ReleaseChain();
+        }
+
         private void Update()
         {
             _state = PostGrade.AdvanceClock(_state, Time.unscaledDeltaTime);
@@ -126,16 +140,16 @@ namespace AsteroidsGoneRogue
 
         private void OnRenderImage(RenderTexture source, RenderTexture destination)
         {
-            if (source == null || destination == null || _passThrough != 0 || _material == null || !enabled)
+            if (source == null || _passThrough != 0 || _material == null || !enabled)
             {
                 Graphics.Blit(source, destination);
                 return;
             }
 
             int memoryMb = 0;
-            if (SystemInfo.graphicsMemorySize > 0)
+            if (DeckThisFrame(source))
             {
-                memoryMb = SystemInfo.graphicsMemorySize;
+                memoryMb = PostGrade.DeckMemoryMb;
             }
 
             bool reduce = SettingsState.ReduceEffectsEnabled;
@@ -168,7 +182,7 @@ namespace AsteroidsGoneRogue
                 height = 2;
             }
 
-            RenderTexture[] chain = new RenderTexture[6];
+            RenderTexture[] chain = Chain(width, height, (int)RenderTextureFormat.DefaultHDR);
             int levels = 0;
             RenderTexture bloom = null;
             int bloomIsExtra = 0;
@@ -229,7 +243,14 @@ namespace AsteroidsGoneRogue
                 }
 
                 _material.SetTexture("_BloomTex", bloom);
-                Graphics.Blit(source, destination, _material, PassUber);
+                if (destination == null)
+                {
+                    Graphics.Blit(source, null, _material, PassUber);
+                }
+                else
+                {
+                    Graphics.Blit(source, destination, _material, PassUber);
+                }
             }
             finally
             {
@@ -288,9 +309,12 @@ namespace AsteroidsGoneRogue
             PostGrade.LiftGain(shown, out liftR, out liftG, out liftB, out gainR, out gainG, out gainB);
             _material.SetColor("_Lift", new Color(liftR, liftG, liftB, 1f));
             _material.SetColor("_Gain", new Color(gainR, gainG, gainB, 1f));
-            _material.SetColor(
-                "_VignetteColor",
-                new Color(PostGrade.VignetteVoidR, PostGrade.VignetteVoidG, PostGrade.VignetteVoidB, 1f));
+            bool linear = QualitySettings.activeColorSpace == ColorSpace.Linear;
+            float vignetteR;
+            float vignetteG;
+            float vignetteB;
+            PostGrade.VignetteRgb(linear, out vignetteR, out vignetteG, out vignetteB);
+            _material.SetColor("_VignetteColor", new Color(vignetteR, vignetteG, vignetteB, 1f));
         }
 
         private void BuildMaterial()
@@ -301,7 +325,7 @@ namespace AsteroidsGoneRogue
                 postShader = Resources.Load<Shader>(ShaderWarmup.PostResource);
             }
 
-            if (postShader == null)
+            if (postShader == null || !postShader.isSupported)
             {
                 _material = null;
                 return;
@@ -309,6 +333,85 @@ namespace AsteroidsGoneRogue
 
             _material = new Material(postShader);
             _material.name = "Mat_PostStack";
+            if (_material.shader == null || !_material.shader.isSupported)
+            {
+                Destroy(_material);
+                _material = null;
+            }
+        }
+
+        private RenderTexture[] Chain(int width, int height, int format)
+        {
+            int slots = 0;
+            if (_chain != null)
+            {
+                slots = _chain.Length;
+            }
+
+            if (!PostGrade.TargetsNeedRebuild(_chainWidth, _chainHeight, _chainFormat, slots, width, height, format))
+            {
+                return _chain;
+            }
+
+            ReleaseChain();
+            _chain = new RenderTexture[PostGrade.BloomChainSlots];
+            _chainWidth = width;
+            _chainHeight = height;
+            _chainFormat = format;
+            return _chain;
+        }
+
+        private void ReleaseChain()
+        {
+            if (_chain != null)
+            {
+                int index = 0;
+                while (index < _chain.Length)
+                {
+                    if (_chain[index] != null)
+                    {
+                        RenderTexture.ReleaseTemporary(_chain[index]);
+                        _chain[index] = null;
+                    }
+
+                    index++;
+                }
+            }
+
+            _chain = null;
+            _chainWidth = 0;
+            _chainHeight = 0;
+            _chainFormat = 0;
+        }
+
+        private static bool DeckThisFrame(RenderTexture source)
+        {
+            try
+            {
+                int memory = 0;
+                if (SystemInfo.graphicsMemorySize > 0)
+                {
+                    memory = SystemInfo.graphicsMemorySize;
+                }
+
+                string deviceName = SystemInfo.graphicsDeviceName;
+                string deviceModel = SystemInfo.deviceModel;
+                if (PostGrade.LooksLikeDeck(Screen.width, Screen.height, deviceName, deviceModel, memory))
+                {
+                    return true;
+                }
+
+                if (source != null && PostGrade.LooksLikeDeck(source.width, source.height, deviceName, deviceModel, memory))
+                {
+                    return true;
+                }
+            }
+            catch (System.Exception)
+            {
+                return false;
+            }
+
+            return false;
         }
     }
 }

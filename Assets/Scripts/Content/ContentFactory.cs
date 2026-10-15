@@ -212,9 +212,9 @@ namespace AsteroidsGoneRogue
             _hangarAmber = MakeMaterial("Mat_Hangar_Amber", new Color(1f, 0.58f, 0.16f), 0.2f, 0.5f, new Color(1f, 0.42f, 0.06f) * 1.6f);
             _hangarCyan = MakeMaterial("Mat_Hangar_Cyan", new Color(0.22f, 0.72f, 0.88f), 0.15f, 0.45f, new Color(0.15f, 0.55f, 0.8f) * 1.4f);
             _hangarGlow = MakeMaterial("Mat_Hangar_Glow", new Color(1f, 0.72f, 0.28f), 0f, 0.2f, new Color(1f, 0.55f, 0.12f) * 2.6f);
-            _launchAmber = MakeMaterial("Mat_LaunchSign_Amber", new Color(1f, 0.62f, 0.14f), 0.12f, 0.42f, new Color(1f, 0.48f, 0.06f) * 3.8f);
-            _launchGlow = MakeMaterial("Mat_LaunchSign_Glow", new Color(1f, 0.86f, 0.32f), 0f, 0.18f, new Color(1f, 0.7f, 0.12f) * 5.2f);
-            _launchDecal = MakeMaterial("Mat_LaunchSign_Decal", new Color(1f, 0.94f, 0.42f), 0f, 0.12f, new Color(1f, 0.82f, 0.18f) * 6.4f);
+            _launchAmber = MakeMaterial("Mat_LaunchSign_Amber", primaryEmit, 0.12f, 0.42f, primaryEmit * EmissionTargets.CapLaunchSign(3.8f));
+            _launchGlow = MakeMaterial("Mat_LaunchSign_Glow", primaryEmit, 0f, 0.18f, primaryEmit * EmissionTargets.CapLaunchSign(5.2f));
+            _launchDecal = MakeMaterial("Mat_LaunchSign_Decal", primaryEmit, 0f, 0.12f, primaryEmit * EmissionTargets.CapLaunchSign(6.4f));
             _brute = MakeShipRim(
                 "Mat_Monster_Brute",
                 new Color(0.58f, 0.34f, 0.36f),
@@ -279,18 +279,19 @@ namespace AsteroidsGoneRogue
                 0.4f,
                 steelEmit * 0.35f);
             _hazardSpike = MakeMaterial("Mat_Arena_Hazard", new Color(0.722f, 0.353f, 0.157f), 0.28f, 0.24f, new Color(0.722f, 0.353f, 0.157f) * 0.45f);
-            _layoutCyan = MakeMaterial("Mat_Arena_Layout_Cyan", new Color(0.12f, 0.55f, 0.72f), 0.15f, 0.2f, new Color(0.1f, 0.7f, 1f) * 1.3f);
-            _layoutMagenta = MakeMaterial("Mat_Arena_Layout_Magenta", new Color(0.62f, 0.12f, 0.48f), 0.15f, 0.2f, new Color(0.9f, 0.1f, 0.7f) * 1.2f);
+            Color layoutDanger = dangerEmit * EmissionTargets.LayoutDangerAlbedoMul;
+            _layoutCyan = MakeMaterial("Mat_Arena_Layout_Cyan", steelEmit, 0.15f, 0.2f, steelEmit * 1.3f);
+            _layoutMagenta = MakeMaterial("Mat_Arena_Layout_Magenta", primaryEmit, 0.15f, 0.2f, primaryEmit * 1.2f);
             _layoutOrange = MakeMaterial("Mat_Arena_Layout_Orange", new Color(0.72f, 0.28f, 0.08f), 0.12f, 0.18f, new Color(1f, 0.35f, 0.05f) * 1.4f);
-            _layoutLime = MakeMaterial("Mat_Arena_Layout_Lime", new Color(0.28f, 0.62f, 0.16f), 0.12f, 0.18f, new Color(0.45f, 1f, 0.2f) * 1.15f);
+            _layoutLime = MakeMaterial("Mat_Arena_Layout_Lime", layoutDanger, 0.12f, 0.18f, dangerEmit * EmissionTargets.LayoutEmissionMul);
             _layoutRust = MakeMaterial("Mat_Arena_Layout_Rust", new Color(0.42f, 0.22f, 0.14f), 0.08f, 0.14f, new Color(0.7f, 0.25f, 0.08f) * 0.9f);
-            _washCyan = MakeTransparent("Mat_Arena_Wash_Cyan", new Color(0.1f, 0.55f, 0.78f, 0.16f), new Color(0.08f, 0.55f, 0.95f) * 0.45f);
-            _washMagenta = MakeTransparent("Mat_Arena_Wash_Magenta", new Color(0.62f, 0.1f, 0.48f, 0.16f), new Color(0.85f, 0.08f, 0.62f) * 0.42f);
+            _washCyan = MakeTransparent("Mat_Arena_Wash_Cyan", new Color(steelEmit.r, steelEmit.g, steelEmit.b, 0.16f), steelEmit * 0.45f);
+            _washMagenta = MakeTransparent("Mat_Arena_Wash_Magenta", new Color(primaryEmit.r, primaryEmit.g, primaryEmit.b, 0.16f), primaryEmit * 0.42f);
             _washOrange = MakeTransparent("Mat_Arena_Wash_Orange", new Color(0.78f, 0.32f, 0.08f, 0.18f), new Color(1f, 0.32f, 0.05f) * 0.5f);
-            _washLime = MakeTransparent("Mat_Arena_Wash_Lime", new Color(0.28f, 0.62f, 0.16f, 0.15f), new Color(0.4f, 0.95f, 0.18f) * 0.4f);
+            _washLime = MakeTransparent("Mat_Arena_Wash_Lime", new Color(layoutDanger.r, layoutDanger.g, layoutDanger.b, 0.15f), dangerEmit * EmissionTargets.LayoutEmissionMul);
             _washRust = MakeTransparent("Mat_Arena_Wash_Rust", new Color(0.42f, 0.2f, 0.12f, 0.2f), new Color(0.65f, 0.22f, 0.08f) * 0.35f);
             _layoutRail = MakeMaterial("Mat_Arena_Layout_Rail", new Color(0.95f, 0.82f, 0.42f), 0.35f, 0.55f, new Color(1f, 0.72f, 0.18f) * 1.8f);
-            _shield = MakeTransparent("Mat_Shield", new Color(0.25f, 0.85f, 1f, 0.22f), new Color(0.2f, 0.7f, 1f) * 0.6f);
+            _shield = MakeTransparent("Mat_Shield", new Color(steelEmit.r, steelEmit.g, steelEmit.b, 0.22f), steelEmit * 0.6f);
             ArtImport.WarmPlayModeAssets();
         }
 
@@ -304,6 +305,7 @@ namespace AsteroidsGoneRogue
             _projectileRoot = new GameObject("Projectiles").transform;
             _pickupRoot = new GameObject("Pickups").transform;
             BuildHangarDressing();
+            ProjectileLightPool.Ensure(transform);
         }
 
         // Six meshes. World 7 reuses Arena_Blockout (index % 6) and gets its own
@@ -628,7 +630,7 @@ namespace AsteroidsGoneRogue
             HangarSignPulse pulse = root.AddComponent<HangarSignPulse>();
             pulse.SignLight = lamp;
             pulse.BaseIntensity = 3.15f;
-            pulse.BaseEmission = new Color(1f, 0.7f, 0.14f) * 4.6f;
+            pulse.BaseEmission = new Color(EmissionTargets.PrimaryR, EmissionTargets.PrimaryG, EmissionTargets.PrimaryB) * EmissionTargets.CapLaunchSign(4.6f);
         }
 
         private void DressLaunchGoMeshDecal(Transform parent)
@@ -1395,6 +1397,15 @@ namespace AsteroidsGoneRogue
             Projectile projectile = root.AddComponent<Projectile>();
             int bounces = ricochet ? LoadoutState.RicochetBounces : 0;
             projectile.Launch(direction, speed, damage, pierce, hostile, kind, seeker, bounces);
+            if (!hostile && rail)
+            {
+                ProjectileLightPool.Pulse(root.transform.position, ProjectileLightBudget.KindRail, EmissionTargets.Primary, root.transform);
+            }
+            else if (!hostile && pierce)
+            {
+                ProjectileLightPool.Pulse(root.transform.position, ProjectileLightBudget.KindPierce, EmissionTargets.Primary, root.transform);
+            }
+
             DecorDepthClamp.KeepGameplay(root);
             _projectiles.Add(projectile);
             return projectile;
@@ -1830,7 +1841,11 @@ namespace AsteroidsGoneRogue
 
         private void DressSniperMesh(Transform root)
         {
-            DressEnemyEmission(root, new Color(0.18f, 0.72f, 1f));
+            float sniperR;
+            float sniperG;
+            float sniperB;
+            EmissionTargets.Desaturate(0.18f, 0.72f, 1f, EmissionTargets.SniperDesat, out sniperR, out sniperG, out sniperB);
+            DressEnemyEmission(root, new Color(sniperR, sniperG, sniperB));
         }
 
         private void DressBomberMesh(Transform root)

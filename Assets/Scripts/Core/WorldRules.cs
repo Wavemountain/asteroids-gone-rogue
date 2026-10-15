@@ -53,12 +53,13 @@ namespace AsteroidsGoneRogue
 
         // starR starG starB nebulaR nebulaG nebulaB gridR gridG gridB floorR floorG floorB brightness purple chroma
         // Values are milli (0–1000). World 6 chroma is higher (dim, stronger tint).
+        // W3/W4 brightness literals are the floor fix (760 and 680).
         public static readonly int[] PaletteMilli =
         {
             350, 620, 1000, 120, 280, 900, 200, 550, 1000, 40, 140, 420, 1000, 0, 550,
             620, 280, 980, 420, 120, 720, 520, 220, 860, 200, 40, 340, 860, 1, 550,
-            100, 980, 780, 40, 620, 500, 80, 860, 680, 20, 300, 220, ReadabilityPalette.World3BrightnessMilli, 0, 550,
-            1000, 700, 120, 820, 400, 80, 900, 560, 140, 420, 220, 20, ReadabilityPalette.World4BrightnessMilli, 1, 550,
+            100, 980, 780, 40, 620, 500, 80, 860, 680, 20, 300, 220, 760, 0, 550,
+            1000, 700, 120, 820, 400, 80, 900, 560, 140, 420, 220, 20, 680, 1, 550,
             280, 400, 620, 140, 200, 420, 180, 280, 520, 80, 100, 240, 740, 0, 550,
             900, 220, 100, 620, 120, 60, 780, 200, 100, 340, 60, 20, 550, 1, 850,
             1000, 180, 620, 720, 80, 420, 880, 160, 520, 380, 40, 220, 900, 1, 550

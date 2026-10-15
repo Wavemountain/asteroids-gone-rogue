@@ -23,6 +23,7 @@ _DECL = re.compile(r"\b(?:class|struct|enum|interface)\s+([A-Za-z_][A-Za-z0-9_]*
 _ERROR = re.compile(
     r"^(?P<file>.+)\((?P<line>\d+),(?P<col>\d+)\): error (?P<code>CS\d+): (?P<msg>.*)$"
 )
+_NON_CS = re.compile(r"error (MSB\d+|NETSDK\d+)\b")
 _QUOTED = re.compile(r"'([^']+)'")
 _MISSING_NAME = re.compile(
     r"The type or namespace name '([^']+)'|The name '([^']+)' does not exist"
@@ -157,7 +158,7 @@ def _project(work: Path, sources: list[Path]) -> None:
     )
 
 
-def _build(dotnet: str, work: Path) -> str:
+def _build(dotnet: str, work: Path) -> tuple[int, str]:
     env = os.environ.copy()
     env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
     env["DOTNET_NOLOGO"] = "1"
@@ -171,7 +172,32 @@ def _build(dotnet: str, work: Path) -> str:
         stderr=subprocess.STDOUT,
         check=False,
     )
-    return result.stdout
+    return result.returncode, result.stdout
+
+
+def non_cs_build_failure(returncode: int, output: str) -> list[str]:
+    """MSB/NETSDK failures, or a non-zero exit with no C# diagnostics, are incomplete.
+
+    A non-zero exit that still printed error CS lines is the normal stub-artefact
+    compile and must not fail the gate by itself.
+    """
+    lines: list[str] = []
+    seen: set[str] = set()
+    for line in output.splitlines():
+        if _NON_CS.search(line) is None:
+            continue
+        text = line.strip()
+        if text in seen:
+            continue
+        seen.add(text)
+        lines.append(text)
+    if lines:
+        return ["INCOMPLETE: dotnet build failed outside the C# compiler:", *lines]
+    if returncode != 0 and not _parse_errors(output):
+        tail = output.strip().splitlines()
+        shown = tail[-8:] if tail else ["(no output)"]
+        return [f"INCOMPLETE: dotnet build exited {returncode} with no C# diagnostics.", *shown]
+    return []
 
 
 def _overlay_path(path: Path, work: Path, overlays: dict[str, str]) -> Path:
@@ -206,10 +232,11 @@ def core_roslyn_errors(overlays: dict[str, str] | None = None) -> list[str]:
     try:
         shutil.copyfile(STUB, work / "UnityStub.cs")
         last_output = ""
+        last_code = 0
         for _round in range(8):
             compiled = [_overlay_path(path, work, replacements) for path in sources]
             _project(work, compiled)
-            last_output = _build(dotnet, work)
+            last_code, last_output = _build(dotnet, work)
             errors = _parse_errors(last_output)
             added = False
             for _file, _line, code, message in errors:
@@ -231,6 +258,10 @@ def core_roslyn_errors(overlays: dict[str, str] | None = None) -> list[str]:
                 added = True
             if not added:
                 break
+
+        incomplete = non_cs_build_failure(last_code, last_output)
+        if incomplete:
+            return incomplete
 
         problems: list[str] = []
         blockers: list[str] = []

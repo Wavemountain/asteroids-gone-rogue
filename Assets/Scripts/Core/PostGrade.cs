@@ -80,6 +80,9 @@ namespace AsteroidsGoneRogue
         public const float VignetteVoidR = 7f / 255f;
         public const float VignetteVoidG = 11f / 255f;
         public const float VignetteVoidB = 18f / 255f;
+        public const int BloomChainSlots = 6;
+        public const float MidBodyFloor = 2.5f;
+        public const float AsteroidBodyFloor = 1.5f;
 
         public static int Fold(int world)
         {
@@ -391,6 +394,116 @@ namespace AsteroidsGoneRogue
             return l;
         }
 
+        public static bool TargetsNeedRebuild(int haveWidth, int haveHeight, int haveFormat, int haveSlots, int width, int height, int format)
+        {
+            if (haveSlots != BloomChainSlots || haveWidth < 2 || haveHeight < 2)
+            {
+                return true;
+            }
+
+            if (haveWidth != width || haveHeight != height || haveFormat != format)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Steam Deck only when the picture is 1280×800 and the device string
+        /// (or a low-memory AMD APU name) agrees. Anything else, including a
+        /// null name, stays on the normal iteration count.
+        /// </summary>
+        public static bool LooksLikeDeck(int width, int height, string deviceName, string deviceModel, int graphicsMemoryMb)
+        {
+            if (width != 1280 || height != 800)
+            {
+                return false;
+            }
+
+            if (HasDeckToken(deviceName) || HasDeckToken(deviceModel))
+            {
+                return true;
+            }
+
+            if (graphicsMemoryMb > 0 && graphicsMemoryMb <= DeckMemoryMb && HasAmdApu(deviceName, deviceModel))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        public static float SrgbChannelToLinear(float channel)
+        {
+            if (channel <= 0f)
+            {
+                return 0f;
+            }
+
+            if (channel <= 0.04045f)
+            {
+                return channel / 12.92f;
+            }
+
+            return (float)System.Math.Pow((channel + 0.055) / 1.055, 2.4);
+        }
+
+        public static void VignetteRgb(bool linear, out float red, out float green, out float blue)
+        {
+            red = VignetteVoidR;
+            green = VignetteVoidG;
+            blue = VignetteVoidB;
+            if (!linear)
+            {
+                return;
+            }
+
+            red = SrgbChannelToLinear(red);
+            green = SrgbChannelToLinear(green);
+            blue = SrgbChannelToLinear(blue);
+        }
+
+        public static bool BodyFloorsHold()
+        {
+            int world = 1;
+            float worstMid = 99f;
+            float worstRock = 99f;
+            while (world <= 7)
+            {
+                PostGradeRow row = Row(world, false);
+                float midR;
+                float midG;
+                float midB;
+                float rockR;
+                float rockG;
+                float rockB;
+                float floorR;
+                float floorG;
+                float floorB;
+                BodySample(world, out midR, out midG, out midB, out rockR, out rockG, out rockB, out floorR, out floorG, out floorB);
+                float gradedMid = Contrast(
+                    GradeDisplayed(midR, midG, midB, row),
+                    GradeDisplayed(floorR, floorG, floorB, row));
+                float gradedRock = Contrast(
+                    GradeDisplayed(rockR, rockG, rockB, row),
+                    GradeDisplayed(floorR, floorG, floorB, row));
+                if (gradedMid < worstMid)
+                {
+                    worstMid = gradedMid;
+                }
+
+                if (gradedRock < worstRock)
+                {
+                    worstRock = gradedRock;
+                }
+
+                world++;
+            }
+
+            return worstMid >= MidBodyFloor && worstRock >= AsteroidBodyFloor;
+        }
+
         public static bool SelfCheck()
         {
             if (EffectScale.PostBloomMul != 0.5f || EffectScale.PostVignetteMul != 0.5f || EffectScale.PostGrainMul != 0f)
@@ -546,7 +659,260 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            if (!TargetsNeedRebuild(0, 0, 0, 0, 1280, 800, 2))
+            {
+                return false;
+            }
+
+            if (TargetsNeedRebuild(1280, 800, 2, BloomChainSlots, 1280, 800, 2))
+            {
+                return false;
+            }
+
+            if (!TargetsNeedRebuild(1280, 800, 2, BloomChainSlots, 1920, 1080, 2))
+            {
+                return false;
+            }
+
+            if (!TargetsNeedRebuild(1280, 800, 2, BloomChainSlots, 1280, 800, 3))
+            {
+                return false;
+            }
+
+            if (LooksLikeDeck(1920, 1080, "Steam Deck", "Jupiter", 1024))
+            {
+                return false;
+            }
+
+            if (!LooksLikeDeck(1280, 800, "AMD Custom GPU 0405", "Jupiter", 1024))
+            {
+                return false;
+            }
+
+            if (!LooksLikeDeck(1280, 800, "Steam Deck", null, 0))
+            {
+                return false;
+            }
+
+            if (LooksLikeDeck(1280, 800, "NVIDIA GeForce", "PC", 8192))
+            {
+                return false;
+            }
+
+            if (LooksLikeDeck(1280, 800, null, null, 0) || LooksLikeDeck(1280, 800, "", "", 512))
+            {
+                return false;
+            }
+
+            float gammaR;
+            float gammaG;
+            float gammaB;
+            float linearR;
+            float linearG;
+            float linearB;
+            VignetteRgb(false, out gammaR, out gammaG, out gammaB);
+            VignetteRgb(true, out linearR, out linearG, out linearB);
+            if (gammaR != VignetteVoidR || linearR >= gammaR || linearG >= gammaG || linearB >= gammaB)
+            {
+                return false;
+            }
+
+            if (!BodyFloorsHold())
+            {
+                return false;
+            }
+
             return true;
+        }
+
+        private static bool HasDeckToken(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return false;
+            }
+
+            if (value.IndexOf("steam deck", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            if (value.IndexOf("steamdeck", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            if (value.IndexOf("jupiter", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            if (value.IndexOf("0405", System.StringComparison.OrdinalIgnoreCase) >= 0
+                && value.IndexOf("amd", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool HasAmdApu(string deviceName, string deviceModel)
+        {
+            return HasAmd(deviceName) || HasAmd(deviceModel);
+        }
+
+        private static bool HasAmd(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return false;
+            }
+
+            if (value.IndexOf("amd", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            if (value.IndexOf("radv", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private static void BodySample(
+            int world,
+            out float midR,
+            out float midG,
+            out float midB,
+            out float rockR,
+            out float rockG,
+            out float rockB,
+            out float floorR,
+            out float floorG,
+            out float floorB)
+        {
+            // Lit-floor and body sRGB at the W3/W4 brightness fix (760/680) plus the watch boost.
+            if (world == 3)
+            {
+                midR = 1f;
+                midG = 0.27545f;
+                midB = 0.32153f;
+                rockR = 0.41088f;
+                rockG = 0.36633f;
+                rockB = 0.34776f;
+                floorR = 0.01043f;
+                floorG = 0.19531f;
+                floorB = 0.15188f;
+                return;
+            }
+
+            if (world == 4)
+            {
+                midR = 1f;
+                midG = 0.27545f;
+                midB = 0.32153f;
+                rockR = 0.41088f;
+                rockG = 0.36633f;
+                rockB = 0.34776f;
+                floorR = 0.23720f;
+                floorG = 0.12576f;
+                floorB = 0.01143f;
+                return;
+            }
+
+            midR = 1f;
+            midG = 0.23240f;
+            midB = 0.26876f;
+            rockR = 0.35706f;
+            rockG = 0.32119f;
+            rockB = 0.30727f;
+            if (world == 2)
+            {
+                floorR = 0.13932f;
+                floorG = 0.02550f;
+                floorB = 0.26910f;
+                return;
+            }
+
+            if (world == 5)
+            {
+                floorR = 0.04265f;
+                floorG = 0.05890f;
+                floorB = 0.16159f;
+                return;
+            }
+
+            if (world == 6)
+            {
+                floorR = 0.15220f;
+                floorG = 0.02446f;
+                floorB = 0.00925f;
+                return;
+            }
+
+            if (world == 7)
+            {
+                floorR = 0.28612f;
+                floorG = 0.02669f;
+                floorB = 0.18065f;
+                return;
+            }
+
+            floorR = 0.02747f;
+            floorG = 0.11726f;
+            floorB = 0.38963f;
+        }
+
+        private static float Contrast(float leftLuma, float rightLuma)
+        {
+            float hi = leftLuma;
+            float lo = rightLuma;
+            if (rightLuma > leftLuma)
+            {
+                hi = rightLuma;
+                lo = leftLuma;
+            }
+
+            return (hi + 0.05f) / (lo + 0.05f);
+        }
+
+        private static float GradeDisplayed(float red, float green, float blue, PostGradeRow row)
+        {
+            float r = SrgbChannelToLinear(red);
+            float g = SrgbChannelToLinear(green);
+            float b = SrgbChannelToLinear(blue);
+            float ev = (float)System.Math.Pow(2.0, row.Exposure);
+            r *= ev;
+            g *= ev;
+            b *= ev;
+            float y = (0.2126f * r) + (0.7152f * g) + (0.0722f * b);
+            float sat = 1f + (row.Saturation / 100f);
+            r = ToneChannel(y + ((r - y) * sat), row);
+            g = ToneChannel(y + ((g - y) * sat), row);
+            b = ToneChannel(y + ((b - y) * sat), row);
+            return (0.2126f * r) + (0.7152f * g) + (0.0722f * b);
+        }
+
+        private static float ToneChannel(float linear, PostGradeRow row)
+        {
+            float safe = linear;
+            if (safe < 0.00001f)
+            {
+                safe = 0.00001f;
+            }
+
+            float lg = (float)System.Math.Log(safe / 0.18, 2.0) * (1f + (row.Contrast / 100f));
+            float v = 0.18f * (float)System.Math.Pow(2.0, lg);
+            v = Neutral(v);
+            v = (v * (1f + row.GainW)) + (row.LiftW * (1f - v));
+            if (v < 0f)
+            {
+                return 0f;
+            }
+
+            return v;
         }
 
         private static float Hable(float v)
