@@ -1147,6 +1147,11 @@ namespace AsteroidsGoneRogue
 
             _feel.Begin(TransitionKind.Death);
             PostStack.BeginDeathVignette();
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayDeathWhoosh();
+            }
+
             return true;
         }
 

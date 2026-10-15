@@ -27,6 +27,42 @@ namespace AsteroidsGoneRogue
             "world7_spoke_ring"
         };
 
+        /// <summary>
+        /// Beats per minute for worlds 1-7 and the boss sting. Unmeasured,
+        /// so every entry is 0 and the floor grid stays static.
+        /// </summary>
+        public static readonly int[] WorldTrackBpm =
+        {
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        };
+
+        public static int TrackBpm(int worldNumber)
+        {
+            if (WorldTrackBpm == null || WorldTrackBpm.Length == 0)
+            {
+                return 0;
+            }
+
+            if (worldNumber <= 0)
+            {
+                return WorldTrackBpm[0];
+            }
+
+            if (worldNumber >= WorldTrackBpm.Length)
+            {
+                return WorldTrackBpm[WorldTrackBpm.Length - 1];
+            }
+
+            return WorldTrackBpm[worldNumber - 1];
+        }
+
         public static string WorldTrackName(int waveIndex)
         {
             int layout = WorldCatalog.LayoutNumber(WorldCatalog.NumberForWave(waveIndex));
