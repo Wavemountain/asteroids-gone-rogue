@@ -272,7 +272,21 @@ namespace UnityEngine
         public DefaultExecutionOrder(int order) { }
     }
 
-    public class Light : Behaviour { }
+    public enum LightType { Spot, Point, Directional, Area }
+
+    public enum LightShadows { None, Hard, Soft }
+
+    public class Light : Behaviour
+    {
+        public LightType type { get; set; }
+        public LightShadows shadows { get; set; }
+        public Color color { get; set; }
+        public float intensity { get; set; }
+        public float range { get; set; }
+        public float spotAngle { get; set; }
+        public float innerSpotAngle { get; set; }
+        public int cullingMask { get; set; }
+    }
 
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
     public sealed class RequireComponentAttribute : Attribute

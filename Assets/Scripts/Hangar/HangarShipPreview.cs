@@ -26,7 +26,14 @@ namespace AsteroidsGoneRogue
 
         private static readonly Vector3 CameraLocal = new Vector3(0.2f, 4.55f, -10f);
         private static readonly Vector3 CameraLookLocal = new Vector3(0f, 0.08f, 0f);
-        private static readonly Color StudioClear = new Color(0.028f, 0.038f, 0.058f, 1f);
+
+        private static Color StudioClear
+        {
+            get
+            {
+                return new Color(HangarPreviewRig.SurfaceR, HangarPreviewRig.SurfaceG, HangarPreviewRig.SurfaceB, 1f);
+            }
+        }
 
         private Transform _slots;
         private bool _active;
@@ -38,6 +45,9 @@ namespace AsteroidsGoneRogue
         private Light _key;
         private Light _fill;
         private Light _rim;
+        private Light _bounce;
+        private GameObject _backdrop;
+        private Texture2D _backdropTex;
         private int _savedPlayCull = -1;
         private int _savedDecorCull = -1;
         private bool _layersPreview;
@@ -117,7 +127,10 @@ namespace AsteroidsGoneRogue
             SetLightActive(_key, active);
             SetLightActive(_fill, active);
             SetLightActive(_rim, active);
+            SetLightActive(_bounce, active);
+            SetBackdropActive(active);
             ApplyLightRecipe();
+            PoseBackdrop();
             if (!active)
             {
                 SetMarkerActive(_mk2Marker, false);
@@ -165,6 +178,7 @@ namespace AsteroidsGoneRogue
             HideDefaultRenderers(true);
             ApplyWorldCull(true);
             ApplyLightRecipe();
+            PoseBackdrop();
             ApplyAccents();
             AssignViewport();
             RenderStudio();
@@ -185,6 +199,12 @@ namespace AsteroidsGoneRogue
                 _rt.Release();
                 Destroy(_rt);
                 _rt = null;
+            }
+
+            if (_backdropTex != null)
+            {
+                Destroy(_backdropTex);
+                _backdropTex = null;
             }
         }
 
@@ -284,22 +304,41 @@ namespace AsteroidsGoneRogue
             {
                 _key = CreateStudioLight(
                     "HangarPreviewKey",
-                    new Vector3(-1.55f, 2.85f, -2.6f),
+                    new Vector3(HangarPreviewRig.KeyLocalX, HangarPreviewRig.KeyLocalY, HangarPreviewRig.KeyLocalZ),
                     new Color(HangarPreviewRig.KeyR, HangarPreviewRig.KeyG, HangarPreviewRig.KeyB),
-                    HangarPreviewRig.KeyIntensity);
+                    HangarPreviewRig.KeyIntensity,
+                    LightType.Spot,
+                    HangarPreviewRig.KeyRange,
+                    HangarPreviewRig.KeySpotAngle);
                 _fill = CreateStudioLight(
                     "HangarPreviewFill",
-                    new Vector3(2.1f, 0.7f, -1.1f),
+                    new Vector3(HangarPreviewRig.FillLocalX, HangarPreviewRig.FillLocalY, HangarPreviewRig.FillLocalZ),
                     new Color(HangarPreviewRig.FillR, HangarPreviewRig.FillG, HangarPreviewRig.FillB),
-                    HangarPreviewRig.FillIntensity);
+                    HangarPreviewRig.FillIntensity,
+                    LightType.Point,
+                    HangarPreviewRig.FillRange,
+                    0f);
                 _rim = CreateStudioLight(
                     "HangarPreviewRim",
-                    new Vector3(0.2f, 2.4f, 3.1f),
+                    new Vector3(HangarPreviewRig.RimLocalX, HangarPreviewRig.RimLocalY, HangarPreviewRig.RimLocalZ),
                     new Color(HangarPreviewRig.RimR, HangarPreviewRig.RimG, HangarPreviewRig.RimB),
-                    HangarPreviewRig.RimIntensity);
+                    HangarPreviewRig.RimIntensity,
+                    LightType.Spot,
+                    HangarPreviewRig.RimRange,
+                    HangarPreviewRig.RimSpotAngle);
+                _bounce = CreateStudioLight(
+                    "HangarPreviewBounce",
+                    new Vector3(HangarPreviewRig.BounceLocalX, HangarPreviewRig.BounceLocalY, HangarPreviewRig.BounceLocalZ),
+                    new Color(HangarPreviewRig.BounceR, HangarPreviewRig.BounceG, HangarPreviewRig.BounceB),
+                    HangarPreviewRig.BounceIntensity,
+                    LightType.Point,
+                    HangarPreviewRig.BounceRange,
+                    0f);
             }
 
+            EnsureBackdrop();
             ApplyLightRecipe();
+            PoseBackdrop();
 
             AssignViewport();
         }
@@ -351,19 +390,50 @@ namespace AsteroidsGoneRogue
             }
         }
 
-        private Light CreateStudioLight(string name, Vector3 local, Color color, float intensity)
+        private Light CreateStudioLight(
+            string name,
+            Vector3 local,
+            Color color,
+            float intensity,
+            LightType type,
+            float range,
+            float spotAngle)
         {
             GameObject go = new GameObject(name);
             go.transform.SetParent(transform, false);
             go.transform.localPosition = local;
             Light light = go.AddComponent<Light>();
-            light.type = LightType.Point;
-            light.range = 14f;
+            light.type = type;
+            light.range = range;
             light.color = color;
             light.intensity = intensity;
+            light.shadows = LightShadows.None;
             light.cullingMask = 1 << PreviewLayer;
+            if (type == LightType.Spot)
+            {
+                light.spotAngle = spotAngle;
+                light.innerSpotAngle = spotAngle * HangarPreviewRig.SpotInnerFraction;
+            }
+
+            AimStudioLight(light, local);
             light.enabled = false;
             return light;
+        }
+
+        private static void AimStudioLight(Light light, Vector3 local)
+        {
+            if (light == null || light.type != LightType.Spot)
+            {
+                return;
+            }
+
+            Vector3 aim = CameraLookLocal - local;
+            if (aim.sqrMagnitude < 0.0001f)
+            {
+                return;
+            }
+
+            light.transform.localRotation = Quaternion.LookRotation(aim, Vector3.up);
         }
 
         private static void SetLightActive(Light light, bool on)
@@ -396,7 +466,12 @@ namespace AsteroidsGoneRogue
                 return true;
             }
 
-            return _rim != null && (node == _rim.transform || node.IsChildOf(_rim.transform));
+            if (_rim != null && (node == _rim.transform || node.IsChildOf(_rim.transform)))
+            {
+                return true;
+            }
+
+            return _bounce != null && (node == _bounce.transform || node.IsChildOf(_bounce.transform));
         }
 
         private void ApplyPreviewLayer(bool preview)
@@ -523,7 +598,114 @@ namespace AsteroidsGoneRogue
         {
             TuneLight(_key, HangarPreviewRig.KeyR, HangarPreviewRig.KeyG, HangarPreviewRig.KeyB, HangarPreviewRig.KeyIntensity);
             TuneLight(_fill, HangarPreviewRig.FillR, HangarPreviewRig.FillG, HangarPreviewRig.FillB, HangarPreviewRig.FillIntensity);
-            TuneLight(_rim, HangarPreviewRig.RimR, HangarPreviewRig.RimG, HangarPreviewRig.RimB, HangarPreviewRig.RimIntensity);
+            float rim = HangarPreviewRig.StudioRim(SettingsState.ReduceEffectsEnabled);
+            TuneLight(_rim, HangarPreviewRig.RimR, HangarPreviewRig.RimG, HangarPreviewRig.RimB, rim);
+            TuneLight(_bounce, HangarPreviewRig.BounceR, HangarPreviewRig.BounceG, HangarPreviewRig.BounceB, HangarPreviewRig.BounceIntensity);
+            AimStudioLight(_key, new Vector3(HangarPreviewRig.KeyLocalX, HangarPreviewRig.KeyLocalY, HangarPreviewRig.KeyLocalZ));
+            AimStudioLight(_rim, new Vector3(HangarPreviewRig.RimLocalX, HangarPreviewRig.RimLocalY, HangarPreviewRig.RimLocalZ));
+        }
+
+        private void EnsureBackdrop()
+        {
+            if (_backdrop != null)
+            {
+                return;
+            }
+
+            Shader unlit = Shader.Find("Unlit/Texture");
+            if (unlit == null)
+            {
+                unlit = Shader.Find("Sprites/Default");
+            }
+
+            if (unlit == null)
+            {
+                unlit = Shader.Find("Standard");
+            }
+
+            if (unlit == null)
+            {
+                return;
+            }
+
+            _backdropTex = new Texture2D(64, 64, TextureFormat.RGBA32, false);
+            _backdropTex.name = "HangarPreviewBackdrop";
+            _backdropTex.wrapMode = TextureWrapMode.Clamp;
+            for (int y = 0; y < 64; y++)
+            {
+                for (int x = 0; x < 64; x++)
+                {
+                    float u = x / 63f;
+                    float v = y / 63f;
+                    float red;
+                    float green;
+                    float blue;
+                    HangarPreviewRig.BackdropRgb(u, v, out red, out green, out blue);
+                    _backdropTex.SetPixel(x, y, new Color(red, green, blue, 1f));
+                }
+            }
+
+            _backdropTex.Apply(false, true);
+            _backdrop = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            _backdrop.name = "HangarPreviewBackdrop";
+            _backdrop.transform.SetParent(transform, false);
+            Collider backdropCollider = _backdrop.GetComponent<Collider>();
+            if (backdropCollider != null)
+            {
+                backdropCollider.enabled = false;
+                Destroy(backdropCollider);
+            }
+
+            Renderer backdropRenderer = _backdrop.GetComponent<Renderer>();
+            Material backdropMaterial = new Material(unlit);
+            backdropMaterial.name = "Mat_HangarPreviewBackdrop";
+            backdropMaterial.mainTexture = _backdropTex;
+            backdropMaterial.color = Color.white;
+            if (backdropRenderer != null)
+            {
+                backdropRenderer.sharedMaterial = backdropMaterial;
+                backdropRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                backdropRenderer.receiveShadows = false;
+            }
+
+            _backdrop.layer = PreviewLayer;
+            _backdrop.SetActive(false);
+        }
+
+        private void PoseBackdrop()
+        {
+            if (_backdrop == null)
+            {
+                return;
+            }
+
+            Vector3 direction = CameraLookLocal - CameraLocal;
+            float distance = direction.magnitude;
+            if (distance < 0.01f)
+            {
+                return;
+            }
+
+            direction /= distance;
+            float placeDistance = distance + HangarPreviewRig.BackdropPastLook;
+            _backdrop.transform.localPosition = CameraLocal + (direction * placeDistance);
+            _backdrop.transform.localRotation = Quaternion.LookRotation(-direction, Vector3.up);
+            float half = placeDistance * Mathf.Tan(CameraFov * 0.5f * Mathf.Deg2Rad);
+            float height = half * 2f * HangarPreviewRig.BackdropMargin;
+            float width = height * (ViewportWidth / (float)ViewportHeight);
+            _backdrop.transform.localScale = new Vector3(width, height, 1f);
+            if (_backdrop.layer != PreviewLayer)
+            {
+                _backdrop.layer = PreviewLayer;
+            }
+        }
+
+        private void SetBackdropActive(bool on)
+        {
+            if (_backdrop != null && _backdrop.activeSelf != on)
+            {
+                _backdrop.SetActive(on);
+            }
         }
 
         private static void TuneLight(Light light, float red, float green, float blue, float intensity)

@@ -137,13 +137,27 @@ namespace AsteroidsGoneRogue
             }
 
             SetTier(DefaultEngine, UpgradedEngine, UpgradedEngine02, engineTier);
+            int doctrineId = 0;
+            bool railOwned = false;
+            bool twinOwned = false;
+            bool pierceOwned = false;
+            bool seekerOwned = false;
+            if (loadout != null)
+            {
+                doctrineId = (int)loadout.Doctrine;
+                railOwned = loadout.Rail;
+                twinOwned = loadout.TwinGuns;
+                pierceOwned = loadout.Pierce;
+                seekerOwned = loadout.Seeker;
+            }
+
             SetCosmetic(HullPlates, loadout != null && loadout.BodyUpgrade02);
             SetCosmetic(SpreadPods, loadout != null && loadout.SpreadBolt);
-            SetCosmetic(TwinBarrels, loadout != null && loadout.TwinGuns);
-            SetCosmetic(PierceNeedle, loadout != null && loadout.Pierce);
-            SetCosmetic(SeekerRail, loadout != null && loadout.Seeker);
+            SetCosmetic(TwinBarrels, WeaponSockets.Shown(WeaponSockets.Twin, railOwned, twinOwned, pierceOwned, seekerOwned, doctrineId));
+            SetCosmetic(PierceNeedle, WeaponSockets.Shown(WeaponSockets.Pierce, railOwned, twinOwned, pierceOwned, seekerOwned, doctrineId));
+            SetCosmetic(SeekerRail, WeaponSockets.Shown(WeaponSockets.Seeker, railOwned, twinOwned, pierceOwned, seekerOwned, doctrineId));
             SetCosmetic(RicochetFacet, loadout != null && loadout.Ricochet);
-            SetCosmetic(RailHardpoint, loadout != null && loadout.Rail);
+            SetCosmetic(RailHardpoint, WeaponSockets.Shown(WeaponSockets.Rail, railOwned, twinOwned, pierceOwned, seekerOwned, doctrineId));
             SetCosmetic(OverchargerGlow, loadout != null && loadout.Overcharger);
             SetCosmetic(AfterburnerGlow, loadout != null && loadout.Afterburner);
             bool shieldOn = loadout != null && (loadout.ShieldCharges > 0 || loadout.ShieldMatrix);

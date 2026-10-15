@@ -1513,7 +1513,7 @@ namespace AsteroidsGoneRogue
                 _previewCaption.text = "LOADOUT";
                 AddReadability(_previewCaption, true);
 
-                GameObject well = CreateFill("PreviewWell", _previewRoot.transform, UiTheme.Void,
+                GameObject well = CreateFill("PreviewWell", _previewRoot.transform, UiTheme.Surface,
                     new Vector2(HangarPreviewRig.WellMinX, HangarPreviewRig.WellMinY),
                     new Vector2(HangarPreviewRig.WellMaxX, HangarPreviewRig.WellMaxY));
 

@@ -43,6 +43,9 @@ namespace AsteroidsGoneRogue
         private Material _projectileHalo;
         private Material _shield;
         private Material _accentHot;
+        private Material _accentHotHero;
+        private Material _shipCyan;
+        private Material _shipMagenta;
         private Material _accentWarm;
         private Material _asteroidB;
         private Material _hangarMetal;
@@ -92,17 +95,61 @@ namespace AsteroidsGoneRogue
             ReadabilityPalette.SecondaryRgb(out steelR, out steelG, out steelB);
             Color dangerEmit = new Color(dangerR, dangerG, dangerB);
             Color steelEmit = new Color(steelR, steelG, steelB);
-            _hull = MakeMaterial(
+            Color primaryEmit = new Color(EmissionTargets.PrimaryR, EmissionTargets.PrimaryG, EmissionTargets.PrimaryB);
+            _hull = MakeShipRim(
                 "Mat_Ship_Hull",
                 new Color(ReadabilityPalette.HullR, ReadabilityPalette.HullG, ReadabilityPalette.HullB),
+                steelEmit,
+                EmissionTargets.HullRimPower,
+                EmissionTargets.HullRimStrength,
+                steelEmit * ReadabilityPalette.HullRimScale,
                 0.45f,
                 0.35f,
-                steelEmit * ReadabilityPalette.HullRimScale);
+                true);
             _accent = MakeMaterial("Mat_Ship_Accent", new Color(1f, 0.55f, 0.14f), 0.2f, 0.55f, new Color(1f, 0.4f, 0.05f) * 1.4f);
             _accentHot = MakeMaterial("Mat_Ship_Accent_Hot", new Color(1f, 0.38f, 0.08f), 0.15f, 0.45f, new Color(1f, 0.25f, 0.04f) * 1.8f);
+            _accentHotHero = MakeShipRim(
+                "Mat_Ship_AccentHot_Hero",
+                new Color(1f, 0.38f, 0.04f),
+                primaryEmit,
+                EmissionTargets.HullRimPower,
+                EmissionTargets.HullRimStrength,
+                primaryEmit * EmissionTargets.ShipAccentHotHero,
+                0.15f,
+                0.45f,
+                false);
+            _shipCyan = MakeShipRim(
+                "Mat_Ship_Cyan_Hero",
+                steelEmit,
+                steelEmit,
+                EmissionTargets.HullRimPower,
+                EmissionTargets.HullRimStrength,
+                steelEmit * EmissionTargets.ShipCyan,
+                0.2f,
+                0.45f,
+                false);
+            _shipMagenta = MakeShipRim(
+                "Mat_Ship_Magenta_Hero",
+                primaryEmit,
+                primaryEmit,
+                EmissionTargets.HullRimPower,
+                EmissionTargets.GlowRimStrength,
+                primaryEmit * EmissionTargets.MagentaMul,
+                0.15f,
+                0.4f,
+                false);
             _accentWarm = MakeMaterial("Mat_Ship_Accent_Warm", new Color(1f, 0.68f, 0.28f), 0.18f, 0.5f, new Color(1f, 0.5f, 0.12f) * 1.1f);
             _glass = MakeTransparent("Mat_Ship_Glass", new Color(0.35f, 0.7f, 0.95f, 0.28f), new Color(0.2f, 0.5f, 0.8f) * 0.4f);
-            _glow = MakeMaterial("Mat_Ship_Glow", new Color(1f, 0.55f, 0.15f), 0f, 0.15f, new Color(1f, 0.45f, 0.05f) * 2.2f);
+            _glow = MakeShipRim(
+                "Mat_Ship_Glow",
+                new Color(1f, 0.55f, 0.15f),
+                steelEmit,
+                EmissionTargets.HullRimPower,
+                EmissionTargets.GlowRimStrength,
+                primaryEmit * EmissionTargets.ShipGlow,
+                0f,
+                0.15f,
+                false);
             _asteroid = MakeMaterial(
                 "Mat_Asteroid",
                 new Color(ReadabilityPalette.AsteroidR, ReadabilityPalette.AsteroidG, ReadabilityPalette.AsteroidB) * ReadabilityPalette.AsteroidAlbedoScale,
@@ -572,13 +619,16 @@ namespace AsteroidsGoneRogue
             slots.localPosition = Vector3.zero;
 
             Transform bodySlot = CreateSlot("Ship_Body", slots);
+            Transform noseSlot = CreateSlot("Ship_Nose", slots);
+            Transform engineSlot = CreateSlot("Ship_Engine", slots);
             GameObject defaultBody;
-            if (!TryVisual("Ship_Body", bodySlot, _hull, out defaultBody))
+            GameObject defaultNose;
+            GameObject defaultEngine;
+            if (!TryAdoptHero(slots, bodySlot, noseSlot, engineSlot, out defaultBody, out defaultNose, out defaultEngine))
             {
-                defaultBody = CreatePrimitive(PrimitiveType.Cube, "Mesh", bodySlot, _hull,
-                    Vector3.zero, new Vector3(1.1f, 0.6f, 1.5f), Quaternion.identity);
-                CreatePrimitive(PrimitiveType.Cube, "Canopy", defaultBody.transform, _glass,
-                    new Vector3(0f, 0.28f, 0.15f), new Vector3(0.55f, 0.22f, 0.7f), Quaternion.identity);
+                defaultBody = BuildLegacyBody(bodySlot);
+                defaultNose = BuildLegacyNose(noseSlot);
+                defaultEngine = BuildLegacyEngine(engineSlot);
             }
 
             GameObject upgradedBody;
@@ -589,14 +639,6 @@ namespace AsteroidsGoneRogue
             }
 
             upgradedBody.SetActive(false);
-
-            Transform noseSlot = CreateSlot("Ship_Nose", slots);
-            GameObject defaultNose;
-            if (!TryVisual("Ship_Nose", noseSlot, _accent, out defaultNose))
-            {
-                defaultNose = CreatePrimitive(PrimitiveType.Cube, "Mesh_Default", noseSlot, _accent,
-                    new Vector3(0f, 0f, 1.1f), new Vector3(0.45f, 0.35f, 0.7f), Quaternion.identity);
-            }
 
             GameObject upgradedNose;
             if (!TryVisual("Ship_Nose_Upgrade01", noseSlot, _accent, out upgradedNose))
@@ -620,18 +662,6 @@ namespace AsteroidsGoneRogue
             }
 
             upgradedNose02.SetActive(false);
-
-            Transform engineSlot = CreateSlot("Ship_Engine", slots);
-            GameObject defaultEngine;
-            if (!TryVisual("Ship_Engine", engineSlot, _hull, out defaultEngine))
-            {
-                defaultEngine = new GameObject("Mesh_Default");
-                defaultEngine.transform.SetParent(engineSlot, false);
-                CreatePrimitive(PrimitiveType.Cube, "Mesh", defaultEngine.transform, _hull,
-                    new Vector3(0f, 0f, -1.05f), new Vector3(0.8f, 0.45f, 0.55f), Quaternion.identity);
-                CreatePrimitive(PrimitiveType.Cube, "Glow", defaultEngine.transform, _glow,
-                    new Vector3(0f, 0f, -1.38f), new Vector3(0.45f, 0.28f, 0.18f), Quaternion.identity);
-            }
 
             GameObject upgradedEngine;
             if (!TryVisual("Ship_Engine_Upgrade01", engineSlot, _hull, out upgradedEngine))
@@ -680,41 +710,15 @@ namespace AsteroidsGoneRogue
                 new Vector3(0.42f, 0.08f, 1.05f), new Vector3(0.16f, 0.14f, 0.38f), Quaternion.identity);
             spreadPods.SetActive(false);
 
-            GameObject twinBarrels = new GameObject("TwinBarrels");
-            twinBarrels.transform.SetParent(noseSlot, false);
-            CreatePrimitive(PrimitiveType.Cylinder, "Twin_L", twinBarrels.transform, _accent,
-                new Vector3(-0.38f, 0f, 1.28f), new Vector3(0.12f, 0.38f, 0.12f), Quaternion.Euler(90f, 0f, 0f));
-            CreatePrimitive(PrimitiveType.Cylinder, "Twin_R", twinBarrels.transform, _accent,
-                new Vector3(0.38f, 0f, 1.28f), new Vector3(0.12f, 0.38f, 0.12f), Quaternion.Euler(90f, 0f, 0f));
-            twinBarrels.SetActive(false);
-
-            GameObject pierceNeedle = CreatePrimitive(PrimitiveType.Cube, "PierceNeedle", noseSlot, _projectilePierce,
-                new Vector3(0f, 0.12f, 1.55f), new Vector3(0.08f, 0.08f, 1.05f), Quaternion.identity);
-            pierceNeedle.SetActive(false);
-
-            GameObject seekerRail = CreatePrimitive(PrimitiveType.Cube, "SeekerRail", noseSlot, _projectileSeeker,
-                new Vector3(0.0f, 0.22f, 1.15f), new Vector3(0.22f, 0.12f, 0.72f), Quaternion.identity);
-            seekerRail.SetActive(false);
+            GameObject twinBarrels = AttachWeapon(WeaponSockets.Twin, noseSlot);
+            GameObject pierceNeedle = AttachWeapon(WeaponSockets.Pierce, noseSlot);
+            GameObject seekerRail = AttachWeapon(WeaponSockets.Seeker, noseSlot);
 
             GameObject ricochetFacet = CreatePrimitive(PrimitiveType.Cube, "RicochetFacet", noseSlot, _projectileRicochet,
                 new Vector3(0f, -0.16f, 1.18f), new Vector3(0.28f, 0.16f, 0.28f), Quaternion.Euler(0f, 35f, 0f));
             ricochetFacet.SetActive(false);
 
-            GameObject railHardpoint;
-            if (!TryVisual("Rail_Hardpoint", noseSlot, _hull, out railHardpoint))
-            {
-                railHardpoint = CreatePrimitive(PrimitiveType.Cylinder, "RailHardpoint", noseSlot, _accentHot,
-                    new Vector3(0f, 0.18f, 1.35f), new Vector3(0.08f, 0.62f, 0.08f), Quaternion.Euler(90f, 0f, 0f));
-            }
-            else
-            {
-                railHardpoint.name = "RailHardpoint";
-                railHardpoint.transform.localPosition = Vector3.zero;
-                railHardpoint.transform.localRotation = Quaternion.identity;
-                railHardpoint.transform.localScale = Vector3.one;
-            }
-
-            railHardpoint.SetActive(false);
+            GameObject railHardpoint = AttachWeapon(WeaponSockets.Rail, noseSlot);
 
             GameObject overchargerGlow = CreatePrimitive(PrimitiveType.Sphere, "OverchargerGlow", noseSlot, _accentHot,
                 new Vector3(0f, 0.05f, 1.42f), new Vector3(0.42f, 0.42f, 0.42f), Quaternion.identity);
@@ -726,7 +730,7 @@ namespace AsteroidsGoneRogue
 
             Transform muzzle = new GameObject("Muzzle").transform;
             muzzle.SetParent(root.transform, false);
-            muzzle.localPosition = new Vector3(0f, 0f, 1.65f);
+            muzzle.localPosition = new Vector3(0f, 0f, WeaponSockets.MuzzleZ);
 
             ShipVisuals visuals = root.AddComponent<ShipVisuals>();
             visuals.BodySlot = bodySlot;
@@ -2237,6 +2241,24 @@ namespace AsteroidsGoneRogue
         private Material RemapImported(string importedName, Material fallback)
         {
             string name = importedName ?? string.Empty;
+            if (ContainsIgnoreCase(name, "Mat_Ship_AccentHot_Hero"))
+            {
+                return _accentHotHero != null ? _accentHotHero : _accent;
+            }
+
+            if (ContainsIgnoreCase(name, "Magenta")
+                && (ContainsIgnoreCase(name, "Ship") || ContainsIgnoreCase(name, "Weapon")))
+            {
+                return _shipMagenta != null ? _shipMagenta : fallback;
+            }
+
+            if (ContainsIgnoreCase(name, "Cyan")
+                && (ContainsIgnoreCase(name, "Ship") || ContainsIgnoreCase(name, "Weapon"))
+                && !ContainsIgnoreCase(name, "Hangar"))
+            {
+                return _shipCyan != null ? _shipCyan : fallback;
+            }
+
             if (ContainsIgnoreCase(name, "Mat_Ship_Accent_Hot"))
             {
                 return _accentHot;
@@ -2500,6 +2522,314 @@ namespace AsteroidsGoneRogue
             }
 
             return go;
+        }
+
+        private bool TryAdoptHero(
+            Transform slots,
+            Transform bodySlot,
+            Transform noseSlot,
+            Transform engineSlot,
+            out GameObject bodyPart,
+            out GameObject nosePart,
+            out GameObject enginePart)
+        {
+            bodyPart = null;
+            nosePart = null;
+            enginePart = null;
+            GameObject heroRoot;
+            if (!TryVisual("Ship_Hero", slots, _hull, out heroRoot) || heroRoot == null)
+            {
+                return false;
+            }
+
+            FitImportedExtent(heroRoot, WeaponSockets.HeroSpanMeters);
+            Transform bodyNode = FindNamed(heroRoot.transform, "Ship_Body");
+            Transform noseNode = FindNamed(heroRoot.transform, "Ship_Nose");
+            Transform engineNode = FindNamed(heroRoot.transform, "Ship_Engine");
+            if (bodyNode == null || noseNode == null || engineNode == null)
+            {
+                Destroy(heroRoot);
+                return false;
+            }
+
+            bodyNode.SetParent(bodySlot, true);
+            noseNode.SetParent(noseSlot, true);
+            engineNode.SetParent(engineSlot, true);
+            bodyPart = bodyNode.gameObject;
+            nosePart = noseNode.gameObject;
+            enginePart = engineNode.gameObject;
+            heroRoot.SetActive(false);
+            Destroy(heroRoot);
+            return true;
+        }
+
+        private GameObject BuildLegacyBody(Transform bodySlot)
+        {
+            GameObject legacyBody;
+            if (!TryVisual("Ship_Body", bodySlot, _hull, out legacyBody))
+            {
+                legacyBody = CreatePrimitive(PrimitiveType.Cube, "Mesh", bodySlot, _hull,
+                    Vector3.zero, new Vector3(1.1f, 0.6f, 1.5f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Cube, "Canopy", legacyBody.transform, _glass,
+                    new Vector3(0f, 0.28f, 0.15f), new Vector3(0.55f, 0.22f, 0.7f), Quaternion.identity);
+            }
+
+            return legacyBody;
+        }
+
+        private GameObject BuildLegacyNose(Transform noseSlot)
+        {
+            GameObject legacyNose;
+            if (!TryVisual("Ship_Nose", noseSlot, _accent, out legacyNose))
+            {
+                legacyNose = CreatePrimitive(PrimitiveType.Cube, "Mesh_Default", noseSlot, _accent,
+                    new Vector3(0f, 0f, 1.1f), new Vector3(0.45f, 0.35f, 0.7f), Quaternion.identity);
+            }
+
+            return legacyNose;
+        }
+
+        private GameObject BuildLegacyEngine(Transform engineSlot)
+        {
+            GameObject legacyEngine;
+            if (!TryVisual("Ship_Engine", engineSlot, _hull, out legacyEngine))
+            {
+                legacyEngine = new GameObject("Mesh_Default");
+                legacyEngine.transform.SetParent(engineSlot, false);
+                CreatePrimitive(PrimitiveType.Cube, "Mesh", legacyEngine.transform, _hull,
+                    new Vector3(0f, 0f, -1.05f), new Vector3(0.8f, 0.45f, 0.55f), Quaternion.identity);
+                CreatePrimitive(PrimitiveType.Cube, "Glow", legacyEngine.transform, _glow,
+                    new Vector3(0f, 0f, -1.38f), new Vector3(0.45f, 0.28f, 0.18f), Quaternion.identity);
+            }
+
+            return legacyEngine;
+        }
+
+        private GameObject AttachWeapon(int socket, Transform noseSlot)
+        {
+            float mountX;
+            float mountY;
+            float mountZ;
+            WeaponSockets.Mount(socket, out mountX, out mountY, out mountZ);
+            GameObject mountObject = new GameObject(WeaponSockets.Name(socket));
+            mountObject.transform.SetParent(noseSlot, false);
+            mountObject.transform.localPosition = new Vector3(mountX, mountY, mountZ);
+            mountObject.transform.localRotation = Quaternion.identity;
+            mountObject.transform.localScale = Vector3.one;
+            Transform mount = mountObject.transform;
+
+            GameObject visual;
+            bool heroWeapon = TryVisual(WeaponSockets.AssetName(socket), mount, WeaponFallback(socket), out visual);
+            if (heroWeapon && visual != null)
+            {
+                visual.name = WeaponSockets.VisualName(socket);
+                FitImportedExtent(visual, WeaponSockets.AuthoredLength(socket));
+                visual.SetActive(false);
+                return visual;
+            }
+
+            if (socket == WeaponSockets.Rail)
+            {
+                GameObject legacyRail;
+                if (TryVisual("Rail_Hardpoint", mount, _hull, out legacyRail))
+                {
+                    legacyRail.name = "RailHardpoint";
+                    legacyRail.transform.localPosition = Vector3.zero;
+                    legacyRail.transform.localRotation = Quaternion.identity;
+                    legacyRail.transform.localScale = Vector3.one;
+                    legacyRail.SetActive(false);
+                    return legacyRail;
+                }
+            }
+
+            visual = CreateWeaponPrimitive(socket, mount);
+            if (visual != null)
+            {
+                visual.SetActive(false);
+            }
+
+            return visual;
+        }
+
+        private Material WeaponFallback(int socket)
+        {
+            if (socket == WeaponSockets.Pierce)
+            {
+                return _projectilePierce;
+            }
+
+            if (socket == WeaponSockets.Seeker)
+            {
+                return _projectileSeeker;
+            }
+
+            if (socket == WeaponSockets.Twin)
+            {
+                return _accent;
+            }
+
+            return _hull;
+        }
+
+        private GameObject CreateWeaponPrimitive(int socket, Transform mount)
+        {
+            if (socket == WeaponSockets.Twin)
+            {
+                GameObject twin = new GameObject("TwinBarrels");
+                twin.transform.SetParent(mount, false);
+                CreatePrimitive(PrimitiveType.Cylinder, "Twin_L", twin.transform, _accent,
+                    new Vector3(-0.18f, 0f, 0.24f), new Vector3(0.12f, 0.26f, 0.12f), Quaternion.Euler(90f, 0f, 0f));
+                CreatePrimitive(PrimitiveType.Cylinder, "Twin_R", twin.transform, _accent,
+                    new Vector3(0.18f, 0f, 0.24f), new Vector3(0.12f, 0.26f, 0.12f), Quaternion.Euler(90f, 0f, 0f));
+                return twin;
+            }
+
+            if (socket == WeaponSockets.Pierce)
+            {
+                return CreatePrimitive(PrimitiveType.Cube, "PierceNeedle", mount, _projectilePierce,
+                    new Vector3(0f, 0.02f, 0.30f), new Vector3(0.08f, 0.08f, 0.60f), Quaternion.identity);
+            }
+
+            if (socket == WeaponSockets.Seeker)
+            {
+                return CreatePrimitive(PrimitiveType.Cube, "SeekerRail", mount, _projectileSeeker,
+                    new Vector3(0f, 0f, 0.16f), new Vector3(0.22f, 0.12f, 0.33f), Quaternion.identity);
+            }
+
+            if (socket == WeaponSockets.Rail)
+            {
+                return CreatePrimitive(PrimitiveType.Cylinder, "RailHardpoint", mount, _accentHot,
+                    new Vector3(0f, 0.04f, 0.36f), new Vector3(0.08f, 0.36f, 0.08f), Quaternion.Euler(90f, 0f, 0f));
+            }
+
+            return null;
+        }
+
+        private static void FitImportedExtent(GameObject visual, float authoredExtent)
+        {
+            if (visual == null || authoredExtent <= 0f)
+            {
+                return;
+            }
+
+            float measured = MaxRendererAxis(visual);
+            float factor = WeaponSockets.SnapFactor(measured, authoredExtent);
+            if (factor < 0.99f || factor > 1.01f)
+            {
+                visual.transform.localScale = new Vector3(factor, factor, factor);
+            }
+        }
+
+        private static float MaxRendererAxis(GameObject visual)
+        {
+            Renderer[] renderers = visual.GetComponentsInChildren<Renderer>(true);
+            bool any = false;
+            Bounds box = new Bounds(visual.transform.position, Vector3.zero);
+            for (int rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
+            {
+                Renderer piece = renderers[rendererIndex];
+                if (piece == null)
+                {
+                    continue;
+                }
+
+                if (!any)
+                {
+                    box = piece.bounds;
+                    any = true;
+                }
+                else
+                {
+                    box.Encapsulate(piece.bounds);
+                }
+            }
+
+            if (!any)
+            {
+                return 0f;
+            }
+
+            return Mathf.Max(box.size.x, Mathf.Max(box.size.y, box.size.z));
+        }
+
+        private static Transform FindNamed(Transform root, string wanted)
+        {
+            if (root == null || string.IsNullOrEmpty(wanted))
+            {
+                return null;
+            }
+
+            if (root.name == wanted)
+            {
+                return root;
+            }
+
+            for (int childIndex = 0; childIndex < root.childCount; childIndex++)
+            {
+                Transform found = FindNamed(root.GetChild(childIndex), wanted);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
+        }
+
+        private Material MakeShipRim(
+            string materialName,
+            Color albedo,
+            Color rimColor,
+            float rimPower,
+            float rimStrength,
+            Color emission,
+            float metallic,
+            float smoothness,
+            bool clearEmissionWhenRim)
+        {
+            Shader rimShader = Shader.Find("AGR/RimLit");
+            bool rimLit = rimShader != null;
+            Shader shader = rimShader;
+            if (shader == null)
+            {
+                shader = Shader.Find("Standard");
+            }
+
+            if (shader == null)
+            {
+                shader = Shader.Find("Sprites/Default");
+            }
+
+            if (shader == null)
+            {
+                return MakeMaterial(materialName, albedo, metallic, smoothness, emission);
+            }
+
+            Material material = new Material(shader);
+            material.name = materialName;
+            material.color = albedo;
+            material.SetFloat("_Metallic", metallic);
+            material.SetFloat("_Glossiness", smoothness);
+            Color emit = emission;
+            if (rimLit && clearEmissionWhenRim)
+            {
+                emit = Color.black;
+            }
+
+            if (rimLit)
+            {
+                material.SetColor("_RimColor", rimColor);
+                material.SetFloat("_RimPower", rimPower);
+                material.SetFloat("_RimStrength", rimStrength);
+            }
+
+            if (emit.maxColorComponent > 0.01f || rimLit)
+            {
+                material.EnableKeyword("_EMISSION");
+                material.SetColor("_EmissionColor", emit);
+            }
+
+            return material;
         }
 
         private static Material MakePreviewGhostMaterial()
