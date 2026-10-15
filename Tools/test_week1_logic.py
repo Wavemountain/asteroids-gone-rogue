@@ -1851,7 +1851,7 @@ def test_monsters_arenas_040() -> None:
     assert "DressPulse" in hazard
 
     warm = art.split("PlayModeAssets")[1].split("};")[0]
-    assert warm.count("\n            \"") == 80
+    assert warm.count("\n            \"") == 86
     assert "Monster_Brute" in warm
     assert "Monster_Swarm" in warm
     assert "Arena_Hazard_Spike" in warm
@@ -2178,7 +2178,7 @@ def test_art_parity_040c() -> None:
     require_mesh = enemies.split("public static bool RequiresImportedMesh")[1].split("public static")[0]
     assert "EnemyKind.Bomber" in require_mesh
     warm = art.split("PlayModeAssets")[1].split("};")[0]
-    assert warm.count("\n            \"") == 80
+    assert warm.count("\n            \"") == 86
     assert "Ship_Complete" in warm and "Enemy_Bomber" in warm
     assert "Ship_Body_Upgrade02" not in warm
 
@@ -2490,7 +2490,7 @@ def test_astro_env_040() -> None:
     assert "Arena_AstroFloor_v2" in blockout
     assert "Arena_AstroFloor" in blockout
     warm = art.split("PlayModeAssets")[1].split("};")[0]
-    assert warm.count("\n            \"") == 80
+    assert warm.count("\n            \"") == 86
     assert "Arena_AstroFloor" not in warm
     assert "AstroFloor_v2" not in warm
     assert "Arena_AstroFloor_v2" not in warm
@@ -8547,6 +8547,7 @@ def main() -> int:
     test_p5_glass_risk_daily()
     test_p6_emission_rim_meshes()
     test_p7_post_and_light()
+    test_p8_vfx_pool()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -15317,6 +15318,117 @@ class Program
     )
     assert result.returncode == 0, result.stdout
     assert "post-ok" in result.stdout
+
+
+def test_p8_vfx_pool() -> None:
+    """0.48 PR C: debris, shock ring, and muzzle card pools with reduce caps."""
+    import os
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    budget = (root / "Assets/Scripts/Core/VfxBudget.cs").read_text(encoding="utf-8")
+    kit = (root / "Assets/Scripts/Combat/VfxKit.cs").read_text(encoding="utf-8")
+    juice = (root / "Assets/Scripts/Combat/CombatJuice.cs").read_text(encoding="utf-8")
+    shooter = (root / "Assets/Scripts/Player/ShipShooter.cs").read_text(encoding="utf-8")
+    art = (root / "Assets/Scripts/Content/ArtImport.cs").read_text(encoding="utf-8")
+
+    assert "MaxParticles = 600" in budget
+    assert "DebrisCap = 24" in budget
+    assert "ShockCap = 8" in budget
+    assert "MuzzleCap = 12" in budget
+    assert "RingMaterial = \"Mat_FX_Ring\"" in budget
+    assert "FX_MuzzleCard" in budget and "FX_ShockRing" in budget and "FX_Debris_01" in budget
+    assert "public static bool SelfCheck()" in budget
+    assert "RunRng" not in budget and "RunRng" not in kit
+    assert "ParticleSystem.EmitParams" in kit
+    assert "Quaternion.LookRotation" in kit
+    assert "VfxBudget.ShockScale" in kit
+    assert "VfxBudget.DebrisCap" in kit and "VfxBudget.ShockCap" in kit and "VfxBudget.MuzzleCap" in kit
+    assert "ChunkParticles" in kit
+    assert "VfxBudget.RingMaterial" in kit
+    assert 'RingMaterial = "Mat_FX_Ring"' in budget
+    assert "VfxKit.Explode" in juice
+    assert "VfxKit.Muzzle" in shooter
+    assert "VfxKit.Shock" in juice
+    for name in ("FX_Debris_01", "FX_Debris_04", "FX_ShockRing", "FX_MuzzleCard"):
+        assert name in art
+        art_fbx = root / "Assets/Art/Import" / f"{name}.fbx"
+        res_fbx = root / "Assets/Resources/Art/Import" / f"{name}.fbx"
+        assert art_fbx.read_bytes() == res_fbx.read_bytes()
+        assert art_fbx.read_bytes()[:8] == b"Kaydara "
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    from roslyn_core_check import find_dotnet
+
+    dotnet = find_dotnet()
+    assert dotnet, "vfx budget tests need dotnet"
+    work = Path(os.environ.get("TMPDIR", "/tmp")) / "agr-vfx-048"
+    if work.exists():
+        shutil.rmtree(work)
+    work.mkdir(parents=True)
+    shutil.copyfile(root / "Assets/Scripts/Core/VfxBudget.cs", work / "VfxBudget.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/EffectScale.cs", work / "EffectScale.cs")
+    program = """
+using System;
+namespace AsteroidsGoneRogue
+{
+    public static class HitFlashLimiter
+    {
+        public const float MinGapSeconds = 0.333f;
+        public const float MaxAlpha = 0.20f;
+    }
+}
+class Program
+{
+    static void Main()
+    {
+        if (!AsteroidsGoneRogue.VfxBudget.SelfCheck()) throw new Exception("vfx");
+        Console.WriteLine("vfx-ok");
+    }
+}
+"""
+    (work / "Program.cs").write_text(program, encoding="utf-8")
+    (work / "vfx.csproj").write_text(
+        "\n".join(
+            (
+                '<Project Sdk="Microsoft.NET.Sdk">',
+                "  <PropertyGroup>",
+                "    <OutputType>Exe</OutputType>",
+                "    <TargetFramework>net8.0</TargetFramework>",
+                "    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>",
+                "    <Nullable>disable</Nullable>",
+                "    <ImplicitUsings>disable</ImplicitUsings>",
+                "  </PropertyGroup>",
+                "  <ItemGroup>",
+                '    <Compile Include="VfxBudget.cs" />',
+                '    <Compile Include="EffectScale.cs" />',
+                '    <Compile Include="Program.cs" />',
+                "  </ItemGroup>",
+                "</Project>",
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
+    env["DOTNET_NOLOGO"] = "1"
+    env["DOTNET_ROOT"] = str(Path(dotnet).resolve().parent)
+    result = subprocess.run(
+        [dotnet, "run", "--project", str(work / "vfx.csproj"), "-v", "q"],
+        cwd=work,
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout
+    assert "vfx-ok" in result.stdout
 
 
 def test_p5_glass_risk_daily() -> None:

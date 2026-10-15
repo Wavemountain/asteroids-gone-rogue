@@ -100,6 +100,12 @@ namespace AsteroidsGoneRogue
             "Asteroid_Frag_04",
             "Pickup_Heart",
             "Pickup_Generic",
+            "FX_Debris_01",
+            "FX_Debris_02",
+            "FX_Debris_03",
+            "FX_Debris_04",
+            "FX_ShockRing",
+            "FX_MuzzleCard",
         };
 
         private static readonly Dictionary<string, GameObject> Cache = new Dictionary<string, GameObject>();

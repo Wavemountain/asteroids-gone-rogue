@@ -373,6 +373,7 @@ namespace AsteroidsGoneRogue
 
                 ClearInvulnerability();
                 CombatJuice.PlayerDamaged(true);
+                VfxKit.Explode(transform.position, VfxBudget.Large, SettingsState.ReduceEffectsEnabled);
                 if (_game != null)
                 {
                     _game.NotifyPlayerDestroyed(cause, enemyKind);

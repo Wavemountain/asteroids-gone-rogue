@@ -361,6 +361,7 @@ namespace AsteroidsGoneRogue
             }
 
             _factory.SpawnVfx("Vfx_MuzzleFlash", origin, 0.12f);
+            VfxKit.Muzzle(origin, transform.forward, (int)mode, SettingsState.ReduceEffectsEnabled);
             PlayShotCue(mode);
         }
 
@@ -376,6 +377,7 @@ namespace AsteroidsGoneRogue
             }
 
             _factory.SpawnVfx("Vfx_MuzzleFlash", origin, 0.2f);
+            VfxKit.Muzzle(origin, transform.forward, (int)FireMode.Rail, SettingsState.ReduceEffectsEnabled);
             SetChargeGlow(1.15f);
             PlayShotCue(FireMode.Rail);
         }

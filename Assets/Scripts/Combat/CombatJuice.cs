@@ -58,6 +58,9 @@ namespace AsteroidsGoneRogue
             {
                 MeshHitFlash.Play(ship, UiTheme.Secondary, 0.09f);
                 Ripple(ship.position, UiTheme.Secondary, 0.14f);
+                bool reduce = SettingsState.ReduceEffectsEnabled;
+                VfxKit.Shock(ship.position, 1f, 1.6f, 0.25f, reduce);
+                VfxKit.Sparks(ship.position, 4, UiTheme.Secondary, reduce);
             }
         }
 
@@ -69,12 +72,17 @@ namespace AsteroidsGoneRogue
             if (ship != null)
             {
                 Ripple(ship.position, UiTheme.Secondary, 0.25f);
+                bool reduce = SettingsState.ReduceEffectsEnabled;
+                VfxKit.Shock(ship.position, 1f, 1.6f, 0.25f, reduce);
+                VfxKit.Shock(ship.position, 1f, 1.9f, 0.25f, reduce);
+                VfxKit.Sparks(ship.position, 10, UiTheme.Secondary, reduce);
             }
         }
 
         public static void HeavyKill(Vector3 position, float shake)
         {
             JuiceBurst.KillBloom(position, true);
+            VfxKit.Explode(position, VfxBudget.Large, SettingsState.ReduceEffectsEnabled);
             ShakeWorld(shake, position);
             RequestStop(HitstopBudget.HeavySeconds);
             FlashScreen(HeavyKillFlash, UiTheme.Primary, HitFlashLimiter.DefaultDecay, true);
@@ -139,6 +147,7 @@ namespace AsteroidsGoneRogue
                 }
             }
 
+            bool reduce = SettingsState.ReduceEffectsEnabled;
             if (target != null && !exploded)
             {
                 if (armor)
@@ -155,11 +164,13 @@ namespace AsteroidsGoneRogue
                 }
 
                 JuiceBurst.HitSpark(target.position);
+                VfxKit.Sparks(target.position, 4, UiTheme.Danger, reduce);
             }
 
             if (target != null && exploded)
             {
                 JuiceBurst.KillBloom(target.position, heavy);
+                VfxKit.Explode(target.position, ExplosionSize(target), reduce);
             }
 
             if (target != null)
@@ -197,6 +208,34 @@ namespace AsteroidsGoneRogue
         public static void PickupBloom(Vector3 position, Color color)
         {
             JuiceBurst.ColoredBloom(position, color, 0.42f, 0.2f, 1.15f);
+        }
+
+        private static int ExplosionSize(Transform target)
+        {
+            if (target == null)
+            {
+                return VfxBudget.Mid;
+            }
+
+            EnemySeeker seeker = target.GetComponent<EnemySeeker>();
+            if (seeker != null)
+            {
+                int boss = seeker.IsBoss ? 1 : 0;
+                return VfxBudget.SizeForEnemy((int)seeker.Kind, boss);
+            }
+
+            Asteroid asteroid = target.GetComponent<Asteroid>();
+            if (asteroid != null && asteroid.Size == AsteroidSize.Small)
+            {
+                return VfxBudget.Small;
+            }
+
+            if (asteroid != null)
+            {
+                return VfxBudget.Mid;
+            }
+
+            return VfxBudget.Mid;
         }
 
         public static void Shake(float amplitude)

@@ -355,6 +355,55 @@ namespace UnityEngine
     public class BoxCollider { }
     public class Shadow { }
     public class Selectable { }
+
+    public enum ParticleSystemSimulationSpace { Local, World }
+
+    public class ParticleSystem : Component
+    {
+        public struct MainModule
+        {
+            public int maxParticles { get; set; }
+            public float duration { get; set; }
+            public bool playOnAwake { get; set; }
+            public bool loop { get; set; }
+            public float startLifetime { get; set; }
+            public float startSpeed { get; set; }
+            public float startSize { get; set; }
+            public Color startColor { get; set; }
+            public ParticleSystemSimulationSpace simulationSpace { get; set; }
+        }
+
+        public struct EmissionModule
+        {
+            public bool enabled { get; set; }
+        }
+
+        public struct ShapeModule
+        {
+            public bool enabled { get; set; }
+        }
+
+        public struct EmitParams
+        {
+            public Vector3 position { get; set; }
+            public Vector3 velocity { get; set; }
+            public float startLifetime { get; set; }
+            public float startSize { get; set; }
+            public Color startColor { get; set; }
+        }
+
+        public MainModule main { get { return new MainModule(); } }
+        public EmissionModule emission { get { return new EmissionModule(); } }
+        public ShapeModule shape { get { return new ShapeModule(); } }
+        public void Emit(EmitParams emitParams, int count) { }
+        public void Clear() { }
+        public void Stop() { }
+    }
+
+    public class ParticleSystemRenderer : Renderer
+    {
+        public Material sharedMaterial { get; set; }
+    }
 }
 
 namespace UnityEngine.UI { }
