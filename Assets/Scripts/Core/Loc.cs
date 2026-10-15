@@ -349,7 +349,8 @@ namespace AsteroidsGoneRogue
             { "best.card", "Bäst {0}  ·  Våg {1}  ·  Värld {2}" },
             { "best.slash", " / Bäst {0}" },
             { "credits.body", "Ljud\nKenney.nl + yd\n"
-                + "SFX 0.47 Kenney CC0: sköld, pansar, plock, tells, agr_ricochet, svärmdöd.\n\n"
+                + "SFX 0.47 Kenney CC0: sköld, pansar, plock, tells, agr_ricochet, svärmdöd.\n"
+                + "SFX 0.48 Kenney CC0: agr_ui_hover, agr_ui_confirm, agr_ui_back, agr_ui_open, agr_ui_close, agr_death_whoosh, agr_wave_whoosh.\n\n"
                 + "Knappikoner\nKenney Input Prompts 1.5A (CC0)\n\n"
                 + "Musik\nJuhani Junkala, Kenney, MintoDog, HydroGene (CC0)\n\n"
                 + "Typsnitt\nKenney Future\n\n"

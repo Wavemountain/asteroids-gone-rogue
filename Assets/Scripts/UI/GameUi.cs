@@ -6,6 +6,16 @@ namespace AsteroidsGoneRogue
 {
     public sealed class GameUi : MonoBehaviour
     {
+        private enum PanelClose
+        {
+            None = 0,
+            Settings = 1,
+            Credits = 2,
+            Confirm = 3,
+            Sink = 4,
+            Setup = 5,
+        }
+
         private GameManager _game;
         private HangarShop _shop;
         private GameSession _session;
@@ -73,6 +83,28 @@ namespace AsteroidsGoneRogue
         private Text _waveMedal;
         private Text _continueHint;
         private Text _summaryRecord;
+        private bool _summaryWasOpen;
+        private float _summaryPopStart = -1f;
+        private GamePhase _scorePhase = GamePhase.Hangar;
+        private readonly UiCountUp _scoreCount = new UiCountUp();
+        private readonly UiTransition _panelMotion = new UiTransition();
+        private readonly UiTransition _screenMotion = new UiTransition();
+        private readonly UiTransition _cardMotion = new UiTransition();
+        private RectTransform _panelRect;
+        private Vector2 _panelRest;
+        private CanvasGroup _panelGroup;
+        private PanelClose _panelCloseKind;
+        private bool _panelUseBack;
+        private bool _confirmClosing;
+        private bool _confirmYesPending;
+        private bool _creditsRestoreOnClose;
+        private bool _skipPanelAnim;
+        private GameObject _confirmPanel;
+        private Image _screenVeil;
+        private bool _screenLatched;
+        private bool _screenWasLive;
+        private int _settingsSoundIndex = -1;
+        private int _confirmSoundFocus = -1;
         private GameObject _boonCanvas;
         private GameObject _boonRoot;
         private Text _boonTitle;
@@ -536,6 +568,8 @@ namespace AsteroidsGoneRogue
             EnsurePrimaryClickable();
             RememberRecommendedUpgrade();
             NotePhaseFocus();
+            NoteScreenPhase();
+            ApplyMenuType();
         }
 
         private string HangarReadyStatus()
@@ -654,6 +688,19 @@ namespace AsteroidsGoneRogue
             _hitFlash = CreateFill("ScreenFlash", transform, new Color(1f, 0.96f, 0.92f, 0f),
                 new Vector2(0f, 0f), new Vector2(1f, 1f)).GetComponent<Image>();
             RaiseCanvas(_hitFlash.gameObject, CanvasOrder.Toast);
+            GameObject veilGo = CreateFill(
+                "ScreenVeil",
+                transform,
+                UiTheme.WithAlpha(UiTheme.Void, 0f),
+                Vector2.zero,
+                Vector2.one);
+            _screenVeil = veilGo.GetComponent<Image>();
+            if (_screenVeil != null)
+            {
+                _screenVeil.raycastTarget = false;
+            }
+
+            RaiseCanvas(veilGo, CanvasOrder.Overlay);
 
             _hudPlate = UiTheme.BuildPanel(
                 "HudPlate",
@@ -666,7 +713,8 @@ namespace AsteroidsGoneRogue
                 UiTheme.HudPlate);
             _hudPlate.SetActive(false);
 
-            _title = CreateText("Title", transform, display, UiTheme.HeaderMin, TextAnchor.MiddleLeft, FontStyle.Bold);
+            _title = CreateText("Title", transform, display, UiTheme.TypeTitle, TextAnchor.MiddleLeft, FontStyle.Bold);
+            _title.lineSpacing = UiTheme.TitleLine;
             // Top-bar left: title slot. Stretch anchors, zero offset so 16:9 scaler keeps one row.
             Stretch(_title.rectTransform, new Vector2(0.012f, 0.905f), new Vector2(0.205f, 0.995f));
             _title.text = productTitle;
@@ -708,6 +756,7 @@ namespace AsteroidsGoneRogue
             AddReadability(_achievementLadder, false);
 
             _hint = CreateText("Hint", transform, body, UiTheme.HintSize(Screen.width), TextAnchor.MiddleCenter, FontStyle.Normal);
+            _hint.lineSpacing = UiTheme.CaptionLine;
             // Screen-bottom, outside hangar panel (min.y 0.080). Never in WAVE CLEAR / shop.
             Stretch(_hint.rectTransform, new Vector2(0.14f, 0.008f), new Vector2(0.86f, 0.072f));
             _hint.color = UiTheme.FooterHint;
@@ -997,7 +1046,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            CloseSinkShop();
+            CloseSinkShop(false);
             _setupKind = kind;
             _setupMask = 0;
             _setupRejected = false;
@@ -1059,10 +1108,43 @@ namespace AsteroidsGoneRogue
             }
 
             FocusRunSetup(_setupFocus);
+            Transform setupPlate = _setupRoot.transform.Find("RunSetupPlate");
+            if (setupPlate != null)
+            {
+                BeginPanelIn(setupPlate.GetComponent<RectTransform>());
+            }
         }
 
         private void CloseRunSetup()
         {
+            CloseRunSetup(false);
+        }
+
+        private void CloseRunSetup(bool animate)
+        {
+            if (!_setupOpen && (_setupRoot == null || !_setupRoot.activeSelf))
+            {
+                _setupOpen = false;
+                return;
+            }
+
+            if (animate && _panelCloseKind != PanelClose.Setup && _setupRoot != null && _setupRoot.activeSelf)
+            {
+                Transform setupPlate = _setupRoot.transform.Find("RunSetupPlate");
+                if (setupPlate != null)
+                {
+                    _panelUseBack = true;
+                    BeginPanelOut(PanelClose.Setup, setupPlate.GetComponent<RectTransform>());
+                    return;
+                }
+            }
+
+            if (_panelCloseKind == PanelClose.Setup)
+            {
+                _panelCloseKind = PanelClose.None;
+                RestorePanelMotion();
+            }
+
             _setupOpen = false;
             _setupHeld = false;
             if (_setupRoot != null)
@@ -1078,9 +1160,14 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (MenuMotionBlocks())
+            {
+                return;
+            }
+
             if (GamepadInput.CancelPressed() || GamepadInput.PausePressed())
             {
-                CloseRunSetup();
+                CloseRunSetup(true);
                 return;
             }
 
@@ -1096,6 +1183,7 @@ namespace AsteroidsGoneRogue
                     _setupRepeatAt = setupNow + (_setupHeld ? HangarPadNav.RepeatNextSeconds : HangarPadNav.RepeatFirstSeconds);
                     _setupHeld = true;
                     FocusRunSetup(_setupFocus);
+                    PlayMenuHover();
                 }
             }
             else
@@ -1876,7 +1964,7 @@ namespace AsteroidsGoneRogue
         {
             if (playing || _creditsVisible || FirstStartOpen())
             {
-                CloseSinkShop();
+                CloseSinkShop(false);
             }
 
             if (_sinkEntry != null)
@@ -1975,11 +2063,41 @@ namespace AsteroidsGoneRogue
             _sinkRoot.SetActive(true);
             HoldPreviewSpin(true);
             RefreshSinkChrome(false);
+            if (_sinkRoot != null)
+            {
+                Transform sinkPlate = _sinkRoot.transform.Find("SinkPlate");
+                if (sinkPlate != null)
+                {
+                    BeginPanelIn(sinkPlate.GetComponent<RectTransform>());
+                }
+            }
         }
 
         private void CloseSinkShop()
         {
-            bool wasOpen = _sinkOpen;
+            CloseSinkShop(true);
+        }
+
+        private void CloseSinkShop(bool animate)
+        {
+            bool wasOpen = _sinkOpen || (_sinkRoot != null && _sinkRoot.activeSelf);
+            if (animate && wasOpen && _panelCloseKind != PanelClose.Sink && _sinkRoot != null && _sinkRoot.activeSelf)
+            {
+                Transform sinkPlate = _sinkRoot.transform.Find("SinkPlate");
+                if (sinkPlate != null)
+                {
+                    _panelUseBack = true;
+                    BeginPanelOut(PanelClose.Sink, sinkPlate.GetComponent<RectTransform>());
+                    return;
+                }
+            }
+
+            if (_panelCloseKind == PanelClose.Sink)
+            {
+                _panelCloseKind = PanelClose.None;
+                RestorePanelMotion();
+            }
+
             _sinkOpen = false;
             _sinkHeld = false;
             if (_sinkRoot != null)
@@ -2011,6 +2129,11 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (MenuMotionBlocks())
+            {
+                return;
+            }
+
             if (GamepadInput.CancelPressed() || GamepadInput.PausePressed())
             {
                 CloseSinkShop();
@@ -2029,6 +2152,7 @@ namespace AsteroidsGoneRogue
                     _sinkRepeatAt = sinkNow + (_sinkHeld ? HangarPadNav.RepeatNextSeconds : HangarPadNav.RepeatFirstSeconds);
                     _sinkHeld = true;
                     FocusSinkSlot(_sinkFocus);
+                    PlayMenuHover();
                 }
             }
             else
@@ -2281,7 +2405,7 @@ namespace AsteroidsGoneRogue
 
         private void OnPrimary()
         {
-            if (FeelBlocksMenu())
+            if (FeelBlocksMenu() || MenuMotionBlocks())
             {
                 return;
             }
@@ -2312,7 +2436,7 @@ namespace AsteroidsGoneRogue
                 }
                 else
                 {
-                    AudioCues.Instance.PlayUiClick();
+                    AudioCues.Instance.PlayUiConfirm();
                 }
             }
 
@@ -2415,13 +2539,15 @@ namespace AsteroidsGoneRogue
             _summaryHeader = _summaryRoot.transform.Find("RunSummaryCardHeader").GetComponent<Image>();
             _summaryRule = _summaryRoot.transform.Find("RunSummaryCardRule").GetComponent<Image>();
 
-            _summaryTitle = CreateText("SummaryTitle", _summaryRoot.transform, display, UiTheme.HeaderMin, TextAnchor.MiddleCenter, FontStyle.Bold);
+            _summaryTitle = CreateText("SummaryTitle", _summaryRoot.transform, display, UiTheme.TypeTitle, TextAnchor.MiddleCenter, FontStyle.Bold);
+            _summaryTitle.lineSpacing = UiTheme.TitleLine;
             // r1 headline. One line, left of the medal chip, above the stats row.
             Stretch(_summaryTitle.rectTransform, new Vector2(0.03f, 0.78f), new Vector2(0.70f, 0.96f));
             _summaryTitle.color = UiTheme.Primary;
             ClampOneLine(_summaryTitle);
 
-            _summaryBody = CreateText("SummaryBody", _summaryRoot.transform, body, UiTheme.BodyMin, TextAnchor.MiddleCenter, FontStyle.Normal);
+            _summaryBody = CreateText("SummaryBody", _summaryRoot.transform, body, UiTheme.TypeCaption, TextAnchor.MiddleCenter, FontStyle.Normal);
+            _summaryBody.lineSpacing = UiTheme.CaptionLine;
             // r2 SCORE · WAVE · WORLD · CREDITS (+delta). One line, above the upgrades row.
             Stretch(_summaryBody.rectTransform, new Vector2(0.03f, 0.58f), new Vector2(0.97f, 0.76f));
             _summaryBody.color = UiTheme.Accent;
@@ -2475,25 +2601,40 @@ namespace AsteroidsGoneRogue
             LoadoutState loadout = _loadout != null ? _loadout.State : null;
             bool failed = _session.Phase == GamePhase.Failed;
             ApplyFailChrome(failed && summaryPhase);
+            if (summaryPhase && !_summaryWasOpen)
+            {
+                _summaryPopStart = Time.unscaledTime;
+                if (AudioCues.Instance != null)
+                {
+                    AudioCues.Instance.PlayUiConfirm();
+                }
+            }
+
+            if (!summaryPhase)
+            {
+                _summaryPopStart = -1f;
+            }
+
+            _summaryWasOpen = summaryPhase;
             if (_session.Phase == GamePhase.CampaignClear && _summaryTitle != null)
             {
                 _summaryTitle.color = UiTheme.Primary;
-                _summaryTitle.fontSize = UiTheme.HeaderMin;
+                _summaryTitle.fontSize = UiTheme.TypeTitle;
             }
 
             if (_session.Phase == GamePhase.Failed)
             {
-                _summaryTitle.fontSize = UiTheme.HeaderMin;
+                _summaryTitle.fontSize = UiTheme.TypeTitle;
                 _summaryTitle.text = RunSummary.RunOverTitle(wave);
             }
             else if (_session.Phase == GamePhase.WaveClear && _session.WorldCleared > 0)
             {
-                _summaryTitle.fontSize = UiTheme.HeaderMin;
+                _summaryTitle.fontSize = UiTheme.TypeTitle;
                 _summaryTitle.text = CampaignCap.SectorClearTitle(_session.WorldCleared);
             }
             else if (summaryPhase)
             {
-                _summaryTitle.fontSize = UiTheme.HeaderMin;
+                _summaryTitle.fontSize = UiTheme.TypeTitle;
                 _summaryTitle.text = RunSummary.Title(_session.Phase, FailReasonText());
             }
             else
@@ -2666,7 +2807,7 @@ namespace AsteroidsGoneRogue
 
             if (_summaryTitle != null)
             {
-                _summaryTitle.fontSize = UiTheme.HeaderMin;
+                _summaryTitle.fontSize = UiTheme.TypeTitle;
                 _summaryTitle.color = failed ? UiTheme.Danger : UiTheme.Primary;
             }
 
@@ -2696,6 +2837,482 @@ namespace AsteroidsGoneRogue
             if (!stranded && _abortPlate != null)
             {
                 _abortPlate.color = UiTheme.DangerTint;
+            }
+        }
+
+        private static void PlayMenuHover()
+        {
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiHover();
+            }
+        }
+
+        private bool MenuMotionBlocks()
+        {
+            bool reduce = SettingsState.ReduceEffectsEnabled;
+            if (_panelMotion.BlocksInput(reduce))
+            {
+                return true;
+            }
+
+            if (_screenMotion.BlocksInput(reduce))
+            {
+                return true;
+            }
+
+            return _cardMotion.BlocksInput(reduce);
+        }
+
+        private int ShownHudScore()
+        {
+            if (_session == null)
+            {
+                return 0;
+            }
+
+            if (_session.Phase != GamePhase.Playing)
+            {
+                return _session.Score;
+            }
+
+            return _scoreCount.Rounded();
+        }
+
+        private void ApplyMenuType()
+        {
+            int width = Screen.width;
+            int height = Screen.height;
+            if (_title != null)
+            {
+                _title.fontSize = UiTheme.TypeTitle;
+                _title.fontStyle = FontStyle.Bold;
+                _title.lineSpacing = UiTheme.TitleLine;
+            }
+
+            if (_settingsTitle != null)
+            {
+                _settingsTitle.fontSize = UiScreenFit.FitType(UiTheme.TypeTitle, UiScreenFit.BodyFloor, width, height);
+                _settingsTitle.fontStyle = FontStyle.Bold;
+                _settingsTitle.lineSpacing = UiTheme.TitleLine;
+            }
+
+            if (_confirmTitle != null)
+            {
+                _confirmTitle.fontSize = UiScreenFit.FitType(UiTheme.TypeTitle, UiScreenFit.BodyFloor, width, height);
+                _confirmTitle.fontStyle = FontStyle.Bold;
+                _confirmTitle.lineSpacing = UiTheme.TitleLine;
+            }
+
+            if (_confirmBody != null)
+            {
+                _confirmBody.fontSize = UiScreenFit.FitType(UiTheme.TypeBody, UiScreenFit.BodyFloor, width, height);
+                _confirmBody.lineSpacing = UiTheme.BodyLine;
+            }
+
+            if (_hint != null)
+            {
+                _hint.lineSpacing = UiTheme.CaptionLine;
+            }
+
+            if (_summaryTitle != null)
+            {
+                _summaryTitle.lineSpacing = UiTheme.TitleLine;
+            }
+
+            if (_summaryBody != null)
+            {
+                _summaryBody.lineSpacing = UiTheme.CaptionLine;
+            }
+        }
+
+        private void NoteScreenPhase()
+        {
+            if (_session == null)
+            {
+                return;
+            }
+
+            bool live = _session.Phase == GamePhase.Playing;
+            bool hangar = _session.Phase == GamePhase.Hangar;
+            if (!_screenLatched)
+            {
+                _screenLatched = true;
+                _screenWasLive = live;
+                return;
+            }
+
+            bool toLive = live && !_screenWasLive;
+            bool toHangar = hangar && _screenWasLive;
+            _screenWasLive = live;
+            if (toLive || toHangar)
+            {
+                BeginScreenFade();
+            }
+        }
+
+        private void NoteSettingsHover(int focusIndex)
+        {
+            int previous = _settingsSoundIndex;
+            _settingsSoundIndex = focusIndex;
+            if (previous >= 0 && previous != focusIndex)
+            {
+                PlayMenuHover();
+            }
+        }
+
+        private void NoteConfirmHover()
+        {
+            int previous = _confirmSoundFocus;
+            _confirmSoundFocus = _confirmFocus;
+            if (previous >= 0 && previous != _confirmFocus)
+            {
+                PlayMenuHover();
+            }
+        }
+
+        private void BeginScreenFade()
+        {
+            _screenMotion.Begin(UiMotionKind.Screen, UiMotionDir.Swap, 1);
+            ApplyScreenVeil();
+            ConsumeMotionCues();
+        }
+
+        private void BeginCardMotion()
+        {
+            int count = _boonCards != null ? _boonCards.Length : 1;
+            _cardMotion.Begin(UiMotionKind.Cards, UiMotionDir.In, count);
+            ApplyCardMotion();
+            ConsumeMotionCues();
+        }
+
+        private void BeginPanelIn(RectTransform rect)
+        {
+            if (rect == null)
+            {
+                return;
+            }
+
+            if (_panelCloseKind != PanelClose.None && _panelRect != rect)
+            {
+                PanelClose pending = _panelCloseKind;
+                _panelCloseKind = PanelClose.None;
+                _skipPanelAnim = true;
+                FinishPanelClose(pending);
+                _skipPanelAnim = false;
+            }
+            else if (_panelRect != rect)
+            {
+                RestorePanelMotion();
+            }
+            else
+            {
+                _panelCloseKind = PanelClose.None;
+                _confirmClosing = false;
+            }
+
+            _panelRect = rect;
+            _panelRest = rect.anchoredPosition;
+            _panelGroup = rect.GetComponent<CanvasGroup>();
+            if (_panelGroup == null)
+            {
+                _panelGroup = rect.gameObject.AddComponent<CanvasGroup>();
+            }
+
+            _panelUseBack = false;
+            _panelMotion.Begin(UiMotionKind.Menu, UiMotionDir.In, 1);
+            ApplyPanelMotion();
+            ConsumeMotionCues();
+        }
+
+        private void BeginPanelOut(PanelClose kind, RectTransform rect)
+        {
+            if (rect == null)
+            {
+                FinishPanelClose(kind);
+                return;
+            }
+
+            if (_panelRect != rect)
+            {
+                RestorePanelMotion();
+                _panelRect = rect;
+                _panelRest = rect.anchoredPosition;
+                _panelGroup = rect.GetComponent<CanvasGroup>();
+                if (_panelGroup == null)
+                {
+                    _panelGroup = rect.gameObject.AddComponent<CanvasGroup>();
+                }
+            }
+
+            _panelCloseKind = kind;
+            _panelMotion.Begin(UiMotionKind.Menu, UiMotionDir.Out, 1);
+            ApplyPanelMotion();
+            ConsumeMotionCues();
+        }
+
+        private void TickMenuMotion()
+        {
+            bool reduce = SettingsState.ReduceEffectsEnabled;
+            bool held = FeelMenuHeld();
+            if (_session == null || _session.Phase != GamePhase.Playing)
+            {
+                _scorePhase = _session != null ? _session.Phase : GamePhase.Hangar;
+            }
+
+            bool screenPaused = Time.timeScale <= FeelClock.PauseEpsilon;
+            _panelMotion.Advance(Time.unscaledDeltaTime, held, reduce, false);
+            _screenMotion.Advance(Time.unscaledDeltaTime, held, reduce, screenPaused);
+            _cardMotion.Advance(Time.unscaledDeltaTime, held, reduce, false);
+            ApplyPanelMotion();
+            ApplyScreenVeil();
+            ApplyCardMotion();
+            ApplySummaryPop(reduce);
+            ConsumeMotionCues();
+            if (_panelCloseKind != PanelClose.None
+                && !_panelMotion.Running(reduce)
+                && !_panelMotion.BlocksInput(reduce))
+            {
+                PanelClose kind = _panelCloseKind;
+                _panelCloseKind = PanelClose.None;
+                FinishPanelClose(kind);
+            }
+
+            if (_screenMotion.Active && !_screenMotion.Running(reduce) && !_screenMotion.BlocksInput(reduce))
+            {
+                _screenMotion.Clear();
+                ApplyScreenVeil();
+            }
+
+            if (!_boonShown && _cardMotion.Active)
+            {
+                _cardMotion.Clear();
+                ApplyCardMotion();
+            }
+        }
+
+        private void FinishPanelClose(PanelClose kind)
+        {
+            RestorePanelMotion();
+            if (kind == PanelClose.Settings)
+            {
+                FinishSettingsClose();
+                return;
+            }
+
+            if (kind == PanelClose.Credits)
+            {
+                bool restore = _creditsRestoreOnClose;
+                _creditsRestoreOnClose = false;
+                _skipPanelAnim = true;
+                HideEndCredits(restore);
+                _skipPanelAnim = false;
+                return;
+            }
+
+            if (kind == PanelClose.Confirm)
+            {
+                _confirmClosing = false;
+                FinishConfirmClose();
+                return;
+            }
+
+            if (kind == PanelClose.Sink)
+            {
+                CloseSinkShop(false);
+                return;
+            }
+
+            if (kind == PanelClose.Setup)
+            {
+                CloseRunSetup(false);
+            }
+        }
+
+        private void RestorePanelMotion()
+        {
+            if (_panelRect != null)
+            {
+                _panelRect.anchoredPosition = _panelRest;
+                _panelRect.localScale = Vector3.one;
+            }
+
+            if (_panelGroup != null)
+            {
+                _panelGroup.alpha = 1f;
+                _panelGroup.interactable = true;
+                _panelGroup.blocksRaycasts = true;
+            }
+
+            _panelMotion.Clear();
+            _panelRect = null;
+            _panelGroup = null;
+        }
+
+        private void ApplyPanelMotion()
+        {
+            if (_panelRect == null || !_panelMotion.Active)
+            {
+                return;
+            }
+
+            bool reduce = SettingsState.ReduceEffectsEnabled;
+            float alpha;
+            float slide;
+            float scale;
+            if (_panelMotion.Dir == UiMotionDir.Out)
+            {
+                _panelMotion.SampleOut(reduce, out alpha, out slide, out scale);
+            }
+            else
+            {
+                _panelMotion.SampleIn(reduce, out alpha, out slide, out scale);
+            }
+
+            if (_panelGroup != null)
+            {
+                _panelGroup.alpha = alpha;
+                bool open = alpha >= 0.99f && !_panelMotion.BlocksInput(reduce);
+                _panelGroup.interactable = open;
+                _panelGroup.blocksRaycasts = true;
+            }
+
+            _panelRect.anchoredPosition = new Vector2(_panelRest.x, _panelRest.y + slide);
+            _panelRect.localScale = new Vector3(scale, scale, 1f);
+        }
+
+        private void ApplyScreenVeil()
+        {
+            if (_screenVeil == null)
+            {
+                return;
+            }
+
+            bool reduce = SettingsState.ReduceEffectsEnabled;
+            float alpha = _screenMotion.Active ? _screenMotion.Veil(reduce) : 0f;
+            Color veil = UiTheme.Void;
+            veil.a = alpha;
+            _screenVeil.color = veil;
+            bool blocking = _screenMotion.BlocksInput(reduce);
+            _screenVeil.raycastTarget = blocking;
+            if (_screenVeil.gameObject.activeSelf != (alpha > 0.001f || blocking))
+            {
+                _screenVeil.gameObject.SetActive(alpha > 0.001f || blocking);
+            }
+        }
+
+        private void ApplyCardMotion()
+        {
+            if (_boonCards == null)
+            {
+                return;
+            }
+
+            bool reduce = SettingsState.ReduceEffectsEnabled;
+            bool live = _cardMotion.Active && _boonShown;
+            for (int card = 0; card < _boonCards.Length; card++)
+            {
+                Button boonCard = _boonCards[card];
+                if (boonCard == null)
+                {
+                    continue;
+                }
+
+                float alpha = 1f;
+                float scale = 1f;
+                if (live)
+                {
+                    alpha = _cardMotion.CardAlpha(card, reduce);
+                    scale = _cardMotion.CardScale(card, reduce);
+                }
+
+                CanvasGroup group = boonCard.GetComponent<CanvasGroup>();
+                if (group == null)
+                {
+                    group = boonCard.gameObject.AddComponent<CanvasGroup>();
+                }
+
+                group.alpha = alpha;
+                group.interactable = alpha >= 0.99f && !_cardMotion.BlocksInput(reduce);
+                group.blocksRaycasts = true;
+                boonCard.transform.localScale = new Vector3(scale, scale, 1f);
+            }
+        }
+
+        private void ApplySummaryPop(bool reduce)
+        {
+            if (_summaryTitle == null)
+            {
+                return;
+            }
+
+            float elapsed = _summaryPopStart < 0f ? -1f : Time.unscaledTime - _summaryPopStart;
+            float pop = UiCountUp.PopScale(elapsed, UiMotion.Fast, reduce);
+            _summaryTitle.rectTransform.localScale = new Vector3(pop, pop, 1f);
+            if (reduce || _session == null || _session.Phase == GamePhase.Failed || elapsed < 0f)
+            {
+                return;
+            }
+
+            if (elapsed >= UiMotion.Fast)
+            {
+                _summaryTitle.color = UiTheme.Primary;
+                return;
+            }
+
+            float u = elapsed / UiMotion.Fast;
+            if (u < 0f || u > 1f)
+            {
+                return;
+            }
+
+            float tri = u < 0.5f ? u * 2f : (1f - u) * 2f;
+            _summaryTitle.color = Color.Lerp(UiTheme.Primary, UiTheme.Accent, tri);
+        }
+
+        private void ConsumeMotionCues()
+        {
+            if (AudioCues.Instance == null)
+            {
+                _panelMotion.TakeOpenCue();
+                _panelMotion.TakeCloseCue();
+                _screenMotion.TakeOpenCue();
+                _screenMotion.TakeCloseCue();
+                _cardMotion.TakeOpenCue();
+                _cardMotion.TakeCloseCue();
+                return;
+            }
+
+            if (_panelMotion.TakeCloseCue())
+            {
+                if (_panelUseBack)
+                {
+                    AudioCues.Instance.PlayUiBack();
+                }
+                else
+                {
+                    AudioCues.Instance.PlayUiClose();
+                }
+            }
+
+            if (_panelMotion.TakeOpenCue())
+            {
+                AudioCues.Instance.PlayUiOpen();
+            }
+
+            if (_screenMotion.TakeCloseCue())
+            {
+                AudioCues.Instance.PlayUiClose();
+            }
+
+            if (_screenMotion.TakeOpenCue())
+            {
+                AudioCues.Instance.PlayUiOpen();
+            }
+
+            if (_cardMotion.TakeOpenCue())
+            {
+                AudioCues.Instance.PlayUiOpen();
             }
         }
 
@@ -3108,6 +3725,7 @@ namespace AsteroidsGoneRogue
             _endCreditsRoot.SetActive(true);
             _endCreditsRoot.transform.SetAsLastSibling();
             ForcePreviewChrome();
+            BeginPanelIn(_endCreditsRoot.GetComponent<RectTransform>());
 
             if (_creditsButton != null)
             {
@@ -3127,6 +3745,20 @@ namespace AsteroidsGoneRogue
             {
                 _creditsVisible = false;
                 return;
+            }
+
+            if (restoreHangarMusic && !_skipPanelAnim && _panelCloseKind != PanelClose.Credits && _endCreditsRoot != null && _endCreditsRoot.activeSelf)
+            {
+                _panelUseBack = true;
+                _creditsRestoreOnClose = true;
+                BeginPanelOut(PanelClose.Credits, _endCreditsRoot.GetComponent<RectTransform>());
+                return;
+            }
+
+            if (_panelCloseKind == PanelClose.Credits)
+            {
+                _panelCloseKind = PanelClose.None;
+                RestorePanelMotion();
             }
 
             _creditsVisible = false;
@@ -3705,6 +4337,7 @@ namespace AsteroidsGoneRogue
                     _boonShown = true;
                     PaintBoonCards();
                     FocusBoonCard(_boonFocus);
+                    BeginCardMotion();
                 }
                 else
                 {
@@ -3814,6 +4447,11 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (_cardMotion.BlocksInput(SettingsState.ReduceEffectsEnabled))
+            {
+                return;
+            }
+
             Vector2 boonNav = GamepadInput.UiNavCombined(PadNavSource.Both);
             int boonDx = HangarPadNav.DominantStep(boonNav.x, boonNav.y, HangarPadNav.Flick);
             if (boonDx == 0)
@@ -3838,6 +4476,7 @@ namespace AsteroidsGoneRogue
                     _boonNavHeld = true;
                     FocusBoonCard(_boonFocus);
                     PaintBoonFocus();
+                    PlayMenuHover();
                 }
             }
             else
@@ -3893,9 +4532,14 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (MenuMotionBlocks())
+            {
+                return;
+            }
+
             if (_game.TryChooseBoon(index) && AudioCues.Instance != null)
             {
-                AudioCues.Instance.PlayUiClick();
+                AudioCues.Instance.PlayUiConfirm();
             }
         }
 
@@ -3967,6 +4611,7 @@ namespace AsteroidsGoneRogue
         private void Update()
         {
             TickFeelClock();
+            TickMenuMotion();
             NoteControlDevice();
             TickTutorialPrompts();
             if (_settingsOpen && _session != null && _session.Phase == GamePhase.Playing)
@@ -4107,6 +4752,14 @@ namespace AsteroidsGoneRogue
 
             if (_session != null && _session.Phase == GamePhase.Playing && _hud != null)
             {
+                if (_scorePhase != GamePhase.Playing)
+                {
+                    _scoreCount.Snap(_session.Score);
+                }
+
+                _scorePhase = GamePhase.Playing;
+                _scoreCount.Retarget(_session.Score, true, SettingsState.ReduceEffectsEnabled);
+                _scoreCount.Advance(Time.unscaledDeltaTime, false);
                 _hud.text = BuildHud(true);
                 RefreshHealthBar();
                 RefreshBossBar();
@@ -4483,6 +5136,12 @@ namespace AsteroidsGoneRogue
             }
 
             if (_creditsVisible)
+            {
+                _padHeld = false;
+                return;
+            }
+
+            if (MenuMotionBlocks())
             {
                 _padHeld = false;
                 return;
@@ -4897,8 +5556,13 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            bool padMoved = _lastPadSelected != null;
             ApplyPadFocus(current);
             _lastPadSelected = current;
+            if (padMoved)
+            {
+                PlayMenuHover();
+            }
             UpgradeId id;
             if (TryShopUpgradeFrom(current, out id))
             {
@@ -5185,7 +5849,7 @@ namespace AsteroidsGoneRogue
                 "ui.hud_wave_score",
                 "Wave {0}   ·   Score {1}",
                 _session.WaveIndex,
-                _session.Score);
+                ShownHudScore());
             string dailyHud = _game != null ? DailyCopy.Stamp(_game.ActiveDailyDate, _game.ActiveDailySeed) : string.Empty;
             if (dailyHud.Length > 0)
             {
@@ -6018,6 +6682,11 @@ namespace AsteroidsGoneRogue
             Text label = CreateText("Label", go.transform, font, 20, TextAnchor.MiddleCenter, FontStyle.Normal);
             Stretch(label.rectTransform, Vector2.zero, Vector2.one);
             label.raycastTarget = false;
+            EventTrigger hoverTrigger = go.AddComponent<EventTrigger>();
+            EventTrigger.Entry hoverEnter = new EventTrigger.Entry();
+            hoverEnter.eventID = EventTriggerType.PointerEnter;
+            hoverEnter.callback.AddListener(_ => PlayMenuHover());
+            hoverTrigger.triggers.Add(hoverEnter);
             return button;
         }
 
@@ -6258,9 +6927,10 @@ namespace AsteroidsGoneRogue
                 "SettingsTitle",
                 _settingsPanel.transform,
                 display,
-                UiTheme.HeaderMin,
+                UiTheme.TypeTitle,
                 TextAnchor.MiddleCenter,
                 FontStyle.Bold);
+            _settingsTitle.lineSpacing = UiTheme.TitleLine;
             Stretch(_settingsTitle.rectTransform, new Vector2(0.06f, 0.905f), new Vector2(0.94f, 0.985f));
             _settingsTitle.color = UiTheme.Primary;
             AddReadability(_settingsTitle, true);
@@ -7989,13 +8659,15 @@ namespace AsteroidsGoneRogue
                 panelImage.raycastTarget = true;
             }
 
+            _confirmPanel = panel;
             _confirmTitle = CreateText(
                 "ConfirmTitle",
                 panel.transform,
                 display,
-                22,
+                UiTheme.TypeTitle,
                 TextAnchor.MiddleCenter,
                 FontStyle.Bold);
+            _confirmTitle.lineSpacing = UiTheme.TitleLine;
             Stretch(_confirmTitle.rectTransform, new Vector2(0.08f, 0.74f), new Vector2(0.92f, 0.96f));
             _confirmTitle.color = UiTheme.Primary;
             AddReadability(_confirmTitle, true);
@@ -8004,14 +8676,15 @@ namespace AsteroidsGoneRogue
                 "ConfirmBody",
                 panel.transform,
                 body,
-                18,
+                UiTheme.TypeBody,
                 TextAnchor.MiddleCenter,
                 FontStyle.Normal);
+            _confirmBody.lineSpacing = UiTheme.BodyLine;
             Stretch(_confirmBody.rectTransform, new Vector2(0.08f, 0.40f), new Vector2(0.92f, 0.70f));
             _confirmBody.color = UiTheme.Accent;
             _confirmBody.horizontalOverflow = HorizontalWrapMode.Wrap;
             _confirmBody.verticalOverflow = VerticalWrapMode.Truncate;
-            _confirmBody.lineSpacing = UiTheme.ShopLineSpacing;
+            _confirmBody.lineSpacing = UiTheme.BodyLine;
 
             _confirmYes = CreateButton(
                 "ConfirmYes",
@@ -8167,34 +8840,13 @@ namespace AsteroidsGoneRogue
 
             if (action == ConfirmAction.No)
             {
-                CloseConfirm();
-                if (AudioCues.Instance != null)
-                {
-                    AudioCues.Instance.PlayUiClick();
-                }
-
+                BeginConfirmClose(false);
                 return;
             }
 
             if (action == ConfirmAction.Yes)
             {
-                ConfirmKind chosen = _confirmOpen ? _confirmKind : KindForRequest(request);
-                CloseConfirm();
-                if (chosen == ConfirmKind.NewRun)
-                {
-                    if (_game != null && _game.HasContinueOffer)
-                    {
-                        OpenRunSetup(RunSetupKind.Abandon);
-                    }
-                    else
-                    {
-                        OnPrimary();
-                    }
-                }
-                else
-                {
-                    OnAbort();
-                }
+                BeginConfirmClose(true);
             }
         }
 
@@ -8225,6 +8877,7 @@ namespace AsteroidsGoneRogue
             _confirmKind = kind;
             _confirmFocus = ConfirmDialogRouter.DefaultFocus();
             _confirmNavHeld = false;
+            _confirmSoundFocus = -1;
             _confirmOpenedFrame = Time.frameCount;
             if (_confirmRoot != null)
             {
@@ -8236,17 +8889,62 @@ namespace AsteroidsGoneRogue
             RefreshConfirmFocus();
             SetConfirmNavigationLock(true);
             ApplyConfirmClock();
-            if (AudioCues.Instance != null)
+            if (_confirmPanel != null)
             {
-                AudioCues.Instance.PlayUiClick();
+                BeginPanelIn(_confirmPanel.GetComponent<RectTransform>());
             }
         }
 
         private void CloseConfirm()
         {
+            BeginConfirmClose(false);
+        }
+
+        private void BeginConfirmClose(bool yes)
+        {
+            if (_confirmClosing)
+            {
+                return;
+            }
+
+            if (!_confirmOpen)
+            {
+                return;
+            }
+
+            if (_panelMotion.BlocksInput(SettingsState.ReduceEffectsEnabled))
+            {
+                return;
+            }
+
+            _confirmYesPending = yes;
+            _panelUseBack = !yes;
+            if (_confirmPanel == null)
+            {
+                FinishConfirmClose();
+                return;
+            }
+
+            _confirmClosing = true;
+            BeginPanelOut(PanelClose.Confirm, _confirmPanel.GetComponent<RectTransform>());
+        }
+
+        private void FinishConfirmClose()
+        {
+            bool yes = _confirmYesPending;
+            ConfirmKind chosen = _confirmKind;
+            _confirmClosing = false;
+            _confirmYesPending = false;
             _confirmOpen = false;
             _confirmKind = ConfirmKind.None;
             _confirmNavHeld = false;
+            _confirmSoundFocus = -1;
+            if (_panelCloseKind == PanelClose.Confirm)
+            {
+                _panelCloseKind = PanelClose.None;
+                RestorePanelMotion();
+            }
+
             if (_confirmRoot != null)
             {
                 _confirmRoot.SetActive(false);
@@ -8254,6 +8952,31 @@ namespace AsteroidsGoneRogue
 
             SetConfirmNavigationLock(false);
             ApplyConfirmClock();
+            if (!yes)
+            {
+                return;
+            }
+
+            if (chosen == ConfirmKind.NewRun)
+            {
+                if (_game != null && _game.HasContinueOffer)
+                {
+                    OpenRunSetup(RunSetupKind.Abandon);
+                }
+                else
+                {
+                    OnPrimary();
+                }
+            }
+            else
+            {
+                if (AudioCues.Instance != null)
+                {
+                    AudioCues.Instance.PlayUiConfirm();
+                }
+
+                OnAbort();
+            }
         }
 
         private void ApplyConfirmClock()
@@ -8262,9 +8985,17 @@ namespace AsteroidsGoneRogue
             bool abortDialog = _confirmOpen && _confirmKind == ConfirmKind.AbortWave;
             if (ConfirmPause.DismissAbort(abortDialog, waveLive))
             {
+                _confirmClosing = false;
+                _confirmYesPending = false;
                 _confirmOpen = false;
                 _confirmKind = ConfirmKind.None;
                 _confirmNavHeld = false;
+                if (_panelCloseKind == PanelClose.Confirm)
+                {
+                    _panelCloseKind = PanelClose.None;
+                    RestorePanelMotion();
+                }
+
                 if (_confirmRoot != null)
                 {
                     _confirmRoot.SetActive(false);
@@ -8393,6 +9124,8 @@ namespace AsteroidsGoneRogue
             {
                 UiTheme.SetPadFocus(_confirmNo.gameObject, _confirmFocus == ConfirmDialogRouter.FocusNo, false);
             }
+
+            NoteConfirmHover();
         }
 
         private SettingsInputFlags ReadSettingsFlags()
@@ -8439,6 +9172,7 @@ namespace AsteroidsGoneRogue
             _settingsOpen = true;
             _settingsIndex = SettingsRows.FirstNavigable();
             _settingsNavHeld = false;
+            _settingsSoundIndex = -1;
             if (_settingsRoot != null)
             {
                 _settingsRoot.SetActive(true);
@@ -8449,32 +9183,49 @@ namespace AsteroidsGoneRogue
             RefreshLanguageChrome();
             RefreshSettingsFocus();
             SetSettingsNavigationLock(true);
-            if (AudioCues.Instance != null)
+            if (_settingsPanel != null)
             {
-                AudioCues.Instance.PlayUiClick();
+                BeginPanelIn(_settingsPanel.GetComponent<RectTransform>());
             }
         }
 
         private void CloseSettingsFromScrim()
         {
+            if (_panelMotion.BlocksInput(SettingsState.ReduceEffectsEnabled))
+            {
+                return;
+            }
+
             CloseSettings();
         }
 
         private void CloseSettings()
         {
+            if (_panelCloseKind == PanelClose.Settings)
+            {
+                return;
+            }
+
             if (_rebindOverlay != null)
             {
                 _rebindOverlay.Close();
             }
 
             PersistSettings();
-            HideSettingsRoot();
-            SetSettingsNavigationLock(false);
-            if (AudioCues.Instance != null)
+            if (_settingsPanel == null)
             {
-                AudioCues.Instance.PlayUiClick();
+                FinishSettingsClose();
+                return;
             }
 
+            _panelUseBack = true;
+            BeginPanelOut(PanelClose.Settings, _settingsPanel.GetComponent<RectTransform>());
+        }
+
+        private void FinishSettingsClose()
+        {
+            HideSettingsRoot();
+            SetSettingsNavigationLock(false);
             FocusHangarSlot(HangarPadNav.SettingsSlot);
         }
 
@@ -8510,6 +9261,13 @@ namespace AsteroidsGoneRogue
         {
             _settingsOpen = false;
             _settingsNavHeld = false;
+            _settingsSoundIndex = -1;
+            if (_panelCloseKind == PanelClose.Settings)
+            {
+                _panelCloseKind = PanelClose.None;
+                RestorePanelMotion();
+            }
+
             if (_settingsRoot != null)
             {
                 _settingsRoot.SetActive(false);
@@ -8533,6 +9291,11 @@ namespace AsteroidsGoneRogue
 
         private void StepSettingsNav(SettingsRoute route, SettingsInputFlags flags)
         {
+            if (_panelMotion.BlocksInput(SettingsState.ReduceEffectsEnabled))
+            {
+                return;
+            }
+
             float now = Time.unscaledTime;
             if (_settingsNavHeld && now < _settingsNavRepeatAt)
             {
@@ -8680,6 +9443,11 @@ namespace AsteroidsGoneRogue
 
         private void ActivateSettingsRow()
         {
+            if (_panelMotion.BlocksInput(SettingsState.ReduceEffectsEnabled))
+            {
+                return;
+            }
+
             SettingsRowId rowId = SettingsRows.At(_settingsIndex);
             if (rowId == SettingsRowId.Language)
             {
@@ -8811,6 +9579,8 @@ namespace AsteroidsGoneRogue
 
                 UiTheme.SetPadFocus(rowButton.gameObject, index == focusIndex, false);
             }
+
+            NoteSettingsHover(focusIndex);
         }
 
         public void FlashRetry()
