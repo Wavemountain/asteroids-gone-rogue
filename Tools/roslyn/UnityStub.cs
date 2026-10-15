@@ -1,50 +1,144 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.Events;
 
-// Stand-in for the Unity editor assemblies. Types that Core pulls in from the
-// rest of the game (UI, audio, physics) have to exist here, or Roslyn stops at
-// declaration errors and never binds method bodies. Holes in these stubs are
-// ignored. A missing member on a project type is a real error.
+// Stand-in for Unity 6000.6 editor assemblies. Members match the real API the
+// game scripts call. Enums only list real members (HorizontalWrapMode is
+// Wrap/Overflow; VerticalWrapMode is Truncate/Overflow).
 namespace UnityEngine
 {
+    public enum FindObjectsInactive { Exclude, Include }
+
+    public enum HideFlags
+    {
+        None = 0,
+        HideInHierarchy = 1,
+        HideInInspector = 2,
+        DontSaveInEditor = 4,
+        NotEditable = 8,
+        DontSaveInBuild = 16,
+        DontUnloadUnusedAsset = 32,
+        DontSave = 52,
+        HideAndDontSave = 61,
+    }
+
+    public struct EntityId : IEquatable<EntityId>
+    {
+        public bool Equals(EntityId other) { return true; }
+        public override bool Equals(object obj) { return obj is EntityId; }
+        public override int GetHashCode() { return 0; }
+    }
+
     public class Object
     {
+        public string name { get; set; }
+        public HideFlags hideFlags { get; set; }
         public static void Destroy(Object obj) { }
+        public static void Destroy(Object obj, float delay) { }
+        public static void DestroyImmediate(Object obj) { }
         public static T FindAnyObjectByType<T>() where T : Object { return null; }
+        public static T FindAnyObjectByType<T>(FindObjectsInactive findObjectsInactive) where T : Object { return null; }
+        public static Object FindAnyObjectByType(Type type, FindObjectsInactive findObjectsInactive) { return null; }
         public static T[] FindObjectsByType<T>() where T : Object { return new T[0]; }
-        public static implicit operator bool(Object obj) { return obj != null; }
+        public static T Instantiate<T>(T original) where T : Object { return null; }
+        public static T Instantiate<T>(T original, Transform parent, bool worldPositionStays) where T : Object { return null; }
+        public EntityId GetEntityId() { return default; }
+        public static implicit operator bool(Object obj) { return !ReferenceEquals(obj, null); }
+        public static bool operator ==(Object a, Object b) { return ReferenceEquals(a, b); }
+        public static bool operator !=(Object a, Object b) { return !ReferenceEquals(a, b); }
+        public override bool Equals(object other) { return ReferenceEquals(this, other); }
+        public override int GetHashCode() { return base.GetHashCode(); }
     }
 
     public class Component : Object
     {
         public GameObject gameObject { get; set; }
         public Transform transform { get; set; }
-        public T GetComponent<T>() where T : Component { return null; }
-        public T AddComponent<T>() where T : Component, new() { return new T(); }
+        public string tag { get; set; }
+        public Component GetComponent(Type type) { return null; }
+        public T GetComponent<T>() { return default; }
+        public T GetComponentInChildren<T>() { return default; }
+        public T GetComponentInChildren<T>(bool includeInactive) { return default; }
+        public T GetComponentInParent<T>() { return default; }
+        public T[] GetComponentsInChildren<T>() { return new T[0]; }
+        public T[] GetComponentsInChildren<T>(bool includeInactive) { return new T[0]; }
+        public bool CompareTag(string tag) { return false; }
+        public Coroutine StartCoroutine(IEnumerator routine) { return null; }
     }
 
     public class Behaviour : Component
     {
         public bool enabled { get; set; }
+        public bool isActiveAndEnabled { get { return enabled; } }
     }
 
     public class MonoBehaviour : Behaviour
     {
-        public string name { get; set; }
     }
 
     public class GameObject : Object
     {
-        public string name { get; set; }
+        public GameObject() { }
+        public GameObject(string name) { this.name = name; }
+        public GameObject(string name, params Type[] components) { this.name = name; }
         public Transform transform { get; set; }
-        public T GetComponent<T>() where T : Component { return null; }
-        public T AddComponent<T>() where T : Component, new() { return new T(); }
+        public int layer { get; set; }
+        public string tag { get; set; }
+        public bool activeSelf { get { return true; } }
+        public bool activeInHierarchy { get { return true; } }
+        public void SetActive(bool value) { }
+        public T GetComponent<T>() { return default; }
+        public T GetComponentInChildren<T>() { return default; }
+        public T[] GetComponentsInChildren<T>() { return new T[0]; }
+        public T[] GetComponentsInChildren<T>(bool includeInactive) { return new T[0]; }
+        public Component AddComponent(Type componentType) { return null; }
+        public T AddComponent<T>() where T : Component { return null; }
+        public static GameObject CreatePrimitive(PrimitiveType type) { return null; }
+        public static GameObject FindGameObjectWithTag(string tag) { return null; }
+        public static GameObject[] FindGameObjectsWithTag(string tag) { return new GameObject[0]; }
     }
 
     public class Transform : Component
     {
         public Vector3 position { get; set; }
+        public Vector3 localPosition { get; set; }
         public Vector3 localScale { get; set; }
+        public Quaternion rotation { get; set; }
+        public Quaternion localRotation { get; set; }
+        public Vector3 forward { get; set; }
+        public Vector3 right { get; set; }
+        public Vector3 up { get; set; }
+        public Vector3 lossyScale { get { return localScale; } }
         public Transform parent { get; set; }
+        public int childCount { get { return 0; } }
+        public Transform Find(string n) { return null; }
+        public Transform GetChild(int index) { return null; }
+        public void LookAt(Vector3 worldPosition) { }
+        public void LookAt(Transform target) { }
+        public void Rotate(float xAngle, float yAngle, float zAngle, Space relativeTo) { }
+        public void SetParent(Transform parent) { }
+        public void SetParent(Transform parent, bool worldPositionStays) { }
+        public void SetPositionAndRotation(Vector3 position, Quaternion rotation) { }
+        public void SetAsFirstSibling() { }
+        public void SetAsLastSibling() { }
+        public void SetSiblingIndex(int index) { }
+        public bool IsChildOf(Transform parent) { return false; }
+        public Vector3 InverseTransformPoint(Vector3 position) { return position; }
+        public Vector3 TransformPoint(Vector3 position) { return position; }
+    }
+
+    public class RectTransform : Transform
+    {
+        public Vector2 anchorMin { get; set; }
+        public Vector2 anchorMax { get; set; }
+        public Vector2 anchoredPosition { get; set; }
+        public Vector2 offsetMin { get; set; }
+        public Vector2 offsetMax { get; set; }
+        public Vector2 pivot { get; set; }
+        public Vector2 sizeDelta { get; set; }
+        public Rect rect { get { return new Rect(0f, 0f, 0f, 0f); } }
     }
 
     public struct Vector2
@@ -54,7 +148,10 @@ namespace UnityEngine
         public Vector2(float x, float y) { this.x = x; this.y = y; }
         public static Vector2 zero { get { return new Vector2(0f, 0f); } }
         public static Vector2 one { get { return new Vector2(1f, 1f); } }
+        public static Vector2 up { get { return new Vector2(0f, 1f); } }
+        public static Vector2 right { get { return new Vector2(1f, 0f); } }
         public float sqrMagnitude { get { return (x * x) + (y * y); } }
+        public float magnitude { get { return (float)Math.Sqrt(sqrMagnitude); } }
         public void Normalize()
         {
             float mag = (float)Math.Sqrt(sqrMagnitude);
@@ -64,6 +161,15 @@ namespace UnityEngine
                 y /= mag;
             }
         }
+        public static float Distance(Vector2 a, Vector2 b) { return (a - b).magnitude; }
+        public static Vector2 operator +(Vector2 a, Vector2 b) { return new Vector2(a.x + b.x, a.y + b.y); }
+        public static Vector2 operator -(Vector2 a, Vector2 b) { return new Vector2(a.x - b.x, a.y - b.y); }
+        public static Vector2 operator *(Vector2 v, float s) { return new Vector2(v.x * s, v.y * s); }
+        public static Vector2 operator *(float s, Vector2 v) { return new Vector2(v.x * s, v.y * s); }
+        public static Vector2 operator /(Vector2 v, float s) { return new Vector2(v.x / s, v.y / s); }
+        public static Vector2 operator -(Vector2 v) { return new Vector2(-v.x, -v.y); }
+        public static implicit operator Vector2(Vector3 v) { return new Vector2(v.x, v.y); }
+        public static implicit operator Vector3(Vector2 v) { return new Vector3(v.x, v.y, 0f); }
     }
 
     public struct Vector3
@@ -74,19 +180,51 @@ namespace UnityEngine
         public Vector3(float x, float y, float z) { this.x = x; this.y = y; this.z = z; }
         public static Vector3 zero { get { return new Vector3(0f, 0f, 0f); } }
         public static Vector3 one { get { return new Vector3(1f, 1f, 1f); } }
+        public static Vector3 up { get { return new Vector3(0f, 1f, 0f); } }
+        public static Vector3 down { get { return new Vector3(0f, -1f, 0f); } }
+        public static Vector3 forward { get { return new Vector3(0f, 0f, 1f); } }
+        public static Vector3 right { get { return new Vector3(1f, 0f, 0f); } }
+        public static Vector3 left { get { return new Vector3(-1f, 0f, 0f); } }
+        public float sqrMagnitude { get { return (x * x) + (y * y) + (z * z); } }
+        public float magnitude { get { return (float)Math.Sqrt(sqrMagnitude); } }
+        public Vector3 normalized { get { return magnitude > 0.0001f ? this / magnitude : zero; } }
+        public void Normalize()
+        {
+            float mag = magnitude;
+            if (mag > 0.0001f)
+            {
+                x /= mag;
+                y /= mag;
+                z /= mag;
+            }
+        }
         public static Vector3 operator *(Vector3 v, float s) { return new Vector3(v.x * s, v.y * s, v.z * s); }
+        public static Vector3 operator *(float s, Vector3 v) { return new Vector3(v.x * s, v.y * s, v.z * s); }
         public static Vector3 operator +(Vector3 a, Vector3 b) { return new Vector3(a.x + b.x, a.y + b.y, a.z + b.z); }
         public static Vector3 operator -(Vector3 a, Vector3 b) { return new Vector3(a.x - b.x, a.y - b.y, a.z - b.z); }
+        public static Vector3 operator -(Vector3 v) { return new Vector3(-v.x, -v.y, -v.z); }
         public static Vector3 operator /(Vector3 v, float s) { return new Vector3(v.x / s, v.y / s, v.z / s); }
         public static Vector3 Lerp(Vector3 a, Vector3 b, float t) { return new Vector3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t); }
+        public static float Dot(Vector3 a, Vector3 b) { return (a.x * b.x) + (a.y * b.y) + (a.z * b.z); }
+        public static Vector3 Cross(Vector3 a, Vector3 b) { return new Vector3((a.y * b.z) - (a.z * b.y), (a.z * b.x) - (a.x * b.z), (a.x * b.y) - (a.y * b.x)); }
+        public static Vector3 Reflect(Vector3 inDirection, Vector3 inNormal) { return inDirection - (2f * Dot(inNormal, inDirection) * inNormal); }
     }
 
     public struct Color
     {
         public float r, g, b, a;
         public Color(float r, float g, float b, float a) { this.r = r; this.g = g; this.b = b; this.a = a; }
+        public Color(float r, float g, float b) { this.r = r; this.g = g; this.b = b; this.a = 1f; }
         public static Color black { get { return new Color(0f, 0f, 0f, 1f); } }
+        public static Color white { get { return new Color(1f, 1f, 1f, 1f); } }
+        public static Color clear { get { return new Color(0f, 0f, 0f, 0f); } }
+        public static Color cyan { get { return new Color(0f, 1f, 1f, 1f); } }
+        public static Color magenta { get { return new Color(1f, 0f, 1f, 1f); } }
+        public float grayscale { get { return (0.299f * r) + (0.587f * g) + (0.114f * b); } }
+        public float maxColorComponent { get { return Math.Max(r, Math.Max(g, b)); } }
         public static Color operator *(Color c, float s) { return new Color(c.r * s, c.g * s, c.b * s, c.a); }
+        public static Color operator *(float s, Color c) { return new Color(c.r * s, c.g * s, c.b * s, c.a); }
+        public static Color Lerp(Color a, Color b, float t) { return new Color(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t, a.a + (b.a - a.a) * t); }
     }
 
     public struct Color32
@@ -98,11 +236,14 @@ namespace UnityEngine
 
     public struct Rect
     {
-        public Rect(float x, float y, float w, float h) { }
+        public float x, y, width, height;
+        public Rect(float x, float y, float w, float h) { this.x = x; this.y = y; this.width = w; this.height = h; }
     }
 
     public class Camera : Behaviour
     {
+        public static Camera main { get { return null; } }
+        public static Camera[] allCameras { get { return new Camera[0]; } }
         public CameraClearFlags clearFlags { get; set; }
         public Color backgroundColor { get; set; }
         public int cullingMask { get; set; }
@@ -113,11 +254,21 @@ namespace UnityEngine
         public float farClipPlane { get; set; }
         public bool allowHDR { get; set; }
         public bool allowMSAA { get; set; }
+        public RenderTexture targetTexture { get; set; }
+        public StereoTargetEyeMask stereoTargetEye { get; set; }
+        public bool orthographic { get; set; }
+        public bool forceIntoRenderTexture { get; set; }
+        public void Render() { }
+        public Ray ScreenPointToRay(Vector3 pos) { return new Ray(pos, Vector3.forward); }
     }
 
     public enum CameraClearFlags { Skybox, SolidColor, Depth, Nothing }
 
-    public class AudioListener : Behaviour { }
+    public class AudioListener : Behaviour
+    {
+        public static float volume { get; set; }
+        public static bool pause { get; set; }
+    }
 
     public static class Mathf
     {
@@ -128,6 +279,7 @@ namespace UnityEngine
         public static float Max(float a, float b) { return a > b ? a : b; }
         public static int Max(int a, int b) { return a > b ? a : b; }
         public static float Min(float a, float b) { return a < b ? a : b; }
+        public static int Min(int a, int b) { return a < b ? a : b; }
         public static float Cos(float v) { return (float)Math.Cos(v); }
         public static float Sin(float v) { return (float)Math.Sin(v); }
         public static float Round(float v) { return (float)Math.Round(v); }
@@ -136,6 +288,13 @@ namespace UnityEngine
         public static float Abs(float v) { return v < 0f ? -v : v; }
         public static int Abs(int v) { return v < 0 ? -v : v; }
         public static float Lerp(float a, float b, float t) { return a + (b - a) * t; }
+        public static float Clamp01(float v) { return Clamp(v, 0f, 1f); }
+        public static float Exp(float v) { return (float)Math.Exp(v); }
+        public static float PingPong(float t, float length) { return 0f; }
+        public static int RoundToInt(float v) { return (int)Math.Round(v); }
+        public static float Tan(float v) { return (float)Math.Tan(v); }
+        public const float Deg2Rad = 0.0174532924f;
+        public const float Rad2Deg = 57.29578f;
     }
 
     public static class Random
@@ -143,6 +302,8 @@ namespace UnityEngine
         public static float value { get { return 0f; } }
         public static int Range(int min, int max) { return min; }
         public static float Range(float min, float max) { return min; }
+        public static void InitState(int seed) { }
+        public static Vector3 insideUnitSphere { get { return Vector3.zero; } }
     }
 
     public static class PlayerPrefs
@@ -153,6 +314,11 @@ namespace UnityEngine
         public static void SetString(string key, string value) { }
         public static void Save() { }
         public static bool HasKey(string key) { return false; }
+        public static int GetInt(string key) { return 0; }
+        public static float GetFloat(string key) { return 0f; }
+        public static float GetFloat(string key, float fallback) { return fallback; }
+        public static void SetFloat(string key, float value) { }
+        public static void DeleteKey(string key) { }
     }
 
     public static class JsonUtility
@@ -165,6 +331,8 @@ namespace UnityEngine
     {
         public static string persistentDataPath { get { return "/tmp"; } }
         public static int targetFrameRate { get; set; }
+        public static bool isPlaying { get { return false; } }
+        public static bool isBatchMode { get { return false; } }
     }
 
     public struct Resolution
@@ -206,6 +374,7 @@ namespace UnityEngine
         public static float GetAxisRaw(string name) { return 0f; }
         public static float GetAxis(string name) { return 0f; }
         public static bool GetMouseButtonDown(int button) { return false; }
+        public static Vector3 mousePosition { get { return Vector3.zero; } }
     }
 
     public enum KeyCode
@@ -222,6 +391,18 @@ namespace UnityEngine
         JoystickButton12 = 342,
         JoystickButton13 = 343,
         JoystickButton14 = 344,
+        JoystickButton6 = 336,
+        A = 97,
+        D = 100,
+        S = 115,
+        W = 119,
+        F1 = 282,
+        F9 = 290,
+        F12 = 293,
+        Return = 13,
+        KeypadEnter = 271,
+        LeftArrow = 276,
+        RightArrow = 275,
     }
 
     public static class Time
@@ -230,6 +411,10 @@ namespace UnityEngine
         public static float deltaTime { get { return 0.016f; } }
         public static float unscaledDeltaTime { get { return 0.016f; } }
         public static float unscaledTime { get { return 0f; } }
+        public static float time { get { return 0f; } }
+        public static float timeScale { get; set; }
+        public static float fixedDeltaTime { get { return 0.02f; } }
+        public static float captureDeltaTime { get; set; }
     }
 
     public static class Debug
@@ -241,13 +426,24 @@ namespace UnityEngine
 
     public class Renderer : Component
     {
+        public bool enabled { get; set; }
+        public Bounds bounds { get; set; }
+        public Bounds localBounds { get; set; }
+        public Material material { get; set; }
+        public Material sharedMaterial { get; set; }
+        public Material[] sharedMaterials { get; set; }
+        public bool receiveShadows { get; set; }
+        public Rendering.ShadowCastingMode shadowCastingMode { get; set; }
+        public int sortingOrder { get; set; }
         public void GetPropertyBlock(MaterialPropertyBlock block) { }
         public void SetPropertyBlock(MaterialPropertyBlock block) { }
     }
 
     public class MaterialPropertyBlock
     {
+        public void Clear() { }
         public void SetColor(int id, Color color) { }
+        public void SetColor(string name, Color color) { }
     }
 
     public class Shader : Object
@@ -261,16 +457,55 @@ namespace UnityEngine
     {
         public Shader shader { get; set; }
         public Material(Shader shader) { this.shader = shader; }
+        public Material(Material source) { }
+        public Color color { get; set; }
+        public Texture mainTexture { get; set; }
+        public Vector2 mainTextureOffset { get; set; }
+        public Vector2 mainTextureScale { get; set; }
+        public int renderQueue { get; set; }
+        public void SetColor(string name, Color color) { }
+        public void SetColor(int nameID, Color color) { }
+        public void SetFloat(string name, float value) { }
+        public void SetFloat(int nameID, float value) { }
+        public void SetInt(string name, int value) { }
+        public void SetInt(int nameID, int value) { }
+        public void SetTexture(string name, Texture value) { }
+        public void SetTexture(int nameID, Texture value) { }
+        public bool HasProperty(string name) { return false; }
+        public bool HasProperty(int nameID) { return false; }
+        public void EnableKeyword(string keyword) { }
+        public void DisableKeyword(string keyword) { }
     }
 
     public class Rigidbody : Component
     {
         public Vector3 linearVelocity { get; set; }
+        public Vector3 angularVelocity { get; set; }
+        public float linearDamping { get; set; }
+        public float angularDamping { get; set; }
+        public float mass { get; set; }
+        public bool useGravity { get; set; }
+        public bool isKinematic { get; set; }
+        public Vector3 position { get; set; }
+        public Quaternion rotation { get; set; }
+        public CollisionDetectionMode collisionDetectionMode { get; set; }
+        public RigidbodyConstraints constraints { get; set; }
+        public RigidbodyInterpolation interpolation { get; set; }
+        public void AddForce(Vector3 force) { }
+        public void AddForce(Vector3 force, ForceMode mode) { }
     }
 
     public struct Quaternion
     {
         public static Quaternion identity { get { return new Quaternion(); } }
+        public static Quaternion Euler(float x, float y, float z) { return identity; }
+        public static Quaternion Euler(Vector3 euler) { return identity; }
+        public static Quaternion LookRotation(Vector3 forward) { return identity; }
+        public static Quaternion LookRotation(Vector3 forward, Vector3 upwards) { return identity; }
+        public static Quaternion AngleAxis(float angle, Vector3 axis) { return identity; }
+        public static Quaternion RotateTowards(Quaternion from, Quaternion to, float maxDegreesDelta) { return to; }
+        public static Vector3 operator *(Quaternion rotation, Vector3 point) { return point; }
+        public static Quaternion operator *(Quaternion a, Quaternion b) { return a; }
     }
 
     [AttributeUsage(AttributeTargets.Field)]
@@ -299,6 +534,7 @@ namespace UnityEngine
         public float spotAngle { get; set; }
         public float innerSpotAngle { get; set; }
         public int cullingMask { get; set; }
+        public float shadowStrength { get; set; }
     }
 
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
@@ -309,31 +545,141 @@ namespace UnityEngine
         public RequireComponentAttribute(System.Type a, System.Type b, System.Type c) { }
     }
 
-    public class Collider { }
-    public class PrimitiveType { }
-    public class Collision { }
-    public class CapsuleCollider { }
-    public class SphereCollider { }
-    public class Bounds { }
-    public class Font { }
-    public class Texture : Object { }
+    public enum PrimitiveType { Sphere, Capsule, Cylinder, Cube, Plane, Quad }
 
-    public class Texture2D : Texture { }
+    public enum TextureFormat { RGB24, RGBA32, ARGB32 }
+
+    public enum FilterMode { Point, Bilinear, Trilinear }
+
+    public enum TextureWrapMode { Repeat, Clamp, Mirror, MirrorOnce }
+
+    public enum TextAnchor
+    {
+        UpperLeft, UpperCenter, UpperRight,
+        MiddleLeft, MiddleCenter, MiddleRight,
+        LowerLeft, LowerCenter, LowerRight,
+    }
+
+    public enum FontStyle { Normal, Bold, Italic, BoldAndItalic }
+
+    public enum TextAlignment { Left, Center, Right }
+
+    public enum HorizontalWrapMode { Wrap, Overflow }
+
+    public enum VerticalWrapMode { Truncate, Overflow }
+
+    public enum Space { World, Self }
+
+    public enum ForceMode { Force, Acceleration, Impulse, VelocityChange }
+
+    public enum CollisionDetectionMode { Discrete, Continuous, ContinuousDynamic, ContinuousSpeculative }
+
+    public enum RigidbodyInterpolation { None, Interpolate, Extrapolate }
+
+    public enum RigidbodyConstraints
+    {
+        None = 0,
+        FreezePositionX = 2,
+        FreezePositionY = 4,
+        FreezePositionZ = 8,
+        FreezeRotationX = 16,
+        FreezeRotationY = 32,
+        FreezeRotationZ = 64,
+        FreezePosition = 14,
+        FreezeRotation = 112,
+        FreezeAll = 126,
+    }
+
+    public enum StereoTargetEyeMask { None, Left, Right, Both }
+
+    public enum RenderMode { ScreenSpaceOverlay, ScreenSpaceCamera, WorldSpace }
+
+    public class Collider : Component
+    {
+        public bool enabled { get; set; }
+        public bool isTrigger { get; set; }
+        public Bounds bounds { get { return new Bounds(Vector3.zero, Vector3.zero); } }
+    }
+
+    public class BoxCollider : Collider
+    {
+        public Vector3 center { get; set; }
+        public Vector3 size { get; set; }
+    }
+
+    public class SphereCollider : Collider
+    {
+        public Vector3 center { get; set; }
+        public float radius { get; set; }
+    }
+
+    public class CapsuleCollider : Collider
+    {
+        public Vector3 center { get; set; }
+        public float radius { get; set; }
+        public float height { get; set; }
+        public int direction { get; set; }
+    }
+
+    public class Collision
+    {
+        public Collider collider { get { return null; } }
+    }
+
+    public struct Bounds
+    {
+        public Vector3 center;
+        public Vector3 size;
+        public Bounds(Vector3 center, Vector3 size) { this.center = center; this.size = size; }
+        public Vector3 extents { get { return size * 0.5f; } set { size = value * 2f; } }
+        public Vector3 min { get { return center - extents; } set { } }
+        public Vector3 max { get { return center + extents; } set { } }
+        public void Encapsulate(Vector3 point) { }
+        public void Encapsulate(Bounds bounds) { }
+    }
+
+    public class Font : Object
+    {
+        public static Font CreateDynamicFontFromOSFont(string fontname, int size) { return null; }
+    }
+
+    public class Texture : Object
+    {
+        public FilterMode filterMode { get; set; }
+        public TextureWrapMode wrapMode { get; set; }
+    }
+
+    public class Texture2D : Texture
+    {
+        public Texture2D(int width, int height) { }
+        public Texture2D(int width, int height, TextureFormat format, bool mipChain) { }
+        public void SetPixel(int x, int y, Color color) { }
+        public void Apply() { }
+        public void Apply(bool updateMipmaps, bool makeNoLongerReadable) { }
+        public void ReadPixels(Rect source, int destX, int destY) { }
+        public byte[] EncodeToPNG() { return new byte[0]; }
+    }
+
+    public class Sprite : Object
+    {
+        public static Sprite Create(Texture2D texture, Rect rect, Vector2 pivot, float pixelsPerUnit) { return null; }
+    }
 
     public class GraphicsTexture { }
-    public class Button { }
-    public class Text { }
-    public class Image { }
-    public class Sprite { }
-    public class TextAnchor { }
-    public class FontStyle { }
-    public class Slider { }
-    public class RectTransform { }
-    public class RawImage { }
+
     public class RenderTexture : Texture
     {
         public int width { get; set; }
         public int height { get; set; }
+        public int antiAliasing { get; set; }
+        public bool useMipMap { get; set; }
+        public RenderTexture(int width, int height, int depth) { }
+        public RenderTexture(int width, int height, int depth, RenderTextureFormat format) { }
+        public static RenderTexture active { get; set; }
+        public static RenderTexture GetTemporary(int width, int height, int depthBuffer, RenderTextureFormat format) { return null; }
+        public static void ReleaseTemporary(RenderTexture temp) { }
+        public void Create() { }
+        public void Release() { }
     }
 
     // Unity 6000.6 Graphics.Blit. dest is RenderTexture or GraphicsTexture, so a
@@ -373,9 +719,17 @@ namespace UnityEngine
         public static string graphicsDeviceName { get { return ""; } }
         public static string deviceModel { get { return ""; } }
     }
-    public class Scrollbar { }
-    public class EntityId { }
-    public class MeshRenderer { }
+    public class MeshRenderer : Renderer { }
+
+    public class Mesh : Object
+    {
+        public Bounds bounds { get { return new Bounds(Vector3.zero, Vector3.zero); } }
+    }
+
+    public class CanvasRenderer : Component
+    {
+        public void SetColor(Color color) { }
+    }
     public class AudioClip : Object
     {
         public float length { get; set; }
@@ -397,6 +751,8 @@ namespace UnityEngine
         public void Play() { }
         public void Stop() { }
         public void PlayOneShot(AudioClip clip, float volumeScale) { }
+        public void Pause() { }
+        public void UnPause() { }
     }
 
     public class AudioLowPassFilter : Behaviour
@@ -404,27 +760,147 @@ namespace UnityEngine
         public float cutoffFrequency { get; set; }
         public float lowpassResonanceQ { get; set; }
     }
-    public class ColorBlock { }
-    public class Outline { }
-    public class Canvas { }
-    public class CanvasScaler { }
-    public class GraphicRaycaster { }
-    public class Navigation { }
-    public class RectMask2D { }
-    public class TextMesh { }
-    public class CanvasGroup { }
-    public class TextGenerator { }
-    public class TextGenerationSettings { }
-    public class Animator { }
-    public class Ray { }
-    public class Plane { }
-    public class MeshFilter { }
-    public class LineRenderer { }
-    public class WaitForSeconds { }
-    public class TrailRenderer { }
-    public class BoxCollider { }
-    public class Shadow { }
-    public class Selectable { }
+    public class Canvas : Behaviour
+    {
+        public bool overrideSorting { get; set; }
+        public bool pixelPerfect { get; set; }
+        public RenderMode renderMode { get; set; }
+        public int sortingOrder { get; set; }
+        public Camera worldCamera { get; set; }
+        public float planeDistance { get; set; }
+        public static void ForceUpdateCanvases() { }
+    }
+
+    public class CanvasGroup : Behaviour
+    {
+        public float alpha { get; set; }
+        public bool blocksRaycasts { get; set; }
+        public bool interactable { get; set; }
+    }
+
+    public class TextMesh : Component
+    {
+        public string text { get; set; }
+        public Font font { get; set; }
+        public int fontSize { get; set; }
+        public FontStyle fontStyle { get; set; }
+        public TextAnchor anchor { get; set; }
+        public TextAlignment alignment { get; set; }
+        public float characterSize { get; set; }
+        public Color color { get; set; }
+    }
+
+    public class TextGenerator
+    {
+        public float GetPreferredWidth(string str, TextGenerationSettings settings) { return 0f; }
+    }
+
+    public class TextGenerationSettings
+    {
+        public HorizontalWrapMode horizontalOverflow { get; set; }
+        public VerticalWrapMode verticalOverflow { get; set; }
+        public float scaleFactor { get; set; }
+    }
+
+    public class Animator : Behaviour { }
+
+    public struct Ray
+    {
+        public Vector3 origin;
+        public Vector3 direction;
+        public Ray(Vector3 origin, Vector3 direction) { this.origin = origin; this.direction = direction; }
+        public Vector3 GetPoint(float distance) { return origin + (direction * distance); }
+    }
+
+    public struct Plane
+    {
+        public Plane(Vector3 inNormal, Vector3 inPoint) { }
+        public bool Raycast(Ray ray, out float enter) { enter = 0f; return false; }
+    }
+
+    public class MeshFilter : Component
+    {
+        public Mesh sharedMesh { get; set; }
+    }
+
+    public class LineRenderer : Renderer
+    {
+        public int positionCount { get; set; }
+        public float widthMultiplier { get; set; }
+        public bool useWorldSpace { get; set; }
+        public bool loop { get; set; }
+        public Color startColor { get; set; }
+        public Color endColor { get; set; }
+        public void SetPosition(int index, Vector3 position) { }
+    }
+
+    public class TrailRenderer : Renderer
+    {
+        public float time { get; set; }
+        public float startWidth { get; set; }
+        public float endWidth { get; set; }
+        public float minVertexDistance { get; set; }
+        public Color startColor { get; set; }
+        public Color endColor { get; set; }
+    }
+
+    public class YieldInstruction { }
+
+    public class Coroutine : YieldInstruction { }
+
+    public sealed class WaitForSeconds : YieldInstruction
+    {
+        public WaitForSeconds(float seconds) { }
+    }
+
+    public static class Resources
+    {
+        public static T Load<T>(string path) where T : Object { return null; }
+        public static T GetBuiltinResource<T>(string path) where T : Object { return null; }
+    }
+
+    public static class Physics
+    {
+        public static Vector3 gravity { get; set; }
+        public static Collider[] OverlapSphere(Vector3 position, float radius) { return new Collider[0]; }
+    }
+
+    public static class Gizmos
+    {
+        public static Color color { get; set; }
+        public static void DrawWireSphere(Vector3 center, float radius) { }
+    }
+
+    public static class GL
+    {
+        public static void Clear(bool clearDepth, bool clearColor, Color backgroundColor) { }
+    }
+
+    public static class ColorUtility
+    {
+        public static bool TryParseHtmlString(string htmlString, out Color color) { color = Color.black; return false; }
+    }
+
+    public static class LayerMask
+    {
+        public static int NameToLayer(string layerName) { return 0; }
+    }
+
+    public static class RectTransformUtility
+    {
+        public static bool RectangleContainsScreenPoint(RectTransform rect, Vector2 screenPoint, Camera cam) { return false; }
+    }
+
+    public static class RenderSettings
+    {
+        public static Rendering.AmbientMode ambientMode { get; set; }
+        public static Color ambientLight { get; set; }
+    }
+
+    public static class ScreenCapture
+    {
+        public static void CaptureScreenshot(string filename) { }
+    }
 
     public enum ParticleSystemSimulationSpace { Local, World }
 
@@ -502,29 +978,214 @@ namespace UnityEngine
 
     public class ParticleSystemRenderer : Renderer
     {
-        public Material sharedMaterial { get; set; }
     }
 }
 
-namespace UnityEngine.UI { }
+namespace UnityEngine.Rendering
+{
+    public enum ShadowCastingMode { Off, On, TwoSided, ShadowsOnly }
+    public enum AmbientMode { Skybox, Trilight, Flat, Custom }
+    public enum BlendMode
+    {
+        Zero,
+        One,
+        DstColor,
+        SrcColor,
+        OneMinusDstColor,
+        SrcAlpha,
+        OneMinusSrcColor,
+        DstAlpha,
+        OneMinusDstAlpha,
+        SrcAlphaSaturate,
+        OneMinusSrcAlpha,
+    }
+}
+
 namespace UnityEngine.Events
 {
     public delegate void UnityAction();
     public delegate void UnityAction<T>(T arg);
+
+    public class UnityEvent
+    {
+        public void AddListener(UnityAction call) { }
+        public void RemoveListener(UnityAction call) { }
+        public void Invoke() { }
+    }
+
+    public class UnityEvent<T>
+    {
+        public void AddListener(UnityAction<T> call) { }
+        public void RemoveListener(UnityAction<T> call) { }
+        public void Invoke(T arg) { }
+    }
 }
+
 namespace UnityEngine.EventSystems
 {
-    public class EventSystem : UnityEngine.MonoBehaviour { }
+    public class EventSystem : UnityEngine.MonoBehaviour
+    {
+        public static EventSystem current { get; set; }
+        public GameObject currentSelectedGameObject { get { return null; } }
+        public bool sendNavigationEvents { get; set; }
+        public void SetSelectedGameObject(GameObject selected) { }
+    }
+
+    public class BaseInputModule : UnityEngine.MonoBehaviour { }
+
+    public class StandaloneInputModule : BaseInputModule
+    {
+        public string horizontalAxis { get; set; }
+        public string verticalAxis { get; set; }
+        public string submitButton { get; set; }
+        public string cancelButton { get; set; }
+    }
+
     public enum EventTriggerType { PointerEnter, PointerExit, PointerDown, PointerUp, PointerClick, Drag, BeginDrag, EndDrag, Submit, Cancel }
     public class BaseEventData { }
     public class PointerEventData : BaseEventData { }
     public class EventTrigger : UnityEngine.MonoBehaviour
     {
+        public class TriggerEvent : UnityEvent<BaseEventData> { }
         public class Entry
         {
             public EventTriggerType eventID;
-            public UnityEngine.Events.UnityAction<BaseEventData> callback;
+            public TriggerEvent callback = new TriggerEvent();
         }
         public System.Collections.Generic.List<Entry> triggers = new System.Collections.Generic.List<Entry>();
     }
+}
+
+namespace UnityEngine.UI
+{
+    public struct Navigation
+    {
+        public enum Mode { None, Horizontal, Vertical, Automatic, Explicit }
+        public Mode mode;
+    }
+
+    public struct ColorBlock
+    {
+        public Color normalColor;
+        public Color highlightedColor;
+        public Color pressedColor;
+        public Color selectedColor;
+        public Color disabledColor;
+        public float colorMultiplier;
+        public float fadeDuration;
+        public static ColorBlock defaultColorBlock { get { return new ColorBlock(); } }
+    }
+
+    public class Graphic : MonoBehaviour
+    {
+        public bool raycastTarget { get; set; }
+        public Color color { get; set; }
+        public RectTransform rectTransform { get { return null; } }
+        public CanvasRenderer canvasRenderer { get { return null; } }
+    }
+
+    public class MaskableGraphic : Graphic { }
+
+    public class Image : MaskableGraphic
+    {
+        public enum Type { Simple, Sliced, Tiled, Filled }
+        public enum FillMethod { Horizontal, Vertical, Radial90, Radial180, Radial360 }
+        public enum OriginHorizontal { Left, Right }
+        public enum OriginVertical { Bottom, Top }
+        public enum Origin90 { BottomLeft, TopLeft, TopRight, BottomRight }
+        public enum Origin180 { Bottom, Left, Top, Right }
+        public enum Origin360 { Bottom, Right, Top, Left }
+        public Sprite sprite { get; set; }
+        public Type type { get; set; }
+        public bool preserveAspect { get; set; }
+        public FillMethod fillMethod { get; set; }
+        public int fillOrigin { get; set; }
+        public float fillAmount { get; set; }
+        public bool fillClockwise { get; set; }
+    }
+
+    public class RawImage : MaskableGraphic
+    {
+        public Texture texture { get; set; }
+        public Rect uvRect { get; set; }
+    }
+
+    public class Text : MaskableGraphic
+    {
+        public string text { get; set; }
+        public Font font { get; set; }
+        public int fontSize { get; set; }
+        public FontStyle fontStyle { get; set; }
+        public TextAnchor alignment { get; set; }
+        public bool alignByGeometry { get; set; }
+        public bool supportRichText { get; set; }
+        public HorizontalWrapMode horizontalOverflow { get; set; }
+        public VerticalWrapMode verticalOverflow { get; set; }
+        public float lineSpacing { get; set; }
+        public bool resizeTextForBestFit { get; set; }
+        public int resizeTextMinSize { get; set; }
+        public int resizeTextMaxSize { get; set; }
+        public TextGenerationSettings GetGenerationSettings(Vector2 extents) { return new TextGenerationSettings(); }
+    }
+
+    public class Selectable : MonoBehaviour
+    {
+        public enum Transition { None, ColorTint, SpriteSwap, Animation }
+        public bool interactable { get; set; }
+        public Transition transition { get; set; }
+        public Graphic targetGraphic { get; set; }
+        public Navigation navigation { get; set; }
+        public ColorBlock colors { get; set; }
+        public bool IsInteractable() { return interactable; }
+    }
+
+    public class Button : Selectable
+    {
+        public class ButtonClickedEvent : UnityEvent { }
+        public ButtonClickedEvent onClick { get { return new ButtonClickedEvent(); } }
+    }
+
+    public class Slider : Selectable
+    {
+        public class SliderEvent : UnityEvent<float> { }
+        public SliderEvent onValueChanged { get { return new SliderEvent(); } }
+        public RectTransform fillRect { get; set; }
+        public RectTransform handleRect { get; set; }
+        public float minValue { get; set; }
+        public float maxValue { get; set; }
+        public float value { get; set; }
+        public void SetValueWithoutNotify(float input) { }
+    }
+
+    public class Scrollbar : Selectable
+    {
+        public enum Direction { LeftToRight, RightToLeft, BottomToTop, TopToBottom }
+        public class ScrollEvent : UnityEvent<float> { }
+        public ScrollEvent onValueChanged { get { return new ScrollEvent(); } }
+        public Direction direction { get; set; }
+        public float size { get; set; }
+        public float value { get; set; }
+        public RectTransform handleRect { get; set; }
+    }
+
+    public class Shadow : MonoBehaviour
+    {
+        public Color effectColor { get; set; }
+        public Vector2 effectDistance { get; set; }
+        public bool useGraphicAlpha { get; set; }
+    }
+
+    public class Outline : Shadow { }
+
+    public class CanvasScaler : MonoBehaviour
+    {
+        public enum ScaleMode { ConstantPixelSize, ScaleWithScreenSize, ConstantPhysicalSize }
+        public ScaleMode uiScaleMode { get; set; }
+        public Vector2 referenceResolution { get; set; }
+        public float matchWidthOrHeight { get; set; }
+    }
+
+    public class GraphicRaycaster : MonoBehaviour { }
+
+    public class RectMask2D : MonoBehaviour { }
 }

@@ -1174,12 +1174,13 @@ namespace AsteroidsGoneRogue
         {
             get
             {
-                if (PremiumLook.DeathHitstopSeconds <= 0.0001f)
+                float hitstop = PremiumLook.DeathHitstopSeconds;
+                if (hitstop <= 0.0001f)
                 {
                     return 1f;
                 }
 
-                return _deathArmElapsed / PremiumLook.DeathHitstopSeconds;
+                return _deathArmElapsed / hitstop;
             }
         }
 

@@ -254,12 +254,12 @@ namespace AsteroidsGoneRogue
 
         public static bool SelfCheck()
         {
-            if (AmbientMul < 0.69f || AmbientMul > 0.71f)
+            if (Bad(AmbientMul < 0.69f || AmbientMul > 0.71f))
             {
                 return false;
             }
 
-            if (AsteroidAlbedoBoost < 1.19f || AsteroidAlbedoKeep < 0.79f || AsteroidAlbedoKeep > 0.81f)
+            if (Bad(AsteroidAlbedoBoost < 1.19f || AsteroidAlbedoKeep < 0.79f || AsteroidAlbedoKeep > 0.81f))
             {
                 return false;
             }
@@ -317,7 +317,7 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (BeamEmission > 1.5f || GridVisibleAlpha < 0.11f || DomeRimAlpha > 0.31f)
+            if (Bad(BeamEmission > 1.5f || GridVisibleAlpha < 0.11f || DomeRimAlpha > 0.31f))
             {
                 return false;
             }
@@ -350,6 +350,11 @@ namespace AsteroidsGoneRogue
             }
 
             return true;
+        }
+
+        private static bool Bad(bool failed)
+        {
+            return failed;
         }
     }
 }

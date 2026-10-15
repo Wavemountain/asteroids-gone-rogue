@@ -282,12 +282,12 @@ namespace AsteroidsGoneRogue
 
         public static bool SelfCheck()
         {
-            if (ChunkParticles + SmokeParticles + SparkParticles != MaxParticles)
+            if (Bad(ChunkParticles + SmokeParticles + SparkParticles != MaxParticles))
             {
                 return false;
             }
 
-            if (DebrisCap < ChunkLarge || ShockCap < 1 || MuzzleCap < 2)
+            if (Bad(DebrisCap < ChunkLarge || ShockCap < 1 || MuzzleCap < 2))
             {
                 return false;
             }
@@ -342,12 +342,12 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (RingMaterial != "Mat_FX_Ring" || ShockMesh != "FX_ShockRing" || MuzzleMesh != "FX_MuzzleCard")
+            if (Bad(RingMaterial != "Mat_FX_Ring" || ShockMesh != "FX_ShockRing" || MuzzleMesh != "FX_MuzzleCard"))
             {
                 return false;
             }
 
-            if (HotG >= HotR || EmberR <= EmberB || SmokeAlpha <= 0f || SmokeAlpha >= 1f)
+            if (Bad(HotG >= HotR || EmberR <= EmberB || SmokeAlpha <= 0f || SmokeAlpha >= 1f))
             {
                 return false;
             }
@@ -358,6 +358,11 @@ namespace AsteroidsGoneRogue
             }
 
             return true;
+        }
+
+        private static bool Bad(bool failed)
+        {
+            return failed;
         }
 
         private static bool Near(float a, float b)

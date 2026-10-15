@@ -534,17 +534,17 @@ namespace AsteroidsGoneRogue
 
         public static bool SelfCheck()
         {
-            if (EffectScale.PostBloomMul != 0.5f || EffectScale.PostVignetteMul != 0.5f || EffectScale.PostGrainMul != 0f)
+            if (Bad(EffectScale.PostBloomMul != 0.5f || EffectScale.PostVignetteMul != 0.5f || EffectScale.PostGrainMul != 0f))
             {
                 return false;
             }
 
-            if (EffectScale.PostThresholdAdd != 0.15f)
+            if (Bad(EffectScale.PostThresholdAdd != 0.15f))
             {
                 return false;
             }
 
-            if (GradeWithTonemap != 1)
+            if (Bad(GradeWithTonemap != 1))
             {
                 return false;
             }
@@ -974,6 +974,11 @@ namespace AsteroidsGoneRogue
         private static float Mix(float a, float b, float t)
         {
             return a + ((b - a) * t);
+        }
+
+        private static bool Bad(bool failed)
+        {
+            return failed;
         }
 
         private static bool Near(float a, float b)

@@ -228,12 +228,12 @@ namespace AsteroidsGoneRogue
 
         public static bool SelfCheck()
         {
-            if (SwarmLookScale < 0.75f || SwarmLookScale > 0.85f)
+            if (Bad(SwarmLookScale < 0.75f || SwarmLookScale > 0.85f))
             {
                 return false;
             }
 
-            if (SwarmShrinksGameplay)
+            if (Bad(SwarmShrinksGameplay))
             {
                 return false;
             }
@@ -312,6 +312,11 @@ namespace AsteroidsGoneRogue
             }
 
             return true;
+        }
+
+        private static bool Bad(bool failed)
+        {
+            return failed;
         }
     }
 }
