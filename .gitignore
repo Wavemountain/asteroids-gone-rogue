@@ -61,3 +61,6 @@ BurstDebugInformation/
 # Addressables local
 # Packed assets generated locally
 *.stackdump
+
+# SpeltestBot batch captures (AgrCapture)
+Captures/
