@@ -16,6 +16,8 @@ namespace AsteroidsGoneRogue
         private FollowCamera _follow;
         private readonly HitstopBudget _hitstop = new HitstopBudget();
         private readonly TransitionTimeline _feel = new TransitionTimeline();
+        private float _deathArmElapsed;
+        private int _deathArming;
         private bool _pendingDeathStructured;
         private string _pendingDeathText = string.Empty;
         private DamageCause _pendingDeathCause = DamageCause.Unknown;
@@ -1070,6 +1072,33 @@ namespace AsteroidsGoneRogue
 
         public void TickFeel(float unscaledDelta, bool held, bool paused)
         {
+            if (_deathArming != 0)
+            {
+                if (paused)
+                {
+                    return;
+                }
+
+                float step = unscaledDelta;
+                if (step < 0f)
+                {
+                    step = 0f;
+                }
+
+                if (step > 0.05f)
+                {
+                    step = 0.05f;
+                }
+
+                _deathArmElapsed += step;
+                if (_deathArmElapsed < PremiumLook.DeathHitstopSeconds)
+                {
+                    return;
+                }
+
+                ReleaseDeathArm();
+            }
+
             if (_feel.Kind == TransitionKind.None)
             {
                 return;
@@ -1128,14 +1157,69 @@ namespace AsteroidsGoneRogue
 
         public bool MenuInputBlocked()
         {
+            if (_deathArming != 0)
+            {
+                return true;
+            }
+
             return _feel.BlocksInput(SettingsState.ReduceEffectsEnabled);
+        }
+
+        public bool DeathArming
+        {
+            get { return _deathArming != 0; }
+        }
+
+        public float DeathArmU
+        {
+            get
+            {
+                if (PremiumLook.DeathHitstopSeconds <= 0.0001f)
+                {
+                    return 1f;
+                }
+
+                return _deathArmElapsed / PremiumLook.DeathHitstopSeconds;
+            }
         }
 
         public float FeelTimeScale(float pauseScale)
         {
             bool reduce = SettingsState.ReduceEffectsEnabled;
-            bool hitstop = _hitstop.Active(Time.unscaledTime);
+            bool hitstop = _hitstop.Active(Time.unscaledTime) || _deathArming != 0;
             return FeelClock.Compose(pauseScale, hitstop, _feel.TimeScale(reduce));
+        }
+
+        /// <summary>
+        /// Capture pins the death shot at mid slow-mo. The live path reaches
+        /// the same pose after the unscaled hitstop, so the pin finishes the arm first.
+        /// </summary>
+        public void CapturePinDeath()
+        {
+            if (_deathArming != 0)
+            {
+                _deathArmElapsed = PremiumLook.DeathHitstopSeconds;
+                ReleaseDeathArm();
+            }
+
+            VfxKit.PresentFresh(0.40f);
+        }
+
+        public void CaptureWaveClear()
+        {
+            if (_session == null)
+            {
+                return;
+            }
+
+            if (_feel.Kind == TransitionKind.None)
+            {
+                BeginWaveClear();
+            }
+
+            _feel.Elapsed = TransitionTimeline.WaveBreathSeconds * 0.5f;
+            PostStack.PinWaveBloom();
+            VfxKit.PresentFresh(0.42f);
         }
 
         private bool BeginFinalDeath(string cause, bool structured, DamageCause failCause, EnemyKind kind)
@@ -1154,14 +1238,22 @@ namespace AsteroidsGoneRogue
                 _ship.SetInputPaused(true);
             }
 
+            _deathArmElapsed = 0f;
+            _deathArming = 1;
+            return true;
+        }
+
+        private void ReleaseDeathArm()
+        {
+            _deathArming = 0;
+            ShatterShip();
             _feel.Begin(TransitionKind.Death);
+            _feel.MarkShatter();
             PostStack.BeginDeathVignette();
             if (AudioCues.Instance != null)
             {
                 AudioCues.Instance.PlayDeathWhoosh();
             }
-
-            return true;
         }
 
         private void BeginWaveClear()
@@ -1177,6 +1269,18 @@ namespace AsteroidsGoneRogue
             }
 
             _feel.Begin(TransitionKind.WaveClear);
+            PostStack.BeginWaveBloom();
+            if (_ship != null)
+            {
+                Vector3 origin = _ship.transform.position;
+                bool reduce = SettingsState.ReduceEffectsEnabled;
+                VfxKit.Shock(origin, 0.45f, 7.5f, PremiumLook.WaveBloomSeconds, reduce);
+                int bonus = MutatorRules.ScaleScore(ScoreValues.WaveClearBonus, ActiveMutatorMask);
+                if (_ui != null && _session != null)
+                {
+                    _ui.ShowWaveClearBanner(_session.Score, _session.Score + bonus);
+                }
+            }
         }
 
         private void ShatterShip()
@@ -1188,6 +1292,7 @@ namespace AsteroidsGoneRogue
 
             Vector3 position = _ship.transform.position;
             JuiceBurst.KillBloom(position, true);
+            VfxKit.Explode(position, VfxBudget.Large, SettingsState.ReduceEffectsEnabled);
             int pieces = 5;
             for (int piece = 0; piece < pieces; piece++)
             {

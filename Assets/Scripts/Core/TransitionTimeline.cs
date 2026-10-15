@@ -8,7 +8,8 @@ namespace AsteroidsGoneRogue
     }
 
     /// <summary>
-    /// Soft death is 0.4 s slow-mo, then shatter, then a 0.35 s fade.
+    /// Soft death is 0.6 s slow-mo, then a 0.22 s fail-panel slide.
+    /// The 0.25 s hitstop and the explosion run before this clock starts.
     /// Wave clear is a 0.25 s slow-mo ease, then a fade and slide.
     /// Reduce effects skips the slow-mo and only fades. Input stays closed
     /// until the fade ends, and a button held across that edge is swallowed.
@@ -16,8 +17,8 @@ namespace AsteroidsGoneRogue
     /// </summary>
     public sealed class TransitionTimeline
     {
-        public const float DeathSlowSeconds = 0.4f;
-        public const float DeathFadeSeconds = 0.35f;
+        public const float DeathSlowSeconds = 0.6f;
+        public const float DeathFadeSeconds = 0.220f;
         public const float DeathSlowScale = 0.35f;
         public const float WaveBreathSeconds = 0.25f;
         public const float WaveFadeSeconds = 0.28f;

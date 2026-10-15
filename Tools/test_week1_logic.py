@@ -7956,7 +7956,7 @@ def test_game_feel_048() -> None:
     assert "SpringLimited" in feel and "EffectScale.Feel" in feel
     assert "class HitstopBudget" in budget and "CapSeconds = 0.12f" in budget
     assert "class TransitionTimeline" in timeline and "class FeelClock" in timeline
-    assert "DeathSlowSeconds = 0.4f" in timeline and "DeathFadeSeconds = 0.35f" in timeline
+    assert "DeathSlowSeconds = 0.6f" in timeline and "DeathFadeSeconds = 0.220f" in timeline
     assert "WaveBreathSeconds = 0.25f" in timeline
     assert "AllowsSlowMo" in effect and "AllowsHitstop" in effect and "KillPop" in effect
     assert "CameraFeel.SpringLimited" in follow and "CameraFeel.LookAhead" in follow

@@ -10,6 +10,7 @@ Regler: allt skalas av `SettingsState.ReduceEffects` (`agr.settings.reduceEffect
 | `04_typescale_ui_tokens.md` | 4-stegs typskala, spacing, motion 150–250 ms, count-up, `UiTransition`-tider |
 | `05_audio_death_win_menu.md` | 7 nya SFX, död/vinst/meny-sekvenser, musik-low-pass, voice-limit. Crossfade-resterna är redan fixade |
 | `06_arena_depth.md` | parallax, nebulosa-drift, närdamm, grid-puls (BPM = 0 tills mätt) |
+| `07_premium_pass.md` | 0.48 premium visual pass: chosen values vs briefs 01–06, contrast, deferrals |
 | `Assets/Resources/Shaders/AgrRimLit.shader` | surface shader, fallback Standard |
 | `Assets/Resources/Audio/Sfx/agr_*.ogg` | 7 st, OggS, CC0. `CREDITS_0.48.txt` |
 | `tools/grade_check.py`, `tools/contrast_worlds.py` | läsbarhetskontroll av graden |

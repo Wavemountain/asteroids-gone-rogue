@@ -24,7 +24,7 @@ namespace AsteroidsGoneRogue.EditorTools
     {
         const int Width = 1920;
         const int Height = 1080;
-        const int ShotCount = 5;
+        const int ShotCount = 6;
         const int SettleFrames = 60;
         const int CardFrames = 3;
         const double TimeoutSeconds = 300.0;
@@ -153,7 +153,7 @@ namespace AsteroidsGoneRogue.EditorTools
                     + " seed=" + seed.ToString()
                     + " res=" + Width.ToString() + "x" + Height.ToString()
                     + " backup=" + backup
-                    + " W1=wave 1, W3=world 3 wave 11, W4=world 4 wave 16, death=wave 1");
+                    + " W1=wave 1, W3=world 3 wave 11, W4=world 4 wave 16, death=wave 1, waveclear=wave 1");
                 LogPlayModeSettings();
                 HookLifecycle();
                 EnsureHook();
@@ -406,6 +406,11 @@ namespace AsteroidsGoneRogue.EditorTools
                 {
                     SessionState.SetInt(KeyPhase, PhaseArm);
                     return;
+                }
+
+                if (shot == 5)
+                {
+                    PinWaveClear();
                 }
 
                 CaptureCurrent();
@@ -990,6 +995,7 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static bool PinDeath(object game)
         {
+            InvokeZero(game, "CapturePinDeath");
             System.Reflection.FieldInfo feelField = game.GetType().GetField("_feel", Flags);
             if (feelField == null)
             {
@@ -1042,6 +1048,23 @@ namespace AsteroidsGoneRogue.EditorTools
                 + " vignette="
                 + vignette.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
             return true;
+        }
+
+        static void PinWaveClear()
+        {
+            Component game = FindComponent("GameManager");
+            if (game == null)
+            {
+                Debug.Log("AgrCapture: wave-clear pin skipped, GameManager missing");
+                return;
+            }
+
+            if (!InvokeZero(game, "CaptureWaveClear"))
+            {
+                Debug.Log("AgrCapture: CaptureWaveClear missing; shot is the live wave");
+            }
+
+            QuietBanners();
         }
 
         static void RememberGrade()
@@ -1916,6 +1939,10 @@ namespace AsteroidsGoneRogue.EditorTools
             else if (shot == 3)
             {
                 sceneName = "w4";
+            }
+            else if (shot == 5)
+            {
+                sceneName = "waveclear";
             }
 
             string flag = "off";

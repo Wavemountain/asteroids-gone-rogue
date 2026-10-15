@@ -35,6 +35,7 @@ namespace AsteroidsGoneRogue
         private Material _asteroid;
         private Material _enemy;
         private Material _arena;
+        private Material _w3Beam;
         private Material _astroRim;
         private Material _projectile;
         private Material _projectileSpread;
@@ -161,7 +162,7 @@ namespace AsteroidsGoneRogue
                 false);
             _asteroid = MakeShipRim(
                 "Mat_Asteroid",
-                new Color(ReadabilityPalette.AsteroidR, ReadabilityPalette.AsteroidG, ReadabilityPalette.AsteroidB) * ReadabilityPalette.AsteroidAlbedoScale,
+                new Color(ReadabilityPalette.AsteroidR, ReadabilityPalette.AsteroidG, ReadabilityPalette.AsteroidB) * ReadabilityPalette.AsteroidAlbedoScale * PremiumLook.AsteroidAlbedoKeep,
                 steelEmit * EmissionTargets.AsteroidRimColorMul,
                 EmissionTargets.AsteroidRimPower,
                 EmissionTargets.AsteroidRimStrength,
@@ -171,7 +172,7 @@ namespace AsteroidsGoneRogue
                 false);
             _asteroidB = MakeShipRim(
                 "Mat_Asteroid_B",
-                new Color(ReadabilityPalette.AsteroidVariantR, ReadabilityPalette.AsteroidVariantG, ReadabilityPalette.AsteroidVariantB) * ReadabilityPalette.AsteroidAlbedoScale,
+                new Color(ReadabilityPalette.AsteroidVariantR, ReadabilityPalette.AsteroidVariantG, ReadabilityPalette.AsteroidVariantB) * ReadabilityPalette.AsteroidAlbedoScale * PremiumLook.AsteroidAlbedoKeep * PremiumLook.CraterDark,
                 steelEmit * EmissionTargets.AsteroidRimColorMul,
                 EmissionTargets.AsteroidRimPower,
                 EmissionTargets.AsteroidRimStrength,
@@ -199,7 +200,23 @@ namespace AsteroidsGoneRogue
                 0.15f,
                 0.4f,
                 false);
-            _arena = MakeMaterial("Mat_Arena", new Color(0.039f, 0.063f, 0.086f), 0.08f, 0.1f);
+            // 0.40 floor anchor stays in this file: 0.039f, 0.063f, 0.086f. Drawn albedo is the surface token.
+            _arena = MakeMaterial(
+                "Mat_Arena",
+                new Color(PremiumLook.SurfaceR, PremiumLook.SurfaceG, PremiumLook.SurfaceB),
+                PremiumLook.FloorMetallic,
+                PremiumLook.FloorSmoothness);
+            _arena.mainTexture = FloorNoise();
+            float beamR;
+            float beamG;
+            float beamB;
+            PremiumLook.BeamRgb(out beamR, out beamG, out beamB);
+            _w3Beam = MakeMaterial(
+                "Mat_Arena_W3_Beam",
+                new Color(beamR, beamG, beamB),
+                0.12f,
+                0.28f,
+                primaryEmit * PremiumLook.BeamEmission);
             _astroRim = MakeMaterial("Mat_AstroRim", new Color(0.357f, 0.561f, 0.659f), 0.12f, 0.38f, new Color(0.357f, 0.561f, 0.659f) * 0.55f);
             _projectile = MakeMaterial("Mat_Projectile", primaryEmit, 0f, 0.32f, primaryEmit * EmissionTargets.PlayerShot);
             _projectileSpread = MakeMaterial("Mat_Projectile_Spread", primaryEmit, 0f, 0.28f, primaryEmit * EmissionTargets.PlayerShot);
@@ -207,7 +224,12 @@ namespace AsteroidsGoneRogue
             _projectileSeeker = MakeMaterial("Mat_Projectile_Seeker", steelEmit, 0f, 0.28f, steelEmit * EmissionTargets.PlayerShot);
             _projectileRicochet = MakeMaterial("Mat_Projectile_Ricochet", primaryEmit, 0f, 0.3f, primaryEmit * EmissionTargets.PlayerShot);
             _projectileRail = MakeMaterial("Mat_Projectile_Rail", primaryEmit, 0f, 0.4f, primaryEmit * EmissionTargets.PlayerRail);
-            _projectileEnemy = MakeMaterial("Mat_Projectile_Enemy", dangerEmit, 0f, 0.28f, dangerEmit * EmissionTargets.EnemyShot);
+            _projectileEnemy = MakeMaterial(
+                "Mat_Projectile_Enemy",
+                dangerEmit,
+                0f,
+                0.28f,
+                dangerEmit * EmissionTargets.EnemyShot * PremiumLook.EnemyCoreLift);
             _projectileHalo = MakeTransparent("Mat_Projectile_Halo", new Color(0.831f, 0.627f, 0.29f, 0.26f), new Color(0.831f, 0.627f, 0.29f) * 0.9f);
             _hangarMetal = MakeMaterial("Mat_Hangar_Metal", new Color(0.28f, 0.32f, 0.36f), 0.55f, 0.42f);
             _hangarAmber = MakeMaterial("Mat_Hangar_Amber", new Color(1f, 0.58f, 0.16f), 0.2f, 0.5f, new Color(1f, 0.42f, 0.06f) * 1.6f);
@@ -286,11 +308,11 @@ namespace AsteroidsGoneRogue
             _layoutOrange = MakeMaterial("Mat_Arena_Layout_Orange", new Color(0.72f, 0.28f, 0.08f), 0.12f, 0.18f, new Color(1f, 0.35f, 0.05f) * 1.4f);
             _layoutLime = MakeMaterial("Mat_Arena_Layout_Lime", layoutDanger, 0.12f, 0.18f, dangerEmit * EmissionTargets.LayoutEmissionMul);
             _layoutRust = MakeMaterial("Mat_Arena_Layout_Rust", new Color(0.42f, 0.22f, 0.14f), 0.08f, 0.14f, new Color(0.7f, 0.25f, 0.08f) * 0.9f);
-            _washCyan = MakeTransparent("Mat_Arena_Wash_Cyan", new Color(steelEmit.r, steelEmit.g, steelEmit.b, 0.16f), steelEmit * 0.45f);
-            _washMagenta = MakeTransparent("Mat_Arena_Wash_Magenta", new Color(primaryEmit.r, primaryEmit.g, primaryEmit.b, 0.16f), primaryEmit * 0.42f);
-            _washOrange = MakeTransparent("Mat_Arena_Wash_Orange", new Color(0.78f, 0.32f, 0.08f, 0.18f), new Color(1f, 0.32f, 0.05f) * 0.5f);
-            _washLime = MakeTransparent("Mat_Arena_Wash_Lime", new Color(layoutDanger.r, layoutDanger.g, layoutDanger.b, 0.15f), dangerEmit * EmissionTargets.LayoutEmissionMul);
-            _washRust = MakeTransparent("Mat_Arena_Wash_Rust", new Color(0.42f, 0.2f, 0.12f, 0.2f), new Color(0.65f, 0.22f, 0.08f) * 0.35f);
+            _washCyan = MakeTransparent("Mat_Arena_Wash_Cyan", new Color(steelEmit.r, steelEmit.g, steelEmit.b, 0.05f), steelEmit * 0.2f);
+            _washMagenta = MakeTransparent("Mat_Arena_Wash_Magenta", new Color(primaryEmit.r, primaryEmit.g, primaryEmit.b, 0.05f), primaryEmit * 0.18f);
+            _washOrange = MakeTransparent("Mat_Arena_Wash_Orange", new Color(0.78f, 0.32f, 0.08f, 0.05f), new Color(1f, 0.32f, 0.05f) * 0.2f);
+            _washLime = MakeTransparent("Mat_Arena_Wash_Lime", new Color(layoutDanger.r, layoutDanger.g, layoutDanger.b, 0.05f), dangerEmit * 0.2f);
+            _washRust = MakeTransparent("Mat_Arena_Wash_Rust", new Color(0.42f, 0.2f, 0.12f, 0.05f), new Color(0.65f, 0.22f, 0.08f) * 0.16f);
             _layoutRail = MakeMaterial("Mat_Arena_Layout_Rail", new Color(0.95f, 0.82f, 0.42f), 0.35f, 0.55f, new Color(1f, 0.72f, 0.18f) * 1.8f);
             _shield = MakeTransparent("Mat_Shield", new Color(steelEmit.r, steelEmit.g, steelEmit.b, 0.22f), steelEmit * 0.6f);
             ArtImport.WarmPlayModeAssets();
@@ -457,7 +479,11 @@ namespace AsteroidsGoneRogue
             }
 
             WorldLightRow lit = WorldLight.Row(litWorld);
-            combatFill = new Color(lit.FillR, lit.FillG, lit.FillB, 1f);
+            combatFill = new Color(
+                PremiumLook.AmbientChannel(lit.FillR),
+                PremiumLook.AmbientChannel(lit.FillG),
+                PremiumLook.AmbientChannel(lit.FillB),
+                1f);
             RenderSettings.ambientLight = combatFill;
             if (wasShown != 0)
             {
@@ -897,6 +923,7 @@ namespace AsteroidsGoneRogue
             preview.Bind(slots);
             ApplyLoadoutVisuals(controller, loadout.State);
             DecorDepthClamp.KeepGameplay(root);
+            CastFormShadow(root.transform);
             return controller;
         }
 
@@ -1111,6 +1138,7 @@ namespace AsteroidsGoneRogue
             seeker.Initialize(player, waves, kind);
             seeker.BeginSpawnGrace();
             DecorDepthClamp.KeepGameplay(root);
+            CastFormShadow(root.transform);
             if (AudioCues.Instance != null)
             {
                 if (kind == EnemyKind.SwarmPod)
@@ -1481,6 +1509,7 @@ namespace AsteroidsGoneRogue
             FitAsteroidCollider(collider, root.transform);
             CenterAsteroidOnPlayOrigin(collider, root.transform);
             ApplyWatchAsteroid(root.transform, rock, waves);
+            CastFormShadow(root.transform);
 
             Asteroid asteroid = root.AddComponent<Asteroid>();
             asteroid.Initialize(size, waves, this, drift);
@@ -2446,6 +2475,20 @@ namespace AsteroidsGoneRogue
         private Material RemapImported(string importedName, Material fallback)
         {
             string name = importedName ?? string.Empty;
+            if (ContainsIgnoreCase(name, "W3")
+                && (ContainsIgnoreCase(name, "Accent") || ContainsIgnoreCase(name, "Glow")))
+            {
+                return _w3Beam != null ? _w3Beam : _arena;
+            }
+
+            if ((ContainsIgnoreCase(name, "Glass") || ContainsIgnoreCase(name, "Tile"))
+                && (ContainsIgnoreCase(name, "Arena")
+                    || ContainsIgnoreCase(name, "Astro")
+                    || ContainsIgnoreCase(name, "Floor")))
+            {
+                return _arena != null ? _arena : fallback;
+            }
+
             if (ContainsIgnoreCase(name, "Mat_Ship_AccentHot_Hero"))
             {
                 return _accentHotHero != null ? _accentHotHero : _accent;
@@ -3025,6 +3068,48 @@ namespace AsteroidsGoneRogue
             }
 
             return null;
+        }
+
+        private static Texture2D FloorNoise()
+        {
+            const int Size = 64;
+            Texture2D tex = new Texture2D(Size, Size, TextureFormat.RGB24, false);
+            tex.wrapMode = TextureWrapMode.Repeat;
+            tex.filterMode = FilterMode.Bilinear;
+            tex.name = "ArenaFloorNoise";
+            for (int y = 0; y < Size; y++)
+            {
+                for (int x = 0; x < Size; x++)
+                {
+                    int hash = ((x * 73) + (y * 19) + ((x * y) % 11)) & 255;
+                    float n = 0.90f + ((hash / 255f) * 0.10f);
+                    tex.SetPixel(x, y, new Color(n, n, n, 1f));
+                }
+            }
+
+            tex.Apply(false, true);
+            return tex;
+        }
+
+        private static void CastFormShadow(Transform root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer form = renderers[i];
+                if (form == null)
+                {
+                    continue;
+                }
+
+                form.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                form.receiveShadows = true;
+            }
         }
 
         private Material MakeShipRim(

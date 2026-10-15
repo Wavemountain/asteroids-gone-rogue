@@ -1,6 +1,6 @@
 # SpeltestBot side-by-side captures
 
-Editor-only batch tool: `Assets/Editor/AgrCapture.cs` (`AsteroidsGoneRogue.EditorTools.AgrCapture.Run`). It is not in the player build. One run writes five PNGs at **1920×1080** for a single Reduce effects setting. The same file compiles on 0.47 (`7a64598`) and 0.48: missing pieces (post stack, death slow-mo) are logged and skipped.
+Editor-only batch tool: `Assets/Editor/AgrCapture.cs` (`AsteroidsGoneRogue.EditorTools.AgrCapture.Run`). It is not in the player build. One run writes six PNGs at **1920×1080** for a single Reduce effects setting. The same file compiles on 0.47 (`7a64598`) and 0.48: missing pieces (post stack, death slow-mo) are logged and skipped.
 
 Do **not** pass `-nographics`. The post stack needs a GPU.
 
@@ -22,7 +22,7 @@ Reduce effects on (same seed):
 "C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe" -batchmode -projectPath . -executeMethod AsteroidsGoneRogue.EditorTools.AgrCapture.Run -logFile - -captureOut Captures\compare -reduce 1 -seed 48048
 ```
 
-Run the command from the project folder (the one that contains `Assets/`). Exit code **0** and a log line `AgrCapture OK` means all five files were written. Any failure logs `AgrCapture FAIL: …` and exits **non-zero**. A missing game session fails in seconds. 300 seconds is only the last backstop.
+Run the command from the project folder (the one that contains `Assets/`). Exit code **0** and a log line `AgrCapture OK` means all six files were written. Any failure logs `AgrCapture FAIL: …` and exits **non-zero**. A missing game session fails in seconds. 300 seconds is only the last backstop.
 
 ## Expected files
 
@@ -34,7 +34,8 @@ Under `-captureOut` (here `Captures\compare`):
 | `w1_reduceoff.png` / `w1_reduceon.png` | World 1 wave 1 |
 | `w3_reduceoff.png` / `w3_reduceon.png` | World 3 Far Drift, wave 11 |
 | `w4_reduceoff.png` / `w4_reduceon.png` | World 4 Mine Fields, wave 16 |
-| `death_reduceoff.png` / `death_reduceon.png` | Wave 1, mid death slow-mo (half of 0.40 s) with the death vignette |
+| `death_reduceoff.png` / `death_reduceon.png` | Wave 1, mid death slow-mo (half of `DeathSlowSeconds`, 0.60 s → 0.30 s) with debris, desaturation, and the death vignette (ramp is still 0.40 s, so the pin is about 75% up) |
+| `waveclear_reduceoff.png` / `waveclear_reduceon.png` | Wave 1, mid wave-clear: shock ring, bloom bump, `WAVE CLEAR` / `VÅG KLAR` |
 
 Combat shots use camera `(0, 35, -22)` looking at the origin, FOV 54, ship held at the origin. Each shot waits 60 fixed frames (`Time.captureDeltaTime` 1/60). `Captures/` is gitignored.
 

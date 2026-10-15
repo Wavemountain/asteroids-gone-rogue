@@ -47,6 +47,20 @@ namespace AsteroidsGoneRogue
             kit.PlayShock(position, startScale, endScale, seconds, reduce);
         }
 
+        /// <summary>
+        /// Ages slots that were spawned this instant so a paused capture
+        /// still shows debris and a shock ring, not a point at the origin.
+        /// </summary>
+        public static void PresentFresh(float age01)
+        {
+            if (_live == null)
+            {
+                return;
+            }
+
+            _live.PoseFresh(age01);
+        }
+
         public static void Muzzle(Vector3 position, Vector3 forward, int mode, bool reduce)
         {
             VfxKit kit = Ensure();
@@ -228,6 +242,66 @@ namespace AsteroidsGoneRogue
             slot.Root.transform.position = position;
             slot.Root.transform.localScale = new Vector3(startScale, startScale, startScale);
             ApplyTint(slot, 1f);
+        }
+
+        private void PoseFresh(float age01)
+        {
+            float shown = age01;
+            if (shown < 0f)
+            {
+                shown = 0f;
+            }
+
+            if (shown > 0.85f)
+            {
+                shown = 0.85f;
+            }
+
+            float now = Time.time;
+            PoseFreshPool(_debris, now, shown, true);
+            PoseFreshPool(_rings, now, shown, false);
+        }
+
+        private void PoseFreshPool(VfxSlot[] pool, float now, float shown, bool drift)
+        {
+            if (pool == null)
+            {
+                return;
+            }
+
+            int index = 0;
+            while (index < pool.Length)
+            {
+                VfxSlot slot = pool[index];
+                index++;
+                if (slot == null || slot.Live == 0 || slot.Root == null)
+                {
+                    continue;
+                }
+
+                if (now - slot.Born > 0.05f)
+                {
+                    continue;
+                }
+
+                float life = slot.Life;
+                if (life < 0.02f)
+                {
+                    life = 0.02f;
+                }
+
+                float age = life * shown;
+                slot.Born = now - age;
+                slot.Until = slot.Born + life;
+                float scale = VfxBudget.ShockScale(shown, slot.StartScale, slot.EndScale);
+                slot.Root.transform.localScale = new Vector3(scale, scale, scale);
+                if (drift && slot.DriftSpeed > 0f)
+                {
+                    slot.Root.transform.position = slot.Origin + (slot.Drift * (slot.DriftSpeed * age));
+                }
+
+                ApplyTint(slot, 1f - shown);
+            }
         }
 
         private void Tick(VfxSlot[] pool, float now, Camera camera, bool billboard)

@@ -84,8 +84,8 @@ namespace AsteroidsGoneRogue
             Color star = SoftenAmount(ScaleColor(new Color(tint.StarR, tint.StarG, tint.StarB, 1f), bright), tint.Chroma);
             Color nebula = SoftenAmount(ScaleColor(new Color(tint.NebulaR, tint.NebulaG, tint.NebulaB, NebulaOpacity), bright), tint.Chroma);
             nebula.a = NebulaOpacity;
-            Color grid = SoftenAmount(ScaleColor(new Color(tint.GridR, tint.GridG, tint.GridB, GridAlpha), bright), tint.Chroma);
-            grid.a = GridAlpha;
+            Color grid = SoftenAmount(ScaleColor(new Color(tint.GridR, tint.GridG, tint.GridB, PremiumLook.GridVisibleAlpha), bright), tint.Chroma);
+            grid.a = PremiumLook.GridVisibleAlpha;
             _floorTint = ScaleColor(new Color(tint.FloorR, tint.FloorG, tint.FloorB, 1f), bright);
             Texture2D nebulaTex = _nebulaBlue;
             if (tint.PurpleNebula != 0)
@@ -211,8 +211,14 @@ namespace AsteroidsGoneRogue
                 }
 
                 keyLight.intensity = intensity;
-                keyLight.color = new Color(red, green, blue, 1f);
-                keyLight.shadows = LightShadows.None;
+                float warmR;
+                float warmG;
+                float warmB;
+                PremiumLook.WarmKey(red, green, blue, out warmR, out warmG, out warmB);
+                keyLight.color = new Color(warmR, warmG, warmB, 1f);
+                keyLight.shadows = LightShadows.Soft;
+                keyLight.shadowStrength = PremiumLook.ShadowStrength;
+                keyLight.transform.rotation = Quaternion.Euler(PremiumLook.KeyElevation, PremiumLook.KeyYaw, 0f);
             }
         }
 
@@ -232,7 +238,27 @@ namespace AsteroidsGoneRogue
                     continue;
                 }
 
-                floorRenderer.material.color = _floorTint;
+                string painted = floorRenderer.sharedMaterial != null ? floorRenderer.sharedMaterial.name : string.Empty;
+                if (painted.IndexOf("W3_Beam", System.StringComparison.Ordinal) >= 0)
+                {
+                    continue;
+                }
+
+                float floorR;
+                float floorG;
+                float floorB;
+                PremiumLook.FloorRgb(_world, _floorTint.r, _floorTint.g, _floorTint.b, out floorR, out floorG, out floorB);
+                Material paintedMat = floorRenderer.material;
+                paintedMat.color = new Color(floorR, floorG, floorB, 1f);
+                if (paintedMat.HasProperty("_Glossiness"))
+                {
+                    paintedMat.SetFloat("_Glossiness", PremiumLook.FloorSmoothness);
+                }
+
+                if (paintedMat.HasProperty("_Metallic"))
+                {
+                    paintedMat.SetFloat("_Metallic", PremiumLook.FloorMetallic);
+                }
             }
         }
 
@@ -285,7 +311,7 @@ namespace AsteroidsGoneRogue
             }
 
             float gridMul = ArenaDepth.GridAlphaMul(MusicPlan.TrackBpm(_world), phase, reduce);
-            ApplyLayerAlpha(_grid, GridAlpha * gridMul);
+            ApplyLayerAlpha(_grid, PremiumLook.GridVisibleAlpha * gridMul);
             TickNearDust(view, reduce);
             if (_belt != null)
             {
@@ -329,9 +355,10 @@ namespace AsteroidsGoneRogue
             _grid = UnlitTransparent(
                 "Mat_Env_Grid",
                 MakeGridTexture(),
-                new Color(EmissionTargets.SteelR, EmissionTargets.SteelG, EmissionTargets.SteelB, GridAlpha),
+                new Color(EmissionTargets.SteelR, EmissionTargets.SteelG, EmissionTargets.SteelB, PremiumLook.GridVisibleAlpha),
                 2900);
 
+            CreateDome("OuterNebula", radius * 11.5f, OuterNebulaMaterial());
             CreateDome("StarFar", radius * 8.8f, _starFar);
             CreateDome("StarMid", radius * 7.5f, _starMid);
             CreateDome("StarNear", radius * 6.4f, _starNear);
@@ -400,10 +427,15 @@ namespace AsteroidsGoneRogue
             line.widthMultiplier = 0.38f;
             line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             line.receiveShadows = false;
-            Shader shader = Shader.Find("Unlit/Color");
+            Shader shader = Shader.Find("Unlit/Transparent");
             if (shader == null)
             {
-                shader = Shader.Find("Particles/Additive");
+                shader = Shader.Find("Particles/Standard Unlit");
+            }
+
+            if (shader == null)
+            {
+                shader = Shader.Find("Unlit/Color");
             }
 
             if (shader == null)
@@ -413,10 +445,15 @@ namespace AsteroidsGoneRogue
 
             Material material = new Material(shader);
             material.name = "Mat_Env_Lip";
-            material.color = new Color(EmissionTargets.SteelR, EmissionTargets.SteelG, EmissionTargets.SteelB, 1f);
+            Color lip = new Color(
+                EmissionTargets.SteelR,
+                EmissionTargets.SteelG,
+                EmissionTargets.SteelB,
+                PremiumLook.DomeRimAlpha);
+            material.color = lip;
             line.sharedMaterial = material;
-            line.startColor = material.color;
-            line.endColor = material.color;
+            line.startColor = lip;
+            line.endColor = lip;
             for (int i = 0; i < 72; i++)
             {
                 float ang = (i / 72f) * Mathf.PI * 2f;
@@ -757,6 +794,29 @@ namespace AsteroidsGoneRogue
             glow.shadows = LightShadows.None;
         }
 
+        private static Material OuterNebulaMaterial()
+        {
+            const int Size = 32;
+            Texture2D tex = new Texture2D(Size, Size, TextureFormat.ARGB32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+            tex.name = "OuterNebula";
+            for (int y = 0; y < Size; y++)
+            {
+                float v = y / (float)(Size - 1);
+                float r = PremiumLook.OutsideR + (0.03f * v);
+                float g = PremiumLook.OutsideG + (0.015f * (1f - v));
+                float b = PremiumLook.OutsideB + (0.05f * v);
+                for (int x = 0; x < Size; x++)
+                {
+                    tex.SetPixel(x, y, new Color(r, g, b, 1f));
+                }
+            }
+
+            tex.Apply(false, true);
+            return UnlitLayer("Mat_Env_OuterNebula", tex, Color.white, 2990, 1f);
+        }
+
         private static Material UnlitLayer(string name, Texture2D texture, Color tint, int queue, float tiling)
         {
             Shader shader = Shader.Find("Particles/Additive");
@@ -832,7 +892,23 @@ namespace AsteroidsGoneRogue
                 {
                     float nx = (x / (float)(Size - 1)) * 2f - 1f;
                     float ny = (y / (float)(Size - 1)) * 2f - 1f;
-                    float fade = 1f - Mathf.Clamp01(Mathf.Sqrt(nx * nx + ny * ny));
+                    float radius01 = Mathf.Sqrt(nx * nx + ny * ny);
+                    float fade = 1f;
+                    if (radius01 > PremiumLook.GridEdgeStart)
+                    {
+                        float edge = (radius01 - PremiumLook.GridEdgeStart) / (1f - PremiumLook.GridEdgeStart);
+                        if (edge < 0f)
+                        {
+                            edge = 0f;
+                        }
+
+                        if (edge > 1f)
+                        {
+                            edge = 1f;
+                        }
+
+                        fade = 1f - edge;
+                    }
                     bool grid = x % 8 == 0 || y % 8 == 0;
                     Color c = grid ? line : clear;
                     c.a *= fade;

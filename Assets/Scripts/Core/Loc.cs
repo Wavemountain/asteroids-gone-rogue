@@ -153,6 +153,7 @@ namespace AsteroidsGoneRogue
             { "ui.world_badge", "VÄRLD {0}  ·  {1}" },
             { "ui.layout_swap", "LAYOUTBYTE\nVÄRLD {0}  ONLINE" },
             { "ui.hud_wave_score", "Våg {0}   ·   Poäng {1}" },
+            { "ui.hud_corner", "Våg {0}  ·  {1}" },
             { "ui.health", "HÄLSA" },
             { "ui.hull_label", "SKROV" },
             { "ui.shield_label", "SKÖLD" },

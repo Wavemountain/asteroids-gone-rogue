@@ -36,7 +36,7 @@ namespace AsteroidsGoneRogue
 
             ShaderWarmup.Touch();
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.02f, 0.03f, 0.05f);
+            camera.backgroundColor = new Color(PremiumLook.OutsideR, PremiumLook.OutsideG, PremiumLook.OutsideB, 1f);
             camera.fieldOfView = 54f;
             camera.nearClipPlane = 0.1f;
             camera.farClipPlane = 280f;
@@ -46,7 +46,10 @@ namespace AsteroidsGoneRogue
             PostStack.Attach(camera);
 
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.12f, 0.14f, 0.18f);
+            RenderSettings.ambientLight = new Color(
+                PremiumLook.AmbientChannel(0.12f),
+                PremiumLook.AmbientChannel(0.14f),
+                PremiumLook.AmbientChannel(0.18f));
 
             EnsureEventSystem();
             EnsureLight();
@@ -129,8 +132,14 @@ namespace AsteroidsGoneRogue
             Light light = lightObject.AddComponent<Light>();
             light.type = LightType.Directional;
             light.intensity = 1.15f;
-            light.color = new Color(0.92f, 0.95f, 1f);
-            lightObject.transform.rotation = Quaternion.Euler(42f, -35f, 0f);
+            float warmR;
+            float warmG;
+            float warmB;
+            PremiumLook.WarmKey(0.92f, 0.95f, 1f, out warmR, out warmG, out warmB);
+            light.color = new Color(warmR, warmG, warmB, 1f);
+            light.shadows = LightShadows.Soft;
+            light.shadowStrength = PremiumLook.ShadowStrength;
+            lightObject.transform.rotation = Quaternion.Euler(PremiumLook.KeyElevation, PremiumLook.KeyYaw, 0f);
         }
     }
 }

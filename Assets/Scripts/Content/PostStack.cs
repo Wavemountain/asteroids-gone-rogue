@@ -23,6 +23,9 @@ namespace AsteroidsGoneRogue
 
         private static PostStack _active;
 
+        private float _waveBloomUntil;
+        private float _waveBloomAdd;
+
         private Camera _camera;
         private Material _material;
         private PostBlendState _state;
@@ -90,6 +93,28 @@ namespace AsteroidsGoneRogue
             }
 
             _active._state = PostGrade.BeginDeath(_active._state);
+        }
+
+        public static void BeginWaveBloom()
+        {
+            if (_active == null)
+            {
+                return;
+            }
+
+            float add = PremiumLook.WaveBloomAdd;
+            if (SettingsState.ReduceEffectsEnabled)
+            {
+                add *= EffectScale.PostBloomMul;
+            }
+
+            _active._waveBloomAdd = add;
+            _active._waveBloomUntil = Time.unscaledTime + PremiumLook.WaveBloomSeconds;
+        }
+
+        public static void PinWaveBloom()
+        {
+            BeginWaveBloom();
         }
 
         /// <summary>
@@ -190,6 +215,18 @@ namespace AsteroidsGoneRogue
             float vignette;
             PostGrade.Sample(_state, reduce, memoryMb, out shown, out vignette);
             shown.Vignette = vignette;
+            float deathU = 0f;
+            if (_state.DeathElapsed > 0f && PostGrade.DeathVignetteSeconds > 0.0001f)
+            {
+                deathU = _state.DeathElapsed / PostGrade.DeathVignetteSeconds;
+            }
+
+            shown.Saturation = PremiumLook.DeathSaturation(shown.Saturation, deathU, reduce);
+            if (Time.unscaledTime < _waveBloomUntil)
+            {
+                shown.Bloom += _waveBloomAdd;
+            }
+
             StoreGrade(shown, vignette, reduce);
             PushUniforms(shown, source);
 
