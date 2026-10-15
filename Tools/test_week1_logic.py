@@ -8548,6 +8548,7 @@ def main() -> int:
     test_p6_emission_rim_meshes()
     test_p7_post_and_light()
     test_p8_vfx_pool()
+    test_p9_audio_arena()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -15578,6 +15579,124 @@ def test_p5_glass_risk_daily() -> None:
             assert _shop_wrapped_lines(text, box, 18) <= 2
             assert _kenney_narrow_width(text, 18) <= box + 0.5
         assert _kenney_narrow_width(lines["risk_en"], 16) <= record_w
+
+
+def test_p9_audio_arena() -> None:
+    """0.48 PR D: death/wave whoosh, music low-pass, voice caps, arena depth."""
+    import os
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    audio = (root / "Assets/Scripts/Content/AudioCues.cs").read_text(encoding="utf-8")
+    arena = (root / "Assets/Scripts/Content/ArenaEnv.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    plan = (root / "Assets/Scripts/Core/MusicPlan.cs").read_text(encoding="utf-8")
+    roster = (root / "Assets/Scripts/Core/VoiceRoster.cs").read_text(encoding="utf-8")
+    lowpass = (root / "Assets/Scripts/Core/MusicLowPass.cs").read_text(encoding="utf-8")
+    depth = (root / "Assets/Scripts/Core/ArenaDepth.cs").read_text(encoding="utf-8")
+    fairness = (root / "Assets/Scripts/Core/FairnessRules.cs").read_text(encoding="utf-8")
+    voices = (root / "ProjectSettings/AudioManager.asset").read_text(encoding="utf-8")
+    stub = (root / "Tools/roslyn/UnityStub.cs").read_text(encoding="utf-8")
+
+    assert "m_RealVoiceCount: 32" in voices
+    assert "RealVoiceLimit = 32" in roster and "SlotSpan = 30" in roster
+    assert "public static bool SelfCheck()" in roster
+    assert "public static bool SelfCheck()" in lowpass
+    assert "public static bool SelfCheck()" in depth
+    assert "HitVoiceCap = 4" in fairness and "TellVoiceCap = 2" in fairness and "PickupVoiceCap = 2" in fairness
+    assert "Cap(CatHit)" in roster and "return 4" in roster
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/agr_death_whoosh")' in audio
+    assert 'Resources.Load<AudioClip>("Audio/Sfx/agr_wave_whoosh")' in audio
+    assert "AudioLowPassFilter" in audio and "AudioLowPassFilter" in stub
+    assert "SetMusicLowPass" in audio and "MusicLowPass.LerpHz" in audio
+    assert "PlayDeathWhoosh" in audio and "PlayDeathWhoosh" in manager
+    death = manager.split("private bool BeginFinalDeath(")[1].split("private void BeginWaveClear")[0]
+    assert "PlayDeathWhoosh" in death
+    fail = audio.split("public void PlayWaveFail()")[1].split("public void")[0]
+    assert "SetMusicLowPass(MusicLowPass.OpenHz, MusicLowPass.ReleaseSeconds)" in fail
+    clear = audio.split("public void PlayWaveClear()")[1].split("public void")[0]
+    assert "Play(_waveClear, WaveClearScale)" in clear
+    assert "agr_wave_whoosh" not in clear or "WaveWhooshScale" in clear
+    assert "MusicLowPass.WaveWhooshScale" in clear
+    assert "WorldTrackBpm" in plan and "TrackBpm" in plan
+    bpm = plan.split("int[] WorldTrackBpm =")[1].split("public static int TrackBpm")[0]
+    assert bpm.count("0") >= 8
+    assert "ArenaDepth.Parallax" in arena and "ArenaDepth.Breathe" in arena
+    assert "ArenaDepth.GridAlphaMul" in arena and "NearDust" in arena
+    assert "Particles/Standard Unlit" in arena and "Mat_Env_NearDust" in arena
+    assert "DustAlphaMax" in depth and "0.18f" in depth
+    assert "RunRng" not in roster and "RunRng" not in lowpass and "RunRng" not in depth
+    assert "RunRng" not in arena and "RunRng" not in audio
+    assert "InputManager" not in audio and "InputManager" not in arena
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    from roslyn_core_check import find_dotnet
+
+    dotnet = find_dotnet()
+    assert dotnet, "audio arena tests need dotnet"
+    work = Path(os.environ.get("TMPDIR", "/tmp")) / "agr-audio-048"
+    if work.exists():
+        shutil.rmtree(work)
+    work.mkdir(parents=True)
+    for name in ("VoiceRoster.cs", "MusicLowPass.cs", "ArenaDepth.cs"):
+        shutil.copyfile(root / "Assets/Scripts/Core" / name, work / name)
+    program = """
+using System;
+class Program
+{
+    static void Main()
+    {
+        if (!AsteroidsGoneRogue.VoiceRoster.SelfCheck()) throw new Exception("voices");
+        if (!AsteroidsGoneRogue.MusicLowPass.SelfCheck()) throw new Exception("lowpass");
+        if (!AsteroidsGoneRogue.ArenaDepth.SelfCheck()) throw new Exception("arena");
+        Console.WriteLine("audio-arena-ok");
+    }
+}
+"""
+    (work / "Program.cs").write_text(program, encoding="utf-8")
+    (work / "audio.csproj").write_text(
+        "\n".join(
+            (
+                '<Project Sdk="Microsoft.NET.Sdk">',
+                "  <PropertyGroup>",
+                "    <OutputType>Exe</OutputType>",
+                "    <TargetFramework>net8.0</TargetFramework>",
+                "    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>",
+                "    <Nullable>disable</Nullable>",
+                "    <ImplicitUsings>disable</ImplicitUsings>",
+                "  </PropertyGroup>",
+                "  <ItemGroup>",
+                '    <Compile Include="VoiceRoster.cs" />',
+                '    <Compile Include="MusicLowPass.cs" />',
+                '    <Compile Include="ArenaDepth.cs" />',
+                '    <Compile Include="Program.cs" />',
+                "  </ItemGroup>",
+                "</Project>",
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
+    env["DOTNET_NOLOGO"] = "1"
+    env["DOTNET_ROOT"] = str(Path(dotnet).resolve().parent)
+    env["PATH"] = str(Path(dotnet).resolve().parent) + os.pathsep + env.get("PATH", "")
+    result = subprocess.run(
+        [dotnet, "run", "--project", str(work / "audio.csproj"), "-v", "q"],
+        cwd=work,
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout
+    assert "audio-arena-ok" in result.stdout
 
 
 if __name__ == "__main__":

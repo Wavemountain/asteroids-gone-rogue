@@ -49,6 +49,13 @@ namespace AsteroidsGoneRogue
         private Texture2D _nebulaBlue;
         private Texture2D _nebulaPurple;
         private Color _floorTint = new Color(0.04f, 0.14f, 0.42f, 1f);
+        private int _world = 1;
+        private float _nebulaBaseA = NebulaOpacity;
+        private float _innerBaseA = NebulaInnerOpacity;
+        private ParticleSystem _dust;
+        private ParticleSystem.Particle[] _dustBuf;
+        private Vector3 _dustCam;
+        private int _dustReady;
 
         public static ArenaEnv Ensure(Transform arenaRoot)
         {
@@ -115,6 +122,10 @@ namespace AsteroidsGoneRogue
             {
                 _grid.color = grid;
             }
+
+            _world = world;
+            _nebulaBaseA = NebulaOpacity;
+            _innerBaseA = NebulaInnerOpacity;
 
             TintNamedLight("ArenaUnderGlow", star);
             ApplyWorldLight(world);
@@ -242,11 +253,40 @@ namespace AsteroidsGoneRogue
 
         private void LateUpdate()
         {
-            Scroll(_starFar, 0.01f, 0.0036f);
-            Scroll(_starMid, -0.02f, 0.0075f);
-            Scroll(_starNear, 0.035f, -0.008f);
-            Scroll(_nebula, -0.008f, 0.0045f);
-            Scroll(_nebulaInner, 0.011f, -0.006f);
+            float time = Time.unscaledTime;
+            bool reduce = SettingsState.ReduceEffectsEnabled;
+            float camX = 0f;
+            float camZ = 0f;
+            Camera view = Camera.main;
+            if (view != null)
+            {
+                camX = view.transform.position.x;
+                camZ = view.transform.position.z;
+            }
+
+            float offsetX;
+            float offsetY;
+            ArenaDepth.Parallax(camX, camZ, time, ArenaDepth.StarFarK, ArenaDepth.StarFarDriftX, ArenaDepth.StarFarDriftY, reduce, out offsetX, out offsetY);
+            Scroll(_starFar, offsetX, offsetY);
+            ArenaDepth.Parallax(camX, camZ, time, ArenaDepth.StarMidK, ArenaDepth.StarMidDriftX, ArenaDepth.StarMidDriftY, reduce, out offsetX, out offsetY);
+            Scroll(_starMid, offsetX, offsetY);
+            ArenaDepth.Parallax(camX, camZ, time, ArenaDepth.StarNearK, ArenaDepth.StarNearDriftX, ArenaDepth.StarNearDriftY, reduce, out offsetX, out offsetY);
+            Scroll(_starNear, offsetX, offsetY);
+            float driftScale = reduce ? ArenaDepth.ReduceMotion : 1f;
+            Scroll(_nebula, ArenaDepth.NebulaDrift * driftScale * time, 0f);
+            Scroll(_nebulaInner, ArenaDepth.NebulaInnerDrift * driftScale * time, 0f);
+            float breathe = ArenaDepth.Breathe(time, reduce);
+            ApplyLayerAlpha(_nebula, _nebulaBaseA + breathe);
+            ApplyLayerAlpha(_nebulaInner, _innerBaseA + breathe);
+            float phase = 0f;
+            if (AudioCues.Instance != null)
+            {
+                phase = AudioCues.Instance.DominantMusicSeconds();
+            }
+
+            float gridMul = ArenaDepth.GridAlphaMul(MusicPlan.TrackBpm(_world), phase, reduce);
+            ApplyLayerAlpha(_grid, GridAlpha * gridMul);
+            TickNearDust(view, reduce);
             if (_belt != null)
             {
                 _belt.Rotate(0f, BeltSpinDegrees * Time.unscaledDeltaTime, 0f, Space.World);
@@ -298,6 +338,7 @@ namespace AsteroidsGoneRogue
             CreateBelt(radius * BeltRadiusScale);
             CreateRimLight();
             CreateUnderGlow(radius);
+            CreateNearDust();
         }
 
         private void CreateDome(string name, float radius, Material material)
@@ -457,10 +498,173 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            Vector2 offset = material.mainTextureOffset;
-            offset.x += x * Time.unscaledDeltaTime;
-            offset.y += y * Time.unscaledDeltaTime;
-            material.mainTextureOffset = offset;
+            material.mainTextureOffset = new Vector2(x, y);
+        }
+
+        private static void ApplyLayerAlpha(Material material, float alpha)
+        {
+            if (material == null)
+            {
+                return;
+            }
+
+            float a = alpha;
+            if (a < 0f)
+            {
+                a = 0f;
+            }
+
+            if (a > 1f)
+            {
+                a = 1f;
+            }
+
+            Color color = material.color;
+            color.a = a;
+            material.color = color;
+        }
+
+        private void CreateNearDust()
+        {
+            GameObject dustObject = new GameObject("NearDust");
+            dustObject.transform.SetParent(transform, false);
+            _dust = dustObject.AddComponent<ParticleSystem>();
+            _dustBuf = new ParticleSystem.Particle[ArenaDepth.DustFull];
+            ParticleSystem.MainModule main = _dust.main;
+            main.playOnAwake = true;
+            main.loop = true;
+            main.duration = ArenaDepth.DustLife;
+            main.startLifetime = ArenaDepth.DustLife;
+            main.startSpeed = 0f;
+            main.maxParticles = ArenaDepth.DustFull;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.startSize = new ParticleSystem.MinMaxCurve(ArenaDepth.DustSizeMin, ArenaDepth.DustSizeMax);
+            main.startColor = new Color(ArenaDepth.AccentR, ArenaDepth.AccentG, ArenaDepth.AccentB, ArenaDepth.DustAlphaMax);
+            ParticleSystem.EmissionModule emission = _dust.emission;
+            emission.enabled = true;
+            emission.rateOverTime = ArenaDepth.DustFull / ArenaDepth.DustLife;
+            ParticleSystem.ShapeModule shape = _dust.shape;
+            shape.enabled = true;
+            shape.shapeType = ParticleSystemShapeType.Sphere;
+            shape.radius = 2.2f;
+            ParticleSystemRenderer renderer = dustObject.GetComponent<ParticleSystemRenderer>();
+            Material material = NearDustMaterial();
+            if (renderer != null)
+            {
+                renderer.sharedMaterial = material;
+            }
+
+            if (material == null)
+            {
+                _dust.Stop();
+                dustObject.SetActive(false);
+            }
+        }
+
+        private static Material NearDustMaterial()
+        {
+            Shader shader = Shader.Find("Particles/Standard Unlit");
+            if (shader == null)
+            {
+                shader = Shader.Find("Particles/Additive");
+            }
+
+            if (shader == null)
+            {
+                shader = Shader.Find("Unlit/Transparent");
+            }
+
+            if (shader == null)
+            {
+                shader = Shader.Find("Unlit/Color");
+            }
+
+            if (shader == null)
+            {
+                return null;
+            }
+
+            Material material = new Material(shader);
+            material.name = "Mat_Env_NearDust";
+            material.color = new Color(ArenaDepth.AccentR, ArenaDepth.AccentG, ArenaDepth.AccentB, ArenaDepth.DustAlphaMax);
+            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.One);
+            material.renderQueue = 3000;
+            return material;
+        }
+
+        private void TickNearDust(Camera view, bool reduce)
+        {
+            if (_dust == null)
+            {
+                return;
+            }
+
+            int count = ArenaDepth.DustCount(reduce, Screen.width);
+            ParticleSystem.MainModule main = _dust.main;
+            if (main.maxParticles != count)
+            {
+                main.maxParticles = count;
+                ParticleSystem.EmissionModule emission = _dust.emission;
+                emission.rateOverTime = count / ArenaDepth.DustLife;
+            }
+
+            if (view == null)
+            {
+                return;
+            }
+
+            Vector3 camPos = view.transform.position;
+            Vector3 play = new Vector3(camPos.x, DecorDepthRules.PlayY, camPos.z);
+            _dust.transform.position = Vector3.Lerp(camPos, play, 0.35f);
+            float dt = Time.unscaledDeltaTime;
+            if (_dustReady != 0 && dt > 0.0001f)
+            {
+                Vector3 velocity = (camPos - _dustCam) / dt;
+                Vector3 drift = velocity * ArenaDepth.DustParallax;
+                ParticleSystem.VelocityModule motion = _dust.velocityOverLifetime;
+                motion.enabled = true;
+                motion.space = ParticleSystemSimulationSpace.World;
+                motion.x = drift.x;
+                motion.y = drift.y;
+                motion.z = drift.z;
+            }
+
+            _dustCam = camPos;
+            _dustReady = 1;
+            if (_dustBuf == null)
+            {
+                return;
+            }
+
+            int alive = _dust.GetParticles(_dustBuf);
+            Vector3 ship = _dust.transform.position;
+            GameObject player = GameObject.FindGameObjectWithTag(GameTags.Player);
+            if (player != null)
+            {
+                ship = player.transform.position;
+            }
+
+            float resting = reduce ? ArenaDepth.DustAlphaMax * ArenaDepth.DustReduceAlpha : ArenaDepth.DustAlphaMax;
+            byte red = (byte)(ArenaDepth.AccentR * 255f);
+            byte green = (byte)(ArenaDepth.AccentG * 255f);
+            byte blue = (byte)(ArenaDepth.AccentB * 255f);
+            for (int i = 0; i < alive; i++)
+            {
+                Vector3 at = _dustBuf[i].position;
+                float dx = at.x - ship.x;
+                float dy = at.y - ship.y;
+                float dz = at.z - ship.z;
+                float distance = Mathf.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+                float alpha = ArenaDepth.DustAlpha(resting, distance, reduce);
+                byte a = (byte)(alpha * 255f);
+                _dustBuf[i].startColor = new Color32(red, green, blue, a);
+            }
+
+            if (alive > 0)
+            {
+                _dust.SetParticles(_dustBuf, alive);
+            }
         }
 
         private static void ApplyTint(Material material, Color color)

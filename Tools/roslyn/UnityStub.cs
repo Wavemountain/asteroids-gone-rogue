@@ -76,6 +76,9 @@ namespace UnityEngine
         public static Vector3 one { get { return new Vector3(1f, 1f, 1f); } }
         public static Vector3 operator *(Vector3 v, float s) { return new Vector3(v.x * s, v.y * s, v.z * s); }
         public static Vector3 operator +(Vector3 a, Vector3 b) { return new Vector3(a.x + b.x, a.y + b.y, a.z + b.z); }
+        public static Vector3 operator -(Vector3 a, Vector3 b) { return new Vector3(a.x - b.x, a.y - b.y, a.z - b.z); }
+        public static Vector3 operator /(Vector3 v, float s) { return new Vector3(v.x / s, v.y / s, v.z / s); }
+        public static Vector3 Lerp(Vector3 a, Vector3 b, float t) { return new Vector3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t); }
     }
 
     public struct Color
@@ -332,8 +335,34 @@ namespace UnityEngine
     public class Scrollbar { }
     public class EntityId { }
     public class MeshRenderer { }
-    public class AudioClip { }
-    public class AudioSource { }
+    public class AudioClip : Object
+    {
+        public float length { get; set; }
+        public int frequency { get; set; }
+    }
+
+    public class AudioSource : Behaviour
+    {
+        public AudioClip clip { get; set; }
+        public bool loop { get; set; }
+        public float pitch { get; set; }
+        public int priority { get; set; }
+        public int timeSamples { get; set; }
+        public bool playOnAwake { get; set; }
+        public float spatialBlend { get; set; }
+        public float dopplerLevel { get; set; }
+        public bool isPlaying { get; set; }
+        public float volume { get; set; }
+        public void Play() { }
+        public void Stop() { }
+        public void PlayOneShot(AudioClip clip, float volumeScale) { }
+    }
+
+    public class AudioLowPassFilter : Behaviour
+    {
+        public float cutoffFrequency { get; set; }
+        public float lowpassResonanceQ { get; set; }
+    }
     public class ColorBlock { }
     public class Outline { }
     public class Canvas { }
@@ -358,6 +387,8 @@ namespace UnityEngine
 
     public enum ParticleSystemSimulationSpace { Local, World }
 
+    public enum ParticleSystemShapeType { Sphere, Hemisphere, Cone, Box }
+
     public class ParticleSystem : Component
     {
         public struct MainModule
@@ -368,7 +399,7 @@ namespace UnityEngine
             public bool loop { get; set; }
             public float startLifetime { get; set; }
             public float startSpeed { get; set; }
-            public float startSize { get; set; }
+            public ParticleSystem.MinMaxCurve startSize { get; set; }
             public Color startColor { get; set; }
             public ParticleSystemSimulationSpace simulationSpace { get; set; }
         }
@@ -376,11 +407,14 @@ namespace UnityEngine
         public struct EmissionModule
         {
             public bool enabled { get; set; }
+            public ParticleSystem.MinMaxCurve rateOverTime { get; set; }
         }
 
         public struct ShapeModule
         {
             public bool enabled { get; set; }
+            public float radius { get; set; }
+            public ParticleSystemShapeType shapeType { get; set; }
         }
 
         public struct EmitParams
@@ -392,12 +426,37 @@ namespace UnityEngine
             public Color startColor { get; set; }
         }
 
+        public struct Particle
+        {
+            public Vector3 position;
+            public Color32 startColor;
+        }
+
+        public struct MinMaxCurve
+        {
+            public MinMaxCurve(float constant) { }
+            public MinMaxCurve(float min, float max) { }
+            public static implicit operator MinMaxCurve(float v) { return new MinMaxCurve(v); }
+        }
+
+        public struct VelocityModule
+        {
+            public bool enabled { get; set; }
+            public ParticleSystemSimulationSpace space { get; set; }
+            public ParticleSystem.MinMaxCurve x { get; set; }
+            public ParticleSystem.MinMaxCurve y { get; set; }
+            public ParticleSystem.MinMaxCurve z { get; set; }
+        }
+
         public MainModule main { get { return new MainModule(); } }
         public EmissionModule emission { get { return new EmissionModule(); } }
         public ShapeModule shape { get { return new ShapeModule(); } }
+        public VelocityModule velocityOverLifetime { get { return new VelocityModule(); } }
         public void Emit(EmitParams emitParams, int count) { }
         public void Clear() { }
         public void Stop() { }
+        public int GetParticles(Particle[] particles) { return 0; }
+        public void SetParticles(Particle[] particles, int size) { }
     }
 
     public class ParticleSystemRenderer : Renderer
