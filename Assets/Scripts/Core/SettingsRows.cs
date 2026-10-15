@@ -22,6 +22,7 @@ namespace AsteroidsGoneRogue
         FpsCap = 17,
         PromptScheme = 18,
         ChangeControls = 19,
+        ResetTutorial = 20,
     }
 
     public enum SettingsRowRole
@@ -39,7 +40,7 @@ namespace AsteroidsGoneRogue
     {
         public const float ContentTop = 0.86f;
         public const float ContentBottom = 0.05f;
-        public const float RowGap = 0.012f;
+        public const float RowGap = 0.0113f;
         public const float SectionWeight = 7.2f;
         public const float RowWeight = 1f;
         public const float VolumeStep = 0.1f;
@@ -64,6 +65,7 @@ namespace AsteroidsGoneRogue
             SettingsRowId.FpsCap,
             SettingsRowId.PromptScheme,
             SettingsRowId.ChangeControls,
+            SettingsRowId.ResetTutorial,
             SettingsRowId.Controls,
             SettingsRowId.Close,
         };
@@ -80,7 +82,9 @@ namespace AsteroidsGoneRogue
                 return SettingsRowRole.Section;
             }
 
-            if (id == SettingsRowId.Close || id == SettingsRowId.ChangeControls)
+            if (id == SettingsRowId.Close
+                || id == SettingsRowId.ChangeControls
+                || id == SettingsRowId.ResetTutorial)
             {
                 return SettingsRowRole.Action;
             }
@@ -154,8 +158,9 @@ namespace AsteroidsGoneRogue
         {
             // The visible list uses SettingsScroll's fixed row height. This share
             // only feeds RowBand. A full extra row drops the language band under
-            // the 14px line floor on 3440x1440, so the rebind entry is a short share.
-            if (id == SettingsRowId.ChangeControls)
+            // the 14px line floor on 3440x1440, so rebind and tutorial reset stay
+            // short shares. RowGap is 0.0113 so those two short rows still clear it.
+            if (id == SettingsRowId.ChangeControls || id == SettingsRowId.ResetTutorial)
             {
                 return 0.2f;
             }

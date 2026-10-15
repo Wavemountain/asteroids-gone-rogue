@@ -5019,6 +5019,7 @@ def _settings_roles() -> tuple[str, ...]:
         "value",
         "value",
         "action",
+        "action",
         "section",
         "action",
     )
@@ -5027,11 +5028,11 @@ def _settings_roles() -> tuple[str, ...]:
 def _row_bands() -> list[tuple[float, float]]:
     order = _settings_roles()
     weights = {"value": 1.0, "section": 7.2, "action": 1.0}
-    top, bottom, gap = 0.86, 0.05, 0.012
+    top, bottom, gap = 0.86, 0.05, 0.0113
 
     def weight(index: int, kind: str) -> float:
-        # Mirrors SettingsRows.Weight: Change controls is a short share.
-        if index == 17:
+        # Mirrors SettingsRows.Weight: rebind and reset tutorial are short shares.
+        if index == 17 or index == 18:
             return 0.2
         return weights[kind]
 
@@ -5441,9 +5442,9 @@ def test_settings_shell() -> None:
     assert "RowMinX = 0.06f" in rows and "RowMaxX = 0.94f" in rows
     assert "OldSliderMinUnits = 101f" in rows and "LadderFont = 12" in rows
     assert "ContentTop = 0.86f" in rows and "ContentBottom = 0.05f" in rows
-    assert "RowGap = 0.012f" in rows and "SectionWeight = 7.2f" in rows
+    assert "RowGap = 0.0113f" in rows and "SectionWeight = 7.2f" in rows
     bands = _row_bands()
-    assert len(bands) == 20
+    assert len(bands) == 21
     for y0, y1 in bands:
         assert 0.05 - 1e-6 <= y0 < y1 <= 0.86 + 1e-6
     for left, right in zip(bands, bands[1:]):
@@ -5460,8 +5461,9 @@ def test_settings_shell() -> None:
     assert _settings_move(12, -1) == 11
     assert _settings_move(15, 1) == 16
     assert _settings_move(16, 1) == 17
-    assert _settings_move(17, 1) == 19
-    assert _settings_move(18, -1) == 16
+    assert _settings_move(17, 1) == 18
+    assert _settings_move(18, 1) == 20
+    assert _settings_move(19, -1) == 17
     assert _settings_move(10, -1) == 9
     assert _settings_move(0, 0) == 0
     assert SettingsState_shake(False, 0.4) == 0.0
@@ -8541,6 +8543,7 @@ def main() -> int:
     test_game_feel_048()
     test_ui_transition_048()
     test_p3_hangar_hero_preview()
+    test_p4_tutorial_prompt_cards()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -14641,10 +14644,219 @@ def test_p3_hangar_hero_preview() -> None:
     assert "ShowcaseScale = 1.25f" in preview
     assert "CameraFov = 40f" in preview
     assert "sortingOrder = CanvasOrder.ShipPreview" in ui
+    assert "HangarPreviewHdr.Format" in preview
+    assert "HangarPreviewHdr.AllowsHdr" in preview
+    assert "RenderTextureFormat.ARGBHalf" in preview
+    assert "RenderTextureFormat.DefaultHDR" in preview
+    assert "SystemInfo.SupportsRenderTextureFormat" in preview
+    assert "TryAdoptHero" in factory
+    hero_names = ("Ship_Hero", "Weapon_Rail", "Weapon_Twin", "Weapon_Pierce", "Weapon_Seeker")
+    for folder in ("Assets/Art/Import", "Assets/Resources/Art/Import"):
+        for name in hero_names:
+            meta = (root / folder / f"{name}.fbx.meta").read_text(encoding="utf-8")
+            assert "preserveHierarchy: 1" in meta, name
+    brute = (root / "Assets/Art/Import/Enemy_Brute_v2.fbx.meta").read_text(encoding="utf-8")
+    assert "preserveHierarchy: 0" in brute
     assert "ShipPreview = 80" in order
     assert "Depth = -100f" in clear and "CullingMask = 0" in clear
     assert "public static int SlotCount" in pad
     assert "UiTheme.Surface" in ui
+
+
+def test_p4_tutorial_prompt_cards() -> None:
+    """0.48 P4: prompt-card state machine, settings migration, glyphs, and fit."""
+    import os
+    import shutil
+    import subprocess
+    import textwrap
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    prompt = (root / "Assets/Scripts/Core/TutorialPrompt.cs").read_text(encoding="utf-8")
+    hdr = (root / "Assets/Scripts/Core/HangarPreviewHdr.cs").read_text(encoding="utf-8")
+    state = (root / "Assets/Scripts/Core/SettingsState.cs").read_text(encoding="utf-8")
+    rows = (root / "Assets/Scripts/Core/SettingsRows.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    pad = (root / "Assets/Scripts/Core/HangarPadNav.cs").read_text(encoding="utf-8")
+    order_src = (root / "Assets/Scripts/Core/CanvasOrder.cs").read_text(encoding="utf-8")
+
+    assert "CurrentVersion = 7" in state
+    assert "TutorialCardsKey" in state and "TutorialPrompt.Migrate" in state
+    assert "ResetTutorialCards" in state
+    assert "public const int Overlay = 150" in order_src
+    order = rows.split("Order =")[1].split(";")[0]
+    assert order.index("ChangeControls") < order.index("ResetTutorial") < order.index("SettingsRowId.Controls")
+    assert "get { return SinkSlot + 1; }" in pad
+    assert "RunRng" not in ui
+    assert "sortingOrder = CanvasOrder.Overlay" in ui
+    assert "blocksRaycasts = false" in ui
+    assert "_promptMotion.BlocksInput" not in ui
+    cues = ui.split("private void ConsumePromptCues()")[1].split("private void")[0]
+    assert "PlayUiOpen()" in cues and "PlayUiClose()" in cues
+    assert "SampleIn(promptReduce" in ui and "SampleOut(promptReduce" in ui
+    assert "UiTheme.PanelPlate" in ui and "UiTheme.BodyLine" in ui
+    assert "InputSchemeDriver.Current" in ui
+    for key, en, sv in (
+        ("prompt.move", "Move with {move}.", "Flyg med {move}."),
+        ("prompt.fire", "Fire with {fire}.", "Skjut med {fire}."),
+        ("prompt.utility", "Use the tool with {utility}.", "Använd verktyget med {utility}."),
+        ("prompt.dash", "Boost is fitted. Fire with {fire}.", "Fartboosten sitter. Skjut med {fire}."),
+        ("prompt.buy", "Buy an upgrade with {confirm}.", "Köp en uppgradering med {confirm}."),
+        ("prompt.equip", "Equip a weapon with {confirm}.", "Utrusta ett vapen med {confirm}."),
+        ("prompt.pause", "Pause with {pause}.", "Pausa med {pause}."),
+        ("ui.settings.reset_tutorial", "Reset tutorial", "Nollställ intro"),
+    ):
+        assert f'"{key}"' in ui or key == "ui.settings.reset_tutorial"
+        assert en in ui
+        assert sv in loc
+        assert "\u2699" not in en and "\u2605" not in en
+        assert "\u2699" not in sv and "\u2605" not in sv
+    for width, height in ((1280, 800), (1366, 768), (1440, 900), (1920, 1080), (1920, 1200), (2560, 1080), (2560, 1440), (3440, 1440)):
+        scale = _canvas_scale(width, height)
+        assert 18 * scale + 0.05 >= 12.0
+        card_h = 0.12 * (height / scale)
+        assert card_h + 0.5 >= 18 * 1.15 * 2
+        assert 0.28 >= 0.0 and 0.72 <= 1.0 and 0.02 >= 0.0 and 0.14 <= 1.0
+        assert 0.72 <= 0.78
+    assert "class TutorialPrompt" in prompt and "Migrate" in prompt and "NotePlay" in prompt
+    assert "class HangarPreviewHdr" in hdr and "ArgbHalf" in hdr and "DefaultHdr" in hdr
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    from roslyn_core_check import find_dotnet
+
+    dotnet = find_dotnet()
+    assert dotnet, "tutorial prompt tests need dotnet"
+    work = Path(os.environ.get("TMPDIR", "/tmp")) / "agr-prompt-048"
+    if work.exists():
+        shutil.rmtree(work)
+    work.mkdir(parents=True)
+    shutil.copyfile(root / "Assets/Scripts/Core/TutorialPrompt.cs", work / "TutorialPrompt.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/HangarPreviewHdr.cs", work / "HangarPreviewHdr.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/GamePhase.cs", work / "GamePhase.cs")
+    program = textwrap.dedent(
+        r'''
+        using System;
+        using AsteroidsGoneRogue;
+
+        class Program
+        {
+            static void Need(bool ok, string message)
+            {
+                if (!ok) throw new Exception(message);
+            }
+
+            static TutorialPrompt.Context Ctx(bool playing, bool shop, bool blocked, bool utility, bool dash)
+            {
+                TutorialPrompt.Context ctx = new TutorialPrompt.Context();
+                ctx.Playing = playing;
+                ctx.Shop = shop;
+                ctx.Blocked = blocked;
+                ctx.UtilityPresent = utility;
+                ctx.DashPresent = dash;
+                return ctx;
+            }
+
+            static void Main()
+            {
+                Need(TutorialPrompt.Migrate(0, false, 0) == 0, "fresh unseen");
+                Need(TutorialPrompt.Migrate(7, false, 0) == TutorialPrompt.AllSeen, "veteran missing key");
+                Need(TutorialPrompt.Migrate(1, false, 3) == TutorialPrompt.AllSeen, "v1 missing key");
+                Need(TutorialPrompt.Migrate(7, true, 0) == 0, "reset sticks");
+                Need(TutorialPrompt.Migrate(7, true, 255) == TutorialPrompt.AllSeen, "mask clamps");
+                Need(TutorialPrompt.Migrate(7, true, 1) == 1, "stored move bit");
+                Need(TutorialPrompt.Clear() == 0, "clear");
+
+                TutorialPrompt.Context play = Ctx(true, false, false, false, false);
+                int mask = 0;
+                Need(TutorialPrompt.Current(mask, play) == TutorialPrompt.Move, "move first");
+                mask = TutorialPrompt.NotePlay(mask, true, false, false, false, false, false, false);
+                Need(TutorialPrompt.Current(mask, play) == TutorialPrompt.Fire, "fire next");
+                mask = TutorialPrompt.NotePlay(mask, false, true, true, false, false, false, true);
+                Need(!TutorialPrompt.Seen(mask, TutorialPrompt.Dash), "first shot does not clear boost");
+                Need(TutorialPrompt.Current(mask, play) == TutorialPrompt.Pause, "pause when no tool or boost");
+
+                int withTool = TutorialPrompt.Mark(0, TutorialPrompt.Move);
+                withTool = TutorialPrompt.Mark(withTool, TutorialPrompt.Fire);
+                TutorialPrompt.Context tooled = Ctx(true, false, false, true, true);
+                Need(TutorialPrompt.Current(withTool, tooled) == TutorialPrompt.Utility, "tool before boost");
+                withTool = TutorialPrompt.NotePlay(withTool, false, false, false, true, false, true, true);
+                Need(TutorialPrompt.Current(withTool, tooled) == TutorialPrompt.Dash, "boost after tool");
+                int held = TutorialPrompt.NotePlay(withTool, false, true, false, false, false, true, true);
+                Need(!TutorialPrompt.Seen(held, TutorialPrompt.Dash), "held fire does not clear boost");
+                int pressed = TutorialPrompt.NotePlay(withTool, false, true, true, false, false, true, true);
+                Need(TutorialPrompt.Seen(pressed, TutorialPrompt.Dash), "new shot clears boost");
+                Need(TutorialPrompt.Current(pressed, tooled) == TutorialPrompt.Pause, "pause last in play");
+
+                TutorialPrompt.Context blocked = Ctx(true, false, true, true, true);
+                Need(TutorialPrompt.Current(0, blocked) == TutorialPrompt.None, "blocked hides");
+                TutorialPrompt.Context shop = Ctx(false, true, false, false, false);
+                Need(TutorialPrompt.Current(0, shop) == TutorialPrompt.Buy, "buy in hangar");
+                int bought = TutorialPrompt.NoteBuy(0);
+                Need(TutorialPrompt.Current(bought, shop) == TutorialPrompt.Equip, "equip after buy");
+                Need(TutorialPrompt.Current(bought, play) != TutorialPrompt.Equip, "equip stays in the shop");
+                Need(!TutorialPrompt.Seen(TutorialPrompt.NoteEquip(0), TutorialPrompt.Buy), "equip is not buy");
+                Need(TutorialPrompt.InPlay(GamePhase.Playing), "play phase");
+                Need(!TutorialPrompt.InShop(GamePhase.Failed), "failed shop locked");
+                Need(TutorialPrompt.InShop(GamePhase.WaveClear), "clear shop");
+                Need(TutorialPrompt.DashAvailable(false, true), "afterburner counts");
+                Need(!TutorialPrompt.DashAvailable(false, false), "no boost");
+                Need(TutorialPrompt.Token(TutorialPrompt.Move) == "move", "move glyph");
+                Need(TutorialPrompt.Token(TutorialPrompt.Utility) == "utility", "tool glyph");
+                Need(TutorialPrompt.Token(TutorialPrompt.Pause) == "pause", "pause glyph");
+                Need(TutorialPrompt.Token(TutorialPrompt.Buy) == "confirm", "buy glyph");
+
+                Need(HangarPreviewHdr.Format(true, true, true) == HangarPreviewHdr.Ldr, "reduce stays ldr");
+                Need(HangarPreviewHdr.Format(false, true, true) == HangarPreviewHdr.ArgbHalf, "half preferred");
+                Need(HangarPreviewHdr.Format(false, false, true) == HangarPreviewHdr.DefaultHdr, "default hdr fallback");
+                Need(HangarPreviewHdr.Format(false, false, false) == HangarPreviewHdr.Ldr, "unsupported ldr");
+                Need(!HangarPreviewHdr.AllowsHdr(HangarPreviewHdr.Ldr), "ldr camera");
+                Need(HangarPreviewHdr.AllowsHdr(HangarPreviewHdr.ArgbHalf), "half camera");
+                Need(HangarPreviewHdr.AllowsHdr(HangarPreviewHdr.DefaultHdr), "default camera");
+                Need(TutorialPrompt.AnchorMinX >= 0f && TutorialPrompt.AnchorMaxX <= 1f, "x fit");
+                Need(TutorialPrompt.AnchorMinY >= 0f && TutorialPrompt.AnchorMaxY <= 1f, "y fit");
+                Need(TutorialPrompt.AnchorMaxX < 0.78f, "clears abort");
+                Need(TutorialPrompt.BodySize == 18, "body token");
+                Console.WriteLine("prompt-ok");
+            }
+        }
+        '''
+    )
+    (work / "Program.cs").write_text(program, encoding="utf-8")
+    (work / "prompt.csproj").write_text(
+        "\n".join(
+            (
+                '<Project Sdk="Microsoft.NET.Sdk">',
+                "  <PropertyGroup>",
+                "    <OutputType>Exe</OutputType>",
+                "    <TargetFramework>net8.0</TargetFramework>",
+                "    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>",
+                "    <Nullable>disable</Nullable>",
+                "    <ImplicitUsings>disable</ImplicitUsings>",
+                "  </PropertyGroup>",
+                "  <ItemGroup>",
+                '    <Compile Include="GamePhase.cs" />',
+                '    <Compile Include="TutorialPrompt.cs" />',
+                '    <Compile Include="HangarPreviewHdr.cs" />',
+                '    <Compile Include="Program.cs" />',
+                "  </ItemGroup>",
+                "</Project>",
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+    run = subprocess.run(
+        [dotnet, "run", "--project", str(work / "prompt.csproj"), "-v", "q"],
+        cwd=work,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert run.returncode == 0, run.stdout + "\n" + run.stderr
+    assert "prompt-ok" in run.stdout
 
 
 if __name__ == "__main__":

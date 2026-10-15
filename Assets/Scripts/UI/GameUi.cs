@@ -90,6 +90,17 @@ namespace AsteroidsGoneRogue
         private readonly UiTransition _panelMotion = new UiTransition();
         private readonly UiTransition _screenMotion = new UiTransition();
         private readonly UiTransition _cardMotion = new UiTransition();
+        private readonly UiTransition _promptMotion = new UiTransition();
+        private GameObject _promptRoot;
+        private RectTransform _promptRect;
+        private Vector2 _promptRest;
+        private CanvasGroup _promptGroup;
+        private Text _promptBody;
+        private int _promptVisible = TutorialPrompt.None;
+        private int _promptQueued = TutorialPrompt.None;
+        private bool _promptOut;
+        private bool _promptFireDown;
+        private Text _settingsResetTutorialLabel;
         private RectTransform _panelRect;
         private Vector2 _panelRest;
         private CanvasGroup _panelGroup;
@@ -837,6 +848,7 @@ namespace AsteroidsGoneRogue
             BuildShipPreviewFrame(display);
             BuildSettingsPanel(display, body);
             BuildConfirmDialog(display, body);
+            BuildPromptCard(body);
             BuildFirstStart(display, body);
             BuildTutorialPlayChrome(display);
             BuildContinueAndLegacy(body);
@@ -902,9 +914,13 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (_game.TryBuyLegacy(perk) && AudioCues.Instance != null)
+            if (_game.TryBuyLegacy(perk))
             {
-                AudioCues.Instance.PlayHangarPurchase();
+                NotePromptBuy();
+                if (AudioCues.Instance != null)
+                {
+                    AudioCues.Instance.PlayHangarPurchase();
+                }
             }
         }
 
@@ -2118,7 +2134,11 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            _game.TryBuySink(sinkId);
+            if (_game.TryBuySink(sinkId))
+            {
+                NotePromptBuy();
+            }
+
             RefreshSinkChrome(false);
         }
 
@@ -2464,42 +2484,53 @@ namespace AsteroidsGoneRogue
                 && _loadout.State.Owns(id)
                 && WeaponSlots.IsWeapon(id))
             {
-                _shop.TryEquip(id);
+                if (_shop.TryEquip(id))
+                {
+                    NotePromptEquip();
+                }
+
                 return;
             }
 
-            _shop.TryBuy(id);
+            if (_shop.TryBuy(id))
+            {
+                NotePromptBuy();
+                if (WeaponSlots.IsWeapon(id))
+                {
+                    NotePromptEquip();
+                }
+            }
         }
 
         private void OnHullRepair()
         {
-            if (_shop != null)
+            if (_shop != null && _shop.TryRepairHull())
             {
-                _shop.TryRepairHull();
+                NotePromptBuy();
             }
         }
 
         private void OnExtraLife()
         {
-            if (_shop != null)
+            if (_shop != null && _shop.TryBuyExtraLife())
             {
-                _shop.TryBuyExtraLife();
+                NotePromptBuy();
             }
         }
 
         private void OnShieldRefill()
         {
-            if (_shop != null)
+            if (_shop != null && _shop.TryRefillShield())
             {
-                _shop.TryRefillShield();
+                NotePromptBuy();
             }
         }
 
         private void OnBankCredits()
         {
-            if (_shop != null)
+            if (_shop != null && _shop.TryBankCredits())
             {
-                _shop.TryBankCredits();
+                NotePromptBuy();
             }
         }
 
@@ -4099,6 +4130,11 @@ namespace AsteroidsGoneRogue
                 _settingsRebindLabel.text = Loc.T("ui.settings.rebind", "Change controls");
             }
 
+            if (_settingsResetTutorialLabel != null)
+            {
+                _settingsResetTutorialLabel.text = Loc.T("ui.settings.reset_tutorial", "Reset tutorial");
+            }
+
             if (_settingsControlsBody != null)
             {
                 PaintPrompt(_settingsControlsBody, FullControlHint());
@@ -4614,6 +4650,7 @@ namespace AsteroidsGoneRogue
             TickMenuMotion();
             NoteControlDevice();
             TickTutorialPrompts();
+            TickPromptCards();
             if (_settingsOpen && _session != null && _session.Phase == GamePhase.Playing)
             {
                 DismissSettingsForPlay();
@@ -6460,7 +6497,10 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            _shop.TryPickDoctrine(id);
+            if (_shop.TryPickDoctrine(id))
+            {
+                NotePromptBuy();
+            }
         }
 
         private void RefreshDoctrinePicks()
@@ -6844,6 +6884,7 @@ namespace AsteroidsGoneRogue
             PromptLineView.Restyle(_firstFlightBody, schemeNow, promptScale);
             PromptLineView.Restyle(_boonHint, schemeNow, promptScale);
             PromptLineView.Restyle(_tutorialBanner, schemeNow, promptScale);
+            PromptLineView.Restyle(_promptBody, schemeNow, promptScale);
             if (_settingsConfirmAbortLabel != null)
             {
                 _settingsConfirmAbortLabel.text = PromptText.Flatten(
@@ -7068,6 +7109,12 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.ChangeControls)
             {
                 BuildSettingsRebindRow(rowIndex, body, y0, y1);
+                return;
+            }
+
+            if (rowId == SettingsRowId.ResetTutorial)
+            {
+                BuildSettingsResetTutorialRow(rowIndex, body, y0, y1);
                 return;
             }
 
@@ -8248,6 +8295,43 @@ namespace AsteroidsGoneRogue
             if (rebindValue != null)
             {
                 rebindValue.text = string.Empty;
+            }
+        }
+
+        private void BuildSettingsResetTutorialRow(int rowIndex, Font body, float y0, float y1)
+        {
+            Text resetValue;
+            BuildSettingsChoiceRow(
+                rowIndex,
+                "SettingsResetTutorial",
+                body,
+                y0,
+                y1,
+                ResetTutorialPrompts,
+                out _settingsResetTutorialLabel,
+                out resetValue);
+            if (_settingsResetTutorialLabel != null)
+            {
+                _settingsResetTutorialLabel.text = Loc.T("ui.settings.reset_tutorial", "Reset tutorial");
+            }
+
+            if (resetValue != null)
+            {
+                resetValue.text = string.Empty;
+            }
+        }
+
+        private void ResetTutorialPrompts()
+        {
+            if (_settings == null)
+            {
+                return;
+            }
+
+            _settings.ResetTutorialCards();
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
             }
         }
 
@@ -9545,6 +9629,12 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (rowId == SettingsRowId.ResetTutorial)
+            {
+                ResetTutorialPrompts();
+                return;
+            }
+
             if (rowId == SettingsRowId.Close)
             {
                 CloseSettings();
@@ -10062,6 +10152,321 @@ namespace AsteroidsGoneRogue
             }
             shopRing.effectColor = Color.Lerp(UiTheme.Secondary, UiTheme.Focus, shopPulse);
             shopRing.enabled = true;
+        }
+
+        private void BuildPromptCard(Font body)
+        {
+            _promptRoot = new GameObject("TutorialPromptCard");
+            _promptRoot.transform.SetParent(transform, false);
+            RectTransform rootRect = _promptRoot.AddComponent<RectTransform>();
+            Stretch(rootRect, Vector2.zero, Vector2.one);
+            Canvas promptCanvas = _promptRoot.AddComponent<Canvas>();
+            promptCanvas.overrideSorting = true;
+            promptCanvas.sortingOrder = CanvasOrder.Overlay;
+
+            GameObject plate = UiTheme.Fill(
+                "TutorialPromptPlate",
+                _promptRoot.transform,
+                UiTheme.PanelPlate,
+                new Vector2(TutorialPrompt.AnchorMinX, TutorialPrompt.AnchorMinY),
+                new Vector2(TutorialPrompt.AnchorMaxX, TutorialPrompt.AnchorMaxY));
+            UiTheme.Fill(
+                "TutorialPromptRule",
+                plate.transform,
+                UiTheme.HeaderRule,
+                new Vector2(0.04f, 0.90f),
+                new Vector2(0.96f, 0.96f));
+            _promptRect = plate.GetComponent<RectTransform>();
+            _promptRest = _promptRect.anchoredPosition;
+            _promptGroup = plate.AddComponent<CanvasGroup>();
+            _promptGroup.alpha = 0f;
+            _promptGroup.interactable = false;
+            _promptGroup.blocksRaycasts = false;
+            _promptBody = CreateText(
+                "TutorialPromptBody",
+                plate.transform,
+                body,
+                TutorialPrompt.BodySize,
+                TextAnchor.MiddleCenter,
+                FontStyle.Bold);
+            _promptBody.color = UiTheme.Accent;
+            _promptBody.lineSpacing = UiTheme.BodyLine;
+            _promptBody.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _promptBody.verticalOverflow = VerticalWrapMode.Truncate;
+            Stretch(_promptBody.rectTransform, new Vector2(0.06f, 0.08f), new Vector2(0.94f, 0.88f));
+            _promptMotion.Clear();
+            _promptRoot.SetActive(false);
+        }
+
+        private void TickPromptCards()
+        {
+            NotePromptActions();
+            int promptMask = _settings != null ? _settings.TutorialCards : TutorialPrompt.AllSeen;
+            TutorialPrompt.Context promptCtx = ReadPromptContext();
+            int promptWant = TutorialPrompt.Current(promptMask, promptCtx);
+            bool promptReduce = SettingsState.ReduceEffectsEnabled;
+            if (_promptOut)
+            {
+                _promptQueued = promptWant;
+                AdvancePromptMotion(promptReduce);
+                if (!_promptMotion.Running(promptReduce))
+                {
+                    _promptOut = false;
+                    _promptVisible = TutorialPrompt.None;
+                    if (_promptRoot != null)
+                    {
+                        _promptRoot.SetActive(false);
+                    }
+
+                    if (_promptQueued != TutorialPrompt.None)
+                    {
+                        int promptNext = _promptQueued;
+                        _promptQueued = TutorialPrompt.None;
+                        ShowPromptCard(promptNext);
+                    }
+                }
+
+                return;
+            }
+
+            if (promptWant == _promptVisible)
+            {
+                if (promptWant != TutorialPrompt.None)
+                {
+                    PaintPrompt(_promptBody, PromptCardLine(promptWant));
+                    AdvancePromptMotion(promptReduce);
+                }
+
+                return;
+            }
+
+            if (_promptVisible != TutorialPrompt.None)
+            {
+                _promptQueued = promptWant;
+                BeginPromptOut();
+                return;
+            }
+
+            if (promptWant != TutorialPrompt.None)
+            {
+                ShowPromptCard(promptWant);
+            }
+        }
+
+        private void NotePromptActions()
+        {
+            if (_settings == null || _session == null)
+            {
+                return;
+            }
+
+            bool promptFiredNow = GamepadInput.FireHeld();
+            bool promptPressed = promptFiredNow && !_promptFireDown;
+            _promptFireDown = promptFiredNow;
+            TutorialPrompt.Context promptCtx = ReadPromptContext();
+            if (promptCtx.Blocked)
+            {
+                return;
+            }
+
+            int promptMask = _settings.TutorialCards;
+            if (promptCtx.Playing)
+            {
+                Vector2 promptKey = GamepadInput.MoveStick();
+                Vector2 promptStick = GamepadInput.PadMoveStick();
+                bool promptMoved = promptKey.sqrMagnitude > 0.02f || promptStick.sqrMagnitude > 0.02f;
+                bool promptUtility = GamepadInput.UtilityHeld();
+                bool promptPaused = GamepadInput.PausePressed();
+                promptMask = TutorialPrompt.NotePlay(
+                    promptMask,
+                    promptMoved,
+                    promptFiredNow,
+                    promptPressed,
+                    promptUtility,
+                    promptPaused,
+                    promptCtx.UtilityPresent,
+                    promptCtx.DashPresent);
+            }
+            else if (promptCtx.Shop && GamepadInput.PausePressed())
+            {
+                promptMask = TutorialPrompt.NotePlay(promptMask, false, false, false, false, true, false, false);
+            }
+
+            if (promptMask != _settings.TutorialCards)
+            {
+                _settings.TutorialCards = promptMask;
+                _settings.Save();
+            }
+        }
+
+        private TutorialPrompt.Context ReadPromptContext()
+        {
+            TutorialPrompt.Context promptCtx = new TutorialPrompt.Context();
+            GamePhase promptPhase = _session != null ? _session.Phase : GamePhase.Hangar;
+            promptCtx.Playing = TutorialPrompt.InPlay(promptPhase);
+            promptCtx.Shop = TutorialPrompt.InShop(promptPhase);
+            promptCtx.Blocked = _settingsOpen
+                || _confirmOpen
+                || _creditsVisible
+                || _setupOpen
+                || _sinkOpen
+                || RebindConsumesInput()
+                || BoonModalOpen()
+                || FirstStartOpen();
+            promptCtx.UtilityPresent = _ship != null && _ship.Shooter != null && _ship.Shooter.HasUtility;
+            bool promptRapid = _loadout != null && _loadout.State != null && _loadout.State.RapidFire;
+            bool promptBurner = _loadout != null && _loadout.State != null && _loadout.State.Afterburner;
+            promptCtx.DashPresent = TutorialPrompt.DashAvailable(promptRapid, promptBurner);
+            return promptCtx;
+        }
+
+        private void ShowPromptCard(int promptId)
+        {
+            if (_promptRoot == null || promptId == TutorialPrompt.None)
+            {
+                return;
+            }
+
+            _promptVisible = promptId;
+            _promptRoot.SetActive(true);
+            PaintPrompt(_promptBody, PromptCardLine(promptId));
+            _promptMotion.Begin(UiMotionKind.Menu, UiMotionDir.In, 1);
+            ApplyPromptMotion();
+            ConsumePromptCues();
+        }
+
+        private void BeginPromptOut()
+        {
+            _promptOut = true;
+            _promptMotion.Begin(UiMotionKind.Menu, UiMotionDir.Out, 1);
+            ApplyPromptMotion();
+            ConsumePromptCues();
+        }
+
+        private void AdvancePromptMotion(bool promptReduce)
+        {
+            if (!_promptMotion.Active)
+            {
+                return;
+            }
+
+            _promptMotion.Advance(Time.unscaledDeltaTime, false, promptReduce, false);
+            ApplyPromptMotion();
+            ConsumePromptCues();
+        }
+
+        private void ApplyPromptMotion()
+        {
+            if (_promptRect == null || _promptGroup == null || !_promptMotion.Active)
+            {
+                return;
+            }
+
+            bool promptReduce = SettingsState.ReduceEffectsEnabled;
+            float promptAlpha;
+            float promptSlide;
+            float promptScale;
+            if (_promptMotion.Dir == UiMotionDir.Out)
+            {
+                _promptMotion.SampleOut(promptReduce, out promptAlpha, out promptSlide, out promptScale);
+            }
+            else
+            {
+                _promptMotion.SampleIn(promptReduce, out promptAlpha, out promptSlide, out promptScale);
+            }
+
+            _promptGroup.alpha = promptAlpha;
+            _promptGroup.interactable = false;
+            _promptGroup.blocksRaycasts = false;
+            _promptRect.anchoredPosition = new Vector2(_promptRest.x, _promptRest.y + promptSlide);
+            _promptRect.localScale = new Vector3(promptScale, promptScale, 1f);
+        }
+
+        private void ConsumePromptCues()
+        {
+            if (AudioCues.Instance == null)
+            {
+                _promptMotion.TakeOpenCue();
+                _promptMotion.TakeCloseCue();
+                return;
+            }
+
+            if (_promptMotion.TakeCloseCue())
+            {
+                AudioCues.Instance.PlayUiClose();
+            }
+
+            if (_promptMotion.TakeOpenCue())
+            {
+                AudioCues.Instance.PlayUiOpen();
+            }
+        }
+
+        private void NotePromptBuy()
+        {
+            CommitPromptMask(TutorialPrompt.NoteBuy(_settings != null ? _settings.TutorialCards : 0));
+        }
+
+        private void NotePromptEquip()
+        {
+            CommitPromptMask(TutorialPrompt.NoteEquip(_settings != null ? _settings.TutorialCards : 0));
+        }
+
+        private void CommitPromptMask(int promptMask)
+        {
+            if (_settings == null)
+            {
+                return;
+            }
+
+            int promptNext = TutorialPrompt.Normalize(promptMask);
+            if (promptNext == _settings.TutorialCards)
+            {
+                return;
+            }
+
+            _settings.TutorialCards = promptNext;
+            _settings.Save();
+        }
+
+        private static string PromptCardLine(int promptId)
+        {
+            if (promptId == TutorialPrompt.Move)
+            {
+                return Loc.T("prompt.move", "Move with {move}.");
+            }
+
+            if (promptId == TutorialPrompt.Fire)
+            {
+                return Loc.T("prompt.fire", "Fire with {fire}.");
+            }
+
+            if (promptId == TutorialPrompt.Utility)
+            {
+                return Loc.T("prompt.utility", "Use the tool with {utility}.");
+            }
+
+            if (promptId == TutorialPrompt.Dash)
+            {
+                return Loc.T("prompt.dash", "Boost is fitted. Fire with {fire}.");
+            }
+
+            if (promptId == TutorialPrompt.Buy)
+            {
+                return Loc.T("prompt.buy", "Buy an upgrade with {confirm}.");
+            }
+
+            if (promptId == TutorialPrompt.Equip)
+            {
+                return Loc.T("prompt.equip", "Equip a weapon with {confirm}.");
+            }
+
+            if (promptId == TutorialPrompt.Pause)
+            {
+                return Loc.T("prompt.pause", "Pause with {pause}.");
+            }
+
+            return string.Empty;
         }
     }
 }

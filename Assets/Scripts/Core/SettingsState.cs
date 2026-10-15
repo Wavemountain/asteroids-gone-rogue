@@ -144,6 +144,13 @@ namespace AsteroidsGoneRogue
         public const string PromptSchemeKey = "agr.settings.promptScheme";
         public const string BindingsKey = BindingStore.PrefsKey;
 
+        /// <summary>
+        /// Seen-mask for first-run prompt cards. Kept off the v7 blob so older
+        /// saves still load. A missing key on a v1–v7 profile migrates to
+        /// all-seen. A first launch stays unseen. Reset writes zero.
+        /// </summary>
+        public const string TutorialCardsKey = "agr.settings.tutorialCards";
+
         public bool ScreenShake;
         public bool AssistMode;
         public bool ReduceEffects;
@@ -159,6 +166,7 @@ namespace AsteroidsGoneRogue
         public int FpsCap;
         public int PromptScheme;
         public string Bindings;
+        public int TutorialCards;
 
         public static SettingsState CreateDefault()
         {
@@ -178,6 +186,7 @@ namespace AsteroidsGoneRogue
             state.FpsCap = DisplaySettings.DefaultFpsCap;
             state.PromptScheme = (int)InputSchemePreference.Auto;
             state.Bindings = BindingStore.Serialize(BindingMap.CreateDefault());
+            state.TutorialCards = 0;
             return state;
         }
 
@@ -838,6 +847,9 @@ namespace AsteroidsGoneRogue
                 UnityEngine.PlayerPrefs.GetInt(FpsCapKey, DisplaySettings.DefaultFpsCap),
                 UnityEngine.PlayerPrefs.GetInt(PromptSchemeKey, (int)InputSchemePreference.Auto));
             state.Bindings = BindingStore.Serialize(BindingStore.Parse(storedBindings, version));
+            bool cardsPresent = UnityEngine.PlayerPrefs.HasKey(TutorialCardsKey);
+            int storedCards = UnityEngine.PlayerPrefs.GetInt(TutorialCardsKey, 0);
+            state.TutorialCards = TutorialPrompt.Migrate(version, cardsPresent, storedCards);
             Publish(state);
             if (version != CurrentVersion)
             {
@@ -866,8 +878,15 @@ namespace AsteroidsGoneRogue
             UnityEngine.PlayerPrefs.SetInt(FpsCapKey, prefs.FpsCap);
             UnityEngine.PlayerPrefs.SetInt(PromptSchemeKey, prefs.PromptScheme);
             UnityEngine.PlayerPrefs.SetString(BindingsKey, Bindings);
+            UnityEngine.PlayerPrefs.SetInt(TutorialCardsKey, TutorialPrompt.Normalize(TutorialCards));
             UnityEngine.PlayerPrefs.Save();
             Publish(this);
+        }
+
+        public void ResetTutorialCards()
+        {
+            TutorialCards = TutorialPrompt.Clear();
+            Save();
         }
     }
 

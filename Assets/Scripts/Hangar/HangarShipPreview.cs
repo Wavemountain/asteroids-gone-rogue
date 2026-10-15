@@ -58,6 +58,7 @@ namespace AsteroidsGoneRogue
         private int _trailId = -1;
         private GameObject _mk2Marker;
         private GameObject _trailRibbon;
+        private int _previewFormat = -1;
 
         public void Bind(Transform slots)
         {
@@ -151,6 +152,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            EnsurePreviewTarget();
             bool reduceSpin = SettingsState.ReduceEffectsEnabled;
             bool holdSpin = _interactionHold || PointerOverPreview();
             float spin = HangarPreviewRig.SpinDegreesPerSecond(holdSpin, reduceSpin);
@@ -265,16 +267,6 @@ namespace AsteroidsGoneRogue
 
         private void EnsureRig()
         {
-            if (_rt == null)
-            {
-                _rt = new RenderTexture(ViewportWidth, ViewportHeight, 16, RenderTextureFormat.ARGB32);
-                _rt.name = "HangarShipPreviewRT";
-                _rt.antiAliasing = 1;
-                _rt.useMipMap = false;
-                _rt.Create();
-                ClearStudioTarget();
-            }
-
             if (_studio == null)
             {
                 GameObject camObject = new GameObject("HangarPreviewCamera");
@@ -295,6 +287,7 @@ namespace AsteroidsGoneRogue
                 _studio.enabled = false;
             }
 
+            EnsurePreviewTarget();
             _studio.targetTexture = _rt;
             _studio.stereoTargetEye = StereoTargetEyeMask.None;
             _studio.transform.localPosition = CameraLocal;
@@ -341,6 +334,79 @@ namespace AsteroidsGoneRogue
             PoseBackdrop();
 
             AssignViewport();
+        }
+
+        private void EnsurePreviewTarget()
+        {
+            bool halfSupported;
+            bool defaultSupported;
+            QueryPreviewHdr(out halfSupported, out defaultSupported);
+            int format = HangarPreviewHdr.Format(
+                SettingsState.ReduceEffectsEnabled,
+                halfSupported,
+                defaultSupported);
+            if (_rt != null && _previewFormat == format)
+            {
+                if (_studio != null)
+                {
+                    _studio.allowHDR = HangarPreviewHdr.AllowsHdr(format);
+                    _studio.targetTexture = _rt;
+                }
+
+                return;
+            }
+
+            ReleasePreviewTarget();
+            _previewFormat = format;
+            RenderTextureFormat textureFormat = RenderTextureFormat.ARGB32;
+            if (format == HangarPreviewHdr.ArgbHalf)
+            {
+                textureFormat = RenderTextureFormat.ARGBHalf;
+            }
+            else if (format == HangarPreviewHdr.DefaultHdr)
+            {
+                textureFormat = RenderTextureFormat.DefaultHDR;
+            }
+
+            _rt = new RenderTexture(ViewportWidth, ViewportHeight, 16, textureFormat);
+            _rt.name = "HangarShipPreviewRT";
+            _rt.antiAliasing = 1;
+            _rt.useMipMap = false;
+            _rt.Create();
+            ClearStudioTarget();
+            if (_studio != null)
+            {
+                _studio.allowHDR = HangarPreviewHdr.AllowsHdr(format);
+                _studio.targetTexture = _rt;
+            }
+        }
+
+        private static void QueryPreviewHdr(out bool halfSupported, out bool defaultSupported)
+        {
+            halfSupported = SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.ARGBHalf);
+            defaultSupported = SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.DefaultHDR);
+        }
+
+        private void ReleasePreviewTarget()
+        {
+            if (_studio != null)
+            {
+                _studio.targetTexture = null;
+            }
+
+            if (_viewport != null)
+            {
+                _viewport.texture = null;
+            }
+
+            if (_rt == null)
+            {
+                return;
+            }
+
+            _rt.Release();
+            Destroy(_rt);
+            _rt = null;
         }
 
         private void ClearStudioTarget()
