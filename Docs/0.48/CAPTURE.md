@@ -34,9 +34,9 @@ Under `-captureOut` (here `Captures\compare`):
 | `w1_reduceoff.png` / `w1_reduceon.png` | World 1 wave 1 |
 | `w3_reduceoff.png` / `w3_reduceon.png` | World 3 Far Drift, wave 11 |
 | `w4_reduceoff.png` / `w4_reduceon.png` | World 4 Mine Fields, wave 16 |
-| `death_reduceoff.png` / `death_reduceon.png` | Wave 1, mid death slow-mo (half of `DeathSlowSeconds`, 0.60 s → 0.30 s) with debris, desaturation, and the death vignette (ramp is still 0.40 s, so the pin is about 75% up) |
+| `death_reduceoff.png` / `death_reduceon.png` | Wave 1, inside the death sequence: slow-mo clock at half of 0.60 s (timescale 0.35, or 1.00 when Reduce skips slow-mo), vignette clock at the full 0.40 s (desat complete, drawn vignette 0.78 / 0.39), white-to-Danger flash painted at peak alpha. The log prints timescale, vignette, saturation, and flash |
 | `waveclear_reduceoff.png` / `waveclear_reduceon.png` | Wave 1, mid wave-clear: shock ring, bloom bump, `WAVE CLEAR` / `VÅG KLAR` |
 
 Combat shots use camera `(0, 35, -22)` looking at the origin, FOV 54, ship held at the origin. Each shot waits 60 fixed frames (`Time.captureDeltaTime` 1/60). `Captures/` is gitignored.
 
-On a build without `PostStack` or the death timeline, that shot is still written and the log says what was skipped. With Reduce effects on, slow-mo stays off and the vignette uses the reduced grade; the clock is still pinned at the same mid time.
+On a build without `PostStack` or the death timeline, that shot is still written and the log says what was skipped. With Reduce effects on, slow-mo stays off and the vignette, desaturation, and flash use the reduced amounts. The vignette clock is still the full 0.40 s.

@@ -750,11 +750,6 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (DeathVignetteSeconds > 0.41f || DeathVignetteSeconds < 0.39f)
-            {
-                return false;
-            }
-
             PostGradeRow midRow;
             float midVignette;
             PostBlendState midDeath = BeginDeath(SnapTo(1));

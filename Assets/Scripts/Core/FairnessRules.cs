@@ -241,9 +241,25 @@ namespace AsteroidsGoneRogue
 
         public static Vector3 Place(Vector3 spawn, Vector3 player, float maxRadius)
         {
+            return Place(spawn, player, maxRadius, 0f);
+        }
+
+        /// <summary>
+        /// Same clearance as <see cref="Place(Vector3, Vector3, float)"/>, plus the
+        /// body's visual radius so the mesh edge, not only the pivot, stays outside
+        /// <see cref="MinSafeMetres"/>.
+        /// </summary>
+        public static Vector3 Place(Vector3 spawn, Vector3 player, float maxRadius, float bodyRadius)
+        {
+            float min = MinSafeMetres;
+            if (bodyRadius > 0f)
+            {
+                min += bodyRadius;
+            }
+
             float ox;
             float oz;
-            PushOut(spawn.x, spawn.z, player.x, player.z, MinSafeMetres, maxRadius, out ox, out oz);
+            PushOut(spawn.x, spawn.z, player.x, player.z, min, maxRadius, out ox, out oz);
             return new Vector3(ox, spawn.y, oz);
         }
     }

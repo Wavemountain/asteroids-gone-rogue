@@ -19,6 +19,8 @@ namespace AsteroidsGoneRogue
         public static float LastGrain;
         public static float LastVignette;
         public static float LastVignetteSmooth;
+        public static float LastSaturation;
+        public static float LastDeathFlash;
         public static int LastReduce;
 
         private static PostStack _active;
@@ -117,6 +119,27 @@ namespace AsteroidsGoneRogue
             BeginWaveBloom();
         }
 
+        public static void NoteDeathFlash(float alpha)
+        {
+            LastDeathFlash = alpha;
+        }
+
+        /// <summary>
+        /// Pins the death vignette clock at a known second so a still can sit
+        /// inside the desaturation and vignette, not at the start of the ramp.
+        /// </summary>
+        public static void PinDeathClock(float seconds)
+        {
+            if (_active == null)
+            {
+                return;
+            }
+
+            PostBlendState state = _active._state;
+            state.DeathElapsed = seconds;
+            _active._state = state;
+        }
+
         /// <summary>
         /// Samples the live grade, including Reduce, without waiting for a camera blit.
         /// OnRenderImage writes the same fields from the row it actually draws.
@@ -131,7 +154,7 @@ namespace AsteroidsGoneRogue
             bool reduce = SettingsState.ReduceEffectsEnabled;
             PostGradeRow shown;
             float vignette;
-            PostGrade.Sample(_active._state, reduce, 0, out shown, out vignette);
+            _active.ApplyPresented(reduce, 0, out shown, out vignette);
             StoreGrade(shown, vignette, reduce);
         }
 
@@ -141,7 +164,38 @@ namespace AsteroidsGoneRogue
             LastGrain = shown.Grain;
             LastVignette = vignette;
             LastVignetteSmooth = shown.VignetteSmooth;
+            LastSaturation = shown.Saturation;
             LastReduce = reduce ? 1 : 0;
+        }
+
+        private void ApplyPresented(bool reduce, int memoryMb, out PostGradeRow shown, out float vignette)
+        {
+            PostGrade.Sample(_state, reduce, memoryMb, out shown, out vignette);
+            shown.Vignette = vignette;
+            float deathU = 0f;
+            if (_state.DeathElapsed > 0f && PostGrade.DeathVignetteSeconds > 0.0001f)
+            {
+                deathU = _state.DeathElapsed / PostGrade.DeathVignetteSeconds;
+            }
+
+            if (deathU > 1f)
+            {
+                deathU = 1f;
+            }
+
+            shown.Saturation = PremiumLook.DeathSaturation(shown.Saturation, deathU, reduce);
+            shown.Vignette = PremiumLook.PresentedVignette(shown.Vignette, deathU, reduce);
+            vignette = shown.Vignette;
+            if (Time.unscaledTime < _waveBloomUntil)
+            {
+                shown.Bloom += _waveBloomAdd;
+            }
+
+            if (_state.FromWorld == PostGrade.Hangar && _state.ToWorld == PostGrade.Hangar)
+            {
+                shown.Bloom *= PremiumLook.HangarBloomGain;
+                shown.Exposure += PremiumLook.HangarExposureEv;
+            }
         }
 
         private void Awake()
@@ -213,20 +267,7 @@ namespace AsteroidsGoneRogue
             bool reduce = SettingsState.ReduceEffectsEnabled;
             PostGradeRow shown;
             float vignette;
-            PostGrade.Sample(_state, reduce, memoryMb, out shown, out vignette);
-            shown.Vignette = vignette;
-            float deathU = 0f;
-            if (_state.DeathElapsed > 0f && PostGrade.DeathVignetteSeconds > 0.0001f)
-            {
-                deathU = _state.DeathElapsed / PostGrade.DeathVignetteSeconds;
-            }
-
-            shown.Saturation = PremiumLook.DeathSaturation(shown.Saturation, deathU, reduce);
-            if (Time.unscaledTime < _waveBloomUntil)
-            {
-                shown.Bloom += _waveBloomAdd;
-            }
-
+            ApplyPresented(reduce, memoryMb, out shown, out vignette);
             StoreGrade(shown, vignette, reduce);
             PushUniforms(shown, source);
 

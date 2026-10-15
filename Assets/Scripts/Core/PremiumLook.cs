@@ -51,6 +51,13 @@ namespace AsteroidsGoneRogue
         public const float FailPanelSeconds = 0.220f;
         public const float DomeRimAlpha = 0.30f;
         public const float EnemyCoreLift = 1.12f;
+        public const float MinorEnemyLift = 1.30f;
+        public const float PreviewStudioGain = 0.62f;
+        public const float PreviewExposure = 0.28f;
+        public const float HangarBloomGain = 0.45f;
+        public const float HangarExposureEv = -0.40f;
+        public const float DeathVignetteTarget = 0.78f;
+        public const float PinnedFlashU = 0.55f;
         public const float OutsideR = 0.015f;
         public const float OutsideG = 0.022f;
         public const float OutsideB = 0.045f;
@@ -118,6 +125,47 @@ namespace AsteroidsGoneRogue
 
             float amount = reduce ? DeathDesatReduce : DeathDesat;
             return gradeSat + ((-100f - gradeSat) * amount * u);
+        }
+
+        /// <summary>
+        /// Death stills need a darker edge than the locked 0.45 grade. The locked
+        /// clock stays 0.40 s; this only lifts the vignette that is drawn.
+        /// </summary>
+        public static float PresentedVignette(float graded, float deathU, bool reduce)
+        {
+            float u = deathU;
+            if (u < 0f)
+            {
+                u = 0f;
+            }
+
+            if (u > 1f)
+            {
+                u = 1f;
+            }
+
+            if (u <= 0f)
+            {
+                return graded;
+            }
+
+            float target = DeathVignetteTarget;
+            if (reduce)
+            {
+                target *= EffectScale.PostVignetteMul;
+            }
+
+            return graded + ((target - graded) * u);
+        }
+
+        public static float PinnedFlashAlpha(bool reduce)
+        {
+            if (reduce)
+            {
+                return DeathFlashAlphaReduce;
+            }
+
+            return DeathFlashAlpha;
         }
 
         public static float FlashAlpha(float armU, bool reduce)
@@ -270,6 +318,33 @@ namespace AsteroidsGoneRogue
             }
 
             if (BeamEmission > 1.5f || GridVisibleAlpha < 0.11f || DomeRimAlpha > 0.31f)
+            {
+                return false;
+            }
+
+            float glow = (212f / 255f) * 4f * PreviewExposure;
+            if (glow >= 1f || PreviewStudioGain > 0.7f || MinorEnemyLift < 1.25f)
+            {
+                return false;
+            }
+
+            if (PresentedVignette(0.45f, 1f, false) < 0.75f)
+            {
+                return false;
+            }
+
+            float enemyY = Luma(0.5f * MinorEnemyLift, 0.3f * MinorEnemyLift, 0.32f * MinorEnemyLift);
+            float w4R;
+            float w4G;
+            float w4B;
+            FloorRgb(4, 0.2856f, 0.1496f, 0.0136f, out w4R, out w4G, out w4B);
+            float w4Y = Luma(w4R, w4G, w4B);
+            if (w4Y <= 0.01f || enemyY / w4Y < 3.5f)
+            {
+                return false;
+            }
+
+            if (hullY / floorY < 3.5f)
             {
                 return false;
             }

@@ -447,7 +447,8 @@ namespace AsteroidsGoneRogue
                 _viewport.texture = _rt;
             }
 
-            _viewport.color = Color.white;
+            float exposure = PremiumLook.PreviewExposure;
+            _viewport.color = new Color(exposure, exposure, exposure, 1f);
             _viewport.raycastTarget = false;
             _viewport.enabled = true;
             if (!_viewport.gameObject.activeSelf)
@@ -662,11 +663,12 @@ namespace AsteroidsGoneRogue
 
         private void ApplyLightRecipe()
         {
-            TuneLight(_key, HangarPreviewRig.KeyR, HangarPreviewRig.KeyG, HangarPreviewRig.KeyB, HangarPreviewRig.KeyIntensity);
-            TuneLight(_fill, HangarPreviewRig.FillR, HangarPreviewRig.FillG, HangarPreviewRig.FillB, HangarPreviewRig.FillIntensity);
-            float rim = HangarPreviewRig.StudioRim(SettingsState.ReduceEffectsEnabled);
+            float gain = PremiumLook.PreviewStudioGain;
+            TuneLight(_key, HangarPreviewRig.KeyR, HangarPreviewRig.KeyG, HangarPreviewRig.KeyB, HangarPreviewRig.KeyIntensity * gain);
+            TuneLight(_fill, HangarPreviewRig.FillR, HangarPreviewRig.FillG, HangarPreviewRig.FillB, HangarPreviewRig.FillIntensity * gain);
+            float rim = HangarPreviewRig.StudioRim(SettingsState.ReduceEffectsEnabled) * gain;
             TuneLight(_rim, HangarPreviewRig.RimR, HangarPreviewRig.RimG, HangarPreviewRig.RimB, rim);
-            TuneLight(_bounce, HangarPreviewRig.BounceR, HangarPreviewRig.BounceG, HangarPreviewRig.BounceB, HangarPreviewRig.BounceIntensity);
+            TuneLight(_bounce, HangarPreviewRig.BounceR, HangarPreviewRig.BounceG, HangarPreviewRig.BounceB, HangarPreviewRig.BounceIntensity * gain);
             AimStudioLight(_key, new Vector3(HangarPreviewRig.KeyLocalX, HangarPreviewRig.KeyLocalY, HangarPreviewRig.KeyLocalZ));
             AimStudioLight(_rim, new Vector3(HangarPreviewRig.RimLocalX, HangarPreviewRig.RimLocalY, HangarPreviewRig.RimLocalZ));
         }

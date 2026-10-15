@@ -80,7 +80,7 @@ namespace AsteroidsGoneRogue
             for (int rock = 0; rock < largeCount; rock++)
             {
                 float rockAngle = (Mathf.PI * 2f * rock) / largeCount + 0.35f + ringPhase;
-                Vector3 rockPos = ClearSpawn(RingPoint(rockAngle, ScaledRing(14f + (rock % 2) * 2.5f)));
+                Vector3 rockPos = ClearSpawn(RingPoint(rockAngle, ScaledRing(14f + (rock % 2) * 2.5f)), MeshFit.LegacyLargeRadius);
                 Register(_factory.CreateLargeAsteroid(rockPos, this));
             }
 
@@ -546,12 +546,17 @@ namespace AsteroidsGoneRogue
 
         private Vector3 ClearSpawn(Vector3 spawn)
         {
+            return ClearSpawn(spawn, 0f);
+        }
+
+        private Vector3 ClearSpawn(Vector3 spawn, float bodyRadius)
+        {
             if (_player == null)
             {
                 return spawn;
             }
 
-            return SpawnClearance.Place(spawn, _player.position, ArenaRadius - 1.5f);
+            return SpawnClearance.Place(spawn, _player.position, ArenaRadius - 1.5f, bodyRadius);
         }
 
         public static float ScaledRing(float designRadius)

@@ -50,6 +50,7 @@ namespace AsteroidsGoneRogue.EditorTools
         const string KeyLoggedPhase = "AgrCapture.LoggedPhase";
         const string KeyBootKicked = "AgrCapture.BootKicked";
         const float PlayerClearRadius = 8f;
+        const float ScreenCenterClear = 12f;
 
         const int PhaseEnter = 0;
         const int PhaseWait = 1;
@@ -868,33 +869,17 @@ namespace AsteroidsGoneRogue.EditorTools
                     continue;
                 }
 
-                Renderer renderer = piece.GetComponent<Renderer>();
-                if (renderer == null)
-                {
-                    renderer = piece.GetComponentInChildren<Renderer>();
-                }
-
                 Vector3 center = piece.transform.position;
-                float reach = 0.5f;
-                if (renderer != null)
-                {
-                    center = renderer.bounds.center;
-                    Vector3 ext = renderer.bounds.extents;
-                    reach = ext.x;
-                    if (ext.y > reach)
-                    {
-                        reach = ext.y;
-                    }
-
-                    if (ext.z > reach)
-                    {
-                        reach = ext.z;
-                    }
-                }
-
+                float reach = VisualReach(piece, ref center);
                 Vector3 flat = new Vector3(center.x, 0f, center.z);
                 float dist = flat.magnitude;
-                float need = PlayerClearRadius + reach;
+                float need = PlayerClearRadius;
+                if (ScreenCenterClear > need)
+                {
+                    need = ScreenCenterClear;
+                }
+
+                need += reach;
                 if (dist >= need)
                 {
                     continue;
@@ -916,10 +901,124 @@ namespace AsteroidsGoneRogue.EditorTools
                 Rigidbody body = piece.GetComponent<Rigidbody>();
                 if (body != null)
                 {
+                    body.position = piece.transform.position;
                     body.linearVelocity = Vector3.zero;
                     body.angularVelocity = Vector3.zero;
                 }
             }
+        }
+
+        static float VisualReach(Component piece, ref Vector3 center)
+        {
+            float reach = 0.5f;
+            if (piece == null)
+            {
+                return reach;
+            }
+
+            bool any = false;
+            Bounds bounds = new Bounds(piece.transform.position, Vector3.zero);
+            Renderer[] renderers = piece.GetComponentsInChildren<Renderer>(true);
+            if (renderers != null)
+            {
+                for (int rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
+                {
+                    Renderer renderer = renderers[rendererIndex];
+                    if (renderer == null)
+                    {
+                        continue;
+                    }
+
+                    if (!any)
+                    {
+                        bounds = renderer.bounds;
+                        any = true;
+                    }
+                    else
+                    {
+                        bounds.Encapsulate(renderer.bounds);
+                    }
+                }
+            }
+
+            Collider[] colliders = piece.GetComponentsInChildren<Collider>(true);
+            if (colliders != null)
+            {
+                for (int colliderIndex = 0; colliderIndex < colliders.Length; colliderIndex++)
+                {
+                    Collider collider = colliders[colliderIndex];
+                    if (collider == null)
+                    {
+                        continue;
+                    }
+
+                    float rad = 0f;
+                    SphereCollider sphere = collider as SphereCollider;
+                    if (sphere != null)
+                    {
+                        Vector3 scale = sphere.transform.lossyScale;
+                        float axis = scale.x;
+                        if (scale.y > axis)
+                        {
+                            axis = scale.y;
+                        }
+
+                        if (scale.z > axis)
+                        {
+                            axis = scale.z;
+                        }
+
+                        if (axis < 0f)
+                        {
+                            axis = -axis;
+                        }
+
+                        rad = sphere.radius * axis;
+                    }
+                    else
+                    {
+                        Vector3 ext = collider.bounds.extents;
+                        rad = ext.x;
+                        if (ext.y > rad)
+                        {
+                            rad = ext.y;
+                        }
+
+                        if (ext.z > rad)
+                        {
+                            rad = ext.z;
+                        }
+                    }
+
+                    if (rad > reach)
+                    {
+                        reach = rad;
+                    }
+                }
+            }
+
+            if (any)
+            {
+                center = bounds.center;
+                Vector3 ext = bounds.extents;
+                float visual = ext.x;
+                if (ext.y > visual)
+                {
+                    visual = ext.y;
+                }
+
+                if (ext.z > visual)
+                {
+                    visual = ext.z;
+                }
+
+                if (visual > reach)
+                {
+                    reach = visual;
+                }
+            }
+
+            return reach;
         }
 
         static void KeepShipAlive()
@@ -991,6 +1090,11 @@ namespace AsteroidsGoneRogue.EditorTools
             {
                 refresh.Invoke(ui, new object[0]);
             }
+
+            if (SessionState.GetInt(KeyShot, 0) != 0)
+            {
+                InvokeZero(ui, "HideProductTitle");
+            }
         }
 
         static bool PinDeath(object game)
@@ -1026,7 +1130,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 elapsedField.SetValue(feel, mid);
             }
 
-            PinVignette(mid);
+            PinVignette(DeathVignettePin());
             bool reduce = SessionState.GetInt(KeyReduce, 0) != 0;
             float scale = 1f;
             System.Reflection.MethodInfo timeScale = feel.GetType().GetMethod("TimeScale", new System.Type[] { typeof(bool) });
@@ -1041,13 +1145,43 @@ namespace AsteroidsGoneRogue.EditorTools
 
             Time.timeScale = scale;
             RememberGrade();
-            float vignette = ReadStaticFloat(FindType("PostStack"), "LastVignette");
+            System.Type stack = FindType("PostStack");
+            float vignette = ReadStaticFloat(stack, "LastVignette");
+            float saturation = ReadStaticFloat(stack, "LastSaturation");
+            float flash = ReadStaticFloat(stack, "LastDeathFlash");
             Debug.Log(
                 "AgrCapture: pinned death timescale="
                 + scale.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
                 + " vignette="
-                + vignette.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+                + vignette.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
+                + " saturation="
+                + saturation.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+                + " flash="
+                + flash.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
             return true;
+        }
+
+        static float DeathVignettePin()
+        {
+            System.Type grade = FindType("PostGrade");
+            if (grade == null)
+            {
+                return FallbackDeathMid;
+            }
+
+            System.Reflection.FieldInfo field = grade.GetField("DeathVignetteSeconds", Flags);
+            if (field == null)
+            {
+                return FallbackDeathMid;
+            }
+
+            object raw = field.GetRawConstantValue();
+            if (raw is float)
+            {
+                return (float)raw;
+            }
+
+            return FallbackDeathMid;
         }
 
         static void PinWaveClear()
@@ -1185,6 +1319,11 @@ namespace AsteroidsGoneRogue.EditorTools
 
             deathField.SetValue(state, seconds);
             stateField.SetValue(stack, state);
+            System.Reflection.MethodInfo pin = stack.GetType().GetMethod("PinDeathClock", Flags);
+            if (pin != null)
+            {
+                pin.Invoke(null, new object[] { seconds });
+            }
         }
 
         static void ClearFeel(object game)

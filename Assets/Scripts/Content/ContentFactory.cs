@@ -182,11 +182,11 @@ namespace AsteroidsGoneRogue
                 false);
             _enemy = MakeShipRim(
                 "Mat_Enemy",
-                new Color(ReadabilityPalette.EnemyBodyR, ReadabilityPalette.EnemyBodyG, ReadabilityPalette.EnemyBodyB),
+                new Color(ReadabilityPalette.EnemyBodyR, ReadabilityPalette.EnemyBodyG, ReadabilityPalette.EnemyBodyB) * PremiumLook.MinorEnemyLift,
                 dangerEmit,
                 EmissionTargets.EnemyRimPower,
                 EmissionTargets.EnemyRimStrength,
-                dangerEmit * ReadabilityPalette.EnemyEmissionScale,
+                dangerEmit * ReadabilityPalette.EnemyEmissionScale * PremiumLook.MinorEnemyLift,
                 0.22f,
                 0.35f,
                 false);

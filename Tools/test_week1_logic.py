@@ -15369,7 +15369,7 @@ def test_p7_post_and_light() -> None:
     assert "DeathVignetteSeconds = 0.40f" in grade
     assert "DeathVignetteSmooth = 0.82f" in grade
     assert "DeathEase" in grade
-    assert "_Grain * 0.50h" in shader
+    assert "_Grain * 0.25h" in shader
     assert "RememberGrade" in stack
     assert "LastReduce" in stack
     assert "public static bool SelfCheck()" in grade

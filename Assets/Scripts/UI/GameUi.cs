@@ -758,15 +758,16 @@ namespace AsteroidsGoneRogue
             _title = CreateText("Title", transform, display, UiTheme.TypeTitle, TextAnchor.MiddleLeft, FontStyle.Bold);
             _title.lineSpacing = UiTheme.TitleLine;
             // Top-bar left: title slot. Stretch anchors, zero offset so 16:9 scaler keeps one row.
-            Stretch(_title.rectTransform, new Vector2(0.012f, 0.905f), new Vector2(0.205f, 0.995f));
+            Stretch(_title.rectTransform, new Vector2(0.012f, 0.905f), new Vector2(0.200f, 0.995f));
             _title.text = productTitle;
             _title.color = UiAmber;
             ClampOneLine(_title);
+            _title.horizontalOverflow = HorizontalWrapMode.Truncate;
             AddReadability(_title, true);
 
             _world = CreateText("WorldBadge", transform, display, 22, TextAnchor.MiddleLeft, FontStyle.Bold);
             // Top-bar left: WORLD badge beside title. Stretch anchors, zero offset.
-            Stretch(_world.rectTransform, new Vector2(0.205f, 0.905f), new Vector2(0.355f, 0.995f));
+            Stretch(_world.rectTransform, new Vector2(0.240f, 0.905f), new Vector2(0.460f, 0.995f));
             _world.color = UiAmber;
             ClampOneLine(_world);
             AddReadability(_world, true);
@@ -3579,6 +3580,36 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        public void HideProductTitle()
+        {
+            if (_title != null)
+            {
+                _title.gameObject.SetActive(false);
+            }
+        }
+
+        /// <summary>
+        /// Capture still. The live flash ends before mid slow-mo, and GameUi is
+        /// disabled for that shot, so the image is painted here and left up.
+        /// </summary>
+        public float ShowPinnedDeathFlash()
+        {
+            bool reduce = SettingsState.ReduceEffectsEnabled;
+            float red;
+            float green;
+            float blue;
+            PremiumLook.FlashRgb(PremiumLook.PinnedFlashU, out red, out green, out blue);
+            float alpha = PremiumLook.PinnedFlashAlpha(reduce);
+            if (_deathFlash != null)
+            {
+                _deathFlash.color = new Color(red, green, blue, alpha);
+                _deathFlash.enabled = alpha > 0.001f;
+                _deathFlash.transform.SetAsLastSibling();
+            }
+
+            return alpha;
+        }
+
         private void TickPremiumChrome()
         {
             bool reduce = SettingsState.ReduceEffectsEnabled;
@@ -4910,7 +4941,7 @@ namespace AsteroidsGoneRogue
             bool hangar = _session != null && _session.Phase != GamePhase.Playing;
             if (hangar)
             {
-                Stretch(_world.rectTransform, new Vector2(0.205f, 0.905f), new Vector2(0.355f, 0.995f));
+                Stretch(_world.rectTransform, new Vector2(0.240f, 0.905f), new Vector2(0.460f, 0.995f));
             }
             else
             {
@@ -4936,7 +4967,7 @@ namespace AsteroidsGoneRogue
             bool hangar = _session != null && _session.Phase != GamePhase.Playing;
             if (hangar)
             {
-                Stretch(_world.rectTransform, new Vector2(0.205f, 0.905f), new Vector2(0.355f, 0.995f));
+                Stretch(_world.rectTransform, new Vector2(0.240f, 0.905f), new Vector2(0.460f, 0.995f));
             }
             else
             {
@@ -5091,6 +5122,11 @@ namespace AsteroidsGoneRogue
                 _endCreditsBody.rectTransform.anchoredPosition = new Vector2(0f, _creditsScroll);
             }
 
+            if (_session != null && _session.Phase == GamePhase.Playing && _title != null && _title.gameObject.activeSelf)
+            {
+                _title.gameObject.SetActive(false);
+            }
+
             if (_session != null && _session.Phase == GamePhase.Playing && _hud != null)
             {
                 if (_scorePhase != GamePhase.Playing)
@@ -5192,7 +5228,7 @@ namespace AsteroidsGoneRogue
                 else
                 {
                     _world.gameObject.SetActive(true);
-                    Stretch(_world.rectTransform, new Vector2(0.205f, 0.905f), new Vector2(0.355f, 0.995f));
+                    Stretch(_world.rectTransform, new Vector2(0.240f, 0.905f), new Vector2(0.460f, 0.995f));
                     RefreshWorldBadge();
                 }
             }

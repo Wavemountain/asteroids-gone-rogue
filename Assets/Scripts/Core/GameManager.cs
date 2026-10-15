@@ -1203,6 +1203,13 @@ namespace AsteroidsGoneRogue
             }
 
             VfxKit.PresentFresh(0.40f);
+            float flash = 0f;
+            if (_ui != null)
+            {
+                flash = _ui.ShowPinnedDeathFlash();
+            }
+
+            PostStack.NoteDeathFlash(flash);
         }
 
         public void CaptureWaveClear()
