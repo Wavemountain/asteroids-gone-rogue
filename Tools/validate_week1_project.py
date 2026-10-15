@@ -2033,6 +2033,15 @@ def main() -> int:
         "Projectile_EnemyBolt",
         "Pickup_Score",
         "Pickup_Shield",
+        "Enemy_Brute_v2",
+        "Enemy_Swarm_v2",
+        "Enemy_Bomber_v2",
+        "Asteroid_L_A",
+        "Asteroid_M_A",
+        "Asteroid_S_A",
+        "Asteroid_Frag_01",
+        "Pickup_Heart",
+        "Pickup_Generic",
     )
     for name in play_fbx:
         path = ROOT / f"Assets/Art/Import/{name}.fbx"

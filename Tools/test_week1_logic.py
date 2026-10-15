@@ -1851,7 +1851,7 @@ def test_monsters_arenas_040() -> None:
     assert "DressPulse" in hazard
 
     warm = art.split("PlayModeAssets")[1].split("};")[0]
-    assert warm.count("\n            \"") == 62
+    assert warm.count("\n            \"") == 80
     assert "Monster_Brute" in warm
     assert "Monster_Swarm" in warm
     assert "Arena_Hazard_Spike" in warm
@@ -2178,7 +2178,7 @@ def test_art_parity_040c() -> None:
     require_mesh = enemies.split("public static bool RequiresImportedMesh")[1].split("public static")[0]
     assert "EnemyKind.Bomber" in require_mesh
     warm = art.split("PlayModeAssets")[1].split("};")[0]
-    assert warm.count("\n            \"") == 62
+    assert warm.count("\n            \"") == 80
     assert "Ship_Complete" in warm and "Enemy_Bomber" in warm
     assert "Ship_Body_Upgrade02" not in warm
 
@@ -2490,7 +2490,7 @@ def test_astro_env_040() -> None:
     assert "Arena_AstroFloor_v2" in blockout
     assert "Arena_AstroFloor" in blockout
     warm = art.split("PlayModeAssets")[1].split("};")[0]
-    assert warm.count("\n            \"") == 62
+    assert warm.count("\n            \"") == 80
     assert "Arena_AstroFloor" not in warm
     assert "AstroFloor_v2" not in warm
     assert "Arena_AstroFloor_v2" not in warm
@@ -8545,6 +8545,7 @@ def main() -> int:
     test_p3_hangar_hero_preview()
     test_p4_tutorial_prompt_cards()
     test_p5_glass_risk_daily()
+    test_p6_emission_rim_meshes()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -15041,6 +15042,139 @@ def _remaining_text(seconds: int) -> str:
     if minutes > 0:
         return str(minutes) + "m " + f"{secs:02d}" + "s"
     return str(secs) + "s"
+
+
+def test_p6_emission_rim_meshes() -> None:
+    """0.48 PR A: emission table, rim shader, and mesh fit that keeps 0.47 hitboxes."""
+    import os
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    targets = (root / "Assets/Scripts/Core/EmissionTargets.cs").read_text(encoding="utf-8")
+    fit = (root / "Assets/Scripts/Core/MeshFit.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    enemies = (root / "Assets/Scripts/Combat/EnemyKind.cs").read_text(encoding="utf-8")
+    art = (root / "Assets/Scripts/Content/ArtImport.cs").read_text(encoding="utf-8")
+    warmup = (root / "Assets/Scripts/Content/ShaderWarmup.cs").read_text(encoding="utf-8")
+    bootstrap = (root / "Assets/Scripts/Content/GameBootstrap.cs").read_text(encoding="utf-8")
+    palette = (root / "Assets/Scripts/Core/ReadabilityPalette.cs").read_text(encoding="utf-8")
+    shader = (root / "Assets/Resources/Shaders/AgrRimLit.shader").read_text(encoding="utf-8")
+
+    assert "SwarmShrinksGameplay = false" in fit
+    assert "SwarmLookScale = 0.80f" in fit
+    assert "LegacySwarmRadius = 0.910f" in fit
+    assert "LegacyBruteRadius = 1.625f" in fit
+    assert "LegacyBomberRadius = 4.635f" in fit
+    assert "public static bool SelfCheck()" in fit
+    assert "RunRng" not in fit
+    assert "AsteroidEmissionScale = 0.15f" in palette
+    assert "AsteroidAlbedoScale = 1.5f" in palette
+    assert "AsteroidEmission(ReadabilityPalette.AsteroidEmissionScale)" in factory
+    assert "ReadabilityPalette.AsteroidAlbedoScale" in factory
+    assert "EnemyBrute" in factory and "EnemyGlow" in factory and "PlayerShot" in factory and "PlayerRail" in factory
+    assert "EnemyShot" in factory
+    assert 'return "Enemy_Brute_v2"' in enemies
+    assert 'return "Enemy_Swarm_v2"' in enemies
+    assert 'return "Enemy_Bomber_v2"' in enemies
+    assert 'return "Monster_Brute"' in enemies
+    assert "return 0.98f;" in enemies and "return 0.62f;" in enemies and "return 0.82f;" in enemies
+    assert "MeshFit.LegacyRadius" in factory
+    assert "MeshFit.AsteroidRadius" in factory
+    assert "ScaleImportedToRadius" in factory and "ScaleImportedToSphere" in factory
+    assert 'Shader.Find("AGR/RimLit")' in factory
+    assert 'Shader.Find("Standard")' in factory
+    assert "? Shader.Find" not in factory
+    assert "FallBack \"Standard\"" in shader
+    assert 'Shader "AGR/RimLit"' in shader
+    assert "ShaderWarmup.Touch()" in bootstrap
+    assert "Shaders/AgrRimLit" in warmup
+    assert "Shaders/Mat_AgrRimLitRef" in warmup
+    mat = (root / "Assets/Resources/Shaders/Mat_AgrRimLitRef.mat").read_text(encoding="utf-8")
+    assert "533d3417f2a6abf5c0f5a80e55303c9d" in mat
+    pick = factory.split("private static string PickAsteroidVisual")[1].split("private bool TryEnemyVisual")[0]
+    assert pick.count("RunRng.Unit()") == 1
+    assert "Asteroid_L_A" in fit and "Asteroid_Frag_01" in art
+    for name in (
+        "Enemy_Brute_v2",
+        "Enemy_Swarm_v2",
+        "Enemy_Bomber_v2",
+        "Asteroid_L_A",
+        "Asteroid_S_A",
+        "Asteroid_Frag_01",
+        "Pickup_Heart",
+        "Pickup_Generic",
+    ):
+        art_fbx = root / "Assets/Art/Import" / f"{name}.fbx"
+        res_fbx = root / "Assets/Resources/Art/Import" / f"{name}.fbx"
+        assert art_fbx.read_bytes() == res_fbx.read_bytes()
+        assert art_fbx.read_bytes()[:8] == b"Kaydara "
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    from roslyn_core_check import find_dotnet
+
+    dotnet = find_dotnet()
+    assert dotnet, "mesh fit tests need dotnet"
+    work = Path(os.environ.get("TMPDIR", "/tmp")) / "agr-mesh-048"
+    if work.exists():
+        shutil.rmtree(work)
+    work.mkdir(parents=True)
+    shutil.copyfile(root / "Assets/Scripts/Core/EmissionTargets.cs", work / "EmissionTargets.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/MeshFit.cs", work / "MeshFit.cs")
+    program = """
+using System;
+using AsteroidsGoneRogue;
+class Program
+{
+    static void Main()
+    {
+        if (!EmissionTargets.SelfCheck()) throw new Exception("emission");
+        if (!MeshFit.SelfCheck()) throw new Exception("mesh");
+        Console.WriteLine("mesh-ok");
+    }
+}
+"""
+    (work / "Program.cs").write_text(program, encoding="utf-8")
+    (work / "mesh.csproj").write_text(
+        "\n".join(
+            (
+                '<Project Sdk="Microsoft.NET.Sdk">',
+                "  <PropertyGroup>",
+                "    <OutputType>Exe</OutputType>",
+                "    <TargetFramework>net8.0</TargetFramework>",
+                "    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>",
+                "    <Nullable>disable</Nullable>",
+                "    <ImplicitUsings>disable</ImplicitUsings>",
+                "  </PropertyGroup>",
+                "  <ItemGroup>",
+                '    <Compile Include="EmissionTargets.cs" />',
+                '    <Compile Include="MeshFit.cs" />',
+                '    <Compile Include="Program.cs" />',
+                "  </ItemGroup>",
+                "</Project>",
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
+    env["DOTNET_NOLOGO"] = "1"
+    env["DOTNET_ROOT"] = str(Path(dotnet).resolve().parent)
+    result = subprocess.run(
+        [dotnet, "run", "--project", str(work / "mesh.csproj"), "-v", "q"],
+        cwd=work,
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout
+    assert "mesh-ok" in result.stdout
 
 
 def test_p5_glass_risk_daily() -> None:

@@ -24,6 +24,7 @@ namespace AsteroidsGoneRogue
                 cameraObject.AddComponent<AudioListener>();
             }
 
+            ShaderWarmup.Touch();
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.02f, 0.03f, 0.05f);
             camera.fieldOfView = 54f;

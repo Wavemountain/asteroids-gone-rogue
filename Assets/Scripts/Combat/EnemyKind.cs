@@ -55,6 +55,43 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        /// <summary>
+        /// Imported mesh. Brute, swarm, and bomber prefer the 0.48 sculpts
+        /// and fall back to VisualName when the file is missing.
+        /// </summary>
+        public static string MeshAsset(EnemyKind kind)
+        {
+            switch (kind)
+            {
+                case EnemyKind.Brute:
+                    return "Enemy_Brute_v2";
+                case EnemyKind.Swarm:
+                case EnemyKind.Swarmling:
+                    return "Enemy_Swarm_v2";
+                case EnemyKind.Bomber:
+                    return "Enemy_Bomber_v2";
+                default:
+                    return VisualName(kind);
+            }
+        }
+
+        public static int MeshFitId(EnemyKind kind)
+        {
+            switch (kind)
+            {
+                case EnemyKind.Brute:
+                    return MeshFit.Brute;
+                case EnemyKind.Swarm:
+                    return MeshFit.Swarm;
+                case EnemyKind.Bomber:
+                    return MeshFit.Bomber;
+                case EnemyKind.Swarmling:
+                    return MeshFit.Swarmling;
+                default:
+                    return MeshFit.None;
+            }
+        }
+
         public static int HitPoints(EnemyKind kind)
         {
             switch (kind)
@@ -269,6 +306,7 @@ namespace AsteroidsGoneRogue
             }
 
             if (visualName == "Enemy_Bomber"
+                || visualName == "Enemy_Bomber_v2"
                 || visualName == "Enemy_Bomber_Buffer_v8"
                 || visualName == "Enemy_Bomber_Buffer_v6"
                 || visualName == "Enemy_Bomber_Buffer_v5")
@@ -288,7 +326,7 @@ namespace AsteroidsGoneRogue
                 return EnemyKind.SwarmPod;
             }
 
-            if (visualName == "Monster_Brute")
+            if (visualName == "Monster_Brute" || visualName == "Enemy_Brute_v2")
             {
                 return EnemyKind.Brute;
             }
@@ -298,7 +336,7 @@ namespace AsteroidsGoneRogue
                 return EnemyKind.Swarmling;
             }
 
-            if (visualName == "Monster_Swarm")
+            if (visualName == "Monster_Swarm" || visualName == "Enemy_Swarm_v2")
             {
                 return EnemyKind.Swarm;
             }
