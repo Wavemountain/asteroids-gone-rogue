@@ -419,6 +419,7 @@ namespace AsteroidsGoneRogue
             _runLaunched = true;
             EnsureRunId();
             _session.BeginWave();
+            RememberDailyPlay();
             _session.MarkWaveStarted();
             BindGameplaySeed();
             _ship.ResetForWave(_loadout.State, false, true);
@@ -697,14 +698,39 @@ namespace AsteroidsGoneRogue
             StartWave();
         }
 
+        public bool DailyRetryBlocked()
+        {
+            if (ActiveDailySeed <= 0 || !DailySeed.DateLooksValid(ActiveDailyDate))
+            {
+                return false;
+            }
+
+            int year;
+            int month;
+            int day;
+            int hour;
+            int minute;
+            int second;
+            DailySeed.UtcNow(out year, out month, out day, out hour, out minute, out second);
+            return !DailyWindow.Allows(DailyPlayedStore.Read(), DailySeed.PackDate(year, month, day));
+        }
+
         public void OneMoreTry()
         {
             if (ActiveDailySeed > 0 && DailySeed.DateLooksValid(ActiveDailyDate))
             {
-                int year = ActiveDailyDate / 10000;
-                int month = (ActiveDailyDate / 100) % 100;
-                int day = ActiveDailyDate % 100;
-                BeginRetry(true, year, month, day, ActiveMutatorMask);
+                int year;
+                int month;
+                int day;
+                int hour;
+                int minute;
+                int second;
+                DailySeed.UtcNow(out year, out month, out day, out hour, out minute, out second);
+                if (DailyWindow.Allows(DailyPlayedStore.Read(), DailySeed.PackDate(year, month, day)))
+                {
+                    BeginRetry(true, year, month, day, ActiveMutatorMask);
+                }
+
                 return;
             }
 
@@ -719,6 +745,11 @@ namespace AsteroidsGoneRogue
         public void BeginRetry(bool daily, int year, int month, int day, int mutatorMask)
         {
             if (_session == null || !FirstRunRules.OneMoreTryIsPrimary(_session.Phase))
+            {
+                return;
+            }
+
+            if (daily && !DailyWindow.Allows(DailyPlayedStore.Read(), DailySeed.PackDate(year, month, day)))
             {
                 return;
             }
@@ -1444,6 +1475,11 @@ namespace AsteroidsGoneRogue
 
         public void ApplyDailyClock(int year, int month, int day)
         {
+            if (!DailyWindow.Allows(DailyPlayedStore.Read(), DailySeed.PackDate(year, month, day)))
+            {
+                return;
+            }
+
             StampDaily(year, month, day);
             BindGameplaySeed();
             ResyncStartShield();
@@ -1472,6 +1508,14 @@ namespace AsteroidsGoneRogue
 
             ActiveDailyDate = packed;
             ActiveDailySeed = seed;
+        }
+
+        private void RememberDailyPlay()
+        {
+            if (ActiveDailySeed > 0 && DailySeed.DateLooksValid(ActiveDailyDate))
+            {
+                DailyPlayedStore.Commit(ActiveDailyDate);
+            }
         }
 
         public bool TryBuyLegacy(int perk)

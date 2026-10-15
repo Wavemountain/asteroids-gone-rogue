@@ -43,6 +43,15 @@ namespace AsteroidsGoneRogue
 
     public static class MutatorRules
     {
+        /// <summary>
+        /// Glass Cannon takes and deals ×1.5. The score matches that risk and
+        /// credits add a kicker, so the pick pays more than the old ×1.15.
+        /// HitRemainder still resets on every configure; it is not the payout.
+        /// </summary>
+        public const int GlassScorePercent = 150;
+        public const int GlassCreditPercent = 120;
+        public const int RiskCap = 5;
+
         public static bool Has(int mask, int id)
         {
             int bit = MutatorCatalog.Bit(id);
@@ -155,7 +164,7 @@ namespace AsteroidsGoneRogue
             int percent = 100;
             if (Has(clean, MutatorCatalog.Glass))
             {
-                percent = percent * 115 / 100;
+                percent = percent * GlassScorePercent / 100;
             }
 
             if (Has(clean, MutatorCatalog.Swarm))
@@ -185,6 +194,11 @@ namespace AsteroidsGoneRogue
         {
             int clean = Sanitize(mask);
             int percent = 100;
+            if (Has(clean, MutatorCatalog.Glass))
+            {
+                percent = percent * GlassCreditPercent / 100;
+            }
+
             if (Has(clean, MutatorCatalog.Quiet))
             {
                 percent = percent * 125 / 100;
@@ -349,6 +363,128 @@ namespace AsteroidsGoneRogue
 
             swapped[roster.Length] = EnemyKind.Swarmling;
             return swapped;
+        }
+
+        public static int GlassScorePayout(int amount)
+        {
+            return ScaleScore(amount, MutatorCatalog.Bit(MutatorCatalog.Glass));
+        }
+
+        public static int GlassCreditPayout(int amount)
+        {
+            return ScaleCredits(amount, MutatorCatalog.Bit(MutatorCatalog.Glass));
+        }
+
+        /// <summary>
+        /// Combined threat of the active mask. Glass is the sharpest single
+        /// risk. Two picks add, then cap so the picker line stays short.
+        /// </summary>
+        public static int RiskPips(int mask)
+        {
+            int clean = Sanitize(mask);
+            int pips = 0;
+            if (Has(clean, MutatorCatalog.Glass))
+            {
+                pips += 3;
+            }
+
+            if (Has(clean, MutatorCatalog.Swarm))
+            {
+                pips += 1;
+            }
+
+            if (Has(clean, MutatorCatalog.Heavy))
+            {
+                pips += 2;
+            }
+
+            if (Has(clean, MutatorCatalog.Quiet))
+            {
+                pips += 1;
+            }
+
+            if (Has(clean, MutatorCatalog.Overclock))
+            {
+                pips += 2;
+            }
+
+            if (Has(clean, MutatorCatalog.LongHaul))
+            {
+                pips += 2;
+            }
+
+            if (pips > RiskCap)
+            {
+                pips = RiskCap;
+            }
+
+            return pips;
+        }
+
+        public static string RiskBullets(int pips)
+        {
+            if (pips < 1)
+            {
+                return string.Empty;
+            }
+
+            if (pips > RiskCap)
+            {
+                pips = RiskCap;
+            }
+
+            string bullets = string.Empty;
+            for (int index = 0; index < pips; index++)
+            {
+                bullets += "\u2022";
+            }
+
+            return bullets;
+        }
+
+        /// <summary>
+        /// One decimal when the hundredths digit is 0 (150 → 1.5), otherwise
+        /// two (132 → 1.32). The combined line uses this, not the row's ×1.50.
+        /// </summary>
+        public static string CompactFactor(int percent)
+        {
+            if (percent < 0)
+            {
+                percent = 0;
+            }
+
+            int whole = percent / 100;
+            int frac = percent % 100;
+            if ((frac % 10) == 0)
+            {
+                return whole.ToString() + "." + (frac / 10).ToString();
+            }
+
+            string tail = frac < 10 ? "0" + frac.ToString() : frac.ToString();
+            return whole.ToString() + "." + tail;
+        }
+
+        /// <summary>
+        /// One combined risk/reward line for a mask. Empty when nothing is on.
+        /// Bullets are U+2022. Credits are omitted at ×1.00.
+        /// </summary>
+        public static string FormatRisk(int mask)
+        {
+            int pips = RiskPips(mask);
+            if (pips < 1)
+            {
+                return string.Empty;
+            }
+
+            string bullets = RiskBullets(pips);
+            string score = CompactFactor(ScorePercent(mask));
+            int credits = CreditPercent(mask);
+            if (credits == 100)
+            {
+                return "Risk " + bullets + " / Score x" + score;
+            }
+
+            return "Risk " + bullets + " / Score x" + score + " / Credits x" + CompactFactor(credits);
         }
 
         public static string Factor(int percent)

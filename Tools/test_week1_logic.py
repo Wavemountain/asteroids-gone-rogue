@@ -8544,6 +8544,7 @@ def main() -> int:
     test_ui_transition_048()
     test_p3_hangar_hero_preview()
     test_p4_tutorial_prompt_cards()
+    test_p5_glass_risk_daily()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -13970,7 +13971,7 @@ def _mutator_score_percent(mask: int) -> int:
     clean = _mutator_sanitize(mask)
     percent = 100
     if _mutator_has(clean, 0):
-        percent = percent * 115 // 100
+        percent = percent * 150 // 100
     if _mutator_has(clean, 1):
         percent = percent * 110 // 100
     if _mutator_has(clean, 2):
@@ -13988,7 +13989,11 @@ def _mutator_score_percent(mask: int) -> int:
 
 def _mutator_credit_percent(mask: int) -> int:
     clean = _mutator_sanitize(mask)
-    percent = 125 if _mutator_has(clean, 3) else 100
+    percent = 100
+    if _mutator_has(clean, 0):
+        percent = percent * 120 // 100
+    if _mutator_has(clean, 3):
+        percent = percent * 125 // 100
     if percent < 100:
         return 100
     if percent > 140:
@@ -14042,7 +14047,7 @@ def test_mutators_047f() -> None:
     assert _mutator_toggle(glass, 3) == (False, glass)
     assert _mutator_toggle(glass, 0) == (True, 0)
     assert _mutator_score_percent(0) == 100
-    assert _mutator_score_percent(glass | overclock) == 138
+    assert _mutator_score_percent(glass | overclock) == 160
     assert _mutator_score_percent(glass | overclock) <= 160
     assert _mutator_credit_percent(0) == 100
     assert _mutator_credit_percent(quiet) == 125
@@ -14129,12 +14134,13 @@ def test_mutators_047f() -> None:
         "mut.rejected",
         "mut.hud",
         "mut.stack",
+        "mut.risk.pay",
     ):
         assert key in loc and key in copy
 
     rows = {
-        "en": "\u2022 Glass Cannon  ·  score ×1.15  ·  credits ×1.00",
-        "sv": "\u2022 Glaskanone  ·  poäng ×1.15  ·  krediter ×1.00",
+        "en": "\u2022 Glass Cannon  ·  score ×1.50  ·  credits ×1.20",
+        "sv": "\u2022 Glaskanone  ·  poäng ×1.50  ·  krediter ×1.20",
     }
     descs = {
         "en": "Asteroids are tougher and split once more.",
@@ -14857,6 +14863,333 @@ def test_p4_tutorial_prompt_cards() -> None:
     )
     assert run.returncode == 0, run.stdout + "\n" + run.stderr
     assert "prompt-ok" in run.stdout
+
+
+def _compact_factor(percent: int) -> str:
+    if percent < 0:
+        percent = 0
+    whole = percent // 100
+    frac = percent % 100
+    if frac % 10 == 0:
+        return str(whole) + "." + str(frac // 10)
+    tail = ("0" + str(frac)) if frac < 10 else str(frac)
+    return str(whole) + "." + tail
+
+
+def _risk_pips(mask: int) -> int:
+    clean = _mutator_sanitize(mask)
+    pips = 0
+    if _mutator_has(clean, 0):
+        pips += 3
+    if _mutator_has(clean, 1):
+        pips += 1
+    if _mutator_has(clean, 2):
+        pips += 2
+    if _mutator_has(clean, 3):
+        pips += 1
+    if _mutator_has(clean, 4):
+        pips += 2
+    if _mutator_has(clean, 5):
+        pips += 2
+    if pips > 5:
+        return 5
+    return pips
+
+
+def _format_risk(mask: int) -> str:
+    pips = _risk_pips(mask)
+    if pips < 1:
+        return ""
+    bullets = "\u2022" * pips
+    score = _compact_factor(_mutator_score_percent(mask))
+    credits = _mutator_credit_percent(mask)
+    if credits == 100:
+        return "Risk " + bullets + " / Score x" + score
+    return "Risk " + bullets + " / Score x" + score + " / Credits x" + _compact_factor(credits)
+
+
+def _glass_payout(amount: int, percent: int) -> int:
+    if amount <= 0 or percent == 100:
+        return amount
+    return ((amount * percent) + 50) // 100
+
+
+def _daily_leap(year: int) -> bool:
+    if year % 400 == 0:
+        return True
+    if year % 100 == 0:
+        return False
+    return year % 4 == 0
+
+
+def _daily_dim(year: int, month: int) -> int:
+    if month == 2:
+        return 29 if _daily_leap(year) else 28
+    if month in (4, 6, 9, 11):
+        return 30
+    return 31
+
+
+def _daily_parts_valid(year: int, month: int, day: int) -> bool:
+    if year < 1 or year > 9999 or month < 1 or month > 12 or day < 1:
+        return False
+    return day <= _daily_dim(year, month)
+
+
+def _daily_day_number(year: int, month: int, day: int) -> int:
+    days = 0
+    if year >= 2000:
+        for cursor in range(2000, year):
+            days += 366 if _daily_leap(cursor) else 365
+    else:
+        for cursor in range(year, 2000):
+            days -= 366 if _daily_leap(cursor) else 365
+    for cursor in range(1, month):
+        days += _daily_dim(year, cursor)
+    return days + day - 1
+
+
+def _daily_from_day_number(day_number: int):
+    year = 2000
+    remaining = day_number
+    if remaining >= 0:
+        while True:
+            year_days = 366 if _daily_leap(year) else 365
+            if remaining < year_days:
+                break
+            remaining -= year_days
+            year += 1
+            if year > 9999:
+                return None
+    else:
+        while remaining < 0:
+            year -= 1
+            if year < 1:
+                return None
+            remaining += 366 if _daily_leap(year) else 365
+    month = 1
+    while month <= 12:
+        dim = _daily_dim(year, month)
+        if remaining < dim:
+            break
+        remaining -= dim
+        month += 1
+    if month > 12 or not _daily_parts_valid(year, month, remaining + 1):
+        return None
+    return year, month, remaining + 1
+
+
+def _daily_shift(year, month, day, hour, minute, second, delta):
+    if not _daily_parts_valid(year, month, day):
+        return None
+    if hour < 0 or hour > 23 or minute < 0 or minute > 59 or second < 0 or second > 59:
+        return None
+    total = (_daily_day_number(year, month, day) * 1440) + (hour * 60) + minute + delta
+    new_day = int(total // 1440)
+    minute_of_day = int(total % 1440)
+    if minute_of_day < 0:
+        minute_of_day += 1440
+        new_day -= 1
+    parts = _daily_from_day_number(new_day)
+    if parts is None:
+        return None
+    out_year, out_month, out_day = parts
+    return out_year, out_month, out_day, minute_of_day // 60, minute_of_day % 60, second
+
+
+def _daily_utc(year, month, day, hour, minute, second, offset):
+    if offset < -840 or offset > 840:
+        return None
+    return _daily_shift(year, month, day, hour, minute, second, -offset)
+
+
+def _daily_allows(played: int, today: int) -> bool:
+    def valid(packed: int) -> bool:
+        if packed < 20000101 or packed > 21991231:
+            return False
+        year = packed // 10000
+        month = (packed // 100) % 100
+        day = packed % 100
+        return _daily_parts_valid(year, month, day) and 2000 <= year <= 2199
+
+    if not valid(today):
+        return False
+    if not valid(played):
+        return True
+    return played != today
+
+
+def _seconds_until_midnight(hour: int, minute: int, second: int) -> int:
+    if hour < 0 or hour > 23 or minute < 0 or minute > 59 or second < 0 or second > 59:
+        return 0
+    left = 86400 - ((hour * 3600) + (minute * 60) + second)
+    if left < 1:
+        return 86400
+    return left
+
+
+def _remaining_text(seconds: int) -> str:
+    if seconds < 0:
+        seconds = 0
+    if seconds > 86400:
+        seconds = 86400
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    secs = seconds % 60
+    if hours > 0:
+        return str(hours) + "h " + f"{minutes:02d}" + "m"
+    if minutes > 0:
+        return str(minutes) + "m " + f"{secs:02d}" + "s"
+    return str(secs) + "s"
+
+
+def test_p5_glass_risk_daily() -> None:
+    """Glass Cannon payout, combined risk line, and the UTC-midnight daily window."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    rules = (root / "Assets/Scripts/Core/MutatorRules.cs").read_text(encoding="utf-8")
+    copy = (root / "Assets/Scripts/Core/MutatorCopy.cs").read_text(encoding="utf-8")
+    window = (root / "Assets/Scripts/Core/DailyWindow.cs").read_text(encoding="utf-8")
+    seed = (root / "Assets/Scripts/Core/DailySeed.cs").read_text(encoding="utf-8")
+    daily_copy = (root / "Assets/Scripts/Core/DailyCopy.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    juice = (root / "Assets/Scripts/Combat/CombatJuice.cs").read_text(encoding="utf-8")
+    burst = (root / "Assets/Scripts/Combat/JuiceBurst.cs").read_text(encoding="utf-8")
+    save = (root / "Assets/Scripts/Core/RunSave.cs").read_text(encoding="utf-8")
+    settings = (root / "Assets/Scripts/Core/SettingsState.cs").read_text(encoding="utf-8")
+    health = (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
+
+    glass = _mutator_bit(0)
+    swarm = _mutator_bit(1)
+    quiet = _mutator_bit(3)
+    overclock = _mutator_bit(4)
+    long_haul = _mutator_bit(5)
+    assert "GlassScorePercent = 150" in rules
+    assert "GlassCreditPercent = 120" in rules
+    assert "public static string FormatRisk" in rules
+    assert "\\u2022" in rules and "\\u2605" not in rules and "\\u2605" not in copy and "\\u2605" not in window
+    assert _mutator_score_percent(glass) == 150
+    assert _mutator_credit_percent(glass) == 120
+    assert _mutator_score_percent(0) == 100 and _mutator_credit_percent(0) == 100
+    assert _mutator_score_percent(glass | overclock) == 160
+    assert _mutator_score_percent(glass | swarm) == 160
+    assert _mutator_score_percent(overclock | long_haul) == 132
+    assert _mutator_credit_percent(quiet) == 125
+    assert _mutator_credit_percent(glass | quiet) == 100
+    assert _glass_payout(1000, 150) == 1500
+    assert _glass_payout(1, 150) == 2
+    assert _glass_payout(80, 120) == 96
+    assert _glass_payout(100, 120) == 120
+    assert _glass_payout(1000, 100) == 1000
+    assert _glass_payout(0, 150) == 0
+    assert _glass_payout(-3, 150) == -3
+    assert "GlassScorePayout" in rules and "GlassCreditPayout" in rules
+    assert "ref int remainder" in rules
+    reset = health.split("bool applyWaveShield)")[1].split("public void SetHull")[0]
+    assert reset.index("_glassRemainder.Clear()") < reset.index("_maxHull")
+
+    assert _format_risk(0) == ""
+    assert _format_risk(glass | quiet) == ""
+    assert _format_risk(glass) == "Risk \u2022\u2022\u2022 / Score x1.5 / Credits x1.2"
+    assert _format_risk(glass | overclock) == "Risk \u2022\u2022\u2022\u2022\u2022 / Score x1.6 / Credits x1.2"
+    assert _format_risk(overclock | long_haul) == "Risk \u2022\u2022\u2022\u2022 / Score x1.32"
+    assert _format_risk(swarm | quiet) == "Risk \u2022\u2022 / Score x1.1 / Credits x1.25"
+    assert "\u2605" not in _format_risk(glass | overclock)
+    assert _risk_pips(glass) == 3
+    assert _risk_pips(overclock | long_haul) == 4
+    assert "RiskLine" in copy and "mut.stack" in copy and "mut.risk.pay" in copy
+    assert "MutatorCopy.RiskLine" in ui
+    for key in ("mut.stack", "mut.risk.pay", "mut.glass.desc", "daily.wait", "daily.wait.button"):
+        assert key in loc
+
+    assert _seconds_until_midnight(0, 0, 0) == 86400
+    assert _seconds_until_midnight(23, 59, 59) == 1
+    assert _seconds_until_midnight(12, 0, 0) == 43200
+    assert _seconds_until_midnight(24, 0, 0) == 0
+    assert _remaining_text(86400) == "24h 00m"
+    assert _remaining_text(5400) == "1h 30m"
+    assert _remaining_text(3600) == "1h 00m"
+    assert _remaining_text(61) == "1m 01s"
+    assert _remaining_text(5) == "5s"
+    assert _daily_allows(0, 20261015)
+    assert not _daily_allows(20261015, 20261015)
+    assert _daily_allows(20261015, 20261016)
+    assert not _daily_allows(20261015, 20260231)
+    assert _daily_utc(2026, 10, 15, 1, 30, 0, 120) == (2026, 10, 14, 23, 30, 0)
+    assert _daily_utc(2026, 10, 14, 23, 30, 0, -120) == (2026, 10, 15, 1, 30, 0)
+    assert _daily_utc(2026, 3, 1, 0, 30, 0, 60) == (2026, 2, 28, 23, 30, 0)
+    assert _daily_utc(2024, 3, 1, 0, 30, 0, 60) == (2024, 2, 29, 23, 30, 0)
+    assert _daily_utc(2027, 1, 1, 0, 30, 0, 60) == (2026, 12, 31, 23, 30, 0)
+    assert _daily_utc(2026, 12, 31, 23, 30, 45, -90) == (2027, 1, 1, 1, 0, 45)
+    assert _daily_utc(2000, 1, 1, 0, 30, 0, 60) == (1999, 12, 31, 23, 30, 0)
+    assert _daily_utc(2199, 12, 31, 23, 30, 0, -60) == (2200, 1, 1, 0, 30, 0)
+    assert _daily_utc(1900, 3, 1, 0, 30, 0, 60) == (1900, 2, 28, 23, 30, 0)
+    assert _daily_utc(2000, 3, 1, 0, 30, 0, 60) == (2000, 2, 29, 23, 30, 0)
+    assert _daily_utc(2026, 10, 15, 12, 0, 0, 841) is None
+    assert _daily_utc(2026, 10, 15, 12, 0, 0, -841) is None
+    assert _daily_utc(2026, 2, 30, 0, 0, 0, 0) is None
+    assert _daily_utc(2026, 10, 15, 24, 0, 0, 0) is None
+    played = 20261014
+    still = _daily_utc(2026, 10, 15, 1, 0, 0, 120)
+    assert still is not None
+    still_packed = still[0] * 10000 + still[1] * 100 + still[2]
+    assert still_packed == played and not _daily_allows(played, still_packed)
+    rolled = _daily_utc(2026, 10, 15, 2, 0, 0, 120)
+    assert rolled is not None
+    rolled_packed = rolled[0] * 10000 + rolled[1] * 100 + rolled[2]
+    assert rolled_packed == 20261015 and _daily_allows(played, rolled_packed)
+    west = _daily_utc(2026, 10, 14, 22, 0, 0, -180)
+    assert west is not None and west[0] == 2026 and west[1] == 10 and west[2] == 15
+    assert _daily_allows(played, 20261015)
+    assert _remaining_text(_seconds_until_midnight(23, 0, 0)) == "1h 00m"
+    assert "TryUtc" in window and "SecondsUntilNextMidnight" in window
+    assert "agr.daily.played" in window
+    assert "DateTime.UtcNow" in seed and "DateTime.Now" not in seed and "DateTime.Now" not in window
+    assert "public static void UtcNow" in seed
+
+    begin = manager.split("public void BeginRetry(")[1].split("public void ApplyMutators")[0]
+    assert begin.index("StampDaily") < begin.index("ResetFullRun()")
+    assert "DailyWindow.Allows" in begin
+    clock = manager.split("public void ApplyDailyClock")[1].split("public void ClearDailyStamp")[0]
+    assert clock.index("StampDaily") < clock.index("ResyncStartShield")
+    start = manager.split("public void StartWave()")[1].split("public void ContinueFromResults")[0]
+    assert start.index("_session.BeginWave()") < start.index("RememberDailyPlay()")
+    assert "RunBonusPolicy.AppliesLegacy" in manager and "RunBonusPolicy.AppliesSinkShield" in manager
+    assert "OnApplicationFocus" in ui and "NoteDailyClock" in ui and "RefreshDailySurfaces" in ui
+    assert "DailyRetryBlocked" in ui and "DailyCopy.Wait" in ui
+    assert "UiTheme.BodyLine" in ui and "UiTheme.TitleLine" in ui and "BeginPanelIn" in ui
+    assert "RunRng" not in ui and "RunRng" not in juice and "RunRng" not in burst
+    assert "CurrentVersion = 7" in save and "CurrentVersion = 7" in settings
+    assert "daily.wait" in daily_copy and "daily.wait.button" in daily_copy
+    assert "HangarPadNav" in (root / "Assets/Scripts/Core/HangarPadNav.cs").read_text(encoding="utf-8")
+
+    lines = {
+        "glass_en": "You and enemies take +50% damage. Score ×1.50, credits ×1.20.",
+        "glass_sv": "Du och fiender tar +50% skada. Poäng ×1.50, krediter ×1.20.",
+        "risk_en": _format_risk(glass | overclock),
+        "risk_sv": "Risk \u2022\u2022\u2022\u2022\u2022 / Poäng x1.6 / Krediter x1.2",
+        "wait_en": "\u2022 Next daily in 23h 59m.",
+        "wait_sv": "\u2022 Nästa dagliga runda om 23h 59m.",
+        "btn_en": "Daily · 23h 59m",
+        "btn_sv": "Daglig · 23h 59m",
+    }
+    assert len(lines["btn_en"]) <= 28 and len(lines["btn_sv"]) <= 28
+    matrix = ((1280, 800), (1366, 768), (1440, 900), (1920, 1080), (1920, 1200), (2560, 1080), (2560, 1440), (3440, 1440))
+    for width, height in matrix:
+        scale = _canvas_scale(width, height)
+        if width == 1280 and height == 800:
+            assert 18 * scale + 0.05 >= 12.0
+        row_w = (0.72 - 0.28) * (width / scale)
+        btn_w = (0.72 - 0.52) * (width / scale)
+        record_w = (0.97 - 0.03) * (width / scale)
+        for key, text in lines.items():
+            box = btn_w if key.startswith("btn") else row_w
+            assert _shop_wrapped_lines(text, box, 18) <= 2
+            assert _kenney_narrow_width(text, 18) <= box + 0.5
+        assert _kenney_narrow_width(lines["risk_en"], 16) <= record_w
 
 
 if __name__ == "__main__":

@@ -58,5 +58,15 @@ namespace AsteroidsGoneRogue
 
             return Loc.Tf("daily.stamp", "Daily {0}  ·  seed {1}", day, seed);
         }
+
+        public static string Wait(string remaining)
+        {
+            return Loc.Tf("daily.wait", "\u2022 Next daily in {0}.", remaining);
+        }
+
+        public static string LockedButton(string remaining)
+        {
+            return Loc.Tf("daily.wait.button", "Daily · {0}", remaining);
+        }
     }
 }
