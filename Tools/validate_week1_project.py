@@ -2042,6 +2042,12 @@ def main() -> int:
         "Asteroid_Frag_01",
         "Pickup_Heart",
         "Pickup_Generic",
+        "FX_Debris_01",
+        "FX_Debris_02",
+        "FX_Debris_03",
+        "FX_Debris_04",
+        "FX_ShockRing",
+        "FX_MuzzleCard",
     )
     for name in play_fbx:
         path = ROOT / f"Assets/Art/Import/{name}.fbx"
