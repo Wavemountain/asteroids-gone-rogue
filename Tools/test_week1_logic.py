@@ -8566,6 +8566,30 @@ def test_ui_transition_048() -> None:
     assert "ui-ok" in result.stdout
 
 
+def test_loc_tf_formats_every_key() -> None:
+    """Format every Loc key. Named tokens are escaped before string.Format."""
+    import sys
+    from pathlib import Path
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    import audit_loc
+
+    root = tools.parent
+    formatted = audit_loc.format_every(root)
+    assert formatted == [], formatted[:8]
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    tf_fn = loc.split("public static string Tf(")[1].split("public static string Code")[0]
+    assert "ShieldNamedTokens" in tf_fn
+    assert tf_fn.index("ShieldNamedTokens") < tf_fn.index("string.Format")
+    assert "catch (System.FormatException)" in tf_fn
+    assert audit_loc.format_with_dummies("{move} move · {0}") == "{move} move · #0"
+    assert audit_loc.format_with_dummies("{move} styr · {0}") == "{move} styr · #0"
+    swedish = loc.split("private static readonly Dictionary")[1].split("};")[0]
+    assert '{ "ui.hint_hangar", "{move} styr · {0}" }' in swedish
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -8661,6 +8685,7 @@ def main() -> int:
     test_p7_post_and_light()
     test_p8_vfx_pool()
     test_p9_audio_arena()
+    test_loc_tf_formats_every_key()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 

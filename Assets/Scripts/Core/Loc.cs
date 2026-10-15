@@ -574,7 +574,162 @@ namespace AsteroidsGoneRogue
 
         public static string Tf(string key, string englishFormat, params object[] args)
         {
-            return string.Format(T(key, englishFormat), args);
+            string raw = T(key, englishFormat);
+            string template = ShieldNamedTokens(raw);
+            try
+            {
+                if (args == null || args.Length == 0)
+                {
+                    return string.Format(template);
+                }
+
+                return string.Format(template, args);
+            }
+            catch (System.FormatException)
+            {
+                LogFormatOnce(key);
+                return BestEffort(raw, args);
+            }
+        }
+
+        /// <summary>
+        /// Prompt tokens such as {move} are not format holes. Escape them
+        /// before string.Format so they survive for PromptText.
+        /// </summary>
+        private static string ShieldNamedTokens(string template)
+        {
+            if (string.IsNullOrEmpty(template))
+            {
+                return template ?? string.Empty;
+            }
+
+            System.Text.StringBuilder built = new System.Text.StringBuilder(template.Length + 8);
+            int index = 0;
+            int length = template.Length;
+            while (index < length)
+            {
+                char mark = template[index];
+                if (mark == '{' && index + 1 < length && template[index + 1] == '{')
+                {
+                    built.Append("{{");
+                    index += 2;
+                    continue;
+                }
+
+                if (mark == '}' && index + 1 < length && template[index + 1] == '}')
+                {
+                    built.Append("}}");
+                    index += 2;
+                    continue;
+                }
+
+                if (mark == '{')
+                {
+                    int end = template.IndexOf('}', index + 1);
+                    if (end > index)
+                    {
+                        string hole = template.Substring(index + 1, end - index - 1);
+                        if (IsNamedToken(hole))
+                        {
+                            built.Append("{{");
+                            built.Append(hole);
+                            built.Append("}}");
+                            index = end + 1;
+                            continue;
+                        }
+                    }
+                }
+
+                built.Append(mark);
+                index += 1;
+            }
+
+            return built.ToString();
+        }
+
+        private static bool IsNamedToken(string hole)
+        {
+            if (string.IsNullOrEmpty(hole))
+            {
+                return false;
+            }
+
+            char first = hole[0];
+            if (!IsNameStart(first))
+            {
+                return false;
+            }
+
+            for (int index = 1; index < hole.Length; index++)
+            {
+                if (!IsNamePart(hole[index]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool IsNameStart(char value)
+        {
+            if (value >= 'A' && value <= 'Z')
+            {
+                return true;
+            }
+
+            if (value >= 'a' && value <= 'z')
+            {
+                return true;
+            }
+
+            return value == '_';
+        }
+
+        private static bool IsNamePart(char value)
+        {
+            if (IsNameStart(value))
+            {
+                return true;
+            }
+
+            return value >= '0' && value <= '9';
+        }
+
+        private static string BestEffort(string template, object[] args)
+        {
+            if (string.IsNullOrEmpty(template))
+            {
+                return string.Empty;
+            }
+
+            string result = template;
+            if (args == null)
+            {
+                return result;
+            }
+
+            for (int index = 0; index < args.Length; index++)
+            {
+                object arg = args[index];
+                string value = arg == null ? string.Empty : arg.ToString();
+                result = result.Replace("{" + index.ToString() + "}", value);
+            }
+
+            return result;
+        }
+
+        private static bool _formatFaultLogged;
+
+        private static void LogFormatOnce(string key)
+        {
+            if (_formatFaultLogged)
+            {
+                return;
+            }
+
+            _formatFaultLogged = true;
+            Debug.LogError("Loc.Tf format failed for " + key);
         }
 
         public static string Code

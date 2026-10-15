@@ -97,6 +97,10 @@ _CALL = re.compile(
     r'Loc\.T(f)?\(\s*"([^"]+)"\s*,\s*"((?:\\.|[^"\\])*)"',
     re.S,
 )
+# Named prompt tokens such as {move}. A plain {0} hole is a format index.
+_NAMED_HOLE = re.compile(r"(?<!\{)\{([A-Za-z_][A-Za-z0-9_]*)\}(?!\})")
+_ANY_HOLE = re.compile(r"(?<!\{)\{([^{}]+)\}(?!\})")
+_INDEX_HOLE = re.compile(r"(?<!\{)\{(\d+)\}(?!\})")
 _ENTRY = re.compile(r'\{\s*"([^"]+)"\s*,\s*"((?:\\.|[^"\\])*)"')
 
 
@@ -284,6 +288,9 @@ def check(root: Path) -> list[str]:
             for glyph in _glyphs(literal, allowed):
                 errors.append(f"{relative} literal contains {glyph}: {literal!r}")
 
+    errors.extend(_format_errors(loc_src, swedish, english))
+    errors.extend(format_every(root))
+
     dynamic = _dynamic_english(root)
     for key, values in swedish.items():
         english_values = set(english.get(key, []))
@@ -301,6 +308,120 @@ def check(root: Path) -> list[str]:
                 continue
             errors.append(f"SV {key} matches EN ({value!r}); translate it or add it to SAME_LANGUAGE_ALLOW")
 
+    return errors
+
+
+def shield_named(text: str) -> str:
+    """Same escape Loc.Tf applies before string.Format."""
+    return _NAMED_HOLE.sub(lambda match: "{{" + match.group(1) + "}}", text)
+
+
+def format_with_dummies(text: str) -> str:
+    """Fill every positional hole. Named tokens stay as {name}."""
+    shielded = shield_named(text)
+    indexes = [int(match) for match in _INDEX_HOLE.findall(shielded)]
+    count = max(indexes) + 1 if indexes else 0
+    args = tuple(f"#{index}" for index in range(count))
+    return shielded.format(*args)
+
+
+def format_every(root: Path) -> list[str]:
+    """Format every EN fallback and every SV/EN table value."""
+    scripts = root / "Assets" / "Scripts"
+    loc_src = (scripts / "Core" / "Loc.cs").read_text(encoding="utf-8")
+    swedish = _entries(_dict_block(loc_src, 1))
+    english = _entries(_dict_block(loc_src, 2))
+    errors: list[str] = []
+    seen: set[tuple[str, str]] = set()
+
+    def attempt(origin: str, key: str, text: str) -> None:
+        mark = (key, text)
+        if mark in seen:
+            return
+        seen.add(mark)
+        try:
+            format_with_dummies(text)
+        except Exception as exc:
+            errors.append(f"{origin} {key} format failed: {exc}")
+
+    for key, values in swedish.items():
+        for value in values:
+            attempt("SV", key, value)
+    for key, values in english.items():
+        for value in values:
+            attempt("EN", key, value)
+    for path in sorted(scripts.rglob("*.cs")):
+        text = path.read_text(encoding="utf-8")
+        rel = str(path.relative_to(root))
+        for match in _CALL.finditer(text):
+            key = match.group(2)
+            if key.endswith("."):
+                continue
+            attempt(rel, key, _unescape(match.group(3)))
+    if not seen:
+        errors.append("no Loc strings to format")
+    return errors
+
+
+def _format_errors(
+    loc_src: str,
+    swedish: dict[str, list[str]],
+    english: dict[str, list[str]],
+) -> list[str]:
+    """Named {tokens} must be escaped before they reach string.Format."""
+    errors: list[str] = []
+    if "public static string Tf(" not in loc_src:
+        errors.append("Loc.Tf is missing")
+        return errors
+    tf_fn = loc_src.split("public static string Tf(")[1].split("public static string Code")[0]
+    shield_at = tf_fn.find("ShieldNamedTokens")
+    format_at = tf_fn.find("string.Format")
+    if shield_at < 0 or format_at < 0 or shield_at > format_at:
+        errors.append("Loc.Tf passes named placeholders to string.Format")
+    if re.search(r"string\.Format\(\s*T\(", tf_fn):
+        errors.append("Loc.Tf passes the raw template to string.Format")
+    if "catch (System.FormatException)" not in tf_fn and "catch (FormatException)" not in tf_fn:
+        errors.append("Loc.Tf must catch FormatException and keep going")
+    return errors + _named_in_tf(swedish, english)
+
+
+def _named_in_tf(
+    swedish: dict[str, list[str]],
+    english: dict[str, list[str]],
+) -> list[str]:
+    errors: list[str] = []
+    root = Path(__file__).resolve().parents[1]
+    scripts = root / "Assets" / "Scripts"
+    tf_keys: dict[str, set[str]] = {}
+    if scripts.is_dir():
+        for path in sorted(scripts.rglob("*.cs")):
+            text = path.read_text(encoding="utf-8")
+            rel = str(path.relative_to(root))
+            for match in _CALL.finditer(text):
+                if match.group(1) != "f":
+                    continue
+                key = match.group(2)
+                fallback = _unescape(match.group(3))
+                tf_keys.setdefault(key, set()).add(fallback)
+                errors.extend(_holes_reaching_format(rel, key, fallback))
+    for key in tf_keys:
+        for table_name, table in (("SV", swedish), ("EN", english)):
+            for value in table.get(key, []):
+                errors.extend(_holes_reaching_format(table_name, key, value))
+    return errors
+
+
+def _holes_reaching_format(origin: str, key: str, text: str) -> list[str]:
+    errors: list[str] = []
+    shielded = shield_named(text)
+    for name in _NAMED_HOLE.findall(shielded):
+        errors.append(f"{origin} {key} named placeholder {{{name}}} reaches string.Format")
+    for hole in _ANY_HOLE.findall(text):
+        if hole.isdigit():
+            continue
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", hole):
+            continue
+        errors.append(f"{origin} {key} format hole {{{hole}}} is not a safe placeholder")
     return errors
 
 
