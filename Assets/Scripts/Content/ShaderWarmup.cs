@@ -12,6 +12,7 @@ namespace AsteroidsGoneRogue
         public const string RimResource = "Shaders/AgrRimLit";
         public const string RimMaterialResource = "Shaders/Mat_AgrRimLitRef";
         public const string PostResource = "Shaders/AgrPost";
+        public const string PostMaterialResource = "Shaders/Mat_AgrPostRef";
         public const string RimShaderName = "AGR/RimLit";
         public const string PostShaderName = "AGR/Post";
 
@@ -34,7 +35,18 @@ namespace AsteroidsGoneRogue
                 rimShader = Shader.Find(RimShaderName);
             }
 
-            Shader postShader = Resources.Load<Shader>(PostResource);
+            Material postMaterial = Resources.Load<Material>(PostMaterialResource);
+            Shader postShader = null;
+            if (postMaterial != null)
+            {
+                postShader = postMaterial.shader;
+            }
+
+            if (postShader == null)
+            {
+                postShader = Resources.Load<Shader>(PostResource);
+            }
+
             if (postShader == null)
             {
                 postShader = Shader.Find(PostShaderName);

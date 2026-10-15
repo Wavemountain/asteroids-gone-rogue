@@ -8546,6 +8546,7 @@ def main() -> int:
     test_p4_tutorial_prompt_cards()
     test_p5_glass_risk_daily()
     test_p6_emission_rim_meshes()
+    test_p7_post_and_light()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -15175,6 +15176,147 @@ class Program
     )
     assert result.returncode == 0, result.stdout
     assert "mesh-ok" in result.stdout
+
+
+def test_p7_post_and_light() -> None:
+    """0.48 PR B: post grade per world, Reduce bloom/vignette/grain, world key and rim."""
+    import os
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    grade = (root / "Assets/Scripts/Core/PostGrade.cs").read_text(encoding="utf-8")
+    lights = (root / "Assets/Scripts/Core/WorldLight.cs").read_text(encoding="utf-8")
+    effect = (root / "Assets/Scripts/Core/EffectScale.cs").read_text(encoding="utf-8")
+    stack = (root / "Assets/Scripts/Content/PostStack.cs").read_text(encoding="utf-8")
+    shader = (root / "Assets/Resources/Shaders/AgrPost.shader").read_text(encoding="utf-8")
+    warmup = (root / "Assets/Scripts/Content/ShaderWarmup.cs").read_text(encoding="utf-8")
+    bootstrap = (root / "Assets/Scripts/Content/GameBootstrap.cs").read_text(encoding="utf-8")
+    arena = (root / "Assets/Scripts/Content/ArenaEnv.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    settings = (root / "Assets/Scripts/Core/SettingsState.cs").read_text(encoding="utf-8")
+
+    assert "PostBloomMul = 0.5f" in effect
+    assert "PostVignetteMul = 0.5f" in effect
+    assert "PostGrainMul = 0f" in effect
+    assert "PostThresholdAdd = 0.15f" in effect
+    assert "public static PostGradeRow Row(int world, bool reduce)" in grade
+    assert "WorldCatalog.LayoutNumber" in grade
+    assert "GradeWithTonemap = 1" in grade
+    assert "HangarBloom = 0.55f" in grade
+    assert "DeathVignette = 0.45f" in grade
+    assert "public static bool SelfCheck()" in grade
+    assert "public static bool SelfCheck()" in lights
+    assert "RimIsSteel" in lights
+    assert "WorldCatalog.LayoutNumber" in lights
+    assert 'Shader "AGR/Post"' in shader
+    assert "NeutralChannel" in shader
+    assert "exp2(_Exposure)" in shader
+    assert "Fallback Off" in shader
+    assert "OnRenderImage" in stack
+    assert "Graphics.Blit(source, destination)" in stack
+    assert "? Shader.Find" not in stack
+    assert "PostStack.Attach" in bootstrap
+    assert "allowHDR = true" in bootstrap
+    assert "pixelLightCount = 6" in bootstrap
+    assert "PostStack.SetWorld" in arena
+    assert "ApplyWorldLight" in arena
+    assert "RestoreHangarKey" in arena
+    assert "PostStack.SnapHangar" in factory
+    assert "PostStack.SnapWorld" in factory
+    assert "WorldLight.Row" in factory
+    assert "PostStack.BeginDeathVignette" in manager
+    assert "CurrentVersion = 7" in settings
+    assert "Shaders/Mat_AgrPostRef" in warmup
+    mat = (root / "Assets/Resources/Shaders/Mat_AgrPostRef.mat").read_text(encoding="utf-8")
+    assert "3b219a72d852342b8f7d574ae3e24080" in mat
+    assert "RunRng" not in grade and "RunRng" not in lights and "RunRng" not in stack
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    from roslyn_core_check import find_dotnet
+
+    dotnet = find_dotnet()
+    assert dotnet, "post grade tests need dotnet"
+    work = Path(os.environ.get("TMPDIR", "/tmp")) / "agr-post-048"
+    if work.exists():
+        shutil.rmtree(work)
+    work.mkdir(parents=True)
+    shutil.copyfile(root / "Assets/Scripts/Core/PostGrade.cs", work / "PostGrade.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/WorldLight.cs", work / "WorldLight.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/EffectScale.cs", work / "EffectScale.cs")
+    program = """
+using System;
+namespace AsteroidsGoneRogue
+{
+    public static class WorldCatalog
+    {
+        public static int LayoutNumber(int worldNumber)
+        {
+            int number = worldNumber < 1 ? 1 : worldNumber;
+            int index = (number - 1) % 7;
+            if (index < 0) index += 7;
+            return index + 1;
+        }
+    }
+    public static class HitFlashLimiter
+    {
+        public const float MinGapSeconds = 0.333f;
+        public const float MaxAlpha = 0.20f;
+    }
+}
+class Program
+{
+    static void Main()
+    {
+        if (!AsteroidsGoneRogue.PostGrade.SelfCheck()) throw new Exception("post");
+        if (!AsteroidsGoneRogue.WorldLight.SelfCheck()) throw new Exception("light");
+        Console.WriteLine("post-ok");
+    }
+}
+"""
+    (work / "Program.cs").write_text(program, encoding="utf-8")
+    (work / "post.csproj").write_text(
+        "\n".join(
+            (
+                '<Project Sdk="Microsoft.NET.Sdk">',
+                "  <PropertyGroup>",
+                "    <OutputType>Exe</OutputType>",
+                "    <TargetFramework>net8.0</TargetFramework>",
+                "    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>",
+                "    <Nullable>disable</Nullable>",
+                "    <ImplicitUsings>disable</ImplicitUsings>",
+                "  </PropertyGroup>",
+                "  <ItemGroup>",
+                '    <Compile Include="PostGrade.cs" />',
+                '    <Compile Include="WorldLight.cs" />',
+                '    <Compile Include="EffectScale.cs" />',
+                '    <Compile Include="Program.cs" />',
+                "  </ItemGroup>",
+                "</Project>",
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
+    env["DOTNET_NOLOGO"] = "1"
+    env["DOTNET_ROOT"] = str(Path(dotnet).resolve().parent)
+    result = subprocess.run(
+        [dotnet, "run", "--project", str(work / "post.csproj"), "-v", "q"],
+        cwd=work,
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout
+    assert "post-ok" in result.stdout
 
 
 def test_p5_glass_risk_daily() -> None:

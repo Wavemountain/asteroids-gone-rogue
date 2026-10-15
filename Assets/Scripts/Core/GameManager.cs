@@ -1146,6 +1146,7 @@ namespace AsteroidsGoneRogue
             }
 
             _feel.Begin(TransitionKind.Death);
+            PostStack.BeginDeathVignette();
             return true;
         }
 

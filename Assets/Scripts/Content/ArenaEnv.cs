@@ -116,8 +116,93 @@ namespace AsteroidsGoneRogue
                 _grid.color = grid;
             }
 
-            TintNamedLight("ArenaRimLight", _floorTint);
             TintNamedLight("ArenaUnderGlow", star);
+            ApplyWorldLight(world);
+            PostStack.SetWorld(world, SettingsState.ReduceEffectsEnabled);
+        }
+
+        public void RestoreHangarKey()
+        {
+            ApplyKey(WorldLight.HangarKeyIntensity, WorldLight.HangarKeyR, WorldLight.HangarKeyG, WorldLight.HangarKeyB);
+            Transform rimNode = transform.Find("ArenaRimLight");
+            if (rimNode != null)
+            {
+                Light hangarRim = rimNode.GetComponent<Light>();
+                if (hangarRim != null)
+                {
+                    hangarRim.intensity = WorldLight.LegacyRimIntensity;
+                    hangarRim.color = new Color(0.42f, 0.7f, 1f, 1f);
+                    hangarRim.shadows = LightShadows.None;
+                }
+            }
+
+            Transform underNode = transform.Find("ArenaUnderGlow");
+            if (underNode != null)
+            {
+                Light hangarUnder = underNode.GetComponent<Light>();
+                if (hangarUnder != null)
+                {
+                    hangarUnder.intensity = WorldLight.LegacyUnderGlow;
+                    hangarUnder.shadows = LightShadows.None;
+                }
+            }
+        }
+
+        private void ApplyWorldLight(int world)
+        {
+            WorldLightRow lit = WorldLight.Row(world);
+            ApplyKey(lit.KeyIntensity, lit.KeyR, lit.KeyG, lit.KeyB);
+            Transform rimNode = transform.Find("ArenaRimLight");
+            if (rimNode != null)
+            {
+                Light worldRim = rimNode.GetComponent<Light>();
+                if (worldRim != null)
+                {
+                    worldRim.intensity = lit.RimIntensity;
+                    worldRim.shadows = LightShadows.None;
+                    if (lit.RimIsSteel != 0)
+                    {
+                        worldRim.color = new Color(lit.RimR, lit.RimG, lit.RimB, 1f);
+                    }
+                    else
+                    {
+                        worldRim.color = _floorTint;
+                    }
+                }
+            }
+
+            Transform underNode = transform.Find("ArenaUnderGlow");
+            if (underNode != null)
+            {
+                Light worldUnder = underNode.GetComponent<Light>();
+                if (worldUnder != null)
+                {
+                    worldUnder.intensity = lit.UnderGlow;
+                    worldUnder.shadows = LightShadows.None;
+                }
+            }
+        }
+
+        private void ApplyKey(float intensity, float red, float green, float blue)
+        {
+            Light[] lights = UnityEngine.Object.FindObjectsByType<Light>();
+            for (int lightIndex = 0; lightIndex < lights.Length; lightIndex++)
+            {
+                Light keyLight = lights[lightIndex];
+                if (keyLight == null || keyLight.type != LightType.Directional)
+                {
+                    continue;
+                }
+
+                if (keyLight.gameObject != null && keyLight.gameObject.name == "ArenaRimLight")
+                {
+                    continue;
+                }
+
+                keyLight.intensity = intensity;
+                keyLight.color = new Color(red, green, blue, 1f);
+                keyLight.shadows = LightShadows.None;
+            }
         }
 
         public void TintFloor(GameObject visual)

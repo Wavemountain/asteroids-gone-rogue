@@ -21,6 +21,8 @@ namespace AsteroidsGoneRogue
         private Transform _projectileRoot;
         private Transform _pickupRoot;
         private GameObject _hangarDressing;
+        private ArenaEnv _arenaEnv;
+        private int _hangarShown = 1;
         private GameObject _arenaRoot;
         private string _arenaVisualName;
         private bool _arenaApplied;
@@ -396,6 +398,7 @@ namespace AsteroidsGoneRogue
 
             BuildArenaLayout(layout);
             ArenaEnv env = ArenaEnv.Ensure(_arenaRoot.transform);
+            _arenaEnv = env;
             if (env != null)
             {
                 env.Retint(worldNumber);
@@ -423,12 +426,47 @@ namespace AsteroidsGoneRogue
 
         public void SetHangarDressingVisible(bool visible)
         {
+            int wasShown = _hangarShown;
             if (_hangarDressing != null)
             {
                 _hangarDressing.SetActive(visible);
             }
 
-            RenderSettings.ambientLight = visible ? HangarAmbient : CombatAmbient;
+            bool reduce = SettingsState.ReduceEffectsEnabled;
+            if (visible)
+            {
+                RenderSettings.ambientLight = HangarAmbient;
+                PostStack.SnapHangar(reduce);
+                if (_arenaEnv != null)
+                {
+                    _arenaEnv.RestoreHangarKey();
+                }
+
+                _hangarShown = 1;
+                return;
+            }
+
+            Color combatFill = CombatAmbient;
+            int litWorld = _arenaWorldNumber;
+            if (litWorld < 1)
+            {
+                litWorld = 1;
+            }
+
+            WorldLightRow lit = WorldLight.Row(litWorld);
+            combatFill = new Color(lit.FillR, lit.FillG, lit.FillB, 1f);
+            RenderSettings.ambientLight = combatFill;
+            if (wasShown != 0)
+            {
+                if (_arenaEnv != null)
+                {
+                    _arenaEnv.Retint(litWorld);
+                }
+
+                PostStack.SnapWorld(litWorld, reduce);
+            }
+
+            _hangarShown = 0;
         }
 
         private void BuildHangarDressing()
