@@ -3,7 +3,7 @@ using UnityEngine;
 namespace AsteroidsGoneRogue
 {
     /// <summary>
-    /// Hangar-safe space shell: parallax stars, nebula dome, asteroid belt, cyan grid fade.
+    /// Hangar-safe space shell: parallax stars, nebula dome, asteroid belt, steel grid fade.
     /// Lives under the arena root so world swaps retint instead of rebuilding the sky.
     /// </summary>
     public sealed class ArenaEnv : MonoBehaviour
@@ -326,7 +326,11 @@ namespace AsteroidsGoneRogue
                 _nebulaPurple != null ? _nebulaPurple : _nebulaBlue,
                 new Color(0.7f, 0.35f, 0.95f, NebulaInnerOpacity),
                 3110);
-            _grid = UnlitTransparent("Mat_Env_Grid", MakeGridTexture(), new Color(0.2f, 0.85f, 1f, GridAlpha), 2900);
+            _grid = UnlitTransparent(
+                "Mat_Env_Grid",
+                MakeGridTexture(),
+                new Color(EmissionTargets.SteelR, EmissionTargets.SteelG, EmissionTargets.SteelB, GridAlpha),
+                2900);
 
             CreateDome("StarFar", radius * 8.8f, _starFar);
             CreateDome("StarMid", radius * 7.5f, _starMid);
@@ -409,7 +413,7 @@ namespace AsteroidsGoneRogue
 
             Material material = new Material(shader);
             material.name = "Mat_Env_Lip";
-            material.color = new Color(0.42f, 0.88f, 1f, 1f);
+            material.color = new Color(EmissionTargets.SteelR, EmissionTargets.SteelG, EmissionTargets.SteelB, 1f);
             line.sharedMaterial = material;
             line.startColor = material.color;
             line.endColor = material.color;
@@ -816,8 +820,12 @@ namespace AsteroidsGoneRogue
             Texture2D tex = new Texture2D(Size, Size, TextureFormat.ARGB32, false);
             tex.wrapMode = TextureWrapMode.Repeat;
             tex.filterMode = FilterMode.Bilinear;
-            Color clear = new Color(0.15f, 0.85f, 1f, 0f);
-            Color line = new Color(0.25f, 0.95f, 1f, 0.85f);
+            Color clear = new Color(EmissionTargets.SteelR, EmissionTargets.SteelG, EmissionTargets.SteelB, 0f);
+            Color line = new Color(
+                EmissionTargets.SteelR + ((1f - EmissionTargets.SteelR) * 0.12f),
+                EmissionTargets.SteelG + ((1f - EmissionTargets.SteelG) * 0.12f),
+                EmissionTargets.SteelB + ((1f - EmissionTargets.SteelB) * 0.12f),
+                0.85f);
             for (int y = 0; y < Size; y++)
             {
                 for (int x = 0; x < Size; x++)

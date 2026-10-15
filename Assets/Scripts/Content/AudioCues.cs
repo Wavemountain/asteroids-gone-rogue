@@ -245,11 +245,8 @@ namespace AsteroidsGoneRogue
         private AudioClip _deathWhoosh;
         private AudioClip _waveWhoosh;
         private float _waveClearAt;
-        private float _lpCurrent = MusicLowPass.OpenHz;
-        private float _lpFrom = MusicLowPass.OpenHz;
-        private float _lpTo = MusicLowPass.OpenHz;
-        private float _lpElapsed;
-        private float _lpSeconds;
+        private MusicLowPassState _lp = MusicLowPass.OpenState();
+        private int _lpPhase = -1;
         private AudioLowPassFilter _musicLp;
         private AudioLowPassFilter _musicBLp;
         private AudioLowPassFilter _hangarLp;
@@ -1052,6 +1049,7 @@ namespace AsteroidsGoneRogue
 
         public void SyncMusicToPhase(GamePhase phase, int waveIndex)
         {
+            ReleaseForPhase(phase);
             if (_creditsMusic && phase != GamePhase.Playing)
             {
                 return;
@@ -1218,20 +1216,38 @@ namespace AsteroidsGoneRogue
 
         public void SetMusicLowPass(float hz, float seconds)
         {
-            float target = hz;
-            if (target < 10f)
-            {
-                target = 10f;
-            }
-
-            _lpFrom = _lpCurrent;
-            _lpTo = target;
-            _lpElapsed = 0f;
-            _lpSeconds = seconds;
+            _lp = MusicLowPass.Command(_lp, hz, seconds);
             if (seconds <= 0f)
             {
-                _lpCurrent = target;
                 ApplyMusicLowPass();
+            }
+        }
+
+        /// <summary>
+        /// Snap the music filter open. A second call while it is already open does nothing.
+        /// </summary>
+        public void ReleaseMusicLowPass()
+        {
+            MusicLowPassState next = MusicLowPass.ResetOpen(_lp);
+            if (MusicLowPass.Same(_lp, next))
+            {
+                return;
+            }
+
+            _lp = next;
+            ApplyMusicLowPass();
+        }
+
+        private void ReleaseForPhase(GamePhase phase)
+        {
+            bool hangarLike = phase == GamePhase.Hangar
+                || phase == GamePhase.WaveClear
+                || phase == GamePhase.CampaignClear;
+            bool enteredPlay = phase == GamePhase.Playing && _lpPhase != (int)GamePhase.Playing;
+            _lpPhase = (int)phase;
+            if (hangarLike || enteredPlay)
+            {
+                ReleaseMusicLowPass();
             }
         }
 
@@ -1263,25 +1279,12 @@ namespace AsteroidsGoneRogue
 
         private void TickMusicLowPass()
         {
-            if (_lpSeconds <= 0f || _lpElapsed >= _lpSeconds)
+            float before = _lp.Current;
+            _lp = MusicLowPass.Advance(_lp, Time.unscaledDeltaTime);
+            if (_lp.Current != before)
             {
-                return;
+                ApplyMusicLowPass();
             }
-
-            _lpElapsed += Time.unscaledDeltaTime;
-            float u = _lpElapsed / _lpSeconds;
-            if (u < 0f)
-            {
-                u = 0f;
-            }
-
-            if (u > 1f)
-            {
-                u = 1f;
-            }
-
-            _lpCurrent = MusicLowPass.LerpHz(_lpFrom, _lpTo, u);
-            ApplyMusicLowPass();
         }
 
         private void ApplyMusicLowPass()
@@ -1298,7 +1301,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            filter.cutoffFrequency = _lpCurrent;
+            filter.cutoffFrequency = _lp.Current;
             filter.lowpassResonanceQ = MusicLowPass.ResonanceQ;
         }
 
@@ -1351,6 +1354,19 @@ namespace AsteroidsGoneRogue
             }
 
             return clips[0];
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused)
+            {
+                ReleaseMusicLowPass();
+            }
+        }
+
+        private void OnApplicationQuit()
+        {
+            ReleaseMusicLowPass();
         }
 
         private void Update()

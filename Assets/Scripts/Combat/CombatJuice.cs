@@ -81,6 +81,7 @@ namespace AsteroidsGoneRogue
 
         public static void HeavyKill(Vector3 position, float shake)
         {
+            ProjectileLightPool.Pulse(position, ProjectileLightBudget.KindKill, EmissionTargets.Danger, null);
             JuiceBurst.KillBloom(position, true);
             VfxKit.Explode(position, VfxBudget.Large, SettingsState.ReduceEffectsEnabled);
             ShakeWorld(shake, position);

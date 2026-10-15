@@ -285,6 +285,8 @@ namespace AsteroidsGoneRogue
         public const float PostVignetteMul = 0.5f;
         public const float PostGrainMul = 0f;
         public const float PostThresholdAdd = 0.15f;
+        public const float ProjectileLightMul = 0.5f;
+        public const int ProjectileLightMaxReduced = 2;
         public const float FeelMul = 0.35f;
         public const float HullEdgeFull = 0.55f;
         public const float HullEdgeReduced = 0.1f;

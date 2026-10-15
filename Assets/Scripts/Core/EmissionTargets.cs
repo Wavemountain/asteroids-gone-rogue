@@ -27,6 +27,10 @@ namespace AsteroidsGoneRogue
 
         public const float ShipAccentHotHero = 3.2f;
         public const float ShipGlow = 4.0f;
+        public const float LaunchSignCap = 4.0f;
+        public const float LayoutDangerAlbedoMul = 0.55f;
+        public const float LayoutEmissionMul = 0.35f;
+        public const float SniperDesat = 0.18f;
         public const float ShipCyan = 3.5f;
         public const float MagentaMul = 2.0f;
         public const float EnemyGlow = 7.0f;
@@ -208,8 +212,83 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// 0.47 asteroid emission stays, and never climbs past the hero cap.
+        /// Hangar launch-sign emission stays on Primary and never exceeds ×4.
         /// </summary>
+        public static float CapLaunchSign(float multiplier)
+        {
+            if (multiplier <= 0f)
+            {
+                return 0f;
+            }
+
+            if (multiplier > LaunchSignCap)
+            {
+                return LaunchSignCap;
+            }
+
+            return multiplier;
+        }
+
+        public static void CapLaunchSignRgb(float red, float green, float blue, out float outR, out float outG, out float outB)
+        {
+            float capR = PrimaryR * LaunchSignCap;
+            float capG = PrimaryG * LaunchSignCap;
+            float capB = PrimaryB * LaunchSignCap;
+            float scale = 1f;
+            if (red > capR && capR > 0f)
+            {
+                float next = capR / red;
+                if (next < scale)
+                {
+                    scale = next;
+                }
+            }
+
+            if (green > capG && capG > 0f)
+            {
+                float next = capG / green;
+                if (next < scale)
+                {
+                    scale = next;
+                }
+            }
+
+            if (blue > capB && capB > 0f)
+            {
+                float next = capB / blue;
+                if (next < scale)
+                {
+                    scale = next;
+                }
+            }
+
+            outR = red * scale;
+            outG = green * scale;
+            outB = blue * scale;
+        }
+
+        /// <summary>
+        /// Move a colour toward its luma. Sniper cyan stays cyan, only less neon.
+        /// </summary>
+        public static void Desaturate(float red, float green, float blue, float amount, out float outR, out float outG, out float outB)
+        {
+            float t = amount;
+            if (t < 0f)
+            {
+                t = 0f;
+            }
+
+            if (t > 1f)
+            {
+                t = 1f;
+            }
+
+            float y = (0.2126f * red) + (0.7152f * green) + (0.0722f * blue);
+            outR = red + ((y - red) * t);
+            outG = green + ((y - green) * t);
+            outB = blue + ((y - blue) * t);
+        }
+
         public static float AsteroidEmission(float readabilityScale)
         {
             if (readabilityScale < 0f)
@@ -322,6 +401,61 @@ namespace AsteroidsGoneRogue
             }
 
             if (RimStrength(RimBrute, true) != BruteRimStrength || RimStrength(RimAsteroid, false) != AsteroidRimStrength)
+            {
+                return false;
+            }
+
+            if (CapLaunchSign(3.8f) != 3.8f || CapLaunchSign(4f) != LaunchSignCap)
+            {
+                return false;
+            }
+
+            if (CapLaunchSign(5.2f) != LaunchSignCap || CapLaunchSign(6.4f) != LaunchSignCap || CapLaunchSign(-1f) != 0f)
+            {
+                return false;
+            }
+
+            float hotR;
+            float hotG;
+            float hotB;
+            CapLaunchSignRgb(PrimaryR * 6.4f, PrimaryG * 6.4f, PrimaryB * 6.4f, out hotR, out hotG, out hotB);
+            float capR = PrimaryR * LaunchSignCap;
+            if (hotR > capR + 0.001f || hotG > PrimaryG * LaunchSignCap + 0.001f)
+            {
+                return false;
+            }
+
+            float sniperR;
+            float sniperG;
+            float sniperB;
+            Desaturate(0.18f, 0.72f, 1f, SniperDesat, out sniperR, out sniperG, out sniperB);
+            if (!(sniperB > sniperG && sniperG > sniperR))
+            {
+                return false;
+            }
+
+            float before = (0.2126f * 0.18f) + (0.7152f * 0.72f) + (0.0722f * 1f);
+            float after = (0.2126f * sniperR) + (0.7152f * sniperG) + (0.0722f * sniperB);
+            float lumaDelta = after - before;
+            if (lumaDelta < 0f)
+            {
+                lumaDelta = -lumaDelta;
+            }
+
+            if (lumaDelta > 0.02f || sniperB >= 1f)
+            {
+                return false;
+            }
+
+            float dangerR;
+            float dangerG;
+            float dangerB;
+            Rgb(Danger, out dangerR, out dangerG, out dangerB);
+            float wallY = (0.2126f * dangerR * LayoutDangerAlbedoMul)
+                + (0.7152f * dangerG * LayoutDangerAlbedoMul)
+                + (0.0722f * dangerB * LayoutDangerAlbedoMul);
+            float enemyY = (0.2126f * 0.5f) + (0.7152f * 0.3f) + (0.0722f * 0.32f);
+            if (wallY >= enemyY)
             {
                 return false;
             }

@@ -351,6 +351,10 @@ namespace AsteroidsGoneRogue
         private void OnApplicationQuit()
         {
             PersistWaveVitals();
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.ReleaseMusicLowPass();
+            }
         }
 
         public bool TryChooseBoon(int index)
@@ -1074,6 +1078,11 @@ namespace AsteroidsGoneRogue
             bool reduce = SettingsState.ReduceEffectsEnabled;
             if (_session == null || (_session.Phase != GamePhase.Playing && !_feel.Committed))
             {
+                if (AudioCues.Instance != null)
+                {
+                    AudioCues.Instance.ReleaseMusicLowPass();
+                }
+
                 _feel.Clear();
                 return;
             }

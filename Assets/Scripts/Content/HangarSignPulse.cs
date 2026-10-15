@@ -14,7 +14,7 @@ namespace AsteroidsGoneRogue
 
         public Light SignLight;
         public float BaseIntensity = 2.6f;
-        public Color BaseEmission = new Color(1f, 0.62f, 0.12f) * 3.4f;
+        public Color BaseEmission = new Color(EmissionTargets.PrimaryR, EmissionTargets.PrimaryG, EmissionTargets.PrimaryB) * 3.4f;
 
         private Renderer[] _renderers;
         private MaterialPropertyBlock _block;
@@ -39,6 +39,11 @@ namespace AsteroidsGoneRogue
             }
 
             Color emission = BaseEmission * (0.72f + 0.55f * wave);
+            float cappedR;
+            float cappedG;
+            float cappedB;
+            EmissionTargets.CapLaunchSignRgb(emission.r, emission.g, emission.b, out cappedR, out cappedG, out cappedB);
+            emission = new Color(cappedR, cappedG, cappedB, emission.a);
             _block.SetColor(EmissionId, emission);
             for (int i = 0; i < _renderers.Length; i++)
             {

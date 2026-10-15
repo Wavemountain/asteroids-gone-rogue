@@ -1747,6 +1747,32 @@ def test_roslyn_stub_artefact_gate() -> None:
     )
 
 
+def test_roslyn_non_cs_build_fails() -> None:
+    """A missing SDK target must fail the gate. Stub CS noise must not."""
+    import sys
+    from pathlib import Path
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    from roslyn_core_check import non_cs_build_failure
+
+    msb = non_cs_build_failure(1, "error MSB4019: The imported project was not found.")
+    assert msb and msb[0].startswith("INCOMPLETE")
+    assert any("MSB4019" in line for line in msb)
+    sdk = non_cs_build_failure(1, "error NETSDK1045: The current .NET SDK does not support targeting .NET 8.0.")
+    assert sdk and sdk[0].startswith("INCOMPLETE")
+    cs = non_cs_build_failure(
+        1,
+        "Assets/Scripts/Core/Foo.cs(1,1): error CS1061: 'Vector3' does not contain a definition for 'x'",
+    )
+    assert cs == []
+    ok = non_cs_build_failure(0, "Build succeeded.")
+    assert ok == []
+    bare = non_cs_build_failure(1, "Build FAILED.")
+    assert bare and bare[0].startswith("INCOMPLETE")
+
+
 def test_monsters_arenas_040() -> None:
     from pathlib import Path
 
@@ -8487,6 +8513,7 @@ def main() -> int:
     test_type_member_shadow_gate()
     test_b1_reintroduction_fails()
     test_roslyn_stub_artefact_gate()
+    test_roslyn_non_cs_build_fails()
     test_monsters_arenas_040()
     test_weapons_upgrades_040b()
     test_art_parity_040c()
@@ -15219,6 +15246,29 @@ def test_p7_post_and_light() -> None:
     assert "Fallback Off" in shader
     assert "OnRenderImage" in stack
     assert "Graphics.Blit(source, destination)" in stack
+    assert "Graphics.Blit(source, null, _material, PassUber)" in stack
+    assert "isSupported" in stack
+    assert "LooksLikeDeck" in stack
+    assert "TargetsNeedRebuild" in stack
+    assert "VignetteRgb" in stack
+    assert "new RenderTexture[6]" not in stack
+    assert "new RenderTexture[PostGrade.BloomChainSlots]" in stack
+    assert "MidBodyFloor = 2.5f" in grade
+    assert "AsteroidBodyFloor = 1.5f" in grade
+    assert "BodyFloorsHold" in grade
+    assert "ProjectileLightMul = 0.5f" in effect
+    assert "ProjectileLightMaxReduced = 2" in effect
+    assert "CapLaunchSign" in factory
+    assert "LayoutDangerAlbedoMul" in factory
+    assert "SniperDesat" in factory
+    assert "ProjectileLightPool.Ensure" in factory
+    assert "ProjectileLightBudget.KindRail" in factory
+    assert "ProjectileLightBudget.KindPierce" in factory
+    pool = (root / "Assets/Scripts/Content/ProjectileLightPool.cs").read_text(encoding="utf-8")
+    juice = (root / "Assets/Scripts/Combat/CombatJuice.cs").read_text(encoding="utf-8")
+    assert "RunRng" not in pool
+    assert "ProjectileLightPool.Pulse" in juice
+    assert "KindKill" in juice
     assert "? Shader.Find" not in stack
     assert "PostStack.Attach" in bootstrap
     assert "allowHDR = true" in bootstrap
@@ -15250,6 +15300,8 @@ def test_p7_post_and_light() -> None:
     shutil.copyfile(root / "Assets/Scripts/Core/PostGrade.cs", work / "PostGrade.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/WorldLight.cs", work / "WorldLight.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/EffectScale.cs", work / "EffectScale.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/ProjectileLightBudget.cs", work / "ProjectileLightBudget.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/EmissionTargets.cs", work / "EmissionTargets.cs")
     program = """
 using System;
 namespace AsteroidsGoneRogue
@@ -15276,6 +15328,8 @@ class Program
     {
         if (!AsteroidsGoneRogue.PostGrade.SelfCheck()) throw new Exception("post");
         if (!AsteroidsGoneRogue.WorldLight.SelfCheck()) throw new Exception("light");
+        if (!AsteroidsGoneRogue.ProjectileLightBudget.SelfCheck()) throw new Exception("budget");
+        if (!AsteroidsGoneRogue.EmissionTargets.SelfCheck()) throw new Exception("emission");
         Console.WriteLine("post-ok");
     }
 }
@@ -15296,6 +15350,8 @@ class Program
                 '    <Compile Include="PostGrade.cs" />',
                 '    <Compile Include="WorldLight.cs" />',
                 '    <Compile Include="EffectScale.cs" />',
+                '    <Compile Include="ProjectileLightBudget.cs" />',
+                '    <Compile Include="EmissionTargets.cs" />',
                 '    <Compile Include="Program.cs" />',
                 "  </ItemGroup>",
                 "</Project>",
@@ -15610,7 +15666,17 @@ def test_p9_audio_arena() -> None:
     assert 'Resources.Load<AudioClip>("Audio/Sfx/agr_death_whoosh")' in audio
     assert 'Resources.Load<AudioClip>("Audio/Sfx/agr_wave_whoosh")' in audio
     assert "AudioLowPassFilter" in audio and "AudioLowPassFilter" in stub
-    assert "SetMusicLowPass" in audio and "MusicLowPass.LerpHz" in audio
+    assert "SetMusicLowPass" in audio and "MusicLowPass.Advance" in audio
+    assert "LerpHz" in lowpass
+    assert "ReleaseMusicLowPass" in audio
+    assert "OnApplicationPause" in audio
+    assert "ResetOpen" in lowpass
+    assert "MusicLowPass.ResetOpen" in audio
+    feel = manager.split("public void TickFeel(")[1].split("public void CopyCardMotion")[0]
+    early = feel.split("_feel.Clear();")[0]
+    assert "ReleaseMusicLowPass" in early
+    quitting = manager.split("void OnApplicationQuit()")[1].split("public bool TryChooseBoon")[0]
+    assert quitting.index("PersistWaveVitals()") < quitting.index("ReleaseMusicLowPass")
     assert "PlayDeathWhoosh" in audio and "PlayDeathWhoosh" in manager
     death = manager.split("private bool BeginFinalDeath(")[1].split("private void BeginWaveClear")[0]
     assert "PlayDeathWhoosh" in death
