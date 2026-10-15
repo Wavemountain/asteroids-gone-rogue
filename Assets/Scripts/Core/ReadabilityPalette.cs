@@ -15,6 +15,7 @@ namespace AsteroidsGoneRogue
         public const float EnemyEmissionScale = 0.9f;
         public const float MidEmissionScale = 1.35f;
         public const float HullRimScale = 0.35f;
+        public const float HullBodyEmission = 0.72f;
         public const float AsteroidAlbedoScale = 1.5f;
         public const float AsteroidEmissionScale = 0.15f;
         public const float EnemyBodyR = 0.5f;
@@ -23,9 +24,9 @@ namespace AsteroidsGoneRogue
         public const float MidR = 0.82f;
         public const float MidG = 0.1f;
         public const float MidB = 0.12f;
-        public const float HullR = 0.45f;
-        public const float HullG = 0.52f;
-        public const float HullB = 0.58f;
+        public const float HullR = 0.50f;
+        public const float HullG = 0.58f;
+        public const float HullB = 0.66f;
         public const float AsteroidR = 0.38f;
         public const float AsteroidG = 0.32f;
         public const float AsteroidB = 0.28f;

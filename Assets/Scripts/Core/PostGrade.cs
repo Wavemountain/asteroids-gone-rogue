@@ -55,7 +55,8 @@ namespace AsteroidsGoneRogue
         public const int GradeWithTonemap = 1;
         public const float BlendSeconds = 1.2f;
         public const float DeathVignette = 0.45f;
-        public const float DeathVignetteSeconds = 0.6f;
+        public const float DeathVignetteSeconds = 0.40f;
+        public const float DeathVignetteSmooth = 0.82f;
         public const float BloomThresholdFull = 1.10f;
         public const float SoftKneeFull = 0.35f;
         public const float ClampFull = 8f;
@@ -308,13 +309,18 @@ namespace AsteroidsGoneRogue
 
             vignette = VignetteNow(row.Vignette, deathU, reduce);
             row.Vignette = vignette;
+            row.VignetteSmooth = SmoothNow(row.VignetteSmooth, deathU);
         }
 
-        public static float VignetteNow(float graded, float deathU, bool reduce)
+        /// <summary>
+        /// Ease-out so the death still, pinned at half the slow-mo window, is already dark.
+        /// Smoothstep reached only ~0.26 of the ramp at that same moment.
+        /// </summary>
+        public static float DeathEase(float deathU)
         {
             if (deathU < 0f)
             {
-                return graded;
+                return 0f;
             }
 
             float u = deathU;
@@ -323,7 +329,18 @@ namespace AsteroidsGoneRogue
                 u = 1f;
             }
 
-            float shaped = u * u * (3f - (2f * u));
+            float remain = 1f - u;
+            return 1f - (remain * remain);
+        }
+
+        public static float VignetteNow(float graded, float deathU, bool reduce)
+        {
+            float shaped = DeathEase(deathU);
+            if (shaped <= 0f)
+            {
+                return graded;
+            }
+
             float target = DeathVignette;
             if (reduce)
             {
@@ -331,6 +348,17 @@ namespace AsteroidsGoneRogue
             }
 
             return graded + ((target - graded) * shaped);
+        }
+
+        public static float SmoothNow(float graded, float deathU)
+        {
+            float shaped = DeathEase(deathU);
+            if (shaped <= 0f)
+            {
+                return graded;
+            }
+
+            return graded + ((DeathVignetteSmooth - graded) * shaped);
         }
 
         public static void WhiteBalance(float temperature, float tint, out float red, out float green, out float blue)
@@ -718,6 +746,21 @@ namespace AsteroidsGoneRogue
             }
 
             if (!BodyFloorsHold())
+            {
+                return false;
+            }
+
+            if (DeathVignetteSeconds > 0.41f || DeathVignetteSeconds < 0.39f)
+            {
+                return false;
+            }
+
+            PostGradeRow midRow;
+            float midVignette;
+            PostBlendState midDeath = BeginDeath(SnapTo(1));
+            midDeath = AdvanceClock(midDeath, DeathVignetteSeconds * 0.5f);
+            Sample(midDeath, false, 2048, out midRow, out midVignette);
+            if (midVignette < 0.39f || midRow.VignetteSmooth < 0.68f)
             {
                 return false;
             }

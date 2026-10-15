@@ -3606,6 +3606,23 @@ def test_ui_theme_pad_menus_044() -> None:
     assert 'BuildPanel(\n                "HudPlate"' in ui or 'UiTheme.BuildPanel(\n                "HudPlate"' in ui
     assert '"HealthRack"' in ui
     assert "UiTheme.HudPlate" in ui
+    layout = (root / "Assets/Scripts/Core/PlayHudLayout.cs").read_text(encoding="utf-8")
+    assert "PlayHudAlpha = 0.40f" in layout
+    assert "MaxWidthPx = 420f" in layout
+    assert "PlayHudLayout.ColumnMaxX" in ui
+    assert "PlayHudLayout.PlayHudAlpha" in ui
+    assert "SurfaceAlpha = 0.72f" in theme
+
+    def column_max_x(width):
+        span = 420.0 / width
+        if span > 0.28:
+            span = 0.28
+        return 0.012 + span
+
+    assert column_max_x(1920) < 0.25
+    assert column_max_x(1280) < 0.31
+    assert column_max_x(3440) < 0.15
+    assert abs(column_max_x(1920) - (0.012 + 420.0 / 1920)) < 1e-6
     assert "UiTheme.DangerHeader" in ui
     assert "UiTheme.Primary" in ui.split("private void ApplyFailChrome")[1]
     chrome = ui.split("private void ApplyFailChrome")[1].split("public void FlashHit")[0]
@@ -12130,6 +12147,7 @@ def test_part_c_047() -> None:
     assert "WatchMidMul = 1.5f" in palette and "WatchAsteroidMul = 1.15f" in palette
     assert "EnemyEmissionScale = 0.9f" in palette and "MidEmissionScale = 1.35f" in palette
     assert "HullRimScale = 0.35f" in palette and "AsteroidAlbedoScale = 1.5f" in palette
+    assert "HullBodyEmission = 0.72f" in palette
     assert "AsteroidEmissionScale = 0.15f" in palette
     assert "agr.settings.reduceEffects" in state and "ReduceEffects = false" in state
     assert "version >= 4 && reduceEffects != 0" in state
@@ -12141,6 +12159,7 @@ def test_part_c_047() -> None:
     assert "ReadabilityPalette.EnemyEmissionScale" in factory
     assert "ReadabilityPalette.AsteroidAlbedoScale" in factory
     assert "ReadabilityPalette.HullRimScale" in factory
+    assert "ReadabilityPalette.HullBodyEmission" in factory
     assert "ReadabilityPalette.MidEmissionFor" in factory
     assert "ReadabilityPalette.AsteroidAlbedoMul" in factory
     assert "EffectScale.TrailWidth" in factory
@@ -14752,8 +14771,9 @@ def test_p3_hangar_hero_preview() -> None:
     assert snap(330.0, 3.3) == 0.01
     assert snap(2.4, 3.3) == 1.0
 
-    assert "KeyIntensity = 2.2f" in rig and "RimIntensity = 2.0f" in rig
-    assert "BounceIntensity = 0.30f" in rig
+    assert "KeyIntensity = 0.85f" in rig and "RimIntensity = 0.70f" in rig
+    assert "FillIntensity = 0.16f" in rig
+    assert "BounceIntensity = 0.10f" in rig
     assert "RimReduceScale = 0.45f" in rig
     assert "StudioRim" in rig and "HangarPreviewRig.StudioRim" in preview
     assert "interacting || reduceEffects" in rig
@@ -14763,12 +14783,12 @@ def test_p3_hangar_hero_preview() -> None:
 
     def studio_rim(reduce):
         if reduce:
-            return 2.0 * 0.45
-        return 2.0
+            return 0.70 * 0.45
+        return 0.70
 
-    assert studio_rim(False) == 2.0
+    assert studio_rim(False) == 0.70
     assert studio_rim(True) < studio_rim(False)
-    assert abs(studio_rim(True) - 0.9) < 1e-6
+    assert abs(studio_rim(True) - 0.315) < 1e-6
 
     def backdrop(u, v):
         du, dv = u - 0.5, v - 0.5
@@ -15346,6 +15366,12 @@ def test_p7_post_and_light() -> None:
     assert "GradeWithTonemap = 1" in grade
     assert "HangarBloom = 0.55f" in grade
     assert "DeathVignette = 0.45f" in grade
+    assert "DeathVignetteSeconds = 0.40f" in grade
+    assert "DeathVignetteSmooth = 0.82f" in grade
+    assert "DeathEase" in grade
+    assert "_Grain * 0.50h" in shader
+    assert "RememberGrade" in stack
+    assert "LastReduce" in stack
     assert "public static bool SelfCheck()" in grade
     assert "public static bool SelfCheck()" in lights
     assert "RimIsSteel" in lights

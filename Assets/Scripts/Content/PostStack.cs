@@ -15,6 +15,12 @@ namespace AsteroidsGoneRogue
         public const int PassUp = 2;
         public const int PassUber = 3;
 
+        public static float LastBloom;
+        public static float LastGrain;
+        public static float LastVignette;
+        public static float LastVignetteSmooth;
+        public static int LastReduce;
+
         private static PostStack _active;
 
         private Camera _camera;
@@ -84,6 +90,33 @@ namespace AsteroidsGoneRogue
             }
 
             _active._state = PostGrade.BeginDeath(_active._state);
+        }
+
+        /// <summary>
+        /// Samples the live grade, including Reduce, without waiting for a camera blit.
+        /// OnRenderImage writes the same fields from the row it actually draws.
+        /// </summary>
+        public static void RememberGrade()
+        {
+            if (_active == null)
+            {
+                return;
+            }
+
+            bool reduce = SettingsState.ReduceEffectsEnabled;
+            PostGradeRow shown;
+            float vignette;
+            PostGrade.Sample(_active._state, reduce, 0, out shown, out vignette);
+            StoreGrade(shown, vignette, reduce);
+        }
+
+        private static void StoreGrade(PostGradeRow shown, float vignette, bool reduce)
+        {
+            LastBloom = shown.Bloom;
+            LastGrain = shown.Grain;
+            LastVignette = vignette;
+            LastVignetteSmooth = shown.VignetteSmooth;
+            LastReduce = reduce ? 1 : 0;
         }
 
         private void Awake()
@@ -157,6 +190,7 @@ namespace AsteroidsGoneRogue
             float vignette;
             PostGrade.Sample(_state, reduce, memoryMb, out shown, out vignette);
             shown.Vignette = vignette;
+            StoreGrade(shown, vignette, reduce);
             PushUniforms(shown, source);
 
             int iterations = shown.Iterations;

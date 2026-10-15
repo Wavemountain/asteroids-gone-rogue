@@ -204,7 +204,7 @@ Shader "AGR/Post"
                 float n = frac(sin(dot(pixel + _GrainTime, float2(12.9898, 78.233))) * 43758.5453);
                 n = n * 2.0 - 1.0;
                 half ly = dot(color, half3(0.2126h, 0.7152h, 0.0722h));
-                color += n * _Grain * 0.06h * (1.0h - _GrainLum * saturate(ly));
+                color += n * _Grain * 0.50h * (1.0h - _GrainLum * saturate(ly));
                 return half4(max(color, 0.0h), 1);
             }
             ENDCG
