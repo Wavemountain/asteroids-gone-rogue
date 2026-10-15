@@ -79,10 +79,27 @@ namespace AsteroidsGoneRogue
 
         public static void UtcToday(out int year, out int month, out int day)
         {
+            int hour;
+            int minute;
+            int second;
+            UtcNow(out year, out month, out day, out hour, out minute, out second);
+        }
+
+        public static void UtcNow(
+            out int year,
+            out int month,
+            out int day,
+            out int hour,
+            out int minute,
+            out int second)
+        {
             DateTime utc = DateTime.UtcNow;
             year = utc.Year;
             month = utc.Month;
             day = utc.Day;
+            hour = utc.Hour;
+            minute = utc.Minute;
+            second = utc.Second;
         }
 
         public static string DateText(int packed)

@@ -39,7 +39,7 @@ namespace AsteroidsGoneRogue
                 case MutatorCatalog.LongHaul:
                     return Loc.T("mut.long.desc", "The roster uses the next wave rung.");
                 default:
-                    return Loc.T("mut.glass.desc", "You and enemies take +50% damage.");
+                    return Loc.T("mut.glass.desc", "You and enemies take +50% damage. Score ×1.50, credits ×1.20.");
             }
         }
 
@@ -61,17 +61,31 @@ namespace AsteroidsGoneRogue
 
         public static string StackLine(int mask)
         {
-            int clean = MutatorRules.Sanitize(mask);
-            if (clean == 0)
+            return RiskLine(mask);
+        }
+
+        public static string RiskLine(int mask)
+        {
+            int pips = MutatorRules.RiskPips(mask);
+            if (pips < 1)
             {
                 return string.Empty;
             }
 
+            string bullets = MutatorRules.RiskBullets(pips);
+            string score = MutatorRules.CompactFactor(MutatorRules.ScorePercent(mask));
+            int credits = MutatorRules.CreditPercent(mask);
+            if (credits == 100)
+            {
+                return Loc.Tf("mut.stack", "Risk {0} / Score x{1}", bullets, score);
+            }
+
             return Loc.Tf(
-                "mut.stack",
-                "Chosen  ·  score ×{0}  ·  credits ×{1}",
-                MutatorRules.Factor(MutatorRules.ScorePercent(clean)),
-                MutatorRules.Factor(MutatorRules.CreditPercent(clean)));
+                "mut.risk.pay",
+                "Risk {0} / Score x{1} / Credits x{2}",
+                bullets,
+                score,
+                MutatorRules.CompactFactor(credits));
         }
 
         public static string Hud(int mask)

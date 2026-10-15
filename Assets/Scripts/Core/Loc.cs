@@ -487,13 +487,15 @@ namespace AsteroidsGoneRogue
             { "daily.blurb", "\u2022 Ett frö för detta UTC-dygn." },
             { "daily.stamp", "Daglig {0}  ·  frö {1}" },
             { "daily.board", "Idag {0}  ·  våg {1}" },
+            { "daily.wait", "\u2022 Nästa dagliga runda om {0}." },
+            { "daily.wait.button", "Daglig · {0}" },
             { "mut.glass", "Glaskanone" },
             { "mut.swarm", "Svärmsäsong" },
             { "mut.heavy", "Tunga stenar" },
             { "mut.quiet", "Tyst rymd" },
             { "mut.overclock", "Överklockning" },
             { "mut.long", "Långtur" },
-            { "mut.glass.desc", "Du och fiender tar +50% skada." },
+            { "mut.glass.desc", "Du och fiender tar +50% skada. Poäng ×1.50, krediter ×1.20." },
             { "mut.swarm.desc", "Fler svärmare, färre tungviktare." },
             { "mut.heavy.desc", "Asteroider är segare och delas en gång till." },
             { "mut.quiet.desc", "Färre plock. Kreditbelöning stiger." },
@@ -502,7 +504,8 @@ namespace AsteroidsGoneRogue
             { "mut.factors", "poäng ×{0}  ·  krediter ×{1}" },
             { "mut.rejected", "\u2022 Högst två. Vissa par går inte ihop." },
             { "mut.hud", "Mutatorer {0}" },
-            { "mut.stack", "Valt  ·  poäng ×{0}  ·  krediter ×{1}" }
+            { "mut.stack", "Risk {0} / Poäng x{1}" },
+            { "mut.risk.pay", "Risk {0} / Poäng x{1} / Krediter x{2}" }
         };
 
         /// <summary>

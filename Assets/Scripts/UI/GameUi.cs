@@ -72,6 +72,9 @@ namespace AsteroidsGoneRogue
         private RunSetupKind _setupKind;
         private int _setupMask;
         private bool _setupRejected;
+        private int _dailyClockDate = -1;
+        private int _dailyClockMinute = -1;
+        private bool _dailyRefreshing;
         private Button _abortButton;
         private Text _abortLabel;
         private GameObject _tutorialRoot;
@@ -618,6 +621,11 @@ namespace AsteroidsGoneRogue
                 extra += "  ·  " + mutatorHangar;
             }
 
+            if (DailyLockedNow())
+            {
+                extra += "  ·  " + DailyCopy.Wait(DailyRemainingLabel());
+            }
+
             // Controls hint lives only in the screen-bottom row, never in WAVE CLEAR / shop.
             return waveLine + extra;
         }
@@ -1005,6 +1013,7 @@ namespace AsteroidsGoneRogue
             _setupTitle = CreateText("RunSetupTitle", canvasGo.transform, display, RunSetupLayout.Font, TextAnchor.MiddleCenter, FontStyle.Bold);
             Stretch(_setupTitle.rectTransform, new Vector2(headerMinX, headerMinY), new Vector2(headerMaxX, headerMaxY));
             _setupTitle.color = UiTheme.Primary;
+            _setupTitle.lineSpacing = UiTheme.TitleLine;
             _setupTitle.resizeTextForBestFit = false;
             _setupTitle.raycastTarget = false;
 
@@ -1016,6 +1025,7 @@ namespace AsteroidsGoneRogue
             _setupBlurb = CreateText("RunSetupBlurb", canvasGo.transform, body, RunSetupLayout.Font, TextAnchor.MiddleCenter, FontStyle.Normal);
             Stretch(_setupBlurb.rectTransform, new Vector2(blurbMinX, blurbMinY), new Vector2(blurbMaxX, blurbMaxY));
             _setupBlurb.color = UiTheme.Accent;
+            _setupBlurb.lineSpacing = UiTheme.BodyLine;
             _setupBlurb.resizeTextForBestFit = false;
             _setupBlurb.horizontalOverflow = HorizontalWrapMode.Wrap;
             _setupBlurb.verticalOverflow = VerticalWrapMode.Truncate;
@@ -1234,6 +1244,13 @@ namespace AsteroidsGoneRogue
 
         private void PaintRunSetup(int slot)
         {
+            bool dailyLocked = DailyLockedNow();
+            string dailyRemaining = string.Empty;
+            if (dailyLocked)
+            {
+                dailyRemaining = DailyRemainingLabel();
+            }
+
             if (_setupButtons != null)
             {
                 for (int paintIndex = 0; paintIndex < _setupButtons.Length; paintIndex++)
@@ -1256,7 +1273,16 @@ namespace AsteroidsGoneRogue
                     }
                     else if (paintIndex == RunSetupNav.DailySlot)
                     {
-                        paintLabel.text = DailyCopy.Daily();
+                        if (dailyLocked)
+                        {
+                            paintLabel.text = DailyCopy.LockedButton(dailyRemaining);
+                            paintLabel.color = UiTheme.Danger;
+                        }
+                        else
+                        {
+                            paintLabel.text = DailyCopy.Daily();
+                            paintLabel.color = Color.white;
+                        }
                     }
                     else if (paintIndex == RunSetupNav.CancelSlot)
                     {
@@ -1293,13 +1319,17 @@ namespace AsteroidsGoneRogue
             {
                 paintSecond = MutatorCopy.Rejected();
             }
-            else if (RunSetupNav.IsMutator(slot))
+            else if (RunSetupNav.IsMutator(slot) && MutatorRules.CountBits(_setupMask) < 2)
             {
                 paintSecond = MutatorCopy.Description(RunSetupNav.MutatorId(slot));
             }
             else if (_setupMask != 0)
             {
-                paintSecond = MutatorCopy.StackLine(_setupMask);
+                paintSecond = MutatorCopy.RiskLine(_setupMask);
+            }
+            else if (dailyLocked)
+            {
+                paintSecond = DailyCopy.Wait(dailyRemaining);
             }
             else
             {
@@ -1324,6 +1354,12 @@ namespace AsteroidsGoneRogue
                     _setupRejected = true;
                 }
 
+                FocusRunSetup(slot);
+                return;
+            }
+
+            if (slot == RunSetupNav.DailySlot && DailyLockedNow())
+            {
                 FocusRunSetup(slot);
                 return;
             }
@@ -2415,6 +2451,12 @@ namespace AsteroidsGoneRogue
 
             DismissFirstHangarHint();
             DismissDoctrineIntro();
+            if (_game.DailyRetryBlocked())
+            {
+                OpenRunSetup(RunSetupKind.Retry);
+                return;
+            }
+
             if (AudioCues.Instance != null)
             {
                 AudioCues.Instance.PlayRetry();
@@ -2817,6 +2859,27 @@ namespace AsteroidsGoneRogue
 
                         recordLine += mutatorCard;
                     }
+
+                    string riskCard = _game != null ? MutatorCopy.RiskLine(_game.ActiveMutatorMask) : string.Empty;
+                    if (riskCard.Length > 0)
+                    {
+                        if (recordLine.Length > 0)
+                        {
+                            recordLine += "  ·  ";
+                        }
+
+                        recordLine += riskCard;
+                    }
+
+                    if (DailyLockedNow())
+                    {
+                        if (recordLine.Length > 0)
+                        {
+                            recordLine += "  ·  ";
+                        }
+
+                        recordLine += DailyCopy.Wait(DailyRemainingLabel());
+                    }
                 }
 
                 _summaryRecord.text = recordLine;
@@ -2980,6 +3043,97 @@ namespace AsteroidsGoneRogue
             {
                 BeginScreenFade();
             }
+        }
+
+        private void OnApplicationFocus(bool hasFocus)
+        {
+            if (!hasFocus)
+            {
+                return;
+            }
+
+            if (_session != null && _session.Phase == GamePhase.Playing && !_setupOpen)
+            {
+                return;
+            }
+
+            _dailyClockDate = -1;
+            _dailyClockMinute = -1;
+            RefreshDailySurfaces();
+        }
+
+        private void NoteDailyClock()
+        {
+            int clockYear;
+            int clockMonth;
+            int clockDay;
+            int clockHour;
+            int clockMinute;
+            int clockSecond;
+            DailySeed.UtcNow(out clockYear, out clockMonth, out clockDay, out clockHour, out clockMinute, out clockSecond);
+            int packed = DailySeed.PackDate(clockYear, clockMonth, clockDay);
+            if (packed == _dailyClockDate && clockMinute == _dailyClockMinute)
+            {
+                return;
+            }
+
+            bool primed = _dailyClockDate >= 0;
+            _dailyClockDate = packed;
+            _dailyClockMinute = clockMinute;
+            if (!primed)
+            {
+                return;
+            }
+
+            if (_session != null && _session.Phase == GamePhase.Playing && !_setupOpen)
+            {
+                return;
+            }
+
+            RefreshDailySurfaces();
+        }
+
+        private void RefreshDailySurfaces()
+        {
+            if (_dailyRefreshing)
+            {
+                return;
+            }
+
+            _dailyRefreshing = true;
+            if (_setupOpen)
+            {
+                PaintRunSetup(_setupFocus);
+            }
+
+            Refresh();
+            _dailyRefreshing = false;
+        }
+
+        private bool DailyLockedNow()
+        {
+            int lockedYear;
+            int lockedMonth;
+            int lockedDay;
+            int lockedHour;
+            int lockedMinute;
+            int lockedSecond;
+            DailySeed.UtcNow(out lockedYear, out lockedMonth, out lockedDay, out lockedHour, out lockedMinute, out lockedSecond);
+            int today = DailySeed.PackDate(lockedYear, lockedMonth, lockedDay);
+            return !DailyWindow.Allows(DailyPlayedStore.Read(), today);
+        }
+
+        private string DailyRemainingLabel()
+        {
+            int remainYear;
+            int remainMonth;
+            int remainDay;
+            int remainHour;
+            int remainMinute;
+            int remainSecond;
+            DailySeed.UtcNow(out remainYear, out remainMonth, out remainDay, out remainHour, out remainMinute, out remainSecond);
+            int seconds = DailyWindow.SecondsUntilNextMidnight(remainHour, remainMinute, remainSecond);
+            return DailyWindow.RemainingText(seconds);
         }
 
         private void NoteSettingsHover(int focusIndex)
@@ -4648,6 +4802,7 @@ namespace AsteroidsGoneRogue
         {
             TickFeelClock();
             TickMenuMotion();
+            NoteDailyClock();
             NoteControlDevice();
             TickTutorialPrompts();
             TickPromptCards();
