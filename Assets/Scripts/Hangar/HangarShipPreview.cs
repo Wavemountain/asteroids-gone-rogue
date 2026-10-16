@@ -708,147 +708,120 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// Keeps a hot shared emission under the preview white point.
-        /// Hull emission is below the ceiling, so panel albedo is untouched.
-        /// Reduce cannot recolour the hull: the block only scales emission.
+        /// Drops renderer-level and per-slot blocks. A renderer-level block
+        /// would paint every submesh, including the hull.
         /// </summary>
-        private static void CapSharedEmission(Renderer renderer)
+        private static void ClearMaterialSlots(Renderer renderer)
         {
             if (renderer == null)
             {
                 return;
             }
 
-            Material source = renderer.sharedMaterial;
-            if (source == null || !source.HasProperty("_EmissionColor"))
+            renderer.SetPropertyBlock(null);
+            Material[] slots = renderer.sharedMaterials;
+            if (slots == null)
             {
                 return;
             }
 
-            Color emission = source.GetColor("_EmissionColor");
-            float peak = emission.maxColorComponent;
-            float cap = HangarPreviewRig.PreviewEmissionCeiling();
-            if (peak <= cap || peak <= 0.0001f)
+            for (int slot = 0; slot < slots.Length; slot++)
             {
-                return;
+                renderer.SetPropertyBlock(null, slot);
             }
-
-            emission *= cap / peak;
-
-            MaterialPropertyBlock block = new MaterialPropertyBlock();
-            renderer.GetPropertyBlock(block);
-            block.SetColor("_EmissionColor", emission);
-            renderer.SetPropertyBlock(block);
         }
 
         /// <summary>
-        /// Preview-only 0.47 accent read. Hull stays on the combat albedo.
-        /// Peaks are not raised, so the hangar clip stays where the cap left it.
+        /// Ship_Hero used to bind every triangle to slot 0 (Mat_Ship_Hull).
+        /// Accent and cyan islands are their own slots now. The block is
+        /// per slot, so the hull albedo is not copied onto them. Emission
+        /// is recoloured in the accent hue without raising its peak, and
+        /// Reduce does not enter.
         /// </summary>
-        private static void RestoreLegacyAccents(Renderer renderer)
+        private static void PaintPreviewSlots(Renderer renderer)
         {
             if (renderer == null)
             {
                 return;
             }
 
-            Material source = renderer.sharedMaterial;
-            if (source == null)
+            Material[] slots = renderer.sharedMaterials;
+            if (slots == null)
             {
                 return;
             }
 
-            string materialName = source.name;
-            if (NameHas(materialName, "Hangar"))
+            float cap = HangarPreviewRig.PreviewEmissionCeiling();
+            for (int slot = 0; slot < slots.Length; slot++)
             {
-                return;
-            }
-
-            bool hull = NameHas(materialName, "Hull") && !NameHas(materialName, "Accent");
-            if (hull)
-            {
-                return;
-            }
-
-            bool accent = NameHas(materialName, "Accent");
-            bool glow = NameHas(materialName, "Glow");
-            bool glass = NameHas(materialName, "Glass");
-            bool cyan = NameHas(materialName, "Cyan");
-            if (!accent && !glow && !glass && !cyan)
-            {
-                return;
-            }
-
-            MaterialPropertyBlock block = new MaterialPropertyBlock();
-            renderer.GetPropertyBlock(block);
-            if (accent || glass || cyan)
-            {
-                float wantR = accent ? 1f : 0.35f;
-                float wantG = accent ? 0.55f : 0.70f;
-                float wantB = accent ? 0.14f : 0.95f;
-                Color current = source.HasProperty("_Color") ? source.GetColor("_Color") : source.color;
-                float currentPeak = current.maxColorComponent;
-                float wantPeak = wantR;
-                if (wantG > wantPeak)
+                Material source = slots[slot];
+                if (source == null)
                 {
-                    wantPeak = wantG;
+                    continue;
                 }
 
-                if (wantB > wantPeak)
+                float accentR;
+                float accentG;
+                float accentB;
+                bool accent = PremiumLook.TryPreviewAccentAlbedo(source.name, out accentR, out accentG, out accentB);
+                bool hasEmission = source.HasProperty("_EmissionColor");
+                Color emission = Color.black;
+                float peak = 0f;
+                if (hasEmission)
                 {
-                    wantPeak = wantB;
+                    emission = source.GetColor("_EmissionColor");
+                    peak = emission.maxColorComponent;
                 }
 
-                if (wantPeak > currentPeak && wantPeak > 0.0001f)
+                bool over = hasEmission && peak > cap && peak > 0.0001f;
+                if (!accent && !over)
                 {
-                    float scale = currentPeak / wantPeak;
-                    wantR *= scale;
-                    wantG *= scale;
-                    wantB *= scale;
+                    continue;
                 }
 
-                float alpha = current.a > 0.001f ? current.a : 1f;
-                block.SetColor("_Color", new Color(wantR, wantG, wantB, alpha));
+                MaterialPropertyBlock block = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(block, slot);
+                if (accent)
+                {
+                    Color current = source.color;
+                    float alpha = current.a > 0.001f ? current.a : 1f;
+                    block.SetColor("_Color", new Color(accentR, accentG, accentB, alpha));
+                    if (hasEmission && peak > 0.0001f)
+                    {
+                        float limit = peak;
+                        if (cap < limit)
+                        {
+                            limit = cap;
+                        }
+
+                        float wantPeak = accentR;
+                        if (accentG > wantPeak)
+                        {
+                            wantPeak = accentG;
+                        }
+
+                        if (accentB > wantPeak)
+                        {
+                            wantPeak = accentB;
+                        }
+
+                        float scale = 1f;
+                        if (wantPeak > 0.0001f)
+                        {
+                            scale = limit / wantPeak;
+                        }
+
+                        block.SetColor("_EmissionColor", new Color(accentR * scale, accentG * scale, accentB * scale, 1f));
+                    }
+                }
+                else
+                {
+                    emission *= cap / peak;
+                    block.SetColor("_EmissionColor", emission);
+                }
+
+                renderer.SetPropertyBlock(block, slot);
             }
-
-            if ((accent || glow) && source.HasProperty("_EmissionColor"))
-            {
-                Color emission = source.GetColor("_EmissionColor");
-                float peak = emission.maxColorComponent;
-                float cap = HangarPreviewRig.PreviewEmissionCeiling();
-                float limit = peak;
-                if (cap < limit)
-                {
-                    limit = cap;
-                }
-
-                if (limit < 0f)
-                {
-                    limit = 0f;
-                }
-
-                block.SetColor("_EmissionColor", new Color(limit, 0.45f * limit, 0.05f * limit, 1f));
-            }
-
-            if (glow && source.HasProperty("_RimColor"))
-            {
-                Color rim = source.GetColor("_RimColor");
-                float rimPeak = rim.maxColorComponent;
-                float cyanR = 0.22f;
-                float cyanG = 0.72f;
-                float cyanB = 0.88f;
-                if (cyanB > rimPeak && cyanB > 0.0001f)
-                {
-                    float scale = rimPeak / cyanB;
-                    cyanR *= scale;
-                    cyanG *= scale;
-                    cyanB *= scale;
-                }
-
-                block.SetColor("_RimColor", new Color(cyanR, cyanG, cyanB, 1f));
-            }
-
-            renderer.SetPropertyBlock(block);
         }
 
         private void ApplyLightRecipe()
@@ -1008,10 +981,12 @@ namespace AsteroidsGoneRogue
                 if (!hardpoint && !engine && !painted)
                 {
                     ShipPaint.ClearRenderer(renderer);
-                    CapSharedEmission(renderer);
-                    RestoreLegacyAccents(renderer);
+                    ClearMaterialSlots(renderer);
+                    PaintPreviewSlots(renderer);
                     continue;
                 }
+
+                ClearMaterialSlots(renderer);
 
                 float red;
                 float green;
@@ -1070,6 +1045,7 @@ namespace AsteroidsGoneRogue
             for (int rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
             {
                 ShipPaint.ClearRenderer(renderers[rendererIndex]);
+                ClearMaterialSlots(renderers[rendererIndex]);
             }
         }
 

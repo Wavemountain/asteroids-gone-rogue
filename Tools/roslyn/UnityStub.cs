@@ -438,7 +438,9 @@ namespace UnityEngine
         public Rendering.ShadowCastingMode shadowCastingMode { get; set; }
         public int sortingOrder { get; set; }
         public void GetPropertyBlock(MaterialPropertyBlock block) { }
+        public void GetPropertyBlock(MaterialPropertyBlock block, int materialIndex) { }
         public void SetPropertyBlock(MaterialPropertyBlock block) { }
+        public void SetPropertyBlock(MaterialPropertyBlock block, int materialIndex) { }
     }
 
     public class MaterialPropertyBlock

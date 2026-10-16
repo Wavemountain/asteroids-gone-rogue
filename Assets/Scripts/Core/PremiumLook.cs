@@ -21,10 +21,11 @@ namespace AsteroidsGoneRogue
         public const float ShadowStrength = 0.65f;
 
         public const float GridVisibleAlpha = 0.12f;
-        // W3 only. Other worlds stay on GridVisibleAlpha. The line is pulled
-        // toward the void until its luminance is 0.6 of the untinted line.
-        public const float W3GridAlpha = 0.07f;
-        public const float W3GridLumaKeep = 0.6f;
+        // W3 only. Other worlds stay on GridVisibleAlpha. Outside the 1.7 m
+        // disk the line is alpha 0.10 and its luminance is 0.8 of the untinted
+        // line. The disk under the ship stays on W3GridQuietAlpha.
+        public const float W3GridAlpha = 0.10f;
+        public const float W3GridLumaKeep = 0.8f;
         // Faint steel line under the hull. Replaces holding that disk out.
         public const float W3GridQuietAlpha = 0.04f;
         // Covers the 3 m hull so the beat does not brighten the grid under it.
@@ -81,6 +82,12 @@ namespace AsteroidsGoneRogue
         public const float PreviewRimG = 168f / 255f;
         public const float PreviewRimB = 200f / 255f;
         public const float PreviewNeutralEmit = 0.35f;
+        public const float PreviewAccentYellowR = 1f;
+        public const float PreviewAccentYellowG = 0.55f;
+        public const float PreviewAccentYellowB = 0.14f;
+        public const float PreviewAccentCyanR = 0.22f;
+        public const float PreviewAccentCyanG = 0.72f;
+        public const float PreviewAccentCyanB = 0.88f;
         public const float DeathEdgeFull = 0.82f;
         public const float DeathWashDimFull = 0.62f;
         public const float DeathWashDimReduce = 0.28f;
@@ -1352,7 +1359,153 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            if (!PreviewAccentSlotsHold())
+            {
+                return false;
+            }
+
             return true;
+        }
+
+        /// <summary>
+        /// Hangar preview accent slots. Hull and hangar dressing are not
+        /// recolored. Yellow and cyan are the 0.47 accent read.
+        /// </summary>
+        public static bool TryPreviewAccentAlbedo(string materialName, out float red, out float green, out float blue)
+        {
+            red = 0f;
+            green = 0f;
+            blue = 0f;
+            if (string.IsNullOrEmpty(materialName) || NameHas(materialName, "Hangar"))
+            {
+                return false;
+            }
+
+            if (NameHas(materialName, "Cyan") || NameHas(materialName, "Glass"))
+            {
+                red = PreviewAccentCyanR;
+                green = PreviewAccentCyanG;
+                blue = PreviewAccentCyanB;
+                return true;
+            }
+
+            if (NameHas(materialName, "Hull") && !NameHas(materialName, "Accent"))
+            {
+                return false;
+            }
+
+            if (NameHas(materialName, "Accent") || NameHas(materialName, "Glow"))
+            {
+                red = PreviewAccentYellowR;
+                green = PreviewAccentYellowG;
+                blue = PreviewAccentYellowB;
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Preview accent slots end on yellow or cyan, never the hull albedo.
+        /// </summary>
+        public static bool PreviewAccentSlotsHold()
+        {
+            float red;
+            float green;
+            float blue;
+            if (!TryPreviewAccentAlbedo("Mat_Preview_Accent", out red, out green, out blue))
+            {
+                return false;
+            }
+
+            if (red != PreviewAccentYellowR || green != PreviewAccentYellowG || blue != PreviewAccentYellowB)
+            {
+                return false;
+            }
+
+            if (!TryPreviewAccentAlbedo("Mat_Ship_Accent", out red, out green, out blue))
+            {
+                return false;
+            }
+
+            if (red != 1f || green != 0.55f || blue != 0.14f)
+            {
+                return false;
+            }
+
+            if (!TryPreviewAccentAlbedo("Mat_Ship_Glow", out red, out green, out blue))
+            {
+                return false;
+            }
+
+            if (red != PreviewAccentYellowR || green != PreviewAccentYellowG || blue != PreviewAccentYellowB)
+            {
+                return false;
+            }
+
+            if (!TryPreviewAccentAlbedo("Mat_Preview_Cyan", out red, out green, out blue))
+            {
+                return false;
+            }
+
+            if (red != PreviewAccentCyanR || green != PreviewAccentCyanG || blue != PreviewAccentCyanB)
+            {
+                return false;
+            }
+
+            if (!TryPreviewAccentAlbedo("Mat_Ship_Glass", out red, out green, out blue))
+            {
+                return false;
+            }
+
+            if (red != 0.22f || green != 0.72f || blue != 0.88f)
+            {
+                return false;
+            }
+
+            if (TryPreviewAccentAlbedo("Mat_Ship_Hull", out red, out green, out blue))
+            {
+                return false;
+            }
+
+            if (TryPreviewAccentAlbedo("Mat_Hangar_Cyan", out red, out green, out blue))
+            {
+                return false;
+            }
+
+            if (TryPreviewAccentAlbedo("Mat_Hangar_Accent", out red, out green, out blue))
+            {
+                return false;
+            }
+
+            float hullGap = PreviewAccentYellowR - 0.80f;
+            if (hullGap < 0f)
+            {
+                hullGap = -hullGap;
+            }
+
+            if (hullGap < 0.05f && PreviewAccentYellowG > 0.40f && PreviewAccentYellowG < 0.56f)
+            {
+                return false;
+            }
+
+            float cyanGap = PreviewAccentCyanB - 0.26f;
+            if (cyanGap < 0.2f)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool NameHas(string value, string token)
+        {
+            if (string.IsNullOrEmpty(value) || string.IsNullOrEmpty(token))
+            {
+                return false;
+            }
+
+            return value.IndexOf(token, System.StringComparison.Ordinal) >= 0;
         }
 
         private static bool Bad(bool failed)

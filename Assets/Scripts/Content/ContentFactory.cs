@@ -29,6 +29,8 @@ namespace AsteroidsGoneRogue
         private ArenaLayoutId _arenaLayout;
         private int _arenaWorldNumber;
         private Material _hull;
+        private Material _previewAccent;
+        private Material _previewCyan;
         private Material _accent;
         private Material _glass;
         private Material _glow;
@@ -114,6 +116,21 @@ namespace AsteroidsGoneRogue
 
             _hull = MakeMaterial(
                 "Mat_Ship_Hull",
+                new Color(ReadabilityPalette.HullR, ReadabilityPalette.HullG, ReadabilityPalette.HullB),
+                0.45f,
+                0.35f,
+                hullEmit);
+            // Ship_Hero accent islands share the hull shader in combat. The
+            // hangar preview identifies them by name and writes the accent
+            // colour onto that slot only.
+            _previewAccent = MakeMaterial(
+                "Mat_Preview_Accent",
+                new Color(ReadabilityPalette.HullR, ReadabilityPalette.HullG, ReadabilityPalette.HullB),
+                0.45f,
+                0.35f,
+                hullEmit);
+            _previewCyan = MakeMaterial(
+                "Mat_Preview_Cyan",
                 new Color(ReadabilityPalette.HullR, ReadabilityPalette.HullG, ReadabilityPalette.HullB),
                 0.45f,
                 0.35f,
@@ -2488,6 +2505,18 @@ namespace AsteroidsGoneRogue
             if (IsArenaDecorBeam(name))
             {
                 return _w3Beam != null ? _w3Beam : _arena;
+            }
+
+            // Hero preview slots. Named so the hangar block can find them.
+            // Albedo matches the hull until that block runs.
+            if (ContainsIgnoreCase(name, "Mat_Preview_Cyan"))
+            {
+                return _previewCyan != null ? _previewCyan : fallback;
+            }
+
+            if (ContainsIgnoreCase(name, "Mat_Preview_Accent"))
+            {
+                return _previewAccent != null ? _previewAccent : fallback;
             }
 
             if ((ContainsIgnoreCase(name, "Glass") || ContainsIgnoreCase(name, "Tile"))
