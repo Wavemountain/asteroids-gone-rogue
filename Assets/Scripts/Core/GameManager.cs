@@ -1319,6 +1319,8 @@ namespace AsteroidsGoneRogue
             {
                 _ship.Visuals.SetPresented(false);
             }
+
+            VfxKit.ClearHullPuff();
         }
 
         private void FailRun(string cause, bool structured, DamageCause failCause, EnemyKind kind)

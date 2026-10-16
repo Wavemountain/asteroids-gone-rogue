@@ -79,6 +79,11 @@
     "Board",
     "Core",
     "Halo",
+    "BoltHalo",
+    "DoubleRing",
+    "Smoke",
+    "Chunks",
+    "SpawnContrast",
     "Stalk",
     "Body",
     "Eye",
@@ -105,6 +110,7 @@
   "materials.death": [],
   "materials.waveclear": [],
   "overlayExemptShaders": ["AGR/Post", "Hidden/*"],
+  "deadExempt": ["Asteroid*", "FX*", "Smoke", "Chunks", "Debris*", "BoltHalo", "DoubleRing", "Telegraph*", "Mat_Env_Belt", "Mat_FX_*"],
   "deadNameHints": ["Beam", "W3_Beam", "W4_Glow"],
   "canvasSorts": [0, 80, 120, 150, 160, 200, 250]
 }

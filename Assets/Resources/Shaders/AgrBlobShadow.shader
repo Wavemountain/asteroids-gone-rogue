@@ -4,7 +4,7 @@ Shader "AGR/BlobShadow"
 {
     Properties
     {
-        _Color ("Color", Color) = (0,0,0,0.35)
+        _Color ("Color", Color) = (0,0,0,0.72)
     }
     SubShader
     {
@@ -38,7 +38,13 @@ Shader "AGR/BlobShadow"
                 float dist = length(centered);
                 float soft = saturate(1.0 - dist);
                 soft = soft * soft;
-                return fixed4(0, 0, 0, _Color.a * soft);
+                // Black core reads on a bright floor. A cool rim reads on a dark one.
+                // Reduce does not change this colour.
+                float ring = saturate(1.0 - abs(dist - 0.76) * 7.0);
+                float core = _Color.a * soft;
+                fixed3 rimRgb = fixed3(0.62, 0.70, 0.80) * ring;
+                float alpha = saturate(core + ring * 0.62);
+                return fixed4(rimRgb, alpha);
             }
             ENDCG
         }

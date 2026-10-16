@@ -36,6 +36,28 @@ namespace AsteroidsGoneRogue
             kit.PlayExplosion(position, size, reduce);
         }
 
+        /// <summary>
+        /// Ship death emits smoke at the hull. Those billboards are not under
+        /// ShipVisuals, and a capture frame does not simulate them, so they
+        /// sit on the ship as a hard square. Clear them after the burst.
+        /// The next explosion turns the renderer back on.
+        /// </summary>
+        public static void ClearHullPuff()
+        {
+            if (_live == null || _live._smoke == null)
+            {
+                return;
+            }
+
+            _live._smoke.Stop();
+            _live._smoke.Clear();
+            ParticleSystemRenderer renderer = _live._smoke.GetComponent<ParticleSystemRenderer>();
+            if (renderer != null)
+            {
+                renderer.enabled = false;
+            }
+        }
+
         public static void Shock(Vector3 position, float startScale, float endScale, float seconds, bool reduce)
         {
             VfxKit kit = Ensure();
@@ -120,6 +142,15 @@ namespace AsteroidsGoneRogue
 
         private void PlayExplosion(Vector3 position, int size, bool reduce)
         {
+            if (_smoke != null)
+            {
+                ParticleSystemRenderer smokeRenderer = _smoke.GetComponent<ParticleSystemRenderer>();
+                if (smokeRenderer != null)
+                {
+                    smokeRenderer.enabled = true;
+                }
+            }
+
             int chunks = VfxBudget.Chunks(size, reduce);
             int smokes = VfxBudget.Smokes(size, reduce);
             float smokeLife = VfxBudget.SmokeSeconds(size, reduce);

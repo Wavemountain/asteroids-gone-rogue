@@ -442,6 +442,10 @@ namespace AsteroidsGoneRogue
             {
                 env.Retint(worldNumber);
                 env.TintFloor(floorVisual);
+                if (worldNumber == 1)
+                {
+                    DressSpawnContrast(env.transform);
+                }
             }
 
             _arenaVisualName = visualName;
@@ -667,6 +671,13 @@ namespace AsteroidsGoneRogue
             go.alignment = TextAlignment.Center;
             go.color = new Color(1f, 0.95f, 0.42f);
             go.fontStyle = FontStyle.Bold;
+            Renderer decalRenderer = go.GetComponent<Renderer>();
+            if (decalRenderer != null && decalRenderer.sharedMaterial != null)
+            {
+                Material named = new Material(decalRenderer.sharedMaterial);
+                named.name = "Mat_LaunchGo";
+                decalRenderer.sharedMaterial = named;
+            }
 
             HangarSignPulse pulse = root.AddComponent<HangarSignPulse>();
             pulse.SignLight = lamp;
@@ -1743,6 +1754,39 @@ namespace AsteroidsGoneRogue
             {
                 visual.transform.position += new Vector3(0f, -delta, 0f);
             }
+        }
+
+        private static void DressSpawnContrast(Transform parent)
+        {
+            if (parent == null || parent.Find("SpawnContrast") != null)
+            {
+                return;
+            }
+
+            Shader shader = Shader.Find("Unlit/Color");
+            if (shader == null)
+            {
+                shader = Shader.Find("Unlit/Texture");
+            }
+
+            if (shader == null)
+            {
+                return;
+            }
+
+            // World 1's lit floor matches the hull luminance. An unlit disc under
+            // the spawn stays darker than the ship. Hull colour is unchanged.
+            Material mat = new Material(shader);
+            mat.name = "Mat_Env_SpawnContrast";
+            mat.color = new Color(0.32f, 0.50f, 0.86f, 1f);
+            CreatePrimitive(
+                PrimitiveType.Cylinder,
+                "SpawnContrast",
+                parent,
+                mat,
+                new Vector3(0f, 0.03f, 0f),
+                new Vector3(8f, 0.012f, 8f),
+                Quaternion.identity);
         }
 
         private static void DressArenaFloorRenderers(GameObject visual)

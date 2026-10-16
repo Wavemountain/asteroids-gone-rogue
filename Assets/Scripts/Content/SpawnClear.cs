@@ -40,8 +40,21 @@ namespace AsteroidsGoneRogue
             Mesh mesh = filter.sharedMesh;
             if (mesh == null || !mesh.isReadable)
             {
+                if (renderer == null)
+                {
+                    return;
+                }
+
+                // An unreadable mesh used to emit a zero box at the origin, so the
+                // floor and any child under the blockout root looked like spawn clutter.
+                // The renderer's world bounds are the island we can actually see.
+                Bounds bounds = renderer.bounds;
                 LayerGate.IslandFact unread = new LayerGate.IslandFact();
                 unread.Name = name;
+                unread.MinX = bounds.min.x;
+                unread.MaxX = bounds.max.x;
+                unread.MinZ = bounds.min.z;
+                unread.MaxZ = bounds.max.z;
                 into.Add(unread);
                 return;
             }

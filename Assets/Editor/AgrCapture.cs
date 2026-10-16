@@ -2750,6 +2750,41 @@ namespace AsteroidsGoneRogue.EditorTools
             {
                 NoteLayerFail(world + " " + hits[i]);
             }
+
+            NoteDeathPuff(world);
+        }
+
+        static void NoteDeathPuff(string world)
+        {
+            if (world != "death")
+            {
+                return;
+            }
+
+            ParticleSystem[] systems = UnityEngine.Object.FindObjectsByType<ParticleSystem>();
+            if (systems == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < systems.Length; i++)
+            {
+                ParticleSystem system = systems[i];
+                if (system == null || system.gameObject == null || system.gameObject.name != "Smoke")
+                {
+                    continue;
+                }
+
+                Renderer renderer = system.GetComponent<ParticleSystemRenderer>();
+                bool enabled = renderer != null && renderer.enabled && system.gameObject.activeInHierarchy;
+                ParticleSystem.Particle[] alive = new ParticleSystem.Particle[1];
+                int count = system.GetParticles(alive);
+                string hit = LayerGate.DeathPuffHit(world, system.gameObject.name, count, enabled);
+                if (hit != null)
+                {
+                    NoteLayerFail(world + " " + hit);
+                }
+            }
         }
 
         static string LayerWorld(int shot)
@@ -3084,7 +3119,7 @@ namespace AsteroidsGoneRogue.EditorTools
             while (cursor != null)
             {
                 string name = cursor.name;
-                if (name == "ArenaEnv" || name == "ArenaLip")
+                if (name == "ArenaEnv" || name == "ArenaLip" || name == "Arena_Layout")
                 {
                     return false;
                 }
@@ -3127,10 +3162,42 @@ namespace AsteroidsGoneRogue.EditorTools
                 LayerGate.BodyFact fact = new LayerGate.BodyFact();
                 fact.Name = body.gameObject.name;
                 fact.Kind = kind;
-                fact.Active = true;
+                fact.Active = HullDrawn(body);
                 fact.HasContact = HasContact(body);
                 into.Add(fact);
             }
+        }
+
+        static bool HullDrawn(Component body)
+        {
+            if (body == null)
+            {
+                return false;
+            }
+
+            Renderer[] renderers = body.GetComponentsInChildren<Renderer>(true);
+            if (renderers == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                if (renderer.gameObject.name == "ContactBlob")
+                {
+                    continue;
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
         static bool HasContact(Component body)
