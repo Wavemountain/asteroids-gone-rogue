@@ -56,6 +56,7 @@ namespace AsteroidsGoneRogue
         private ParticleSystem.Particle[] _dustBuf;
         private Vector3 _dustCam;
         private int _dustReady;
+        private Transform _player;
 
         public static ArenaEnv Ensure(Transform arenaRoot)
         {
@@ -85,14 +86,18 @@ namespace AsteroidsGoneRogue
             Color nebula = SoftenAmount(ScaleColor(new Color(tint.NebulaR, tint.NebulaG, tint.NebulaB, NebulaOpacity), bright), tint.Chroma);
             nebula.a = NebulaOpacity;
             Color grid = SoftenAmount(ScaleColor(new Color(tint.GridR, tint.GridG, tint.GridB, PremiumLook.GridVisibleAlpha), bright), tint.Chroma);
+            grid.a = PremiumLook.GridVisibleAlpha;
             if (world == 3)
             {
-                grid.r *= PremiumLook.W3GridDim;
-                grid.g *= PremiumLook.W3GridDim;
-                grid.b *= PremiumLook.W3GridDim;
+                float pulledR;
+                float pulledG;
+                float pulledB;
+                PremiumLook.PullLumaTowardVoid(grid.r, grid.g, grid.b, PremiumLook.W3GridLumaKeep, out pulledR, out pulledG, out pulledB);
+                grid.r = pulledR;
+                grid.g = pulledG;
+                grid.b = pulledB;
+                grid.a = PremiumLook.W3GridAlpha;
             }
-
-            grid.a = PremiumLook.GridVisibleAlpha;
             _floorTint = ScaleColor(new Color(tint.FloorR, tint.FloorG, tint.FloorB, 1f), bright);
             Texture2D nebulaTex = _nebulaBlue;
             if (tint.PurpleNebula != 0)
@@ -318,13 +323,15 @@ namespace AsteroidsGoneRogue
             }
 
             float gridMul = ArenaDepth.GridAlphaMul(MusicPlan.TrackBpm(_world), phase, reduce);
-            float gridAlpha = PremiumLook.GridVisibleAlpha * gridMul;
+            float resting = PremiumLook.GridVisibleAlpha;
+            float quiet = 0f;
             if (_world == 3)
             {
-                gridAlpha *= PremiumLook.W3GridAlphaMul;
+                resting = PremiumLook.W3GridAlpha;
+                quiet = PremiumLook.W3GridQuietRadius;
             }
 
-            ApplyLayerAlpha(_grid, gridAlpha);
+            ApplyGrid(_grid, resting, gridMul, quiet);
             TickNearDust(view, reduce);
             if (_belt != null)
             {
@@ -365,7 +372,7 @@ namespace AsteroidsGoneRogue
                 _nebulaPurple != null ? _nebulaPurple : _nebulaBlue,
                 new Color(0.7f, 0.35f, 0.95f, NebulaInnerOpacity),
                 3110);
-            _grid = UnlitTransparent(
+            _grid = GridLayer(
                 "Mat_Env_Grid",
                 MakeGridTexture(),
                 new Color(EmissionTargets.SteelR, EmissionTargets.SteelG, EmissionTargets.SteelB, PremiumLook.GridVisibleAlpha),
@@ -554,6 +561,77 @@ namespace AsteroidsGoneRogue
             }
 
             material.mainTextureOffset = new Vector2(x, y);
+        }
+
+        private void ApplyGrid(Material material, float restingAlpha, float pulse, float quietRadius)
+        {
+            if (material == null)
+            {
+                return;
+            }
+
+            float resting = restingAlpha;
+            if (resting < 0f)
+            {
+                resting = 0f;
+            }
+
+            if (resting > 1f)
+            {
+                resting = 1f;
+            }
+
+            float beat = pulse;
+            if (beat < 0f)
+            {
+                beat = 0f;
+            }
+
+            Color color = material.color;
+            bool masked = material.HasProperty("_Pulse") && material.HasProperty("_QuietRadius");
+            if (!masked)
+            {
+                float alpha = resting * beat;
+                if (_world == 3)
+                {
+                    alpha = resting;
+                }
+
+                ApplyLayerAlpha(material, alpha);
+                return;
+            }
+
+            color.a = resting;
+            material.color = color;
+            material.SetFloat("_Pulse", beat);
+            material.SetFloat("_QuietRadius", quietRadius);
+            float shipX;
+            float shipZ;
+            ShipFloor(out shipX, out shipZ);
+            material.SetFloat("_ShipX", shipX);
+            material.SetFloat("_ShipZ", shipZ);
+        }
+
+        private void ShipFloor(out float x, out float z)
+        {
+            x = 0f;
+            z = 0f;
+            if (_player == null)
+            {
+                ShipController[] ships = UnityEngine.Object.FindObjectsByType<ShipController>();
+                if (ships != null && ships.Length > 0 && ships[0] != null)
+                {
+                    _player = ships[0].transform;
+                }
+            }
+
+            if (_player == null)
+            {
+                return;
+            }
+
+            x = _player.position.x;
+            z = _player.position.z;
         }
 
         private static void ApplyLayerAlpha(Material material, float alpha)
@@ -859,6 +937,42 @@ namespace AsteroidsGoneRogue
             }
 
             material.renderQueue = queue;
+            return material;
+        }
+
+        private static Material GridLayer(string name, Texture2D texture, Color tint, int queue)
+        {
+            Shader shader = Shader.Find("AGR/Grid");
+            if (shader == null)
+            {
+                shader = Shader.Find("Unlit/Transparent");
+            }
+
+            if (shader == null)
+            {
+                shader = Shader.Find("Unlit/Color");
+            }
+
+            Material material = new Material(shader);
+            material.name = name;
+            material.color = tint;
+            if (texture != null)
+            {
+                material.mainTexture = texture;
+            }
+
+            material.renderQueue = queue;
+            material.SetInt("_ZWrite", 0);
+            if (material.HasProperty("_Pulse"))
+            {
+                material.SetFloat("_Pulse", 1f);
+            }
+
+            if (material.HasProperty("_QuietRadius"))
+            {
+                material.SetFloat("_QuietRadius", 0f);
+            }
+
             return material;
         }
 

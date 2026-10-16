@@ -301,7 +301,7 @@ namespace AsteroidsGoneRogue
                     "HangarPreviewKey",
                     new Vector3(HangarPreviewRig.KeyLocalX, HangarPreviewRig.KeyLocalY, HangarPreviewRig.KeyLocalZ),
                     new Color(HangarPreviewRig.KeyR, HangarPreviewRig.KeyG, HangarPreviewRig.KeyB),
-                    HangarPreviewRig.AppliedStudio(HangarPreviewRig.KeyIntensity),
+                    HangarPreviewRig.KeyIntensity,
                     LightType.Spot,
                     HangarPreviewRig.KeyRange,
                     HangarPreviewRig.KeySpotAngle);
@@ -309,7 +309,7 @@ namespace AsteroidsGoneRogue
                     "HangarPreviewFill",
                     new Vector3(HangarPreviewRig.FillLocalX, HangarPreviewRig.FillLocalY, HangarPreviewRig.FillLocalZ),
                     new Color(HangarPreviewRig.FillR, HangarPreviewRig.FillG, HangarPreviewRig.FillB),
-                    HangarPreviewRig.AppliedStudio(HangarPreviewRig.FillIntensity),
+                    HangarPreviewRig.FillIntensity,
                     LightType.Point,
                     HangarPreviewRig.FillRange,
                     0f);
@@ -317,7 +317,7 @@ namespace AsteroidsGoneRogue
                     "HangarPreviewRim",
                     new Vector3(HangarPreviewRig.RimLocalX, HangarPreviewRig.RimLocalY, HangarPreviewRig.RimLocalZ),
                     new Color(HangarPreviewRig.RimR, HangarPreviewRig.RimG, HangarPreviewRig.RimB),
-                    HangarPreviewRig.AppliedStudio(HangarPreviewRig.RimIntensity),
+                    HangarPreviewRig.RimIntensity,
                     LightType.Spot,
                     HangarPreviewRig.RimRange,
                     HangarPreviewRig.RimSpotAngle);
@@ -325,7 +325,7 @@ namespace AsteroidsGoneRogue
                     "HangarPreviewBounce",
                     new Vector3(HangarPreviewRig.BounceLocalX, HangarPreviewRig.BounceLocalY, HangarPreviewRig.BounceLocalZ),
                     new Color(HangarPreviewRig.BounceR, HangarPreviewRig.BounceG, HangarPreviewRig.BounceB),
-                    HangarPreviewRig.AppliedStudio(HangarPreviewRig.BounceIntensity),
+                    HangarPreviewRig.BounceIntensity,
                     LightType.Point,
                     HangarPreviewRig.BounceRange,
                     0f);
@@ -449,7 +449,7 @@ namespace AsteroidsGoneRogue
                 _viewport.texture = _rt;
             }
 
-            float exposure = PremiumLook.PreviewExposure;
+            float exposure = HangarPreviewRig.PreviewExposureApplied();
             if (exposure < 0f)
             {
                 exposure = 0f;
@@ -708,8 +708,9 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// Keeps shared-material emission under the hangar bloom knee.
-        /// Albedo is left on the material, so Reduce cannot recolour the hull.
+        /// Keeps a hot shared emission under the preview white point.
+        /// Hull emission is below the ceiling, so panel albedo is untouched.
+        /// Reduce cannot recolour the hull: the block only scales emission.
         /// </summary>
         private static void CapSharedEmission(Renderer renderer)
         {
@@ -724,13 +725,15 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            Color emission = source.GetColor("_EmissionColor") * HangarPreviewRig.StudioHdrScale;
+            Color emission = source.GetColor("_EmissionColor");
             float peak = emission.maxColorComponent;
-            float cap = HangarPreviewRig.PreviewEmitCap;
-            if (peak > cap && peak > 0.0001f)
+            float cap = HangarPreviewRig.PreviewEmissionCeiling();
+            if (peak <= cap || peak <= 0.0001f)
             {
-                emission *= cap / peak;
+                return;
             }
+
+            emission *= cap / peak;
 
             MaterialPropertyBlock block = new MaterialPropertyBlock();
             renderer.GetPropertyBlock(block);
@@ -740,11 +743,11 @@ namespace AsteroidsGoneRogue
 
         private void ApplyLightRecipe()
         {
-            TuneLight(_key, HangarPreviewRig.KeyR, HangarPreviewRig.KeyG, HangarPreviewRig.KeyB, HangarPreviewRig.AppliedStudio(HangarPreviewRig.KeyIntensity));
-            TuneLight(_fill, HangarPreviewRig.FillR, HangarPreviewRig.FillG, HangarPreviewRig.FillB, HangarPreviewRig.AppliedStudio(HangarPreviewRig.FillIntensity));
-            float rim = HangarPreviewRig.AppliedStudio(HangarPreviewRig.StudioRim(false));
+            TuneLight(_key, HangarPreviewRig.KeyR, HangarPreviewRig.KeyG, HangarPreviewRig.KeyB, HangarPreviewRig.KeyIntensity);
+            TuneLight(_fill, HangarPreviewRig.FillR, HangarPreviewRig.FillG, HangarPreviewRig.FillB, HangarPreviewRig.FillIntensity);
+            float rim = HangarPreviewRig.StudioRim(false);
             TuneLight(_rim, HangarPreviewRig.RimR, HangarPreviewRig.RimG, HangarPreviewRig.RimB, rim);
-            TuneLight(_bounce, HangarPreviewRig.BounceR, HangarPreviewRig.BounceG, HangarPreviewRig.BounceB, HangarPreviewRig.AppliedStudio(HangarPreviewRig.BounceIntensity));
+            TuneLight(_bounce, HangarPreviewRig.BounceR, HangarPreviewRig.BounceG, HangarPreviewRig.BounceB, HangarPreviewRig.BounceIntensity);
             AimStudioLight(_key, new Vector3(HangarPreviewRig.KeyLocalX, HangarPreviewRig.KeyLocalY, HangarPreviewRig.KeyLocalZ));
             AimStudioLight(_rim, new Vector3(HangarPreviewRig.RimLocalX, HangarPreviewRig.RimLocalY, HangarPreviewRig.RimLocalZ));
         }
