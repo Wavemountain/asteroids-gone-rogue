@@ -7323,6 +7323,12 @@ def test_decor_depth_047b() -> None:
     assert "-0.5f, 3.2f" in env
     assert "DecorDepthRules.MaxDecorTop" in env
     assert "class DecorDepthClamp" in clamp_src
+    assert "shared.renderQueue =" not in clamp_src
+    assert "material.renderQueue =" not in clamp_src
+    assert "copy.renderQueue = instanceQueue" in clamp_src
+    assert "InstanceQueue" in clamp_src and "InstanceQueue" in rules_src
+    assert "BlobMaterial" in rules_src and "IsBlobMaterial" in rules_src
+    assert "new Material(shared)" in clamp_src
 
     def clamped(top: float) -> float:
         return top if top <= rules["MaxDecorTop"] else rules["MaxDecorTop"]
@@ -16097,6 +16103,10 @@ def test_capture_048_clearance_hud() -> None:
     assert "mine contrast" in capture and "blob above" in capture and "W4PinSeed" in capture
     assert "LockMetrics" in prompt_view and "waveclear hint size" in capture
     assert "waveclear hint box" in capture and "HintBoxPx" in capture
+    assert "CapturePlayBox" in prompt_view and "ApplyPlayBox" in prompt_view
+    assert "CapturePlaySegment" in prompt_view and "CapturePlaySegment" in capture
+    assert "text.material = host.material" not in prompt_view
+    assert "FinishHintBox" in ui and "ApplyPlayBox" in ui
     assert "AGR/BlobShadow" in layer_gate and "shadow-alpha" in layer_gate and "IsBlobShadow" in layer_gate
     assert "SummaryBodyMaxX = 0.68f" in ui and "SummaryNewRunMaxY = 0.64f" in ui
     assert 'Loc.T("ui.hint_waveclear", HintWaveClear)' in ui
@@ -16132,6 +16142,7 @@ def test_capture_048_clearance_hud() -> None:
     shutil.copyfile(root / "Assets/Scripts/Core/PromptLayout.cs", work / "PromptLayout.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/CaptureContinue.cs", work / "CaptureContinue.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/LayerGate.cs", work / "LayerGate.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/DecorDepthRules.cs", work / "DecorDepthRules.cs")
     program = """
 using System;
 namespace AsteroidsGoneRogue
@@ -16152,6 +16163,7 @@ class Program
         if (!AsteroidsGoneRogue.PromptLayout.SelfCheck()) throw new Exception("prompt fit");
         if (!AsteroidsGoneRogue.CaptureContinue.SelfCheck()) throw new Exception("capture continue");
         if (!AsteroidsGoneRogue.LayerGate.SelfCheck()) throw new Exception("layer gate");
+        if (!AsteroidsGoneRogue.DecorDepthRules.SelfCheck()) throw new Exception("decor depth");
         if (AsteroidsGoneRogue.CaptureContinue.NextShot(2, true, false) != 3) throw new Exception("hud fail still advances");
         Console.WriteLine("clearance-ok");
     }
@@ -16177,6 +16189,7 @@ class Program
                 '    <Compile Include="PromptLayout.cs" />',
                 '    <Compile Include="CaptureContinue.cs" />',
                 '    <Compile Include="LayerGate.cs" />',
+                '    <Compile Include="DecorDepthRules.cs" />',
                 '    <Compile Include="Program.cs" />',
                 "  </ItemGroup>",
                 "</Project>",

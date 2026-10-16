@@ -51,6 +51,8 @@ namespace AsteroidsGoneRogue
         public const float MeshZWorld6 = 26f;
         public const int GameplayQueue = 2450;
         public const int DecorQueue = 2000;
+        public const int BlobQueue = 2990;
+        public const string BlobMaterial = "Mat_ContactBlob";
 
         public static float ArenaScale()
         {
@@ -111,6 +113,97 @@ namespace AsteroidsGoneRogue
 
             float gap = z < 0f ? -z : 0f;
             return top <= RayHeight(gap);
+        }
+
+        public static string Bare(string name)
+        {
+            if (name == null)
+            {
+                return string.Empty;
+            }
+
+            const string Suffix = " (Instance)";
+            if (name.EndsWith(Suffix, System.StringComparison.Ordinal))
+            {
+                return name.Substring(0, name.Length - Suffix.Length);
+            }
+
+            return name;
+        }
+
+        public static bool IsBlobMaterial(string name)
+        {
+            return Bare(name) == BlobMaterial;
+        }
+
+        /// <summary>
+        /// Gameplay meshes that share a material need their own queue.
+        /// Blob shadows keep the authored queue (2990) on the shared material.
+        /// Returns false when the shared material must stay untouched.
+        /// </summary>
+        public static bool InstanceQueue(int authored, bool blobShadow, out int instanceQueue)
+        {
+            instanceQueue = authored;
+            if (blobShadow)
+            {
+                return false;
+            }
+
+            if (authored < 3000 && authored != GameplayQueue)
+            {
+                instanceQueue = GameplayQueue;
+                return true;
+            }
+
+            return false;
+        }
+
+        public static bool SelfCheck()
+        {
+            int shared = BlobQueue;
+            int inst;
+            if (InstanceQueue(shared, true, out inst))
+            {
+                return false;
+            }
+
+            if (shared != BlobQueue || inst != BlobQueue)
+            {
+                return false;
+            }
+
+            if (!IsBlobMaterial(BlobMaterial) || !IsBlobMaterial(BlobMaterial + " (Instance)"))
+            {
+                return false;
+            }
+
+            if (IsBlobMaterial("Mat_Arena_Plate"))
+            {
+                return false;
+            }
+
+            int authored = DecorQueue;
+            if (!InstanceQueue(authored, false, out inst) || inst != GameplayQueue)
+            {
+                return false;
+            }
+
+            if (authored != DecorQueue)
+            {
+                return false;
+            }
+
+            if (InstanceQueue(GameplayQueue, false, out inst))
+            {
+                return false;
+            }
+
+            if (InstanceQueue(3000, false, out inst))
+            {
+                return false;
+            }
+
+            return true;
         }
     }
 }
