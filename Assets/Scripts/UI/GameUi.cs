@@ -7770,7 +7770,8 @@ namespace AsteroidsGoneRogue
 
             ApplyFooterHintSize();
             bool waveClear = WaveClearHint();
-            bool combatHint = playing || (_game != null && (_game.TutorialActive || _game.DeathArming));
+            // Wave clear uses the wave-1 hint row: same anchors, same height.
+            bool combatHint = waveClear || playing || (_game != null && (_game.TutorialActive || _game.DeathArming));
             PlaceHintBand(combatHint);
             if (!waveClear && _game != null && _game.TutorialActive)
             {
@@ -7798,6 +7799,8 @@ namespace AsteroidsGoneRogue
             {
                 _hint.rectTransform.localScale = Vector3.one;
                 _hint.resizeTextForBestFit = false;
+                _hint.fontSize = CurrentHintSize();
+                Canvas.ForceUpdateCanvases();
                 PaintPrompt(_hint, Loc.T("ui.hint_waveclear", HintWaveClear), true);
             }
             else if (coach)

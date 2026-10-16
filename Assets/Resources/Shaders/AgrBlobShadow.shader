@@ -2,6 +2,10 @@
 // the floor (result luma is never above the floor). Alpha falls smoothly
 // from the centre to 0 at the quad edge. There is no rim and no ring.
 // Reduce does not recolour it. Shader.Find("AGR/BlobShadow").
+// No polygon offset. ContactBlob sits on FloorSurface.PlaceY, 0.02–0.05 m
+// above the plate (Lift 0.035). At the play camera (near 0.1, far 280) that
+// gap is many depth steps, so Offset -1,-1 is not required to win a z-fight
+// with the floor and would only bias the quad toward the camera.
 Shader "AGR/BlobShadow"
 {
     Properties
@@ -14,7 +18,6 @@ Shader "AGR/BlobShadow"
         Blend SrcAlpha OneMinusSrcAlpha
         ZWrite Off
         ZTest LEqual
-        Offset -1, -1
         Cull Off
         Pass
         {

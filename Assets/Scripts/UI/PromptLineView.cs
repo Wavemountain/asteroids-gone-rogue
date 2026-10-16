@@ -96,10 +96,17 @@ namespace AsteroidsGoneRogue
             int lineCount = lines.Length;
             // Kenney Future's preferred line is taller than 1.15em. A short box
             // wraps one segment onto a second line and the gate calls that overflow.
+            // The wave-clear row is the same hint container as wave 1. Its box is
+            // the font line (about 1.4em), not the 18px icon target.
             float lineHeight = host.fontSize * 1.4f;
-            if (iconPx > lineHeight)
+            if (!lockMetrics && iconPx > lineHeight)
             {
                 lineHeight = iconPx;
+            }
+
+            if (lineHeight < 1f)
+            {
+                lineHeight = iconPx > 1f ? iconPx : 1f;
             }
 
             bool centered = IsCenter(host.alignment);
@@ -285,10 +292,22 @@ namespace AsteroidsGoneRogue
             textRect.localScale = Vector3.one;
             if (lockMetrics)
             {
+                float row = host.fontSize * 1.4f;
+                if (row < 1f)
+                {
+                    row = lineHeight;
+                }
+
+                // ClampToHost can collapse the box onto a stale or icon-sized
+                // host. The wave-1 row is the font line; keep that height.
+                if (textHeight + 0.5f < row)
+                {
+                    textHeight = row;
+                }
+
                 textX = Mathf.Round(textX);
                 textY = Mathf.Round(textY);
                 textWidth = Mathf.Round(textWidth);
-                textHeight = Mathf.Round(textHeight);
                 text.fontSize = host.fontSize > 0 ? host.fontSize : text.fontSize;
             }
 

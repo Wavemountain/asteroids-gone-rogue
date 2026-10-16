@@ -53,6 +53,7 @@ namespace AsteroidsGoneRogue.EditorTools
         const string KeyLoggedPhase = "AgrCapture.LoggedPhase";
         const string KeyBootKicked = "AgrCapture.BootKicked";
         const string KeyHintPx = "AgrCapture.W1HintPx";
+        const string KeyHintBox = "AgrCapture.W1HintBox";
         const int W4PinSeed = 48048;
         const float MineContrastMin = 3.5f;
         const float PlayerClearRadius = 8f;
@@ -3075,6 +3076,7 @@ namespace AsteroidsGoneRogue.EditorTools
                         target = HintLinePx(hint);
                     }
 
+                    float targetBox = W1HintBox();
                     Text[] parts = hint.GetComponentsInChildren<Text>(true);
                     bool segment = false;
                     if (parts != null)
@@ -3089,6 +3091,7 @@ namespace AsteroidsGoneRogue.EditorTools
 
                             segment = true;
                             float px = HintLinePx(part);
+                            float box = HintBoxPx(part);
                             float scaleY = 1f;
                             if (part.rectTransform != null)
                             {
@@ -3102,6 +3105,11 @@ namespace AsteroidsGoneRogue.EditorTools
                             if (scaleY < 0.98f || scaleY > 1.02f || (target > 1f && Mathf.Abs(px - target) > 1f))
                             {
                                 NoteLayerFail("waveclear hint size " + px.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
+                            }
+
+                            if (targetBox > 1f && Mathf.Abs(box - targetBox) > 1f)
+                            {
+                                NoteLayerFail("waveclear hint box " + box.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
                             }
                         }
                     }
@@ -3120,6 +3128,7 @@ namespace AsteroidsGoneRogue.EditorTools
         }
 
         static float _w1HintPx = -1f;
+        static float _w1HintBox = -1f;
 
         static void NotePlayHintSize(string world)
         {
@@ -3135,6 +3144,7 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             float best = -1f;
+            float bestBox = -1f;
             for (int i = 0; i < texts.Length; i++)
             {
                 Text part = texts[i];
@@ -3150,9 +3160,15 @@ namespace AsteroidsGoneRogue.EditorTools
                 }
 
                 float px = HintLinePx(part);
+                float box = HintBoxPx(part);
                 if (px > best)
                 {
                     best = px;
+                }
+
+                if (box > bestBox)
+                {
+                    bestBox = box;
                 }
             }
 
@@ -3160,6 +3176,12 @@ namespace AsteroidsGoneRogue.EditorTools
             {
                 _w1HintPx = best;
                 SessionState.SetString(KeyHintPx, best.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+            }
+
+            if (bestBox > 1f)
+            {
+                _w1HintBox = bestBox;
+                SessionState.SetString(KeyHintBox, bestBox.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
             }
         }
 
@@ -3179,6 +3201,45 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             return -1f;
+        }
+
+        static float W1HintBox()
+        {
+            if (_w1HintBox > 1f)
+            {
+                return _w1HintBox;
+            }
+
+            string stored = SessionState.GetString(KeyHintBox, string.Empty);
+            float parsed;
+            if (float.TryParse(stored, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out parsed) && parsed > 1f)
+            {
+                _w1HintBox = parsed;
+                return parsed;
+            }
+
+            return -1f;
+        }
+
+        static float HintBoxPx(Text text)
+        {
+            if (text == null || text.rectTransform == null)
+            {
+                return 0f;
+            }
+
+            float scale = text.rectTransform.lossyScale.y;
+            if (scale < 0f)
+            {
+                scale = -scale;
+            }
+
+            if (scale < 0.01f)
+            {
+                scale = 1f;
+            }
+
+            return text.rectTransform.rect.height * scale;
         }
 
         static float HintLinePx(Text text)
