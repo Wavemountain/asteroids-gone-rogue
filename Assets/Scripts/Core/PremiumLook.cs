@@ -21,17 +21,24 @@ namespace AsteroidsGoneRogue
         public const float ShadowStrength = 0.65f;
 
         public const float GridVisibleAlpha = 0.12f;
-        public const float W3GridDim = 0.12f;
-        public const float W3GridAlphaMul = 0.35f;
+        // W3 only. Other worlds stay on GridVisibleAlpha. The line is pulled
+        // toward the void until its luminance is 0.6 of the untinted line.
+        public const float W3GridAlpha = 0.07f;
+        public const float W3GridLumaKeep = 0.6f;
+        // Covers the 3 m hull so the beat does not brighten the grid under it.
+        public const float W3GridQuietRadius = 1.7f;
         public const float GridEdgeStart = 0.78f;
         public const float FloorSmoothness = 0.2f;
         public const float FloorMetallic = 0.04f;
         public const float FloorTintMix = 0.18f;
         public const float W3ChromaKeep = 0.45f;
-        public const float BeamEmission = 0.45f;
-        public const float BeamR = 0.20f;
-        public const float BeamG = 0.95f;
-        public const float BeamB = 0.55f;
+        // Amber emission on a darker amber/steel albedo. The cap below keeps
+        // this under enemy projectiles and under the bloom knee.
+        public const float BeamEmission = 0.46f;
+        public const float BeamAmberMix = 0.45f;
+        public const float BeamAlbedoScale = 0.55f;
+        // World 3 key. Used only to keep the beam under the bloom knee.
+        public const float BeamLightAllowance = 1.20f;
 
         public const float SurfaceR = 14f / 255f;
         public const float SurfaceG = 21f / 255f;
@@ -108,9 +115,280 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        /// <summary>
+        /// W3 beam albedo: steel pulled toward primary amber, then darkened
+        /// so a lit beam does not read as white.
+        /// </summary>
         public static void BeamRgb(out float red, out float green, out float blue)
         {
-            Desaturate(BeamR, BeamG, BeamB, W3ChromaKeep, out red, out green, out blue);
+            float amber = BeamAmberMix;
+            if (amber < 0f)
+            {
+                amber = 0f;
+            }
+
+            if (amber > 1f)
+            {
+                amber = 1f;
+            }
+
+            float steel = 1f - amber;
+            red = ((106f / 255f) * steel) + ((212f / 255f) * amber);
+            green = ((168f / 255f) * steel) + ((160f / 255f) * amber);
+            blue = ((200f / 255f) * steel) + ((74f / 255f) * amber);
+            float scale = BeamAlbedoScale;
+            if (scale < 0f)
+            {
+                scale = 0f;
+            }
+
+            red *= scale;
+            green *= scale;
+            blue *= scale;
+        }
+
+        /// <summary>
+        /// Amber emission. Never brighter than an enemy projectile, and held
+        /// under the full-mode soft knee so the beam's bloom peak matches Reduce
+        /// (both stay out of the prefilter). The same colour is used either way.
+        /// </summary>
+        public static void BeamEmissionRgb(out float red, out float green, out float blue)
+        {
+            red = 212f / 255f;
+            green = 160f / 255f;
+            blue = 74f / 255f;
+            float scale = BeamEmission;
+            if (scale < 0f)
+            {
+                scale = 0f;
+            }
+
+            float enemyScale = 9.0f * EnemyCoreLift;
+            float enemyR = (184f / 255f) * enemyScale;
+            float enemyG = (90f / 255f) * enemyScale;
+            float enemyB = (40f / 255f) * enemyScale;
+            float enemyPeak = enemyR;
+            if (enemyG > enemyPeak)
+            {
+                enemyPeak = enemyG;
+            }
+
+            if (enemyB > enemyPeak)
+            {
+                enemyPeak = enemyB;
+            }
+
+            float peak = red;
+            if (green > peak)
+            {
+                peak = green;
+            }
+
+            if (blue > peak)
+            {
+                peak = blue;
+            }
+
+            if (peak > 0.0001f && peak * scale > enemyPeak)
+            {
+                scale = enemyPeak / peak;
+            }
+
+            float albedoR;
+            float albedoG;
+            float albedoB;
+            BeamRgb(out albedoR, out albedoG, out albedoB);
+            float allowance = BeamLightAllowance;
+            if (allowance < 0f)
+            {
+                allowance = 0f;
+            }
+
+            float kneeStart = 1.10f - (1.10f * 0.35f);
+            float emitY = Luma(red, green, blue);
+            float lit = (Luma(albedoR, albedoG, albedoB) * allowance) + (emitY * scale);
+            if (lit > kneeStart && emitY > 0.0001f)
+            {
+                float room = kneeStart - (Luma(albedoR, albedoG, albedoB) * allowance);
+                if (room < 0f)
+                {
+                    room = 0f;
+                }
+
+                float next = room / emitY;
+                if (next < scale)
+                {
+                    scale = next;
+                }
+            }
+
+            if (emitY > 0.0001f && emitY * scale > kneeStart)
+            {
+                scale = kneeStart / emitY;
+            }
+
+            red *= scale;
+            green *= scale;
+            blue *= scale;
+        }
+
+        /// <summary>
+        /// Mix toward the void until luminance is <paramref name="keep"/> times
+        /// the source. keep 0.6 is the W3 grid line.
+        /// </summary>
+        public static void PullLumaTowardVoid(float red, float green, float blue, float keep, out float outR, out float outG, out float outB)
+        {
+            if (keep < 0f)
+            {
+                keep = 0f;
+            }
+
+            if (keep > 1f)
+            {
+                keep = 1f;
+            }
+
+            float y = Luma(red, green, blue);
+            float voidY = Luma(OutsideR, OutsideG, OutsideB);
+            float target = y * keep;
+            if (target < voidY)
+            {
+                target = voidY;
+            }
+
+            float span = y - voidY;
+            float t = 0f;
+            if (span > 0.0001f)
+            {
+                t = (y - target) / span;
+            }
+
+            if (t < 0f)
+            {
+                t = 0f;
+            }
+
+            if (t > 1f)
+            {
+                t = 1f;
+            }
+
+            outR = red + ((OutsideR - red) * t);
+            outG = green + ((OutsideG - green) * t);
+            outB = blue + ((OutsideB - blue) * t);
+        }
+
+        /// <summary>
+        /// Bloom prefilter weight from AgrPost. Zero at and below the soft-knee start.
+        /// </summary>
+        public static float BloomPrefilter(float luma, float threshold, float softKnee)
+        {
+            float y = luma;
+            if (y < 0f)
+            {
+                y = 0f;
+            }
+
+            float knee = threshold * softKnee;
+            if (knee < 0.0001f)
+            {
+                knee = 0.0001f;
+            }
+
+            float soft = y - threshold + knee;
+            if (soft < 0f)
+            {
+                soft = 0f;
+            }
+
+            if (soft > 2f * knee)
+            {
+                soft = 2f * knee;
+            }
+
+            soft = (soft * soft) / (4f * knee);
+            float linear = y - threshold;
+            float contrib = soft;
+            if (linear > contrib)
+            {
+                contrib = linear;
+            }
+
+            if (contrib < 0f)
+            {
+                return 0f;
+            }
+
+            return contrib;
+        }
+
+        public static bool BeamNotBrighterThanEnemy()
+        {
+            float red;
+            float green;
+            float blue;
+            BeamEmissionRgb(out red, out green, out blue);
+            float enemyScale = 9.0f * EnemyCoreLift;
+            float enemyR = (184f / 255f) * enemyScale;
+            float enemyG = (90f / 255f) * enemyScale;
+            float enemyB = (40f / 255f) * enemyScale;
+            float beamPeak = red;
+            if (green > beamPeak)
+            {
+                beamPeak = green;
+            }
+
+            if (blue > beamPeak)
+            {
+                beamPeak = blue;
+            }
+
+            float enemyPeak = enemyR;
+            if (enemyG > enemyPeak)
+            {
+                enemyPeak = enemyG;
+            }
+
+            if (enemyB > enemyPeak)
+            {
+                enemyPeak = enemyB;
+            }
+
+            if (beamPeak > enemyPeak)
+            {
+                return false;
+            }
+
+            return Luma(red, green, blue) <= Luma(enemyR, enemyG, enemyB);
+        }
+
+        /// <summary>
+        /// Full-mode bloom added by the W3 beam, at the W3 key, is not above
+        /// the Reduce peak. PostGrade.Row still scales the grade.
+        /// </summary>
+        public static bool BeamBloomFullMatchesReduce()
+        {
+            float albedoR;
+            float albedoG;
+            float albedoB;
+            float emitR;
+            float emitG;
+            float emitB;
+            BeamRgb(out albedoR, out albedoG, out albedoB);
+            BeamEmissionRgb(out emitR, out emitG, out emitB);
+            float allowance = BeamLightAllowance;
+            if (allowance < 0f)
+            {
+                allowance = 0f;
+            }
+
+            float y = Luma(
+                (albedoR * allowance) + emitR,
+                (albedoG * allowance) + emitG,
+                (albedoB * allowance) + emitB);
+            float full = 0.50f * BloomPrefilter(y, 1.10f, 0.35f);
+            float reduce = 0.25f * BloomPrefilter(y, 1.25f, 0.35f);
+            return full <= reduce + 0.0001f;
         }
 
         public static void Desaturate(float red, float green, float blue, float keep, out float outR, out float outG, out float outB)
@@ -818,9 +1096,18 @@ namespace AsteroidsGoneRogue
         /// </summary>
         public static bool CombatShipBeatsGrid()
         {
-            float gridR = 0.08f * 0.76f * W3GridDim;
-            float gridG = 0.86f * 0.76f * W3GridDim;
-            float gridB = 0.68f * 0.76f * W3GridDim;
+            float gridR = 0.08f * 0.76f;
+            float gridG = 0.86f * 0.76f;
+            float gridB = 0.68f * 0.76f;
+            PullLumaTowardVoid(gridR, gridG, gridB, W3GridLumaKeep, out gridR, out gridG, out gridB);
+            float floorR;
+            float floorG;
+            float floorB;
+            FloorRgb(3, 0.015f, 0.228f, 0.167f, out floorR, out floorG, out floorB);
+            float alpha = W3GridAlpha;
+            gridR = floorR + ((gridR - floorR) * alpha);
+            gridG = floorG + ((gridG - floorG) * alpha);
+            gridB = floorB + ((gridB - floorB) * alpha);
             float gridY = Luma(gridR, gridG, gridB);
             float shipR = 0.80f;
             float shipG = 0.48f;
@@ -994,6 +1281,11 @@ namespace AsteroidsGoneRogue
             }
 
             if (!PreviewSaturationHolds())
+            {
+                return false;
+            }
+
+            if (!BeamNotBrighterThanEnemy() || !BeamBloomFullMatchesReduce())
             {
                 return false;
             }

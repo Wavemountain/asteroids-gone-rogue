@@ -14,11 +14,9 @@ namespace AsteroidsGoneRogue
         public const float FillIntensity = 0.48f;
         public const float RimIntensity = 1.7f;
         public const float BounceIntensity = 0.10f;
-        // 0.47 drew these point lights into an LDR target. 0.48 keeps the
-        // numbers and the spot pose, then scales them: HDR plus the hull
-        // emission would otherwise clip the preview. Same scale both modes.
-        public const float StudioHdrScale = 0.35f;
-        public const float PreviewEmitCap = 0.40f;
+        // Art-director preview exposure. The 0.47 light numbers stay; the
+        // viewport is another −0.3 EV so the HDR preview stays under 0.5% clip.
+        public const float PreviewExposureEv = -0.3f;
         public const float KeyR = 1f;
         public const float KeyG = 0.84f;
         public const float KeyB = 0.62f;
@@ -125,29 +123,52 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// Intensity actually assigned to a studio light. The authored 0.47
-        /// value stays on the constant. HDR previews use the lower scale.
+        /// 2^ev. −0.3 EV is about 0.812, applied on top of PreviewExposure.
         /// </summary>
-        public static float AppliedStudio(float authored)
+        public static float ExposureLinear(float ev)
         {
-            float scale = StudioHdrScale;
-            if (scale < 0f)
-            {
-                scale = 0f;
-            }
-
-            if (scale > 1f)
-            {
-                scale = 1f;
-            }
-
-            float value = authored * scale;
-            if (value < 0f)
+            double value = Math.Pow(2.0, ev);
+            if (value < 0.0)
             {
                 return 0f;
             }
 
-            return value;
+            return (float)value;
+        }
+
+        /// <summary>
+        /// Viewport multiply: locked 0.85 exposure, then −0.3 EV.
+        /// </summary>
+        public static float PreviewExposureApplied()
+        {
+            float ev = ExposureLinear(PreviewExposureEv);
+            if (ev < 0f)
+            {
+                ev = 0f;
+            }
+
+            float exposure = PremiumLook.PreviewExposure * ev;
+            if (exposure < 0f)
+            {
+                return 0f;
+            }
+
+            return exposure;
+        }
+
+        /// <summary>
+        /// Emission peak that still displays under 1 after the preview exposure.
+        /// Hull emission sits well below this, so panel lines are not crushed.
+        /// </summary>
+        public static float PreviewEmissionCeiling()
+        {
+            float exposure = PreviewExposureApplied();
+            if (exposure < 0.05f)
+            {
+                exposure = 0.05f;
+            }
+
+            return 0.96f / exposure;
         }
 
         /// <summary>

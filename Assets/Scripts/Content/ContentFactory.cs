@@ -213,12 +213,16 @@ namespace AsteroidsGoneRogue
             float beamG;
             float beamB;
             PremiumLook.BeamRgb(out beamR, out beamG, out beamB);
+            float emitR;
+            float emitG;
+            float emitB;
+            PremiumLook.BeamEmissionRgb(out emitR, out emitG, out emitB);
             _w3Beam = MakeMaterial(
                 "Mat_Arena_W3_Beam",
                 new Color(beamR, beamG, beamB),
                 0.12f,
                 0.28f,
-                primaryEmit * PremiumLook.BeamEmission);
+                new Color(emitR, emitG, emitB));
             _astroRim = MakeMaterial("Mat_AstroRim", new Color(0.357f, 0.561f, 0.659f), 0.12f, 0.38f, new Color(0.357f, 0.561f, 0.659f) * 0.55f);
             _projectile = MakeMaterial("Mat_Projectile", primaryEmit, 0f, 0.32f, primaryEmit * EmissionTargets.PlayerShot);
             _projectileSpread = MakeMaterial("Mat_Projectile_Spread", primaryEmit, 0f, 0.28f, primaryEmit * EmissionTargets.PlayerShot);
