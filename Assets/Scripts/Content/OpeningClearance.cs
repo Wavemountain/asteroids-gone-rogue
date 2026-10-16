@@ -5,9 +5,10 @@ namespace AsteroidsGoneRogue
 {
     /// <summary>
     /// Moves wave-start bodies whose renderer covers the player on the camera
-    /// that actually draws them. Belt rocks that imported at file scale 100 are
-    /// fitted before the test. Enemies and anything spawned in the first two
-    /// seconds are included. The push does not read the daily roll.
+    /// that actually draws them. Every renderer on every camera is logged,
+    /// including shells, lines, dust, the player, late spawns, and enemies.
+    /// Belt rocks that imported at file scale 100 are fitted before the test.
+    /// The push does not read the daily roll.
     /// </summary>
     public static class OpeningClearance
     {
@@ -20,7 +21,6 @@ namespace AsteroidsGoneRogue
         private const float FloorExtent = 12f;
         private const float StandingClearance = 0.12f;
         private const int CarveCap = 64;
-        private const float NearWindow = 0.18f;
 
         private static readonly System.Collections.Generic.List<string> Notes = new System.Collections.Generic.List<string>();
         private static readonly System.Collections.Generic.List<Transform> Moved = new System.Collections.Generic.List<Transform>();
@@ -158,6 +158,7 @@ namespace AsteroidsGoneRogue
             if (log)
             {
                 Notes.Add("AgrCapture keep-out player screen=" + RectText(minU, minV, maxU, maxV) + " camera=" + view.Name);
+                NoteCameras();
             }
 
             Transform[] nodes = UnityEngine.Object.FindObjectsByType<Transform>();
@@ -188,18 +189,18 @@ namespace AsteroidsGoneRogue
             bool holdStill,
             bool log)
         {
-            if (renderer == null || !renderer.enabled)
+            if (renderer == null)
+            {
+                return;
+            }
+
+            if (!renderer.enabled && !log)
             {
                 return;
             }
 
             GameObject host = renderer.gameObject;
-            if (host == null || IsPlayer(host) || renderer.GetComponentInParent<Canvas>() != null)
-            {
-                return;
-            }
-
-            if (host.GetComponent<Camera>() != null)
+            if (host == null)
             {
                 return;
             }
@@ -246,21 +247,39 @@ namespace AsteroidsGoneRogue
                 out behind);
             float push = 0f;
             string kind = "body";
-            if (renderer is LineRenderer)
+            bool player = IsPlayer(host);
+            bool canvas = renderer.GetComponentInParent<Canvas>() != null;
+            bool cameraHost = host.GetComponent<Camera>() != null;
+            bool line = renderer is LineRenderer;
+            bool dust = IsDust(host);
+            bool shell = IsShell(bounds);
+            if (player)
+            {
+                kind = "player";
+            }
+            else if (canvas)
+            {
+                kind = "canvas";
+            }
+            else if (cameraHost)
+            {
+                kind = "camera";
+            }
+            else if (line)
             {
                 kind = "line";
-                overlap = false;
-                behind = 0;
             }
-            else if (IsDust(host))
+            else if (dust)
             {
                 kind = "dust";
             }
-            else if (IsShell(bounds))
+            else if (shell)
             {
                 kind = "shell";
-                overlap = false;
-                behind = 0;
+            }
+            else if (!renderer.enabled)
+            {
+                kind = "off";
             }
             else if (overlap && IsFloor(bounds) && belt == null && renderer.GetComponentInParent<Asteroid>() == null)
             {
@@ -307,11 +326,6 @@ namespace AsteroidsGoneRogue
             }
 
             if (!log)
-            {
-                return;
-            }
-
-            if (!overlap && behind <= 0 && !NearCentre(bounds.center, view))
             {
                 return;
             }
@@ -954,52 +968,39 @@ namespace AsteroidsGoneRogue
             return shot;
         }
 
-        private static bool NearCentre(Vector3 world, ShotCam view)
+        private static void NoteCameras()
         {
-            float viewU;
-            float viewV;
-            if (!OpeningView.ProjectAxes(
-                view.EyeX,
-                view.EyeY,
-                view.EyeZ,
-                view.Fx,
-                view.Fy,
-                view.Fz,
-                view.Rx,
-                view.Ry,
-                view.Rz,
-                view.Ux,
-                view.Uy,
-                view.Uz,
-                view.Fov,
-                world.x,
-                world.y,
-                world.z,
-                view.Aspect,
-                out viewU,
-                out viewV))
+            Camera[] cameras = UnityEngine.Object.FindObjectsByType<Camera>();
+            if (cameras == null || cameras.Length == 0)
             {
-                return false;
+                Notes.Add("AgrCapture keep-out camera name=none layer=0 enabled=0 depth=0 mask=0 rect=0,0,0,0");
+                return;
             }
 
-            float screenU;
-            float screenV;
-            OpeningView.ViewportToScreen(viewU, viewV, view.RectX, view.RectY, view.RectW, view.RectH, out screenU, out screenV);
-            float midU = view.RectX + (view.RectW * 0.5f);
-            float midV = view.RectY + (view.RectH * 0.5f);
-            float du = screenU - midU;
-            float dv = screenV - midV;
-            if (du < 0f)
+            for (int cameraIndex = 0; cameraIndex < cameras.Length; cameraIndex++)
             {
-                du = -du;
-            }
+                Camera cam = cameras[cameraIndex];
+                if (cam == null || cam.gameObject == null)
+                {
+                    continue;
+                }
 
-            if (dv < 0f)
-            {
-                dv = -dv;
+                int enabledBit = cam.enabled ? 1 : 0;
+                Rect frame = cam.rect;
+                Notes.Add(
+                    "AgrCapture keep-out camera name="
+                    + cam.gameObject.name
+                    + " layer="
+                    + LayerText(cam.gameObject.layer)
+                    + " enabled="
+                    + enabledBit.ToString(CultureInfo.InvariantCulture)
+                    + " depth="
+                    + cam.depth.ToString("0.00", CultureInfo.InvariantCulture)
+                    + " mask="
+                    + cam.cullingMask.ToString(CultureInfo.InvariantCulture)
+                    + " rect="
+                    + RectText(frame.x, frame.y, frame.x + frame.width, frame.y + frame.height));
             }
-
-            return du <= NearWindow * view.RectW && dv <= NearWindow * view.RectH;
         }
 
         private static void ScreenBox(Bounds bounds, ShotCam view, out float minU, out float minV, out float maxU, out float maxV)

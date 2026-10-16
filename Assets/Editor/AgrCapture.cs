@@ -1,6 +1,7 @@
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace AsteroidsGoneRogue.EditorTools
 {
@@ -665,6 +666,7 @@ namespace AsteroidsGoneRogue.EditorTools
             System.IO.File.WriteAllBytes(path, png);
             Debug.Log("AgrCapture: wrote " + path + " (" + png.Length.ToString() + " bytes)");
             LogGrade("shot " + shot.ToString());
+            CheckHudLayout(shot);
         }
 
         static void AdvanceShot()
@@ -2712,6 +2714,331 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             return EditorApplication.timeSinceStartup - start > TimeoutSeconds;
+        }
+
+        const float HudSlop = 2f;
+
+        sealed class HudMark
+        {
+            public string Name;
+            public string Block;
+            public bool Lane;
+            public float MinX;
+            public float MinY;
+            public float MaxX;
+            public float MaxY;
+        }
+
+        static void CheckHudLayout(int shot)
+        {
+            if (shot < 1 || shot > 4)
+            {
+                return;
+            }
+
+            Canvas.ForceUpdateCanvases();
+            Graphic[] graphics = UnityEngine.Object.FindObjectsByType<Graphic>();
+            System.Collections.Generic.List<HudMark> marks = new System.Collections.Generic.List<HudMark>();
+            if (graphics != null)
+            {
+                for (int graphicIndex = 0; graphicIndex < graphics.Length; graphicIndex++)
+                {
+                    HudMark mark;
+                    if (TryHudMark(graphics[graphicIndex], out mark))
+                    {
+                        marks.Add(mark);
+                    }
+                }
+            }
+
+            if (marks.Count == 0)
+            {
+                Debug.Log("AgrCapture hud none");
+                return;
+            }
+
+            float safeMinX;
+            float safeMinY;
+            float safeMaxX;
+            float safeMaxY;
+            HudSafe(out safeMinX, out safeMinY, out safeMaxX, out safeMaxY);
+            string firstFail = string.Empty;
+            for (int markIndex = 0; markIndex < marks.Count; markIndex++)
+            {
+                HudMark shown = marks[markIndex];
+                Debug.Log(
+                    "AgrCapture hud name="
+                    + shown.Name
+                    + " block="
+                    + shown.Block
+                    + " rect="
+                    + HudRectText(shown.MinX, shown.MinY, shown.MaxX, shown.MaxY));
+                if (HudOutside(shown, safeMinX, safeMinY, safeMaxX, safeMaxY))
+                {
+                    Debug.Log(
+                        "AgrCapture hud outside name="
+                        + shown.Name
+                        + " rect="
+                        + HudRectText(shown.MinX, shown.MinY, shown.MaxX, shown.MaxY)
+                        + " safe="
+                        + HudRectText(safeMinX, safeMinY, safeMaxX, safeMaxY));
+                    if (firstFail.Length == 0)
+                    {
+                        firstFail = "hud outside " + shown.Name;
+                    }
+                }
+            }
+
+            for (int left = 0; left < marks.Count; left++)
+            {
+                for (int right = left + 1; right < marks.Count; right++)
+                {
+                    HudMark leftMark = marks[left];
+                    HudMark rightMark = marks[right];
+                    if (leftMark.Block == rightMark.Block || !HudOverlaps(leftMark, rightMark))
+                    {
+                        continue;
+                    }
+
+                    bool bothLanes = leftMark.Lane && rightMark.Lane;
+                    if (!bothLanes && (HudContains(leftMark, rightMark) || HudContains(rightMark, leftMark)))
+                    {
+                        continue;
+                    }
+
+                    Debug.Log(
+                        "AgrCapture hud overlap a="
+                        + leftMark.Name
+                        + " b="
+                        + rightMark.Name
+                        + " blockA="
+                        + leftMark.Block
+                        + " blockB="
+                        + rightMark.Block
+                        + " rectA="
+                        + HudRectText(leftMark.MinX, leftMark.MinY, leftMark.MaxX, leftMark.MaxY)
+                        + " rectB="
+                        + HudRectText(rightMark.MinX, rightMark.MinY, rightMark.MaxX, rightMark.MaxY));
+                    if (firstFail.Length == 0)
+                    {
+                        firstFail = "hud overlap " + leftMark.Block + " x " + rightMark.Block;
+                    }
+                }
+            }
+
+            if (firstFail.Length > 0)
+            {
+                Fail(firstFail);
+            }
+        }
+
+        static bool TryHudMark(Graphic graphic, out HudMark mark)
+        {
+            mark = null;
+            if (!HudShown(graphic))
+            {
+                return false;
+            }
+
+            Canvas canvas = graphic.GetComponentInParent<Canvas>();
+            if (canvas == null || canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+            {
+                return false;
+            }
+
+            RectTransform rect = graphic.rectTransform;
+            if (rect == null)
+            {
+                return false;
+            }
+
+            Vector3[] corners = new Vector3[4];
+            rect.GetWorldCorners(corners);
+            float minX = corners[0].x;
+            float minY = corners[0].y;
+            float maxX = corners[0].x;
+            float maxY = corners[0].y;
+            for (int corner = 1; corner < corners.Length; corner++)
+            {
+                if (corners[corner].x < minX)
+                {
+                    minX = corners[corner].x;
+                }
+
+                if (corners[corner].y < minY)
+                {
+                    minY = corners[corner].y;
+                }
+
+                if (corners[corner].x > maxX)
+                {
+                    maxX = corners[corner].x;
+                }
+
+                if (corners[corner].y > maxY)
+                {
+                    maxY = corners[corner].y;
+                }
+            }
+
+            if (maxX - minX < 0.5f && maxY - minY < 0.5f)
+            {
+                return false;
+            }
+
+            string block = HudBlock(graphic.transform);
+            mark = new HudMark();
+            mark.Name = graphic.gameObject.name;
+            mark.Block = block;
+            mark.Lane = HudLane(block);
+            mark.MinX = minX;
+            mark.MinY = minY;
+            mark.MaxX = maxX;
+            mark.MaxY = maxY;
+            return true;
+        }
+
+        static bool HudShown(Graphic graphic)
+        {
+            if (graphic == null || graphic.gameObject == null || !graphic.isActiveAndEnabled || !graphic.gameObject.activeInHierarchy)
+            {
+                return false;
+            }
+
+            float alpha = graphic.color.a * HudGroupAlpha(graphic.transform);
+            if (alpha <= 0.04f)
+            {
+                return false;
+            }
+
+            Text label = graphic as Text;
+            if (label != null && string.IsNullOrWhiteSpace(label.text))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        static float HudGroupAlpha(Transform node)
+        {
+            float alpha = 1f;
+            Transform cursor = node;
+            while (cursor != null)
+            {
+                CanvasGroup group = cursor.GetComponent<CanvasGroup>();
+                if (group != null)
+                {
+                    alpha *= group.alpha;
+                }
+
+                cursor = cursor.parent;
+            }
+
+            return alpha;
+        }
+
+        static string HudBlock(Transform node)
+        {
+            Transform cursor = node;
+            while (cursor != null && cursor.parent != null && cursor.parent.GetComponent<Canvas>() == null)
+            {
+                cursor = cursor.parent;
+            }
+
+            if (cursor == null)
+            {
+                return string.Empty;
+            }
+
+            return cursor.name;
+        }
+
+        static bool HudLane(string block)
+        {
+            if (block == "Hint" || block == "HealthRack" || block == "AbortWave")
+            {
+                return true;
+            }
+
+            if (block == "UtilityHud" || block == "DoctrineBadge" || block == "BossBar")
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        static void HudSafe(out float minX, out float minY, out float maxX, out float maxY)
+        {
+            Rect safe = Screen.safeArea;
+            minX = safe.x;
+            minY = safe.y;
+            maxX = safe.x + safe.width;
+            maxY = safe.y + safe.height;
+            if (minX < 0f)
+            {
+                minX = 0f;
+            }
+
+            if (minY < 0f)
+            {
+                minY = 0f;
+            }
+
+            float screenW = Screen.width;
+            float screenH = Screen.height;
+            if (maxX > screenW)
+            {
+                maxX = screenW;
+            }
+
+            if (maxY > screenH)
+            {
+                maxY = screenH;
+            }
+
+            if (maxX - minX < 1f || maxY - minY < 1f)
+            {
+                minX = 0f;
+                minY = 0f;
+                maxX = screenW;
+                maxY = screenH;
+            }
+        }
+
+        static bool HudOutside(HudMark mark, float safeMinX, float safeMinY, float safeMaxX, float safeMaxY)
+        {
+            return mark.MinX < safeMinX - HudSlop
+                || mark.MinY < safeMinY - HudSlop
+                || mark.MaxX > safeMaxX + HudSlop
+                || mark.MaxY > safeMaxY + HudSlop;
+        }
+
+        static bool HudOverlaps(HudMark leftMark, HudMark rightMark)
+        {
+            float overlapX = Mathf.Min(leftMark.MaxX, rightMark.MaxX) - Mathf.Max(leftMark.MinX, rightMark.MinX);
+            float overlapY = Mathf.Min(leftMark.MaxY, rightMark.MaxY) - Mathf.Max(leftMark.MinY, rightMark.MinY);
+            return overlapX > HudSlop && overlapY > HudSlop;
+        }
+
+        static bool HudContains(HudMark outer, HudMark inner)
+        {
+            return inner.MinX >= outer.MinX - HudSlop
+                && inner.MaxX <= outer.MaxX + HudSlop
+                && inner.MinY >= outer.MinY - HudSlop
+                && inner.MaxY <= outer.MaxY + HudSlop;
+        }
+
+        static string HudRectText(float minX, float minY, float maxX, float maxY)
+        {
+            return minX.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+                + ","
+                + minY.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+                + ","
+                + maxX.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+                + ","
+                + maxY.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
         }
 
         static bool HasError()

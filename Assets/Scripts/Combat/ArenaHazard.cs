@@ -19,8 +19,6 @@ namespace AsteroidsGoneRogue
         private Light _glow;
         private MaterialPropertyBlock _block;
         private Color _baseEmit = new Color(0.722f, 0.353f, 0.157f);
-        private Color _bodyTint = new Color(0.722f, 0.353f, 0.157f);
-        private bool _tintBody;
         private float _phase;
 
         public static void SetListener(Transform player)
@@ -79,12 +77,6 @@ namespace AsteroidsGoneRogue
             _block = new MaterialPropertyBlock();
         }
 
-        public void DressBody(Color albedo)
-        {
-            _tintBody = true;
-            _bodyTint = albedo;
-        }
-
         private void Update()
         {
             if (!PulseVisual)
@@ -118,11 +110,6 @@ namespace AsteroidsGoneRogue
                 }
 
                 renderer.GetPropertyBlock(_block);
-                if (_tintBody)
-                {
-                    _block.SetColor("_Color", _bodyTint);
-                }
-
                 _block.SetColor("_EmissionColor", emit);
                 renderer.SetPropertyBlock(_block);
             }

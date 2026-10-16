@@ -139,6 +139,7 @@ namespace UnityEngine
         public Vector2 pivot { get; set; }
         public Vector2 sizeDelta { get; set; }
         public Rect rect { get { return new Rect(0f, 0f, 0f, 0f); } }
+        public void GetWorldCorners(Vector3[] fourCornersArray) { }
     }
 
     public struct Vector2
@@ -347,6 +348,7 @@ namespace UnityEngine
     {
         public static int width { get { return 1920; } }
         public static int height { get { return 1080; } }
+        public static Rect safeArea { get { return new Rect(0f, 0f, width, height); } }
         public static Resolution currentResolution { get { return new Resolution { width = 1920, height = 1080 }; } }
         public static Resolution[] resolutions { get { return new Resolution[0]; } }
         public static void SetResolution(int width, int height, FullScreenMode mode) { }

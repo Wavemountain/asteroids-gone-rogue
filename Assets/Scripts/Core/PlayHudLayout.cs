@@ -15,30 +15,32 @@ namespace AsteroidsGoneRogue
 
         public const float StatusMinY = 0.705f;
         public const float StatusMaxY = 0.888f;
-        public const float HealthMinY = 0.056f;
-        public const float HealthMaxY = 0.118f;
-        public const float BossMinY = 0.132f;
-        public const float BossMaxY = 0.172f;
+        // Health and boss keep the 62ee6bf heights (0.082 and 0.040) and sit
+        // just above the bottom hint row so the two rows do not overlap.
+        public const float HealthMinY = 0.050f;
+        public const float HealthMaxY = 0.132f;
+        public const float BossMinY = 0.140f;
+        public const float BossMaxY = 0.180f;
+        // Tools panel and doctrine badge are the 62ee6bf rects.
         public const float UtilityMinX = 0.74f;
-        public const float UtilityMinY = 0.196f;
+        public const float UtilityMinY = 0.085f;
         public const float UtilityMaxX = 0.985f;
-        public const float UtilityMaxY = 0.300f;
+        public const float UtilityMaxY = 0.205f;
         public const float DoctrineMinX = 0.74f;
-        public const float DoctrineMinY = 0.312f;
+        public const float DoctrineMinY = 0.21f;
         public const float DoctrineMaxX = 0.985f;
-        public const float DoctrineMaxY = 0.356f;
-        // Combat hint is its own row under the health rack and doctrine badge.
+        public const float DoctrineMaxY = 0.255f;
+        // Combat hint is its own bottom row, left of the abort slot.
         // Hangar keeps the footer at y 0.008–0.072.
         public const float PlayHintMinX = 0.04f;
         public const float PlayHintMinY = 0.006f;
         public const float PlayHintMaxX = 0.72f;
         public const float PlayHintMaxY = 0.044f;
-        public const float AbortWidthPx = 220f;
-        public const float AbortHeightPx = 36f;
+        // Abort/Hangar ghost is the 62ee6bf slot: under the tools panel, right of the hint.
+        public const float AbortMinX = 0.74f;
+        public const float AbortMinY = 0.012f;
         public const float AbortMaxX = 0.985f;
-        public const float AbortMaxY = 0.048f;
-        public const float AbortSpanCapX = 0.22f;
-        public const float AbortSpanCapY = 0.055f;
+        public const float AbortMaxY = 0.072f;
 
         public static float ColumnMaxX(float screenWidth)
         {
@@ -77,34 +79,11 @@ namespace AsteroidsGoneRogue
 
         public static void AbortRect(float screenWidth, float screenHeight, out float minX, out float minY, out float maxX, out float maxY)
         {
-            float width = screenWidth;
-            float height = screenHeight;
-            if (width < 1f)
-            {
-                width = 1920f;
-            }
-
-            if (height < 1f)
-            {
-                height = 1080f;
-            }
-
-            float spanX = AbortWidthPx / width;
-            float spanY = AbortHeightPx / height;
-            if (spanX > AbortSpanCapX)
-            {
-                spanX = AbortSpanCapX;
-            }
-
-            if (spanY > AbortSpanCapY)
-            {
-                spanY = AbortSpanCapY;
-            }
-
+            // Normalised anchors, so 1280x800 and 3440x1440 share this slot.
+            minX = AbortMinX;
+            minY = AbortMinY;
             maxX = AbortMaxX;
             maxY = AbortMaxY;
-            minX = maxX - spanX;
-            minY = maxY - spanY;
         }
 
         public static bool SelfCheck()

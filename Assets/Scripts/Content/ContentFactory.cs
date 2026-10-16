@@ -2443,18 +2443,14 @@ namespace AsteroidsGoneRogue
             glow.shadows = LightShadows.None;
             glow.color = damaging ? new Color(1f, 0.38f, 0.08f) : new Color(0.35f, 0.78f, 1f);
             glow.range = damaging ? 6.4f : 4.6f;
-            glow.intensity = damaging ? 2.35f : 0.78f;
+            glow.intensity = damaging ? 1.55f : 0.78f;
             Color emit = damaging
-                ? new Color(PremiumLook.MineEmitR, PremiumLook.MineEmitG, PremiumLook.MineEmitB) * PremiumLook.MineEmitScale
+                ? new Color(1f, 0.28f, 0.05f) * 2.2f
                 : new Color(0.2f, 0.72f, 1f) * 1.15f;
             DressEnemyEmission(root.transform, emit);
             if (hazard != null)
             {
                 hazard.DressPulse(emit, glow);
-                if (damaging)
-                {
-                    hazard.DressBody(new Color(PremiumLook.MineAlbedoR, PremiumLook.MineAlbedoG, PremiumLook.MineAlbedoB));
-                }
             }
         }
 
