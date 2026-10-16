@@ -1,8 +1,8 @@
 namespace AsteroidsGoneRogue
 {
     /// <summary>
-    /// Hangar preview target. The 0.47 bay is an LDR portrait. Reduce
-    /// effects does not switch the format: both modes share this target.
+    /// Hangar preview target. Reduce effects does not pick the format:
+    /// both modes use HDR when the GPU can build one.
     /// </summary>
     public static class HangarPreviewHdr
     {
@@ -12,33 +12,28 @@ namespace AsteroidsGoneRogue
 
         public static bool Use(bool reduceEffects, bool halfSupported, bool defaultHdrSupported)
         {
-            int mode = 0;
+            bool supported = halfSupported || defaultHdrSupported;
             if (reduceEffects)
             {
-                mode += 1;
+                return supported;
             }
 
-            if (halfSupported)
-            {
-                mode += 2;
-            }
-
-            if (defaultHdrSupported)
-            {
-                mode += 4;
-            }
-
-            return mode < 0;
+            return supported;
         }
 
         public static int Format(bool reduceEffects, bool halfSupported, bool defaultHdrSupported)
         {
-            if (Use(reduceEffects, halfSupported, defaultHdrSupported))
+            if (!Use(reduceEffects, halfSupported, defaultHdrSupported))
+            {
+                return Ldr;
+            }
+
+            if (halfSupported)
             {
                 return ArgbHalf;
             }
 
-            return Ldr;
+            return DefaultHdr;
         }
 
         public static bool AllowsHdr(int format)
