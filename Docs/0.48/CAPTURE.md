@@ -24,7 +24,7 @@ Reduce effects on (same seed):
 
 Run the command from the project folder (the one that contains `Assets/`). Exit code **0** and a log line `AgrCapture OK` means all six files were written. Any failure logs `AgrCapture FAIL: …` and exits **non-zero**. A missing game session fails in seconds. 300 seconds is only the last backstop.
 
-Every shot also runs the layer gate ([LAYER_GATE.md](LAYER_GATE.md)). A layer hit logs `AgrCapture layer FAIL: …`, the rest of the six shots still run, and the process exits **non-zero** at the end. A fatal error (missing session, empty frame) still stops the run.
+Every shot also runs the layer gate ([LAYER_GATE.md](LAYER_GATE.md)). A layer hit logs `AgrCapture layer FAIL: …`, the rest of the six shots still run, and the process exits **non-zero** at the end. A fatal error (missing session, empty frame) still stops the run. The HUD is composited by `AgrCaptureUiCamera` with `cullingMask` limited to the UI layer and the camera parked at `(0, -10000, 0)`, so the pass cannot redraw the ship.
 
 ## Expected files
 

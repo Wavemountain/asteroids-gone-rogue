@@ -401,9 +401,20 @@ namespace AsteroidsGoneRogue
 
         public static GameUi Instance { get; private set; }
 
+        public static void UseUiLayer(GameObject canvasObject)
+        {
+            if (canvasObject == null)
+            {
+                return;
+            }
+
+            canvasObject.layer = LayerGate.UiLayer;
+        }
+
         public static GameUi Build(string productTitle)
         {
             GameObject canvasObject = new GameObject("Canvas");
+            UseUiLayer(canvasObject);
             Canvas canvas = canvasObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.pixelPerfect = false;
@@ -1054,6 +1065,7 @@ namespace AsteroidsGoneRogue
         private void BuildRunSetup(Font display, Font body)
         {
             GameObject canvasGo = new GameObject("RunSetupCanvas");
+            UseUiLayer(canvasGo);
             Canvas canvas = canvasGo.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.pixelPerfect = false;
@@ -1595,6 +1607,7 @@ namespace AsteroidsGoneRogue
             if (_previewCanvas == null)
             {
                 GameObject canvasGo = new GameObject(ShipPreviewCanvasName);
+                UseUiLayer(canvasGo);
                 Canvas canvas = canvasGo.AddComponent<Canvas>();
                 canvas.renderMode = RenderMode.ScreenSpaceOverlay;
                 canvas.pixelPerfect = false;
@@ -1750,6 +1763,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            UseUiLayer(root);
             Canvas overlayCanvas = root.GetComponent<Canvas>();
             if (overlayCanvas == null)
             {
@@ -1771,6 +1785,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            UseUiLayer(_menuRoot);
             Canvas shopCanvas = _menuRoot.GetComponent<Canvas>();
             if (shopCanvas == null)
             {
@@ -1821,6 +1836,7 @@ namespace AsteroidsGoneRogue
             }
 
             GameObject canvasGo = new GameObject(BoonCardLayout.CanvasName);
+            UseUiLayer(canvasGo);
             Canvas canvas = canvasGo.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.pixelPerfect = false;
@@ -1995,6 +2011,7 @@ namespace AsteroidsGoneRogue
         private void BuildSinkOverlay(Font display, Font body)
         {
             GameObject canvasGo = new GameObject("SinkShopCanvas");
+            UseUiLayer(canvasGo);
             Canvas canvas = canvasGo.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.pixelPerfect = false;
@@ -11029,6 +11046,7 @@ namespace AsteroidsGoneRogue
         private void BuildPromptCard(Font body)
         {
             _promptRoot = new GameObject("TutorialPromptCard");
+            UseUiLayer(_promptRoot);
             _promptRoot.transform.SetParent(transform, false);
             RectTransform rootRect = _promptRoot.AddComponent<RectTransform>();
             Stretch(rootRect, Vector2.zero, Vector2.one);

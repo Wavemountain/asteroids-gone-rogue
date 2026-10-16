@@ -20,6 +20,9 @@ namespace AsteroidsGoneRogue
         public const float VisibleAlpha = 0.04f;
         public const float DeadEmissionMax = 0.45f;
         public const float DeadAlbedoMax = 0.45f;
+        // Built-in UI layer. Capture composites canvases with this mask only.
+        public const int UiLayer = 5;
+        public const int UiCameraMask = 1 << UiLayer;
 
         public sealed class Rules
         {
@@ -61,6 +64,14 @@ namespace AsteroidsGoneRogue
         {
             public string Name;
             public int Sort;
+            public int Layer;
+            public bool Enabled;
+        }
+
+        public sealed class CameraFact
+        {
+            public string Name;
+            public int Mask;
             public bool Enabled;
         }
 
@@ -79,6 +90,18 @@ namespace AsteroidsGoneRogue
             CanvasFact[] canvases,
             string[] uiOverlaps,
             BodyFact[] bodies)
+        {
+            return Evaluate(world, rules, facts, canvases, uiOverlaps, bodies, null);
+        }
+
+        public static string[] Evaluate(
+            string world,
+            Rules rules,
+            Fact[] facts,
+            CanvasFact[] canvases,
+            string[] uiOverlaps,
+            BodyFact[] bodies,
+            CameraFact[] cameras)
         {
             System.Collections.Generic.List<string> hits = new System.Collections.Generic.List<string>();
             if (rules == null)
@@ -123,6 +146,14 @@ namespace AsteroidsGoneRogue
                 for (int i = 0; i < bodies.Length; i++)
                 {
                     NoteBody(bodies[i], hits);
+                }
+            }
+
+            if (cameras != null)
+            {
+                for (int i = 0; i < cameras.Length; i++)
+                {
+                    NoteUiCamera(cameras[i], hits);
                 }
             }
 
@@ -264,6 +295,7 @@ namespace AsteroidsGoneRogue
             CanvasFact badSort = new CanvasFact();
             badSort.Name = "Canvas";
             badSort.Sort = 999;
+            badSort.Layer = UiLayer;
             badSort.Enabled = true;
             if (!Expect("canvas-sort", Evaluate("hangar", rules, null, new CanvasFact[] { badSort }, null, null)))
             {
@@ -303,7 +335,26 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (Evaluate("1", rules, CleanFacts(), CleanCanvas(), new string[0], CleanBodies()).Length != 0)
+            if (Evaluate("1", rules, CleanFacts(), CleanCanvas(), new string[0], CleanBodies(), CleanCameras()).Length != 0)
+            {
+                return false;
+            }
+
+            CanvasFact offUi = new CanvasFact();
+            offUi.Name = "Canvas";
+            offUi.Sort = 0;
+            offUi.Layer = 0;
+            offUi.Enabled = true;
+            if (!Expect("canvas-layer", Evaluate("1", rules, null, new CanvasFact[] { offUi }, null, null)))
+            {
+                return false;
+            }
+
+            CameraFact wide = new CameraFact();
+            wide.Name = "AgrCaptureUiCamera";
+            wide.Mask = (1 << 0) | UiCameraMask;
+            wide.Enabled = true;
+            if (!Expect("ui-camera", Evaluate("1", rules, null, null, null, null, new CameraFact[] { wide })))
             {
                 return false;
             }
@@ -373,6 +424,12 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (canvas.Layer != UiLayer)
+            {
+                string canvasName = canvas.Name == null ? "canvas" : canvas.Name;
+                hits.Add("canvas-layer " + canvasName + " layer " + canvas.Layer.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+
             int[] sorts = rules.CanvasSorts;
             if (sorts == null)
             {
@@ -400,6 +457,23 @@ namespace AsteroidsGoneRogue
 
             string kind = body.Kind == null ? "body" : body.Kind;
             hits.Add("contact-shadow " + kind + " " + body.Name);
+        }
+
+        static void NoteUiCamera(CameraFact camera, System.Collections.Generic.List<string> hits)
+        {
+            if (camera == null || !camera.Enabled)
+            {
+                return;
+            }
+
+            int outside = camera.Mask & ~UiCameraMask;
+            if (outside == 0)
+            {
+                return;
+            }
+
+            string name = camera.Name == null ? "camera" : camera.Name;
+            hits.Add("ui-camera " + name + " mask " + camera.Mask.ToString(System.Globalization.CultureInfo.InvariantCulture));
         }
 
         static bool Shown(Fact fact)
@@ -668,8 +742,18 @@ namespace AsteroidsGoneRogue
             CanvasFact canvas = new CanvasFact();
             canvas.Name = "Canvas";
             canvas.Sort = 0;
+            canvas.Layer = UiLayer;
             canvas.Enabled = true;
             return new CanvasFact[] { canvas };
+        }
+
+        static CameraFact[] CleanCameras()
+        {
+            CameraFact camera = new CameraFact();
+            camera.Name = "AgrCaptureUiCamera";
+            camera.Mask = UiCameraMask;
+            camera.Enabled = true;
+            return new CameraFact[] { camera };
         }
 
         static BodyFact[] CleanBodies()

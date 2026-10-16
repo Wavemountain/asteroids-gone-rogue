@@ -14,6 +14,7 @@ Whitelist data: `Tools/layer_whitelist.json`.
 4. **Queue and sort.** Gameplay roles must use queue 2000–3999 (Geometry 2000–2449, AlphaTest 2450–2499, Transparent 2500–3999). A negative queue is the shader default, Geometry 2000. The dome ring (`ArenaLip` / `Mat_Env_Lip`) must use ZTest Less (2) or LEqual (4). `AgrDomeRing.shader` exposes `_ZTest` and samples it. Enabled canvases must use a `CanvasOrder` value (`Root` 0, `ShipPreview` 80, `HangarShop` 120, `Overlay` 150, `Rebind` 160, `Boon` 200, `Toast` 250).
 5. **UI overlap.** Rect overlap and glyph boxes (`preferredWidth` / `preferredHeight`) fail the shot. That covers HUD-vs-HUD, HUD vs the hint row, and the hangar title / world / medal rows. The same measurement already logged `AgrCapture FAIL:`; the layer gate records it as `ui-overlap` too.
 6. **Contact shadow.** Every active `ShipController`, `EnemySeeker`, and `Asteroid` needs an enabled child renderer named `ContactBlob`.
+7. **UI camera and canvas layer.** Every enabled canvas must sit on the built-in UI layer (`LayerGate.UiLayer`, 5). `GameUi.UseUiLayer` assigns that layer wherever a canvas is created, including nested canvases (`RaiseCanvas`, the shop, the prompt, the rebind overlay). The capture overlay camera (`AgrCaptureUiCamera`) must use `cullingMask = LayerGate.UiCameraMask` (`1 << 5`) and must sit at `(0, -10000, 0)`, so it cannot redraw the ship or other Default-layer objects on top of the HUD. A mask that includes any other layer fails as `ui-camera`. A canvas on another layer fails as `canvas-layer`. The hangar preview camera stays on layer 8 and is not a UI camera.
 
 ## Static vs runtime
 
@@ -29,6 +30,8 @@ Whitelist data: `Tools/layer_whitelist.json`.
 | Canvas sort uses `CanvasOrder` | Source assignments (existing canvas check) plus the whitelist list | Yes, every enabled `Canvas` |
 | UI overlap, including glyphs and hangar rows | Self-check only | Yes, all six shots |
 | Contact shadow present | Self-check only | Yes |
+| Canvas on the UI layer (5) | `GameUi.cs` and `RebindOverlay.cs` must call `UseUiLayer` next to every `AddComponent<Canvas>`. An injected canvas without that call FAILs | Yes, every enabled `Canvas` |
+| Capture/UI camera mask is UI-only | `AgrCapture` must set `cullingMask = LayerGate.UiCameraMask` and park the camera at `(0, -10000, 0)`. A mask built from canvas layers FAILs | Yes, the overlay camera used for that shot |
 
 A runtime hit logs `AgrCapture layer FAIL:` and does **not** stop the remaining shots. The process still exits non-zero (`CaptureContinue.ExitCode` with the layer flag). A fatal capture error (missing session, empty frame) still stops the run.
 

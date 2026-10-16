@@ -449,6 +449,7 @@ namespace AsteroidsGoneRogue
 
         private static void Raise(GameObject root)
         {
+            GameUi.UseUiLayer(root);
             Canvas canvas = root.GetComponent<Canvas>();
             if (canvas == null)
             {

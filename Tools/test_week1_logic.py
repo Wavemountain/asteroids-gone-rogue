@@ -16044,6 +16044,8 @@ def test_capture_048_clearance_hud() -> None:
         "canvas-sort",
         "ui-overlap",
         "contact-shadow",
+        "canvas-layer",
+        "ui-camera",
     ):
         assert f'"{token}"' in layer_gate
     assert (root / "Tools/layer_whitelist.json").is_file()

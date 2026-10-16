@@ -233,7 +233,8 @@ namespace AsteroidsGoneRogue
                 float warmB;
                 PremiumLook.WarmKey(red, green, blue, out warmR, out warmG, out warmB);
                 keyLight.color = new Color(warmR, warmG, warmB, 1f);
-                keyLight.shadows = LightShadows.Soft;
+                // Floor is on the decor camera, so this shadow map never lands. Contact blobs ground the bodies.
+                keyLight.shadows = LightShadows.None;
                 keyLight.shadowStrength = PremiumLook.ShadowStrength;
                 keyLight.transform.rotation = Quaternion.Euler(PremiumLook.KeyElevation, PremiumLook.KeyYaw, 0f);
             }
@@ -820,8 +821,6 @@ namespace AsteroidsGoneRogue
             Material material = new Material(shader);
             material.name = "Mat_Env_NearDust";
             material.color = new Color(ArenaDepth.AccentR, ArenaDepth.AccentG, ArenaDepth.AccentB, ArenaDepth.DustAlphaMax);
-            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.One);
             material.renderQueue = 3000;
             return material;
         }

@@ -137,7 +137,7 @@ namespace AsteroidsGoneRogue
             float warmB;
             PremiumLook.WarmKey(0.92f, 0.95f, 1f, out warmR, out warmG, out warmB);
             light.color = new Color(warmR, warmG, warmB, 1f);
-            light.shadows = LightShadows.Soft;
+            light.shadows = LightShadows.None;
             light.shadowStrength = PremiumLook.ShadowStrength;
             lightObject.transform.rotation = Quaternion.Euler(PremiumLook.KeyElevation, PremiumLook.KeyYaw, 0f);
         }

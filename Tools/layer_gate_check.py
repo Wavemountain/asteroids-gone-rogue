@@ -47,6 +47,13 @@ _SELF_TOKENS = (
     "canvas-sort",
     "ui-overlap",
     "contact-shadow",
+    "canvas-layer",
+    "ui-camera",
+)
+
+_CANVAS_SOURCES = (
+    "Assets/Scripts/UI/GameUi.cs",
+    "Assets/Scripts/UI/RebindOverlay.cs",
 )
 
 
@@ -94,7 +101,39 @@ def injection_errors() -> list[str]:
         errors.append("self-test gameplay overlay literal did not FAIL")
     if queue_literal_hits("material.renderQueue = 3000;", "Inject.cs"):
         errors.append("self-test transparent queue was flagged")
+    bad_camera = "uiCam.cullingMask = mask;\nmask |= 1 << layer;\n"
+    if not ui_camera_source_hits(bad_camera):
+        errors.append("self-test ui-camera did not FAIL")
+    good_camera = (
+        "uiCam.cullingMask = LayerGate.UiCameraMask;\n"
+        "uiObject.transform.position = new Vector3(0f, -10000f, 0f);\n"
+    )
+    if ui_camera_source_hits(good_camera):
+        errors.append("self-test UI-only overlay camera was flagged")
+    if not canvas_file_hits("canvasObject.AddComponent<Canvas>();\n", "Inject.cs"):
+        errors.append("self-test canvas-layer did not FAIL")
+    if canvas_file_hits("UseUiLayer(canvasObject);\ncanvasObject.AddComponent<Canvas>();\n", "Inject.cs"):
+        errors.append("self-test UI canvas was flagged")
     return errors
+
+
+def ui_camera_source_hits(source: str) -> list[str]:
+    """FAIL when a capture overlay camera can see a non-UI layer or sits in the arena."""
+    hits: list[str] = []
+    if "cullingMask = LayerGate.UiCameraMask" not in source:
+        hits.append("ui-camera overlay mask is not UI-only")
+    if "mask |= 1 << layer" in source or "mask = (1 << 0)" in source:
+        hits.append("ui-camera overlay mask includes a non-UI layer")
+    if "new Vector3(0f, -10000f, 0f)" not in source:
+        hits.append("ui-camera overlay camera is not parked away from the arena")
+    return hits
+
+
+def canvas_file_hits(source: str, label: str) -> list[str]:
+    """FAIL when a file adds a Canvas and never places it on the UI layer."""
+    if "AddComponent<Canvas>" in source and "UseUiLayer(" not in source:
+        return [f"canvas-layer {label} Canvas is not on the UI layer"]
+    return []
 
 
 def check(root: Path) -> list[str]:
@@ -166,6 +205,22 @@ def check(root: Path) -> list[str]:
         for path in sorted(base.rglob("*.cs")):
             for hit in queue_literal_hits(path.read_text(encoding="utf-8", errors="replace"), str(path.relative_to(root))):
                 errors.append(hit)
+    capture = root / "Assets/Editor/AgrCapture.cs"
+    if not capture.is_file():
+        errors.append("missing AgrCapture.cs")
+    else:
+        for hit in ui_camera_source_hits(capture.read_text(encoding="utf-8")):
+            errors.append(hit)
+    for rel in _CANVAS_SOURCES:
+        path = root / rel
+        if not path.is_file():
+            errors.append(f"canvas-layer missing {rel}")
+            continue
+        for hit in canvas_file_hits(path.read_text(encoding="utf-8"), rel):
+            errors.append(hit)
+    ui = root / "Assets/Scripts/UI/GameUi.cs"
+    if ui.is_file() and "layer = LayerGate.UiLayer" not in ui.read_text(encoding="utf-8"):
+        errors.append("canvas-layer GameUi.UseUiLayer must assign LayerGate.UiLayer")
     return errors
 
 
