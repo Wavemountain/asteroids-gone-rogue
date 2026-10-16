@@ -56,18 +56,11 @@ namespace AsteroidsGoneRogue
         public const float PreviewExposure = 0.46f;
         public const float PreviewEmissionCap = 0.65f;
         public const float PreviewAlbedoLift = 1.05f;
-        public const float PreviewSteelR = 0.72f;
-        public const float PreviewSteelG = 0.58f;
-        public const float PreviewSteelB = 0.36f;
-        public const float PreviewSteelMix = 0.72f;
-        public const float PreviewSatKeep = 1.55f;
-        public const float MineAlbedoR = 1f;
-        public const float MineAlbedoG = 0.58f;
-        public const float MineAlbedoB = 0.16f;
-        public const float MineEmitR = 1f;
-        public const float MineEmitG = 0.46f;
-        public const float MineEmitB = 0.08f;
-        public const float MineEmitScale = 4.4f;
+        // Cool bias cut, then chroma stretch that never raises the source peak.
+        // Mean HSV of the colourful hull/accent/glass/glow read stays at least 0.47.
+        public const float PreviewBlueKeep = 0.62f;
+        public const float PreviewSatFloor = 0.55f;
+        public const float PreviewSatBoostCap = 3.2f;
         public const float DeathEdgeFull = 0.62f;
         public const float DeathWashDimFull = 0.50f;
         public const float DeathWashDimReduce = 0.28f;
@@ -216,19 +209,68 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// Hangar-only hull grade. Pulls ice-blue steel toward a warm hull and
-        /// lifts saturation. Gameplay albedo is unchanged.
+        /// Hangar-only hull grade. Keeps the material hue, cuts the cool bias,
+        /// and stretches chroma without raising the peak. Gameplay albedo is unchanged.
         /// </summary>
         public static void PreviewSteel(float red, float green, float blue, out float outR, out float outG, out float outB)
         {
-            float keepMix = 1f - PreviewSteelMix;
-            float mixedR = (red * keepMix) + (PreviewSteelR * PreviewSteelMix);
-            float mixedG = (green * keepMix) + (PreviewSteelG * PreviewSteelMix);
-            float mixedB = (blue * keepMix) + (PreviewSteelB * PreviewSteelMix);
-            float y = (0.2126f * mixedR) + (0.7152f * mixedG) + (0.0722f * mixedB);
-            outR = y + ((mixedR - y) * PreviewSatKeep);
-            outG = y + ((mixedG - y) * PreviewSatKeep);
-            outB = y + ((mixedB - y) * PreviewSatKeep);
+            float scaledR = red;
+            float scaledG = green;
+            float scaledB = blue * PreviewBlueKeep;
+            if (scaledR < 0f)
+            {
+                scaledR = 0f;
+            }
+
+            if (scaledG < 0f)
+            {
+                scaledG = 0f;
+            }
+
+            if (scaledB < 0f)
+            {
+                scaledB = 0f;
+            }
+
+            float peak = scaledR;
+            if (scaledG > peak)
+            {
+                peak = scaledG;
+            }
+
+            if (scaledB > peak)
+            {
+                peak = scaledB;
+            }
+
+            float floor = scaledR;
+            if (scaledG < floor)
+            {
+                floor = scaledG;
+            }
+
+            if (scaledB < floor)
+            {
+                floor = scaledB;
+            }
+
+            float boost = 1f;
+            if (peak > 0.0001f)
+            {
+                float sat = (peak - floor) / peak;
+                if (sat < PreviewSatFloor && sat > 0.0001f)
+                {
+                    boost = PreviewSatFloor / sat;
+                    if (boost > PreviewSatBoostCap)
+                    {
+                        boost = PreviewSatBoostCap;
+                    }
+                }
+            }
+
+            outR = peak - ((peak - scaledR) * boost);
+            outG = peak - ((peak - scaledG) * boost);
+            outB = peak - ((peak - scaledB) * boost);
             if (outR < 0f)
             {
                 outR = 0f;
@@ -258,6 +300,127 @@ namespace AsteroidsGoneRogue
             {
                 outB = 1f;
             }
+        }
+
+        public static float HsvSaturation(float red, float green, float blue)
+        {
+            float peak = red;
+            if (green > peak)
+            {
+                peak = green;
+            }
+
+            if (blue > peak)
+            {
+                peak = blue;
+            }
+
+            float floor = red;
+            if (green < floor)
+            {
+                floor = green;
+            }
+
+            if (blue < floor)
+            {
+                floor = blue;
+            }
+
+            if (peak <= 0.0001f)
+            {
+                return 0f;
+            }
+
+            return (peak - floor) / peak;
+        }
+
+        /// <summary>
+        /// Mean HSV of the hangar ship materials after the grade and the albedo
+        /// lift. The floor is the colourful material read (at least 0.47) and
+        /// the grade does not raise a source peak.
+        /// </summary>
+        public static bool PreviewSaturationHolds()
+        {
+            float hull = GradedSat(0.45f, 0.52f, 0.58f);
+            float accent = GradedSat(1f, 0.55f, 0.14f);
+            float glass = GradedSat(0.35f, 0.70f, 0.95f);
+            float glow = GradedSat(1f, 0.55f, 0.15f);
+            float mean = (hull + accent + glass + glow) * 0.25f;
+            if (hull < 0.47f || accent < 0.47f || glass < 0.47f || glow < 0.47f || mean < 0.47f)
+            {
+                return false;
+            }
+
+            float rawAccent = HsvSaturation(1f, 0.55f, 0.14f);
+            if (accent + 0.02f < rawAccent)
+            {
+                return false;
+            }
+
+            if (!PeakHeld(0.45f, 0.52f, 0.58f) || !PeakHeld(1f, 0.55f, 0.14f) || !PeakHeld(0.35f, 0.70f, 0.95f) || !PeakHeld(1f, 0.55f, 0.15f))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static float GradedSat(float red, float green, float blue)
+        {
+            float gradedR;
+            float gradedG;
+            float gradedB;
+            PreviewSteel(red, green, blue, out gradedR, out gradedG, out gradedB);
+            gradedR *= PreviewAlbedoLift;
+            gradedG *= PreviewAlbedoLift;
+            gradedB *= PreviewAlbedoLift;
+            if (gradedR > 1f)
+            {
+                gradedR = 1f;
+            }
+
+            if (gradedG > 1f)
+            {
+                gradedG = 1f;
+            }
+
+            if (gradedB > 1f)
+            {
+                gradedB = 1f;
+            }
+
+            return HsvSaturation(gradedR, gradedG, gradedB);
+        }
+
+        private static bool PeakHeld(float red, float green, float blue)
+        {
+            float inPeak = red;
+            if (green > inPeak)
+            {
+                inPeak = green;
+            }
+
+            if (blue > inPeak)
+            {
+                inPeak = blue;
+            }
+
+            float gradedR;
+            float gradedG;
+            float gradedB;
+            PreviewSteel(red, green, blue, out gradedR, out gradedG, out gradedB);
+            float outPeak = gradedR;
+            if (gradedG > outPeak)
+            {
+                outPeak = gradedG;
+            }
+
+            if (gradedB > outPeak)
+            {
+                outPeak = gradedB;
+            }
+
+            return outPeak <= inPeak + 0.0001f;
         }
 
         public static void CapPreviewEmission(float red, float green, float blue, out float outR, out float outG, out float outB)
@@ -501,6 +664,11 @@ namespace AsteroidsGoneRogue
             }
 
             if (hullY / floorY < 3.5f)
+            {
+                return false;
+            }
+
+            if (!PreviewSaturationHolds())
             {
                 return false;
             }

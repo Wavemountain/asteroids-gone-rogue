@@ -15975,6 +15975,7 @@ def test_capture_048_clearance_hud() -> None:
     rig = (root / "Assets/Scripts/Core/HangarPreviewRig.cs").read_text(encoding="utf-8")
     preview = (root / "Assets/Scripts/Hangar/HangarShipPreview.cs").read_text(encoding="utf-8")
     ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    capture = (root / "Assets/Editor/AgrCapture.cs").read_text(encoding="utf-8")
 
     assert "WatchSeconds = 2f" in clearance
     assert "ScreenPlace" in clearance and "OpeningClearance.ScreenPlace" in factory
@@ -15984,18 +15985,28 @@ def test_capture_048_clearance_hud() -> None:
     assert "RunRng" not in clearance
     assert "LayerMask.LayerToName" in clearance
     assert "kind=" in clearance and "behind=" in clearance
+    assert "AgrCapture keep-out camera name=" in clearance
+    assert "!NearCentre" not in clearance
+    assert "overlap = false" not in clearance
     assert factory.find("OpeningClearance.ScreenPlace") < factory.find("BeginSpawnGrace")
-    assert "PlayHintMaxY = 0.044f" in hud and "HealthMinY = 0.056f" in hud
-    assert "AbortMaxY = 0.048f" in hud and "UtilityMinY = 0.196f" in hud
+    assert "PlayHintMaxY = 0.044f" in hud and "HealthMinY = 0.050f" in hud
+    assert "AbortMaxY = 0.072f" in hud and "UtilityMinY = 0.085f" in hud
+    assert "DoctrineMinY = 0.21f" in hud and "AbortMinX = 0.74f" in hud
     assert "PlayHudLayout.AbortRect" in ui
     assert "PlayHudLayout.UtilityMinY" in ui
+    assert "glow.intensity = damaging ? 1.55f : 0.78f" in factory
+    assert "new Color(1f, 0.28f, 0.05f) * 2.2f" in factory
+    assert "DressBody" not in factory
     assert "DeathWashDimFull = 0.50f" in look and "DeathWashDimReduce = 0.28f" in look
     assert "PreviewExposure = 0.46f" in look and "PreviewEmissionCap = 0.65f" in look
+    assert "PreviewSatFloor = 0.55f" in look
     assert "PreviewSteel" in look and "PreviewSteel" in preview
     assert "KeyB = 0.42f" in rig and "FillB = 0.22f" in rig and "RimB = 0.22f" in rig
     assert "KeyIntensity = 0.85f" in rig
     assert "(dist - 0.08f) / 0.28f" in view
     assert "DeathEdge" in ui and "PaintDeathEdge" in ui
+    assert "CheckHudLayout" in capture and "AgrCapture hud overlap" in capture
+    assert "AgrCapture hud outside" in capture
 
     tools = Path(__file__).resolve().parent
     if str(tools) not in sys.path:
@@ -16010,14 +16021,25 @@ def test_capture_048_clearance_hud() -> None:
     work.mkdir(parents=True)
     shutil.copyfile(root / "Assets/Scripts/Core/OpeningView.cs", work / "OpeningView.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/PlayHudLayout.cs", work / "PlayHudLayout.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/PremiumLook.cs", work / "PremiumLook.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/EffectScale.cs", work / "EffectScale.cs")
     program = """
 using System;
+namespace AsteroidsGoneRogue
+{
+    public static class HitFlashLimiter
+    {
+        public const float MinGapSeconds = 0.333f;
+        public const float MaxAlpha = 0.20f;
+    }
+}
 class Program
 {
     static void Main()
     {
         if (!AsteroidsGoneRogue.OpeningView.SelfCheck()) throw new Exception("view");
         if (!AsteroidsGoneRogue.PlayHudLayout.SelfCheck()) throw new Exception("hud");
+        if (!AsteroidsGoneRogue.PremiumLook.SelfCheck()) throw new Exception("look");
         Console.WriteLine("clearance-ok");
     }
 }
@@ -16037,6 +16059,8 @@ class Program
                 "  <ItemGroup>",
                 '    <Compile Include="OpeningView.cs" />',
                 '    <Compile Include="PlayHudLayout.cs" />',
+                '    <Compile Include="PremiumLook.cs" />',
+                '    <Compile Include="EffectScale.cs" />',
                 '    <Compile Include="Program.cs" />',
                 "  </ItemGroup>",
                 "</Project>",

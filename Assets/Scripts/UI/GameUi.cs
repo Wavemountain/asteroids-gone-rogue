@@ -881,7 +881,7 @@ namespace AsteroidsGoneRogue
             _primaryPlate = _primary.targetGraphic as Image;
             UiTheme.ApplyButton(_primary, true, false, false);
 
-            _abortButton = CreateButton("AbortWave", transform, body, new Vector2(0.78f, 0.006f), new Vector2(0.985f, 0.048f));
+            _abortButton = CreateButton("AbortWave", transform, body, new Vector2(0.74f, 0.012f), new Vector2(0.985f, 0.072f));
             _abortLabel = _abortButton.GetComponentInChildren<Text>();
             _abortLabel.text = "Abort > Hangar";
             _abortLabel.fontSize = 18;
