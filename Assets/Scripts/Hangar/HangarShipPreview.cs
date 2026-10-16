@@ -181,6 +181,7 @@ namespace AsteroidsGoneRogue
             HideDefaultRenderers(true);
             ApplyWorldCull(true);
             ApplyLightRecipe();
+            IsolatePreviewLights();
             PoseBackdrop();
             ApplyAccents();
             AssignViewport();
@@ -300,7 +301,7 @@ namespace AsteroidsGoneRogue
                     "HangarPreviewKey",
                     new Vector3(HangarPreviewRig.KeyLocalX, HangarPreviewRig.KeyLocalY, HangarPreviewRig.KeyLocalZ),
                     new Color(HangarPreviewRig.KeyR, HangarPreviewRig.KeyG, HangarPreviewRig.KeyB),
-                    HangarPreviewRig.KeyIntensity,
+                    HangarPreviewRig.AppliedStudio(HangarPreviewRig.KeyIntensity),
                     LightType.Spot,
                     HangarPreviewRig.KeyRange,
                     HangarPreviewRig.KeySpotAngle);
@@ -308,7 +309,7 @@ namespace AsteroidsGoneRogue
                     "HangarPreviewFill",
                     new Vector3(HangarPreviewRig.FillLocalX, HangarPreviewRig.FillLocalY, HangarPreviewRig.FillLocalZ),
                     new Color(HangarPreviewRig.FillR, HangarPreviewRig.FillG, HangarPreviewRig.FillB),
-                    HangarPreviewRig.FillIntensity,
+                    HangarPreviewRig.AppliedStudio(HangarPreviewRig.FillIntensity),
                     LightType.Point,
                     HangarPreviewRig.FillRange,
                     0f);
@@ -316,7 +317,7 @@ namespace AsteroidsGoneRogue
                     "HangarPreviewRim",
                     new Vector3(HangarPreviewRig.RimLocalX, HangarPreviewRig.RimLocalY, HangarPreviewRig.RimLocalZ),
                     new Color(HangarPreviewRig.RimR, HangarPreviewRig.RimG, HangarPreviewRig.RimB),
-                    HangarPreviewRig.RimIntensity,
+                    HangarPreviewRig.AppliedStudio(HangarPreviewRig.RimIntensity),
                     LightType.Spot,
                     HangarPreviewRig.RimRange,
                     HangarPreviewRig.RimSpotAngle);
@@ -324,7 +325,7 @@ namespace AsteroidsGoneRogue
                     "HangarPreviewBounce",
                     new Vector3(HangarPreviewRig.BounceLocalX, HangarPreviewRig.BounceLocalY, HangarPreviewRig.BounceLocalZ),
                     new Color(HangarPreviewRig.BounceR, HangarPreviewRig.BounceG, HangarPreviewRig.BounceB),
-                    HangarPreviewRig.BounceIntensity,
+                    HangarPreviewRig.AppliedStudio(HangarPreviewRig.BounceIntensity),
                     LightType.Point,
                     HangarPreviewRig.BounceRange,
                     0f);
@@ -684,13 +685,66 @@ namespace AsteroidsGoneRogue
             return RectTransformUtility.RectangleContainsScreenPoint(rect, Input.mousePosition, null);
         }
 
+        private void IsolatePreviewLights()
+        {
+            Light[] lights = UnityEngine.Object.FindObjectsByType<Light>();
+            int bit = 1 << PreviewLayer;
+            for (int lightIndex = 0; lightIndex < lights.Length; lightIndex++)
+            {
+                Light world = lights[lightIndex];
+                if (world == null || IsStudioNode(world.transform))
+                {
+                    continue;
+                }
+
+                int mask = world.cullingMask;
+                if ((mask & bit) == 0)
+                {
+                    continue;
+                }
+
+                world.cullingMask = mask & ~bit;
+            }
+        }
+
+        /// <summary>
+        /// Keeps shared-material emission under the hangar bloom knee.
+        /// Albedo is left on the material, so Reduce cannot recolour the hull.
+        /// </summary>
+        private static void CapSharedEmission(Renderer renderer)
+        {
+            if (renderer == null)
+            {
+                return;
+            }
+
+            Material source = renderer.sharedMaterial;
+            if (source == null || !source.HasProperty("_EmissionColor"))
+            {
+                return;
+            }
+
+            Color emission = source.GetColor("_EmissionColor") * HangarPreviewRig.StudioHdrScale;
+            float peak = emission.maxColorComponent;
+            float cap = HangarPreviewRig.PreviewEmitCap;
+            if (peak > cap && peak > 0.0001f)
+            {
+                emission *= cap / peak;
+            }
+
+            MaterialPropertyBlock block = new MaterialPropertyBlock();
+            renderer.GetPropertyBlock(block);
+            block.SetColor("_EmissionColor", emission);
+            renderer.SetPropertyBlock(block);
+        }
+
         private void ApplyLightRecipe()
         {
-            TuneLight(_key, HangarPreviewRig.KeyR, HangarPreviewRig.KeyG, HangarPreviewRig.KeyB, HangarPreviewRig.KeyIntensity);
-            TuneLight(_fill, HangarPreviewRig.FillR, HangarPreviewRig.FillG, HangarPreviewRig.FillB, HangarPreviewRig.FillIntensity);
-            float rim = HangarPreviewRig.StudioRim(false);
+            TuneLight(_key, HangarPreviewRig.KeyR, HangarPreviewRig.KeyG, HangarPreviewRig.KeyB, HangarPreviewRig.AppliedStudio(HangarPreviewRig.KeyIntensity));
+            TuneLight(_fill, HangarPreviewRig.FillR, HangarPreviewRig.FillG, HangarPreviewRig.FillB, HangarPreviewRig.AppliedStudio(HangarPreviewRig.FillIntensity));
+            float rim = HangarPreviewRig.AppliedStudio(HangarPreviewRig.StudioRim(false));
             TuneLight(_rim, HangarPreviewRig.RimR, HangarPreviewRig.RimG, HangarPreviewRig.RimB, rim);
-            TuneLight(_bounce, HangarPreviewRig.BounceR, HangarPreviewRig.BounceG, HangarPreviewRig.BounceB, HangarPreviewRig.BounceIntensity);
+            TuneLight(_bounce, HangarPreviewRig.BounceR, HangarPreviewRig.BounceG, HangarPreviewRig.BounceB, HangarPreviewRig.AppliedStudio(HangarPreviewRig.BounceIntensity));
             AimStudioLight(_key, new Vector3(HangarPreviewRig.KeyLocalX, HangarPreviewRig.KeyLocalY, HangarPreviewRig.KeyLocalZ));
             AimStudioLight(_rim, new Vector3(HangarPreviewRig.RimLocalX, HangarPreviewRig.RimLocalY, HangarPreviewRig.RimLocalZ));
         }
@@ -841,6 +895,7 @@ namespace AsteroidsGoneRogue
                 if (!hardpoint && !engine && !painted)
                 {
                     ShipPaint.ClearRenderer(renderer);
+                    CapSharedEmission(renderer);
                     continue;
                 }
 
