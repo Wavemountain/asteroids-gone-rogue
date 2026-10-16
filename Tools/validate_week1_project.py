@@ -2165,7 +2165,7 @@ def main() -> int:
         err("first-hangar card must say the pause token launches the wave, not Abort (Esc)")
     if "{cancel} = focus Next Wave" not in hangar_card:
         err("first-hangar card must say the cancel token focuses Next Wave")
-    if "{pause} = back to hangar" not in game_ui:
+    if "{pause} = hangar" not in game_ui:
         err("play hint must say the pause token returns to the hangar")
     if "{pause} returns to hangar" not in game_ui:
         err("first-wave coach must say the pause token returns to hangar")

@@ -142,7 +142,7 @@ namespace AsteroidsGoneRogue
             { "ui.need_cr", "behöver {0} kr" },
             { "ui.cost_cr", "{0} kr" },
             { "ui.credits_line", "Kredit: {0}" },
-            { "ui.hint_play", "{move} styr · {aim} sikte · {fire} skjut · {utility} verktyg · {cycle} cykla · {pause} = tillbaka till hangaren" },
+            { "ui.hint_play", "{move} styr · {aim} sikte · {fire} skjut · {utility} verktyg · {cycle} cykla · {pause} = hangar" },
             { "ui.hint_hangar", "{move} styr · {0}" },
             { "ui.hangar_controls", "{utility} verktyg · {cycle} cykla · {confirm} bekräfta · {cancel} nästa våg · {pause} starta våg" },
             { "ui.hangar_hint_body", "{move} flyg  ·  {fire} skjut  ·  {utility} verktyg\n{pause} = starta våg  ·  {cancel} = fokusera Nästa våg" },

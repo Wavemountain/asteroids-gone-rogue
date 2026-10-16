@@ -4899,8 +4899,8 @@ def test_hangar_footer_launch_and_hint_size() -> None:
     assert "{pause} launch wave" in en_hangar and "{pause} launch wave" in ui
     assert "{pause} starta våg" in sv_hangar and "{pause} starta våg" in loc
     assert "{move} move · {0}" in ui and "{move} styr · {0}" in loc
-    en_play = "{move} move · {aim} aim · {fire} fire · {utility} utility · {cycle} cycle · {pause} = back to hangar"
-    sv_play = "{move} styr · {aim} sikte · {fire} skjut · {utility} verktyg · {cycle} cykla · {pause} = tillbaka till hangaren"
+    en_play = "{move} move · {aim} aim · {fire} fire · {utility} utility · {cycle} cycle · {pause} = hangar"
+    sv_play = "{move} styr · {aim} sikte · {fire} skjut · {utility} verktyg · {cycle} cykla · {pause} = hangar"
     assert en_play in ui and sv_play in loc
     assert "Esc / Start abort" not in ui
     assert "Esc / Start avbryt" not in loc
@@ -4909,6 +4909,9 @@ def test_hangar_footer_launch_and_hint_size() -> None:
         hint_w = (0.86 - 0.14) * (width / scale)
         for line in (en_hangar, sv_hangar, en_play, sv_play):
             assert _prompt_line_width(line, 22, scale) <= hint_w, (width, line)
+        combat_w = (0.72 - 0.04) * (width / scale)
+        for line in (en_play, sv_play):
+            assert _prompt_line_width(line, 22, scale) <= combat_w, (width, line, combat_w)
 
     card = ui.split("HangarHintBody")[1].split("FirstWaveCoach")[0]
     assert "Abort (Esc)" not in card
@@ -5841,8 +5844,8 @@ def test_settings_shell() -> None:
         body_span = 0.26 - 0.05
         body_h = body_span * (0.88 - 0.12) * (height / scale)
         body_w = (0.92 - 0.08) * (0.70 - 0.30) * canvas_w
-        play_en = "{move} move · {aim} aim · {fire} fire · {utility} utility · {cycle} cycle · {pause} = back to hangar"
-        play_sv = "{move} styr · {aim} sikte · {fire} skjut · {utility} verktyg · {cycle} cykla · {pause} = tillbaka till hangaren"
+        play_en = "{move} move · {aim} aim · {fire} fire · {utility} utility · {cycle} cycle · {pause} = hangar"
+        play_sv = "{move} styr · {aim} sikte · {fire} skjut · {utility} verktyg · {cycle} cykla · {pause} = hangar"
         hang_en = "{move} move · {utility} utility · {cycle} cycle · {confirm} confirm · {cancel} Next Wave · {pause} launch wave"
         hang_sv = "{move} styr · {utility} verktyg · {cycle} cykla · {confirm} bekräfta · {cancel} nästa våg · {pause} starta våg"
         for block in (
@@ -12781,8 +12784,8 @@ def test_input_prompts_047e() -> None:
 
     matrix = ((1280, 800), (1366, 768), (1920, 1080), (2560, 1440), (3440, 1440))
     rows = (
-        "{move} move · {aim} aim · {fire} fire · {utility} utility · {cycle} cycle · {pause} = back to hangar",
-        "{move} styr · {aim} sikte · {fire} skjut · {utility} verktyg · {cycle} cykla · {pause} = tillbaka till hangaren",
+        "{move} move · {aim} aim · {fire} fire · {utility} utility · {cycle} cycle · {pause} = hangar",
+        "{move} styr · {aim} sikte · {fire} skjut · {utility} verktyg · {cycle} cykla · {pause} = hangar",
         "{confirm} Select · {pause} Launch wave · {settings} Settings",
         "{confirm} Välj · {pause} Starta våg · {settings} Inställningar",
         "Shoot rocks  ·  {pause} returns to hangar",
@@ -16018,6 +16021,8 @@ def test_capture_048_clearance_hud() -> None:
     assert "(dist - 0.08f) / 0.28f" in view
     assert "DeathEdge" in ui and "PaintDeathEdge" in ui
     assert "CheckHudLayout" in capture and "AgrCapture hud overlap" in capture
+    assert "preferredWidth" in capture and "preferredHeight" in capture
+    assert "hud text overflow" in capture
     assert "AgrCapture hud outside" in capture
     assert "NoteHudFail(firstOverlap" in capture and "NoteHudFail(firstOutside" in capture
     outside_check = capture.split("if (firstOutside.Length > 0)")[1].split("static bool TryHudMark")[0]

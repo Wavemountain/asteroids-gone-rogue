@@ -2482,8 +2482,10 @@ namespace AsteroidsGoneRogue
         private Material RemapImported(string importedName, Material fallback)
         {
             string name = importedName ?? string.Empty;
-            if (ContainsIgnoreCase(name, "W3")
-                && (ContainsIgnoreCase(name, "Accent") || ContainsIgnoreCase(name, "Glow")))
+            // W2–W6 Accent/Glow strips are the decor beams. W3 was special-cased;
+            // W4 Glow was still falling through to Mat_Ship_Glow (Primary × 4),
+            // which is the white pillar beside the ship.
+            if (IsArenaDecorBeam(name))
             {
                 return _w3Beam != null ? _w3Beam : _arena;
             }
@@ -2772,6 +2774,40 @@ namespace AsteroidsGoneRogue
         private static bool ContainsIgnoreCase(string value, string token)
         {
             return value.IndexOf(token, System.StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        /// <summary>
+        /// Arena blockout Accent and Glow strips (Mat_Arena_W4_Glow and the
+        /// same pair on worlds 2–6). Not ship or hangar materials.
+        /// </summary>
+        private static bool IsArenaDecorBeam(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+            {
+                return false;
+            }
+
+            if (!ContainsIgnoreCase(name, "Arena"))
+            {
+                return false;
+            }
+
+            if (ContainsIgnoreCase(name, "Ship") || ContainsIgnoreCase(name, "Hangar"))
+            {
+                return false;
+            }
+
+            bool strip = ContainsIgnoreCase(name, "Accent") || ContainsIgnoreCase(name, "Glow");
+            if (!strip)
+            {
+                return false;
+            }
+
+            return ContainsIgnoreCase(name, "W2")
+                || ContainsIgnoreCase(name, "W3")
+                || ContainsIgnoreCase(name, "W4")
+                || ContainsIgnoreCase(name, "W5")
+                || ContainsIgnoreCase(name, "W6");
         }
 
         private static Transform CreateSlot(string slotId, Transform parent)

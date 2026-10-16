@@ -8,6 +8,7 @@ Shader "AGR/Grid"
         _Color ("Tint", Color) = (1,1,1,0.12)
         _Pulse ("Pulse", Float) = 1
         _QuietRadius ("Quiet Radius", Float) = 0
+        _QuietColor ("Quiet Tint", Color) = (1,1,1,0)
         _ShipX ("Ship X", Float) = 0
         _ShipZ ("Ship Z", Float) = 0
     }
@@ -29,6 +30,7 @@ Shader "AGR/Grid"
             fixed4 _Color;
             float _Pulse;
             float _QuietRadius;
+            fixed4 _QuietColor;
             float _ShipX;
             float _ShipZ;
             struct v2f
@@ -56,7 +58,8 @@ Shader "AGR/Grid"
                     float dist = sqrt((dx * dx) + (dz * dz));
                     if (dist < _QuietRadius)
                     {
-                        pulse = 1.0;
+                        float quietAlpha = tex.a * _QuietColor.a;
+                        return fixed4(tex.rgb * _QuietColor.rgb, saturate(quietAlpha));
                     }
                 }
                 float alpha = tex.a * _Color.a * pulse;

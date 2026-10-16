@@ -741,6 +741,116 @@ namespace AsteroidsGoneRogue
             renderer.SetPropertyBlock(block);
         }
 
+        /// <summary>
+        /// Preview-only 0.47 accent read. Hull stays on the combat albedo.
+        /// Peaks are not raised, so the hangar clip stays where the cap left it.
+        /// </summary>
+        private static void RestoreLegacyAccents(Renderer renderer)
+        {
+            if (renderer == null)
+            {
+                return;
+            }
+
+            Material source = renderer.sharedMaterial;
+            if (source == null)
+            {
+                return;
+            }
+
+            string materialName = source.name;
+            if (NameHas(materialName, "Hangar"))
+            {
+                return;
+            }
+
+            bool hull = NameHas(materialName, "Hull") && !NameHas(materialName, "Accent");
+            if (hull)
+            {
+                return;
+            }
+
+            bool accent = NameHas(materialName, "Accent");
+            bool glow = NameHas(materialName, "Glow");
+            bool glass = NameHas(materialName, "Glass");
+            bool cyan = NameHas(materialName, "Cyan");
+            if (!accent && !glow && !glass && !cyan)
+            {
+                return;
+            }
+
+            MaterialPropertyBlock block = new MaterialPropertyBlock();
+            renderer.GetPropertyBlock(block);
+            if (accent || glass || cyan)
+            {
+                float wantR = accent ? 1f : 0.35f;
+                float wantG = accent ? 0.55f : 0.70f;
+                float wantB = accent ? 0.14f : 0.95f;
+                Color current = source.HasProperty("_Color") ? source.GetColor("_Color") : source.color;
+                float currentPeak = current.maxColorComponent;
+                float wantPeak = wantR;
+                if (wantG > wantPeak)
+                {
+                    wantPeak = wantG;
+                }
+
+                if (wantB > wantPeak)
+                {
+                    wantPeak = wantB;
+                }
+
+                if (wantPeak > currentPeak && wantPeak > 0.0001f)
+                {
+                    float scale = currentPeak / wantPeak;
+                    wantR *= scale;
+                    wantG *= scale;
+                    wantB *= scale;
+                }
+
+                float alpha = current.a > 0.001f ? current.a : 1f;
+                block.SetColor("_Color", new Color(wantR, wantG, wantB, alpha));
+            }
+
+            if ((accent || glow) && source.HasProperty("_EmissionColor"))
+            {
+                Color emission = source.GetColor("_EmissionColor");
+                float peak = emission.maxColorComponent;
+                float cap = HangarPreviewRig.PreviewEmissionCeiling();
+                float limit = peak;
+                if (cap < limit)
+                {
+                    limit = cap;
+                }
+
+                if (limit < 0f)
+                {
+                    limit = 0f;
+                }
+
+                block.SetColor("_EmissionColor", new Color(limit, 0.45f * limit, 0.05f * limit, 1f));
+            }
+
+            if (glow && source.HasProperty("_RimColor"))
+            {
+                Color rim = source.GetColor("_RimColor");
+                float rimPeak = rim.maxColorComponent;
+                float cyanR = 0.22f;
+                float cyanG = 0.72f;
+                float cyanB = 0.88f;
+                if (cyanB > rimPeak && cyanB > 0.0001f)
+                {
+                    float scale = rimPeak / cyanB;
+                    cyanR *= scale;
+                    cyanG *= scale;
+                    cyanB *= scale;
+                }
+
+                block.SetColor("_RimColor", new Color(cyanR, cyanG, cyanB, 1f));
+            }
+
+            renderer.SetPropertyBlock(block);
+        }
+
         private void ApplyLightRecipe()
         {
             TuneLight(_key, HangarPreviewRig.KeyR, HangarPreviewRig.KeyG, HangarPreviewRig.KeyB, HangarPreviewRig.KeyIntensity);
@@ -899,6 +1009,7 @@ namespace AsteroidsGoneRogue
                 {
                     ShipPaint.ClearRenderer(renderer);
                     CapSharedEmission(renderer);
+                    RestoreLegacyAccents(renderer);
                     continue;
                 }
 
