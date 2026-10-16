@@ -1117,6 +1117,7 @@ namespace UnityEngine.UI
     {
         public bool raycastTarget { get; set; }
         public Color color { get; set; }
+        public Material material { get; set; }
         public RectTransform rectTransform { get { return null; } }
         public CanvasRenderer canvasRenderer { get { return null; } }
     }

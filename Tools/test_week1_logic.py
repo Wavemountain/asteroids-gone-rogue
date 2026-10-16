@@ -16092,6 +16092,10 @@ def test_capture_048_clearance_hud() -> None:
     blob_cs = (root / "Assets/Scripts/Content/ContactBlob.cs").read_text(encoding="utf-8")
     assert "RadiusPad = 2f" in blob_cs and "Alpha = 0.9f" in blob_cs
     assert "FloorSurface.TryTop" in blob_cs
+    assert "class FloorPlate" in blob_cs and "FloorPlate.Adopt" in factory
+    assert "RenderQueue = 2990" in blob_cs
+    assert "mine contrast" in capture and "blob above" in capture and "W4PinSeed" in capture
+    assert "LockMetrics" in prompt_view and "waveclear hint size" in capture
     assert "SummaryBodyMaxX = 0.68f" in ui and "SummaryNewRunMaxY = 0.64f" in ui
     assert 'Loc.T("ui.hint_waveclear", HintWaveClear)' in ui
     assert "spawn-disc ship" in capture and "spawn-disc contrast" in capture and "blob-shadow" in capture

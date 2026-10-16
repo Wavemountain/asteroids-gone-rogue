@@ -14,6 +14,7 @@ Shader "AGR/BlobShadow"
         Blend SrcAlpha OneMinusSrcAlpha
         ZWrite Off
         ZTest LEqual
+        Offset -1, -1
         Cull Off
         Pass
         {

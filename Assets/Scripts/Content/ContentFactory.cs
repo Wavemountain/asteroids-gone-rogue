@@ -435,6 +435,8 @@ namespace AsteroidsGoneRogue
                 floorVisual = floor;
             }
 
+            // Hazards, beams, and mines are added after this, so they never join the floor whitelist.
+            FloorPlate.Adopt(floorVisual);
             BuildArenaLayout(layout);
             ArenaEnv env = ArenaEnv.Ensure(_arenaRoot.transform);
             _arenaEnv = env;

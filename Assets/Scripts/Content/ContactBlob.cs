@@ -3,9 +3,8 @@ using UnityEngine;
 namespace AsteroidsGoneRogue
 {
     /// <summary>
-    /// Top of the floor or plate under a world XZ. Raycast plus renderer
-    /// bounds, so a mesh without a collider still counts. Gameplay bodies,
-    /// the spawn disc, and contact blobs are not a floor.
+    /// Arena floor marked by <see cref="ContentFactory"/> via <see cref="FloorPlate.Adopt"/>.
+    /// Mines, beams, hazards, pickups, and other thin gameplay meshes are not a floor.
     /// </summary>
     public static class FloorSurface
     {
@@ -14,7 +13,7 @@ namespace AsteroidsGoneRogue
         public const float MaxLift = 0.05f;
 
         private static int _frame = -1;
-        private static Renderer[] _renderers;
+        private static FloorPlate[] _plates;
 
         public static float PlaceY(float surface, float ceiling)
         {
@@ -39,87 +38,44 @@ namespace AsteroidsGoneRogue
             return y;
         }
 
-        public static bool TryTop(float x, float z, float ceiling, out float top)
+        public static bool IsFloor(Renderer renderer)
         {
-            top = -4f;
-            bool any = false;
-            float hitTop;
-            if (TryRay(x, z, ceiling, out hitTop) && hitTop > top)
-            {
-                top = hitTop;
-                any = true;
-            }
-
-            Renderer[] renderers = Renderers();
-            if (renderers != null)
-            {
-                for (int i = 0; i < renderers.Length; i++)
-                {
-                    Renderer renderer = renderers[i];
-                    if (!FloorRenderer(renderer))
-                    {
-                        continue;
-                    }
-
-                    Bounds box = renderer.bounds;
-                    if (x < box.min.x || x > box.max.x || z < box.min.z || z > box.max.z)
-                    {
-                        continue;
-                    }
-
-                    if (box.extents.x < 0.4f && box.extents.z < 0.4f)
-                    {
-                        continue;
-                    }
-
-                    // A building AABB that happens to cover this XZ is not the
-                    // floor. Plates and the grid are thin; walls are not.
-                    if (box.extents.y > 1f)
-                    {
-                        continue;
-                    }
-
-                    if (box.max.y >= ceiling || box.max.y < -2f)
-                    {
-                        continue;
-                    }
-
-                    if (!any || box.max.y > top)
-                    {
-                        top = box.max.y;
-                        any = true;
-                    }
-                }
-            }
-
-            return any;
-        }
-
-        private static bool TryRay(float x, float z, float ceiling, out float top)
-        {
-            top = -4f;
-            Vector3 origin = new Vector3(x, ceiling + 6f, z);
-            RaycastHit[] hits = Physics.RaycastAll(
-                origin,
-                Vector3.down,
-                16f,
-                Physics.DefaultRaycastLayers,
-                QueryTriggerInteraction.Collide);
-            if (hits == null)
+            if (renderer == null || renderer.gameObject == null)
             {
                 return false;
             }
 
+            FloorPlate plate = renderer.GetComponent<FloorPlate>();
+            return plate != null && plate.Ready;
+        }
+
+        /// <summary>
+        /// World Y of the real arena floor under XZ. Only <see cref="FloorPlate"/> counts.
+        /// </summary>
+        public static bool TryTop(float x, float z, float ceiling, out float top)
+        {
+            top = -4f;
             bool any = false;
-            for (int i = 0; i < hits.Length; i++)
+            FloorPlate[] plates = Plates();
+            if (plates == null)
             {
-                Collider collider = hits[i].collider;
-                if (collider == null || SkipCollider(collider))
+                return false;
+            }
+
+            for (int i = 0; i < plates.Length; i++)
+            {
+                FloorPlate plate = plates[i];
+                if (plate == null || !plate.Ready || !plate.gameObject.activeInHierarchy)
                 {
                     continue;
                 }
 
-                float y = hits[i].point.y;
+                float y;
+                if (!plate.Contains(x, z, out y))
+                {
+                    continue;
+                }
+
                 if (y >= ceiling || y < -2f)
                 {
                     continue;
@@ -135,102 +91,339 @@ namespace AsteroidsGoneRogue
             return any;
         }
 
-        private static bool SkipCollider(Collider collider)
+        private static FloorPlate[] Plates()
         {
-            string name = collider.gameObject.name;
-            if (name == "ContactBlob" || name == "Arena_SpawnContrast" || name == "ShieldBubble")
-            {
-                return true;
-            }
-
-            if (collider.GetComponentInParent<ShipController>() != null)
-            {
-                return true;
-            }
-
-            if (collider.GetComponentInParent<EnemySeeker>() != null)
-            {
-                return true;
-            }
-
-            if (collider.GetComponentInParent<Asteroid>() != null)
-            {
-                return true;
-            }
-
-            if (collider.GetComponentInParent<Pickup>() != null)
-            {
-                return true;
-            }
-
-            return collider.GetComponentInParent<Projectile>() != null;
-        }
-
-        private static Renderer[] Renderers()
-        {
-            if (_frame != Time.frameCount || _renderers == null)
+            if (_frame != Time.frameCount || _plates == null)
             {
                 _frame = Time.frameCount;
-                _renderers = UnityEngine.Object.FindObjectsByType<Renderer>();
+                _plates = UnityEngine.Object.FindObjectsByType<FloorPlate>();
             }
 
-            return _renderers;
+            return _plates;
         }
+    }
 
-        private static bool FloorRenderer(Renderer renderer)
+    /// <summary>
+    /// Explicit arena-floor whitelist. ContentFactory marks the play surface
+    /// after the mesh is dressed. Hazards, mines, beams, and decals are never marked.
+    /// </summary>
+    public sealed class FloorPlate : MonoBehaviour
+    {
+        public float LocalY;
+        public float MinX;
+        public float MaxX;
+        public float MinZ;
+        public float MaxZ;
+        public bool Ready;
+
+        private const float FloorBand = 0.25f;
+        private const float BoundsPad = 0.35f;
+
+        public bool Contains(float worldX, float worldZ, out float worldY)
         {
-            if (renderer == null || !renderer.enabled || renderer.gameObject == null || !renderer.gameObject.activeInHierarchy)
+            worldY = 0f;
+            if (!Ready)
             {
                 return false;
             }
 
+            Renderer renderer = GetComponent<Renderer>();
+            if (renderer != null && !renderer.enabled)
+            {
+                return false;
+            }
+
+            Vector3 local = transform.InverseTransformPoint(new Vector3(worldX, transform.position.y, worldZ));
+            if (local.x < MinX || local.x > MaxX || local.z < MinZ || local.z > MaxZ)
+            {
+                return false;
+            }
+
+            worldY = transform.TransformPoint(new Vector3(local.x, LocalY, local.z)).y;
+            return true;
+        }
+
+        public static void Adopt(GameObject visual)
+        {
+            if (visual == null)
+            {
+                return;
+            }
+
+            Renderer[] renderers = visual.GetComponentsInChildren<Renderer>(true);
+            if (renderers == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null)
+                {
+                    continue;
+                }
+
+                if (!TryConfigure(renderer))
+                {
+                    FloorPlate stale = renderer.GetComponent<FloorPlate>();
+                    if (stale != null)
+                    {
+                        stale.Ready = false;
+                    }
+                }
+            }
+        }
+
+        private static bool TryConfigure(Renderer renderer)
+        {
             if (renderer is ParticleSystemRenderer || renderer is LineRenderer || renderer is TrailRenderer)
             {
                 return false;
             }
 
-            if (renderer.GetComponentInParent<Canvas>() != null)
+            if (Denied(renderer.gameObject.name))
             {
                 return false;
             }
 
-            string name = renderer.gameObject.name;
-            if (name == "ContactBlob" || name == "Arena_SpawnContrast" || name == "ShieldBubble" || name == "ArenaLip")
+            MeshFilter filter = renderer.GetComponent<MeshFilter>();
+            Mesh mesh = filter != null ? filter.sharedMesh : null;
+            if (mesh != null && mesh.isReadable && mesh.vertices != null && mesh.vertices.Length > 0)
+            {
+                return ConfigureReadable(renderer, mesh);
+            }
+
+            return ConfigureBounds(renderer);
+        }
+
+        private static bool ConfigureReadable(Renderer renderer, Mesh mesh)
+        {
+            Vector3[] verts = mesh.vertices;
+            Material[] mats = renderer.sharedMaterials;
+            int subCount = mesh.subMeshCount;
+            if (subCount < 1)
+            {
+                subCount = 1;
+            }
+
+            Transform xform = renderer.transform;
+            float minWorld = 0f;
+            bool any = false;
+            for (int sub = 0; sub < subCount; sub++)
+            {
+                if (SkipSubmesh(mats, sub))
+                {
+                    continue;
+                }
+
+                int[] tris = mesh.GetTriangles(sub);
+                if (tris == null)
+                {
+                    continue;
+                }
+
+                for (int t = 0; t < tris.Length; t++)
+                {
+                    int index = tris[t];
+                    if (index < 0 || index >= verts.Length)
+                    {
+                        continue;
+                    }
+
+                    float y = xform.TransformPoint(verts[index]).y;
+                    if (!any || y < minWorld)
+                    {
+                        minWorld = y;
+                        any = true;
+                    }
+                }
+            }
+
+            if (!any)
             {
                 return false;
             }
 
-            if (name == "VoidField" || name == "OuterNebula" || name == "NearDust" || name == "BeltRock")
+            float topWorld = minWorld;
+            float localY = 0f;
+            float minX = 0f;
+            float maxX = 0f;
+            float minZ = 0f;
+            float maxZ = 0f;
+            bool picked = false;
+            for (int sub = 0; sub < subCount; sub++)
+            {
+                if (SkipSubmesh(mats, sub))
+                {
+                    continue;
+                }
+
+                int[] tris = mesh.GetTriangles(sub);
+                if (tris == null)
+                {
+                    continue;
+                }
+
+                for (int t = 0; t < tris.Length; t++)
+                {
+                    int index = tris[t];
+                    if (index < 0 || index >= verts.Length)
+                    {
+                        continue;
+                    }
+
+                    Vector3 local = verts[index];
+                    Vector3 world = xform.TransformPoint(local);
+                    if (world.y > minWorld + FloorBand)
+                    {
+                        continue;
+                    }
+
+                    if (!picked)
+                    {
+                        topWorld = world.y;
+                        localY = local.y;
+                        minX = local.x;
+                        maxX = local.x;
+                        minZ = local.z;
+                        maxZ = local.z;
+                        picked = true;
+                    }
+                    else
+                    {
+                        if (world.y > topWorld)
+                        {
+                            topWorld = world.y;
+                            localY = local.y;
+                        }
+
+                        if (local.x < minX)
+                        {
+                            minX = local.x;
+                        }
+
+                        if (local.x > maxX)
+                        {
+                            maxX = local.x;
+                        }
+
+                        if (local.z < minZ)
+                        {
+                            minZ = local.z;
+                        }
+
+                        if (local.z > maxZ)
+                        {
+                            maxZ = local.z;
+                        }
+                    }
+                }
+            }
+
+            if (!picked)
             {
                 return false;
             }
 
-            if (name == "StarFar" || name == "StarMid" || name == "StarNear" || name == "NebulaDome" || name == "NebulaInner")
+            if ((maxX - minX) < 0.4f && (maxZ - minZ) < 0.4f)
             {
                 return false;
             }
 
-            if (renderer.GetComponentInParent<ShipController>() != null)
+            Write(renderer, localY, minX - BoundsPad, maxX + BoundsPad, minZ - BoundsPad, maxZ + BoundsPad);
+            return true;
+        }
+
+        private static bool ConfigureBounds(Renderer renderer)
+        {
+            string materialName = renderer.sharedMaterial != null ? renderer.sharedMaterial.name : string.Empty;
+            if (Denied(materialName))
             {
                 return false;
             }
 
-            if (renderer.GetComponentInParent<EnemySeeker>() != null)
+            Bounds box = renderer.bounds;
+            if (box.extents.y > 1.2f)
             {
                 return false;
             }
 
-            if (renderer.GetComponentInParent<Asteroid>() != null)
+            if (box.extents.x < 0.4f && box.extents.z < 0.4f)
             {
                 return false;
             }
 
-            if (renderer.GetComponentInParent<Pickup>() != null)
+            Transform xform = renderer.transform;
+            Vector3 localTop = xform.InverseTransformPoint(new Vector3(box.center.x, box.max.y, box.center.z));
+            Vector3 c0 = xform.InverseTransformPoint(new Vector3(box.min.x, box.center.y, box.min.z));
+            Vector3 c1 = xform.InverseTransformPoint(new Vector3(box.max.x, box.center.y, box.max.z));
+            float minX = c0.x < c1.x ? c0.x : c1.x;
+            float maxX = c0.x > c1.x ? c0.x : c1.x;
+            float minZ = c0.z < c1.z ? c0.z : c1.z;
+            float maxZ = c0.z > c1.z ? c0.z : c1.z;
+            Write(renderer, localTop.y, minX - BoundsPad, maxX + BoundsPad, minZ - BoundsPad, maxZ + BoundsPad);
+            return true;
+        }
+
+        private static bool SkipSubmesh(Material[] mats, int sub)
+        {
+            if (mats == null || sub < 0 || sub >= mats.Length || mats[sub] == null)
             {
                 return false;
             }
 
-            return renderer.GetComponentInParent<Projectile>() == null;
+            return Denied(mats[sub].name);
+        }
+
+        private static bool Denied(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return false;
+            }
+
+            string[] tokens =
+            {
+                "Beam",
+                "Accent",
+                "Glow",
+                "Mine",
+                "Hazard",
+                "Spike",
+                "Rim",
+                "Wash",
+                "Decal",
+                "Grid",
+                "Lip",
+                "Pylon",
+                "Pillar",
+            };
+            for (int i = 0; i < tokens.Length; i++)
+            {
+                if (value.IndexOf(tokens[i], System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static void Write(Renderer renderer, float localY, float minX, float maxX, float minZ, float maxZ)
+        {
+            FloorPlate plate = renderer.GetComponent<FloorPlate>();
+            if (plate == null)
+            {
+                plate = renderer.gameObject.AddComponent<FloorPlate>();
+            }
+
+            plate.LocalY = localY;
+            plate.MinX = minX;
+            plate.MaxX = maxX;
+            plate.MinZ = minZ;
+            plate.MaxZ = maxZ;
+            plate.Ready = true;
         }
     }
 
@@ -243,6 +436,13 @@ namespace AsteroidsGoneRogue
         public const float Alpha = 0.9f;
         public const float RadiusPad = 2f;
         public const float MinRadius = 0.45f;
+
+        /// <summary>
+        /// Below transparent gameplay and decor beams (3000) and above the grid
+        /// (2900). Opaque mines write depth first, so the blob fails the depth
+        /// test where a mine or raised strip is closer than the floor.
+        /// </summary>
+        public const int RenderQueue = 2990;
 
         private Transform _host;
         private static Material _shared;
@@ -261,7 +461,7 @@ namespace AsteroidsGoneRogue
             }
 
             quad.name = "ContactBlob";
-            quad.layer = 0;
+            quad.layer = DecorCameraStack.LayerIndex();
             quad.transform.SetParent(host, false);
             Collider collider = quad.GetComponent<Collider>();
             if (collider != null)
@@ -305,11 +505,10 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            // Layer 0, queue 3000. The play camera clears depth and does not
-            // redraw the decor floor, so the quad darkens whatever the decor
-            // pass already wrote. Y still sits just above that floor so a
-            // play-camera plate cannot depth-reject the blob.
-            gameObject.layer = 0;
+            // Decor camera, queue 2990. The floor, mines, and beams share that
+            // depth buffer. Y is the real floor top, so a mine or beam closer
+            // to the camera rejects the blob. Gameplay draws afterwards.
+            gameObject.layer = DecorCameraStack.LayerIndex();
             float radius = Footprint(host) * RadiusPad;
             if (radius < MinRadius)
             {
@@ -457,7 +656,7 @@ namespace AsteroidsGoneRogue
             _shared = new Material(shader);
             _shared.name = "Mat_ContactBlob";
             _shared.color = new Color(0f, 0f, 0f, Alpha);
-            _shared.renderQueue = 3000;
+            _shared.renderQueue = RenderQueue;
             return _shared;
         }
     }
