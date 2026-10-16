@@ -35,7 +35,7 @@ namespace AsteroidsGoneRogue
             public Vector2 AnchorMin;
             public Vector2 AnchorMax;
             public Vector2 Pivot;
-            public Vector3 LocalScale;
+            public float RasterScale;
         }
 
         private static PlayBox _play;
@@ -208,8 +208,11 @@ namespace AsteroidsGoneRogue
 
         /// <summary>
         /// Records the wave-1 PSegT the capture gate stores as HintBoxPx:
-        /// rect height times |lossyScale|, plus the font, size, anchors, pivot,
-        /// and scale that produced it.
+        /// rect height times |lossyScale|, plus the font, size, anchors, and
+        /// pivot. The canvas scale is stored so a later shot can keep the same
+        /// pixel size. The segment scale is not stored: legacy dynamic text is
+        /// already rasterized at fontSize times canvas.scaleFactor, and a
+        /// second scale magnifies those atlas texels into smeared blocks.
         /// </summary>
         public static void CapturePlayBox(Text host)
         {
@@ -232,8 +235,12 @@ namespace AsteroidsGoneRogue
 
         /// <summary>
         /// Writes the captured wave-1 segment onto every wave-clear PSegT.
-        /// Local height is the stored screen box divided by the current
-        /// |lossyScale|, so HintBoxPx matches even when the canvas scale changed.
+        /// The font is the wave-1 font. The material is the shared UI default,
+        /// never a font.material instance. fontSize is the real canvas size
+        /// that rasterizes at the wave-1 pixel size. localScale stays 1, and
+        /// the rect is pixel-aligned. Local height is the stored screen box
+        /// divided by |lossyScale| after that scale is 1, so HintBoxPx matches
+        /// without scaling the glyphs a second time.
         /// </summary>
         public static void ApplyPlayBox(Text host)
         {
@@ -267,20 +274,51 @@ namespace AsteroidsGoneRogue
                     part.font = _play.Font;
                 }
 
-                if (_play.FontSize > 0)
+                UseDefaultUiMaterial(part);
+                part.resizeTextForBestFit = false;
+                part.fontStyle = _play.Style;
+                float now = RasterScaleOf(part);
+                int size = _play.FontSize;
+                if (_play.RasterScale > 0.01f && now > 0.01f && Mathf.Abs(now - _play.RasterScale) > 0.02f)
                 {
-                    part.fontSize = _play.FontSize;
+                    size = Mathf.RoundToInt(_play.FontSize * _play.RasterScale / now);
                 }
 
-                part.fontStyle = _play.Style;
+                if (size < 1)
+                {
+                    size = 1;
+                }
+
+                if (size > 0)
+                {
+                    part.fontSize = size;
+                }
+
                 rect.anchorMin = _play.AnchorMin;
                 rect.anchorMax = _play.AnchorMax;
                 rect.pivot = _play.Pivot;
-                rect.localScale = _play.LocalScale;
-                float local = PromptLayout.LocalHeight(_play.ScreenBox, rect.lossyScale.y);
-                Vector2 size = rect.sizeDelta;
-                size.y = local;
-                rect.sizeDelta = size;
+                rect.localScale = Vector3.one;
+                float scale = PromptLayout.ScreenBox(1f, rect.lossyScale.y);
+                float local = PromptLayout.LocalHeight(_play.ScreenBox, scale);
+                if (local < 1f)
+                {
+                    local = 1f;
+                }
+
+                Vector2 pos = rect.anchoredPosition;
+                pos.x = Snap(pos.x, scale);
+                pos.y = Snap(pos.y, scale);
+                rect.anchoredPosition = pos;
+                Vector2 sized = rect.sizeDelta;
+                sized.x = Snap(sized.x, scale);
+                sized.y = Snap(local, scale);
+                if (sized.y < 1f)
+                {
+                    sized.y = 1f;
+                }
+
+                rect.sizeDelta = sized;
+                RequestGlyphs(part, now);
             }
         }
 
@@ -600,11 +638,81 @@ namespace AsteroidsGoneRogue
             _play.AnchorMin = rect.anchorMin;
             _play.AnchorMax = rect.anchorMax;
             _play.Pivot = rect.pivot;
-            _play.LocalScale = rect.localScale;
+            _play.RasterScale = RasterScaleOf(segment);
             if (lockSample)
             {
                 _playLocked = true;
             }
+        }
+
+        /// <summary>
+        /// Shared UI material. font.material is a per-font instance; the
+        /// dynamic atlas rebuild does not land on that copy, and the mesh
+        /// then samples a stale texture as smeared blocks.
+        /// </summary>
+        private static void UseDefaultUiMaterial(Text part)
+        {
+            if (part == null)
+            {
+                return;
+            }
+
+            Material shared = Canvas.GetDefaultCanvasMaterial();
+            if (shared == null)
+            {
+                return;
+            }
+
+            if (part.material != shared)
+            {
+                part.material = shared;
+            }
+        }
+
+        private static float RasterScaleOf(Text part)
+        {
+            if (part != null)
+            {
+                Canvas canvas = part.canvas;
+                if (canvas != null && canvas.scaleFactor > 0.01f)
+                {
+                    return canvas.scaleFactor;
+                }
+            }
+
+            if (part != null && part.rectTransform != null)
+            {
+                return PromptLayout.ScreenBox(1f, part.rectTransform.lossyScale.y);
+            }
+
+            return 1f;
+        }
+
+        private static void RequestGlyphs(Text part, float rasterScale)
+        {
+            if (part == null || part.font == null || string.IsNullOrEmpty(part.text))
+            {
+                return;
+            }
+
+            float scale = rasterScale > 0.01f ? rasterScale : 1f;
+            int pixel = Mathf.FloorToInt(part.fontSize * scale);
+            if (pixel < 1)
+            {
+                pixel = 1;
+            }
+
+            part.font.RequestCharactersInTexture(part.text, pixel, part.fontStyle);
+        }
+
+        private static float Snap(float local, float scale)
+        {
+            if (scale < 0.01f)
+            {
+                return Mathf.Round(local);
+            }
+
+            return Mathf.Round(local * scale) / scale;
         }
 
         private static float PlayLocalHeight(Text host)

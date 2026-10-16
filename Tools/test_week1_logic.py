@@ -16106,7 +16106,12 @@ def test_capture_048_clearance_hud() -> None:
     assert "CapturePlayBox" in prompt_view and "ApplyPlayBox" in prompt_view
     assert "CapturePlaySegment" in prompt_view and "CapturePlaySegment" in capture
     assert "text.material = host.material" not in prompt_view
+    assert "rect.localScale = _play.LocalScale" not in prompt_view
+    assert "GetDefaultCanvasMaterial" in prompt_view and "RequestCharactersInTexture" in prompt_view
+    assert "rect.localScale = Vector3.one" in prompt_view
     assert "FinishHintBox" in ui and "ApplyPlayBox" in ui
+    assert "GlyphSharpnessHit" in layer_gate and "LaplacianVariance" in layer_gate and "hint-soft" in layer_gate
+    assert "NoteHintGlyphs" in capture and "waveclear hint material" in capture
     assert "AGR/BlobShadow" in layer_gate and "shadow-alpha" in layer_gate and "IsBlobShadow" in layer_gate
     assert "SummaryBodyMaxX = 0.68f" in ui and "SummaryNewRunMaxY = 0.64f" in ui
     assert 'Loc.T("ui.hint_waveclear", HintWaveClear)' in ui

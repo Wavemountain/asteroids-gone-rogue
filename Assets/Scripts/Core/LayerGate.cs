@@ -453,6 +453,79 @@ namespace AsteroidsGoneRogue
             return queue;
         }
 
+        /// <summary>
+        /// A smeared hint is under half the wave-1 Laplacian variance.
+        /// The 048u crop sat near 0.35 of the sharp wave-1 line. Soft but
+        /// still-edged text stays above the cut.
+        /// </summary>
+        public const float GlyphSharpRatio = 0.5f;
+
+        /// <summary>
+        /// Variance of a 3x3 Laplacian over the interior of a luma crop.
+        /// A hard glyph edge scores high. A bilinear-smeared block scores low.
+        /// </summary>
+        public static float LaplacianVariance(float[] luma, int width, int height)
+        {
+            if (luma == null || width < 3 || height < 3 || luma.Length < width * height)
+            {
+                return 0f;
+            }
+
+            int count = (width - 2) * (height - 2);
+            double sum = 0.0;
+            double sumSq = 0.0;
+            for (int y = 1; y < height - 1; y++)
+            {
+                int row = y * width;
+                for (int x = 1; x < width - 1; x++)
+                {
+                    int i = row + x;
+                    double value = (8.0 * luma[i])
+                        - luma[i - width - 1]
+                        - luma[i - width]
+                        - luma[i - width + 1]
+                        - luma[i - 1]
+                        - luma[i + 1]
+                        - luma[i + width - 1]
+                        - luma[i + width]
+                        - luma[i + width + 1];
+                    sum += value;
+                    sumSq += value * value;
+                }
+            }
+
+            double mean = sum / count;
+            double variance = (sumSq / count) - (mean * mean);
+            if (variance < 0.0)
+            {
+                variance = 0.0;
+            }
+
+            return (float)variance;
+        }
+
+        /// <summary>
+        /// FAIL when this hint crop is smeared next to the wave-1 reference.
+        /// A missing reference does not fail; the capture records wave 1 first.
+        /// </summary>
+        public static string GlyphSharpnessHit(float variance, float reference)
+        {
+            if (reference < 0.0001f || variance < 0f)
+            {
+                return null;
+            }
+
+            if (variance < reference * GlyphSharpRatio)
+            {
+                return "hint-soft "
+                    + variance.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+                    + " ref "
+                    + reference.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            return null;
+        }
+
         public static bool SelfCheck()
         {
             Rules rules = TestRules();
@@ -729,7 +802,107 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            if (!GlyphSharpnessSelfCheck())
+            {
+                return false;
+            }
+
             return Glob("Ship*", "Ship_Body") && Glob("Mat_*", "Mat_Arena") && !Glob("Ship*", "Enemy_01");
+        }
+
+        static bool GlyphSharpnessSelfCheck()
+        {
+            const int width = 40;
+            const int height = 20;
+            float[] sharp = new float[width * height];
+            for (int i = 0; i < sharp.Length; i++)
+            {
+                sharp[i] = 12f;
+            }
+
+            for (int y = 2; y < height - 2; y++)
+            {
+                for (int x = 8; x < 12; x++)
+                {
+                    sharp[(y * width) + x] = 200f;
+                }
+
+                for (int x = 20; x < 24; x++)
+                {
+                    sharp[(y * width) + x] = 200f;
+                }
+            }
+
+            for (int y = (height / 2) - 1; y <= height / 2; y++)
+            {
+                for (int x = 8; x < 24; x++)
+                {
+                    sharp[(y * width) + x] = 200f;
+                }
+            }
+
+            float[] smear = BoxBlur(BoxBlur(sharp, width, height), width, height);
+            float sharpVar = LaplacianVariance(sharp, width, height);
+            float smearVar = LaplacianVariance(smear, width, height);
+            if (sharpVar <= 0f || smearVar < 0f || smearVar >= sharpVar * GlyphSharpRatio)
+            {
+                return false;
+            }
+
+            if (GlyphSharpnessHit(sharpVar, sharpVar) != null)
+            {
+                return false;
+            }
+
+            string hit = GlyphSharpnessHit(smearVar, sharpVar);
+            if (hit == null || hit.IndexOf("hint-soft", System.StringComparison.Ordinal) < 0)
+            {
+                return false;
+            }
+
+            if (GlyphSharpnessHit(smearVar, 0f) != null)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        static float[] BoxBlur(float[] source, int width, int height)
+        {
+            float[] blurred = new float[source.Length];
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    float sum = 0f;
+                    int count = 0;
+                    for (int oy = -2; oy <= 2; oy++)
+                    {
+                        int sampleY = y + oy;
+                        if (sampleY < 0 || sampleY >= height)
+                        {
+                            continue;
+                        }
+
+                        for (int ox = -2; ox <= 2; ox++)
+                        {
+                            int sampleX = x + ox;
+                            if (sampleX < 0 || sampleX >= width)
+                            {
+                                continue;
+                            }
+
+                            sum += source[(sampleY * width) + sampleX];
+                            count++;
+                        }
+                    }
+
+                    blurred[(y * width) + x] = count > 0 ? sum / count : source[(y * width) + x];
+                }
+            }
+
+            return blurred;
         }
 
         static void NoteFact(string world, Rules rules, string[] rendererPatterns, string[] materialPatterns, Fact fact, System.Collections.Generic.List<string> hits)

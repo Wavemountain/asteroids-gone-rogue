@@ -54,6 +54,8 @@ namespace AsteroidsGoneRogue.EditorTools
         const string KeyBootKicked = "AgrCapture.BootKicked";
         const string KeyHintPx = "AgrCapture.W1HintPx";
         const string KeyHintBox = "AgrCapture.W1HintBox";
+        const string KeyHintSharp = "AgrCapture.W1HintSharp";
+        const string KeyHintEarly = "AgrCapture.HintSharpEarly";
         const int W4PinSeed = 48048;
         const float MineContrastMin = 3.5f;
         const float PlayerClearRadius = 8f;
@@ -1763,6 +1765,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 Texture2D image = new Texture2D(Width, Height, TextureFormat.RGB24, false);
                 image.ReadPixels(new Rect(0f, 0f, Width, Height), 0, 0);
                 image.Apply();
+                NoteHintGlyphs(image);
                 byte[] png = image.EncodeToPNG();
                 UnityEngine.Object.DestroyImmediate(image);
                 return png;
@@ -3107,6 +3110,12 @@ namespace AsteroidsGoneRogue.EditorTools
                                 NoteLayerFail("waveclear hint size " + px.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
                             }
 
+                            Material sharedUi = Canvas.GetDefaultCanvasMaterial();
+                            if (sharedUi != null && part.material != sharedUi)
+                            {
+                                NoteLayerFail("waveclear hint material");
+                            }
+
                             if (targetBox > 1f && Mathf.Abs(box - targetBox) > 1f)
                             {
                                 NoteLayerFail("waveclear hint box " + box.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
@@ -3243,6 +3252,186 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             return text.rectTransform.rect.height * scale;
+        }
+
+        static void NoteHintGlyphs(Texture2D image)
+        {
+            if (image == null)
+            {
+                return;
+            }
+
+            try
+            {
+                string world = LayerWorld(SessionState.GetInt(KeyShot, 0));
+                Text[] texts = UnityEngine.Object.FindObjectsByType<Text>();
+                float worst = -1f;
+                float best = -1f;
+                if (texts != null)
+                {
+                    for (int i = 0; i < texts.Length; i++)
+                    {
+                        Text part = texts[i];
+                        if (part == null || part.gameObject == null || part.gameObject.name != "PSegT" || !part.gameObject.activeInHierarchy)
+                        {
+                            continue;
+                        }
+
+                        Transform parent = part.transform.parent;
+                        if (parent == null || parent.name != "Hint")
+                        {
+                            continue;
+                        }
+
+                        float variance = HintGlyphVariance(image, part);
+                        if (variance < 0f)
+                        {
+                            continue;
+                        }
+
+                        if (worst < 0f || variance < worst)
+                        {
+                            worst = variance;
+                        }
+
+                        if (variance > best)
+                        {
+                            best = variance;
+                        }
+                    }
+                }
+
+                if (world == "1")
+                {
+                    if (best > 0f)
+                    {
+                        SessionState.SetString(KeyHintSharp, best.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
+                        float earlyVar;
+                        string early = SessionState.GetString(KeyHintEarly, string.Empty);
+                        if (float.TryParse(early, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out earlyVar))
+                        {
+                            string hit = LayerGate.GlyphSharpnessHit(earlyVar, best);
+                            if (hit != null)
+                            {
+                                NoteLayerFail("hangar " + hit);
+                            }
+                        }
+                    }
+
+                    return;
+                }
+
+                if (worst < 0f)
+                {
+                    return;
+                }
+
+                float reference = HintSharpReference();
+                if (reference < 0.0001f)
+                {
+                    SessionState.SetString(KeyHintEarly, worst.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
+                    return;
+                }
+
+                string later = LayerGate.GlyphSharpnessHit(worst, reference);
+                if (later != null)
+                {
+                    NoteLayerFail(world + " " + later);
+                }
+            }
+            catch (System.Exception sampleEx)
+            {
+                Debug.Log("AgrCapture hint sharpness skipped " + sampleEx.Message);
+            }
+        }
+
+        static float HintSharpReference()
+        {
+            string stored = SessionState.GetString(KeyHintSharp, string.Empty);
+            float parsed;
+            if (float.TryParse(stored, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out parsed) && parsed > 0f)
+            {
+                return parsed;
+            }
+
+            return -1f;
+        }
+
+        static float HintGlyphVariance(Texture2D image, Text part)
+        {
+            if (image == null || part == null || part.rectTransform == null)
+            {
+                return -1f;
+            }
+
+            Vector3[] corners = new Vector3[4];
+            part.rectTransform.GetWorldCorners(corners);
+            float minX = corners[0].x;
+            float minY = corners[0].y;
+            float maxX = corners[0].x;
+            float maxY = corners[0].y;
+            for (int corner = 1; corner < corners.Length; corner++)
+            {
+                if (corners[corner].x < minX)
+                {
+                    minX = corners[corner].x;
+                }
+
+                if (corners[corner].y < minY)
+                {
+                    minY = corners[corner].y;
+                }
+
+                if (corners[corner].x > maxX)
+                {
+                    maxX = corners[corner].x;
+                }
+
+                if (corners[corner].y > maxY)
+                {
+                    maxY = corners[corner].y;
+                }
+            }
+
+            int x0 = Mathf.Clamp(Mathf.FloorToInt(minX), 0, image.width - 1);
+            int y0 = Mathf.Clamp(Mathf.FloorToInt(minY), 0, image.height - 1);
+            int x1 = Mathf.Clamp(Mathf.CeilToInt(maxX), 0, image.width);
+            int y1 = Mathf.Clamp(Mathf.CeilToInt(maxY), 0, image.height);
+            int width = x1 - x0;
+            int height = y1 - y0;
+            if (width < 8 || height < 8)
+            {
+                return -1f;
+            }
+
+            float[] luma = new float[width * height];
+            float minL = 1f;
+            float maxL = 0f;
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    Color color = image.GetPixel(x0 + x, y0 + y);
+                    float sample = (0.2126f * color.r) + (0.7152f * color.g) + (0.0722f * color.b);
+                    luma[(y * width) + x] = sample;
+                    if (sample < minL)
+                    {
+                        minL = sample;
+                    }
+
+                    if (sample > maxL)
+                    {
+                        maxL = sample;
+                    }
+                }
+            }
+
+            if (maxL - minL < 0.04f)
+            {
+                return -1f;
+            }
+
+            return LayerGate.LaplacianVariance(luma, width, height);
         }
 
         static float HintLinePx(Text text)
