@@ -39,11 +39,23 @@ namespace AsteroidsGoneRogue
 
             string safe = source ?? string.Empty;
             int fontSize = host.fontSize;
+            float hostWidth = 0f;
+            float hostHeight = 0f;
+            if (host.rectTransform != null)
+            {
+                hostWidth = host.rectTransform.rect.width;
+                hostHeight = host.rectTransform.rect.height;
+            }
+
             string stamp = ((int)scheme).ToString()
                 + "|"
                 + canvasScale.ToString("0.000")
                 + "|"
                 + fontSize.ToString()
+                + "|"
+                + hostWidth.ToString("0.0")
+                + "|"
+                + hostHeight.ToString("0.0")
                 + "|"
                 + BindingMap.Revision.ToString()
                 + "|"
@@ -73,8 +85,6 @@ namespace AsteroidsGoneRogue
                 lineHeight = iconPx;
             }
 
-            float hostWidth = host.rectTransform.rect.width;
-            float hostHeight = host.rectTransform.rect.height;
             bool centered = IsCenter(host.alignment);
             bool upper = IsUpper(host.alignment);
             float top = 0f;
@@ -93,14 +103,65 @@ namespace AsteroidsGoneRogue
                 float[] widths = MeasurePieces(host, pieces, scheme, hi, iconPx);
                 float gap = host.fontSize * 0.12f;
                 float rowWidth = PromptLayout.RowWidth(widths, gap);
-                float cursorX = centered ? -rowWidth * 0.5f : LeftOrigin(hostWidth);
-                float cursorY = top - (lineIndex * lineHeight);
+                float fit = 1f;
+                if (hostWidth > 2f && hostHeight > 2f)
+                {
+                    fit = PromptLayout.ScaleToFit(rowWidth, lineHeight, hostWidth, hostHeight);
+                }
+
+                float drawIcon = iconPx * fit;
+                float drawGap = gap * fit;
+                float drawLine = lineHeight * fit;
+                int drawFont = host.fontSize;
+                if (fit < 0.999f)
+                {
+                    drawFont = (int)(host.fontSize * fit);
+                    if (drawFont < 1)
+                    {
+                        drawFont = 1;
+                    }
+                }
+
+                float fittedRow = rowWidth * fit;
+                float cursorX = centered ? -fittedRow * 0.5f : LeftOrigin(hostWidth);
+                float cursorY = top - (lineIndex * drawLine);
+                float leftLimit = hostWidth > 2f ? -hostWidth * 0.5f : -100000f;
+                float rightLimit = hostWidth > 2f ? hostWidth * 0.5f : 100000f;
                 int pieceCount = pieces.Length;
                 for (int pieceIndex = 0; pieceIndex < pieceCount; pieceIndex++)
                 {
-                    float pieceWidth = widths[pieceIndex];
-                    Place(host, pieces[pieceIndex], scheme, hi, iconPx, cursorX, cursorY, pieceWidth, lineHeight);
-                    cursorX += pieceWidth + gap;
+                    float pieceWidth = widths[pieceIndex] * fit;
+                    if (pieceWidth <= 0.5f)
+                    {
+                        cursorX += drawGap;
+                        continue;
+                    }
+
+                    if (cursorX < leftLimit)
+                    {
+                        float overflow = leftLimit - cursorX;
+                        if (overflow >= pieceWidth - 0.5f)
+                        {
+                            cursorX += pieceWidth + drawGap;
+                            continue;
+                        }
+
+                        pieceWidth -= overflow;
+                        cursorX = leftLimit;
+                    }
+
+                    if (cursorX >= rightLimit - 0.5f)
+                    {
+                        break;
+                    }
+
+                    if (cursorX + pieceWidth > rightLimit)
+                    {
+                        pieceWidth = rightLimit - cursorX;
+                    }
+
+                    Place(host, pieces[pieceIndex], scheme, hi, drawIcon, drawFont, cursorX, cursorY, pieceWidth, drawLine);
+                    cursorX += pieceWidth + drawGap;
                 }
             }
         }
@@ -128,6 +189,7 @@ namespace AsteroidsGoneRogue
             InputScheme scheme,
             bool hi,
             float iconPx,
+            int fontSize,
             float x,
             float y,
             float width,
@@ -168,12 +230,12 @@ namespace AsteroidsGoneRogue
             RectTransform textRect = textObject.AddComponent<RectTransform>();
             Text text = textObject.AddComponent<Text>();
             text.font = host.font;
-            text.fontSize = host.fontSize;
+            text.fontSize = fontSize > 0 ? fontSize : host.fontSize;
             text.fontStyle = host.fontStyle;
             text.color = host.color;
             text.alignment = TextAnchor.MiddleLeft;
-            text.horizontalOverflow = HorizontalWrapMode.Overflow;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Truncate;
             text.raycastTarget = false;
             text.supportRichText = false;
             text.text = label;

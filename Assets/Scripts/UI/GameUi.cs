@@ -7043,6 +7043,24 @@ namespace AsteroidsGoneRogue
             PlaceAbortButton(width, height);
         }
 
+        /// <summary>
+        /// Rebuilds the combat hint after the canvas has the probe size.
+        /// Capture changes the scaler, lays the canvas out, then calls this so
+        /// the prompt row is fitted to the hint band before the overlap check.
+        /// </summary>
+        public void RefitPlayHint()
+        {
+            if (_hint == null || !_hint.gameObject.activeInHierarchy)
+            {
+                return;
+            }
+
+            int width = _playHudLayoutW > 1 ? _playHudLayoutW : Screen.width;
+            int height = _playHudLayoutH > 1 ? _playHudLayoutH : Screen.height;
+            float promptScale = SettingsMeasure.CanvasScale(width, height);
+            PromptLineView.Restyle(_hint, InputSchemeDriver.Current, promptScale);
+        }
+
         private static void PlaceAnchored(GameObject plate, float minX, float minY, float maxX, float maxY)
         {
             if (plate == null)

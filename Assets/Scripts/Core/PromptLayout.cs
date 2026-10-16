@@ -65,5 +65,59 @@ namespace AsteroidsGoneRogue
 
             return rowWidth <= available + 0.5f;
         }
+
+        /// <summary>
+        /// Shrink a prompt row so it stays inside the hint box. 1 means the
+        /// authored size already fits. The floor keeps a truncated row readable.
+        /// </summary>
+        public static float ScaleToFit(float rowWidth, float rowHeight, float boxWidth, float boxHeight)
+        {
+            float scaleX = 1f;
+            float scaleY = 1f;
+            if (boxWidth > 1f && rowWidth > boxWidth)
+            {
+                scaleX = boxWidth / rowWidth;
+            }
+
+            if (boxHeight > 1f && rowHeight > boxHeight)
+            {
+                scaleY = boxHeight / rowHeight;
+            }
+
+            float scale = scaleX < scaleY ? scaleX : scaleY;
+            if (scale < 0.35f)
+            {
+                scale = 0.35f;
+            }
+
+            if (scale > 1f)
+            {
+                scale = 1f;
+            }
+
+            return scale;
+        }
+
+        public static bool SelfCheck()
+        {
+            float boxWidth = (0.72f - 0.04f) * 1280f;
+            float boxHeight = (0.044f - 0.006f) * 800f;
+            float abortMin = 0.74f * 1280f;
+            float scale = ScaleToFit(1193f, 42.6f, boxWidth, boxHeight);
+            float fitted = 1193f * scale;
+            if (fitted > boxWidth + 0.5f || 42.6f * scale > boxHeight + 0.5f)
+            {
+                return false;
+            }
+
+            float center = ((0.04f + 0.72f) * 0.5f) * 1280f;
+            float right = center + (fitted * 0.5f);
+            if (right > abortMin || center - (fitted * 0.5f) < 0f)
+            {
+                return false;
+            }
+
+            return scale < 1f && ScaleToFit(100f, 10f, 400f, 40f) == 1f;
+        }
     }
 }

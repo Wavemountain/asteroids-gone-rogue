@@ -507,11 +507,7 @@ namespace AsteroidsGoneRogue.EditorTools
                     Debug.Log("AgrCapture backup kept " + kept);
                 }
 
-                int code = 0;
-                if (HasError() || HasHudFail())
-                {
-                    code = 1;
-                }
+                int code = CaptureContinue.ExitCode(HasError(), HasHudFail());
 
                 ClearSession();
                 EditorApplication.update -= Tick;
@@ -674,7 +670,9 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static void AdvanceShot()
         {
-            int shot = SessionState.GetInt(KeyShot, 0) + 1;
+            int shot = SessionState.GetInt(KeyShot, 0);
+            int next = CaptureContinue.NextShot(shot, HasHudFail(), false);
+            shot = next;
             SessionState.SetInt(KeyShot, shot);
             SessionState.SetInt(KeyWaited, 0);
             SessionState.SetInt(KeySeen, -1);
@@ -2726,6 +2724,7 @@ namespace AsteroidsGoneRogue.EditorTools
             public string Name;
             public string Block;
             public bool Lane;
+            public bool Raycast;
             public float MinX;
             public float MinY;
             public float MaxX;
@@ -2784,6 +2783,19 @@ namespace AsteroidsGoneRogue.EditorTools
                     }
 
                     Canvas.ForceUpdateCanvases();
+                    if (uis != null)
+                    {
+                        for (int uiIndex = 0; uiIndex < uis.Length; uiIndex++)
+                        {
+                            GameUi ui = uis[uiIndex];
+                            if (ui != null)
+                            {
+                                ui.RefitPlayHint();
+                            }
+                        }
+                    }
+
+                    Canvas.ForceUpdateCanvases();
                     MeasureHud(width, height);
                 }
             }
@@ -2811,6 +2823,19 @@ namespace AsteroidsGoneRogue.EditorTools
                         if (ui != null)
                         {
                             ui.ApplyPlayHudLayout(restoreW, restoreH);
+                        }
+                    }
+                }
+
+                Canvas.ForceUpdateCanvases();
+                if (uis != null)
+                {
+                    for (int uiIndex = 0; uiIndex < uis.Length; uiIndex++)
+                    {
+                        GameUi ui = uis[uiIndex];
+                        if (ui != null)
+                        {
+                            ui.RefitPlayHint();
                         }
                     }
                 }
@@ -2891,6 +2916,11 @@ namespace AsteroidsGoneRogue.EditorTools
                         continue;
                     }
 
+                    if (HudOverlay(leftMark, width, height) || HudOverlay(rightMark, width, height))
+                    {
+                        continue;
+                    }
+
                     bool bothLanes = leftMark.Lane && rightMark.Lane;
                     if (!bothLanes && (HudContains(leftMark, rightMark) || HudContains(rightMark, leftMark)))
                     {
@@ -2926,7 +2956,7 @@ namespace AsteroidsGoneRogue.EditorTools
 
             if (firstOutside.Length > 0)
             {
-                Fail(firstOutside + " " + res);
+                NoteHudFail(firstOutside + " " + res);
             }
         }
 
@@ -3013,6 +3043,7 @@ namespace AsteroidsGoneRogue.EditorTools
             mark.Name = graphic.gameObject.name;
             mark.Block = block;
             mark.Lane = HudLane(block);
+            mark.Raycast = graphic.raycastTarget;
             mark.MinX = minX * scaleX;
             mark.MinY = minY * scaleY;
             mark.MaxX = maxX * scaleX;
@@ -3220,13 +3251,46 @@ namespace AsteroidsGoneRogue.EditorTools
             return SessionState.GetString(KeyHud, string.Empty).Length > 0;
         }
 
+        static bool HudOverlay(HudMark mark, int width, int height)
+        {
+            if (mark == null)
+            {
+                return false;
+            }
+
+            if (mark.Name == "PlayVignette")
+            {
+                return true;
+            }
+
+            if (mark.Raycast)
+            {
+                return false;
+            }
+
+            float spanX = mark.MaxX - mark.MinX;
+            float spanY = mark.MaxY - mark.MinY;
+            float wide = width > 1 ? width : 1f;
+            float tall = height > 1 ? height : 1f;
+            return spanX >= wide * 0.9f && spanY >= tall * 0.9f;
+        }
+
         static void NoteHudFail(string reason)
         {
             Debug.LogError("AgrCapture FAIL: " + reason);
-            if (!HasHudFail())
+            string prior = SessionState.GetString(KeyHud, string.Empty);
+            if (prior.Length == 0)
             {
                 SessionState.SetString(KeyHud, reason);
+                return;
             }
+
+            if (prior.IndexOf(reason, System.StringComparison.Ordinal) >= 0)
+            {
+                return;
+            }
+
+            SessionState.SetString(KeyHud, prior + " | " + reason);
         }
 
         static void Fail(string reason)

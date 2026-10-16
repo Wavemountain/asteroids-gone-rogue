@@ -54,7 +54,8 @@ namespace AsteroidsGoneRogue
         public const float EnemyCoreLift = 1.12f;
         public const float MinorEnemyLift = 1.30f;
         public const float PreviewStudioGain = 0.58f;
-        public const float PreviewExposure = 0.46f;
+        public const float PreviewExposure = 0.85f;
+        public const float CombatHullEmission = 1.85f;
         public const float PreviewEmissionCap = 0.65f;
         public const float PreviewAlbedoLift = 1.05f;
         // Art-director hangar grade. Blue keep stays 0.92. The chroma stretch
@@ -142,7 +143,12 @@ namespace AsteroidsGoneRogue
                 u = 1f;
             }
 
-            float amount = reduce ? DeathDesatReduce : DeathDesat;
+            float amount = DeathDesat;
+            if (reduce)
+            {
+                amount = DeathDesat;
+            }
+
             return gradeSat + ((-100f - gradeSat) * amount * u);
         }
 
@@ -204,14 +210,14 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// Black multiply drawn after the warm death wash. Full is stronger.
-        /// Reduce stays milder and still darkens the edge.
+        /// Black multiply drawn after the warm death wash. Reduce effects
+        /// does not change this darkening: saturation and the wash stay put.
         /// </summary>
         public static float DeathWashDim(bool reduce)
         {
             if (reduce)
             {
-                return DeathWashDimReduce;
+                return DeathWashDimFull;
             }
 
             return DeathWashDimFull;
@@ -862,6 +868,32 @@ namespace AsteroidsGoneRogue
             maxX = 0.5f + (span * 0.5f);
         }
 
+        /// <summary>
+        /// Warm hull emission versus the dimmed W3 grid line. Same colour with
+        /// Reduce on or off; bloom may still scale, the material does not.
+        /// </summary>
+        public static bool CombatShipBeatsGrid()
+        {
+            float gridR = 0.08f * 0.76f * W3GridDim;
+            float gridG = 0.86f * 0.76f * W3GridDim;
+            float gridB = 0.68f * 0.76f * W3GridDim;
+            float gridY = Luma(gridR, gridG, gridB);
+            float shipR = 1f * CombatHullEmission;
+            float shipG = 0.55f * CombatHullEmission;
+            float shipB = 0.14f * CombatHullEmission;
+            if (shipR <= shipG || shipG <= shipB)
+            {
+                return false;
+            }
+
+            if (gridY <= 0.001f)
+            {
+                return false;
+            }
+
+            return Luma(shipR, shipG, shipB) / gridY >= 2.5f;
+        }
+
         public static float Luma(float red, float green, float blue)
         {
             return (0.2126f * red) + (0.7152f * green) + (0.0722f * blue);
@@ -908,6 +940,11 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            if (!CombatShipBeatsGrid())
+            {
+                return false;
+            }
+
             float sat = DeathSaturation(-12f, 1f, false);
             if (sat > -70f || sat < -80f)
             {
@@ -933,6 +970,11 @@ namespace AsteroidsGoneRogue
             }
 
             if (Bad(BeamEmission > 1.5f || GridVisibleAlpha < 0.11f || DomeRimAlpha > 0.31f))
+            {
+                return false;
+            }
+
+            if (Bad(PreviewExposure < 0.84f || PreviewExposure > 0.86f))
             {
                 return false;
             }
