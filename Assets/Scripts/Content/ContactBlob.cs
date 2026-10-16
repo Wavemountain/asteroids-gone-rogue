@@ -7,7 +7,7 @@ namespace AsteroidsGoneRogue
     /// </summary>
     public sealed class ContactBlob : MonoBehaviour
     {
-        public const float Alpha = 0.35f;
+        public const float Alpha = 0.72f;
         public const float FloorY = 0.05f;
         public const float RadiusPad = 1.25f;
         public const float MinRadius = 0.45f;
@@ -39,7 +39,9 @@ namespace AsteroidsGoneRogue
             Collider collider = quad.GetComponent<Collider>();
             if (collider != null)
             {
-                Destroy(collider);
+                // CreatePrimitive adds a concave MeshCollider. Destroy is deferred,
+                // so the next physics step logs the error under the body's Rigidbody.
+                DestroyImmediate(collider);
             }
 
             float axis = host.lossyScale.x;

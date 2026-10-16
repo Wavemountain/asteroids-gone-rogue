@@ -79,7 +79,9 @@ namespace AsteroidsGoneRogue
             bool hi = PromptCatalog.UseHi(canvasScale);
             string[] lines = safe.Split('\n');
             int lineCount = lines.Length;
-            float lineHeight = host.fontSize * 1.15f;
+            // Kenney Future's preferred line is taller than 1.15em. A short box
+            // wraps one segment onto a second line and the gate calls that overflow.
+            float lineHeight = host.fontSize * 1.4f;
             if (iconPx > lineHeight)
             {
                 lineHeight = iconPx;
@@ -243,6 +245,11 @@ namespace AsteroidsGoneRogue
             textRect.anchorMax = new Vector2(0.5f, 0.5f);
             textRect.pivot = new Vector2(0f, 0.5f);
             float textWidth = width > 1f ? width : iconPx;
+            if (text.preferredHeight > lineHeight && text.preferredWidth <= textWidth + 0.5f)
+            {
+                lineHeight = text.preferredHeight;
+            }
+
             textRect.sizeDelta = new Vector2(textWidth, lineHeight);
             textRect.anchoredPosition = new Vector2(x, y);
         }
@@ -296,7 +303,8 @@ namespace AsteroidsGoneRogue
 
                 if (measured > 0.5f)
                 {
-                    return measured;
+                    // Preferred width on the live Text runs a few pixels past the generator.
+                    return measured + 6f;
                 }
             }
             catch (System.Exception)

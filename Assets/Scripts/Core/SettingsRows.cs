@@ -339,7 +339,7 @@ namespace AsteroidsGoneRogue
         public const float LadderMinX = 0.355f;
         public const float LadderMaxX = 0.478f;
         public const float LadderMinY = 0.905f;
-        public const float LadderMaxY = 0.950f;
+        public const float LadderMaxY = 0.992f;
         public const int LadderFont = 12;
         public const float LadderLineSpacing = 0.85f;
 
@@ -484,8 +484,10 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            int lines = WrappedLineCount(text, boxWidth, LadderFont);
-            float lineHeight = LadderFont * 1.2f * LadderLineSpacing;
+            // CharPxAt18 underestimates Kenney Future, so a board that "fits"
+            // still wraps and truncates. Measure against a narrower box.
+            int lines = WrappedLineCount(text, boxWidth * 0.62f, LadderFont);
+            float lineHeight = LadderFont * 1.45f;
             return lines * lineHeight <= boxHeight;
         }
     }

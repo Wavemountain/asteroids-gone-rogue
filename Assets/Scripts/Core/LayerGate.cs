@@ -53,6 +53,7 @@ namespace AsteroidsGoneRogue
             public string[] WaveClearMaterials;
             public string[] OverlayExemptShaders;
             public string[] DeadNameHints;
+            public string[] DeadExempt;
             public int[] CanvasSorts;
         }
 
@@ -326,7 +327,34 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            rules.DeadExempt = new string[0];
+            if (json.IndexOf("\"deadExempt\"", System.StringComparison.Ordinal) >= 0
+                && !ReadStrings(json, "deadExempt", out rules.DeadExempt, out error))
+            {
+                rules = null;
+                return false;
+            }
+
             return true;
+        }
+
+        /// <summary>
+        /// Smoke billboards spawned on the hull are not ship children. A death
+        /// shot that still has them alive fails. Other worlds may keep the puff.
+        /// </summary>
+        public static string DeathPuffHit(string world, string name, int alive, bool enabled)
+        {
+            if (world != "death" || !enabled || alive <= 0)
+            {
+                return null;
+            }
+
+            if (name == "Smoke")
+            {
+                return "death-remnant Smoke";
+            }
+
+            return null;
         }
 
         public static bool Glob(string pattern, string text)
@@ -391,6 +419,21 @@ namespace AsteroidsGoneRogue
             }
 
             if (!Expect("dead", Evaluate("4", rules, new Fact[] { FactOf("Arena_Beam", "Mat_Arena_W3_Beam", "decor", 2000, ZTestLEqual, 1f, 0.2f, 0.33f, false) }, null, null, null)))
+            {
+                return false;
+            }
+
+            if (Evaluate("1", rules, new Fact[] { FactOf("Asteroid_M_C", "Mat_Env_Belt", "asteroid", 2000, ZTestLEqual, 1f, 0.1f, 0.2f, true) }, null, null, null).Length != 0)
+            {
+                return false;
+            }
+
+            if (DeathPuffHit("death", "Smoke", 8, true) != "death-remnant Smoke")
+            {
+                return false;
+            }
+
+            if (DeathPuffHit("1", "Smoke", 8, true) != null || DeathPuffHit("death", "Smoke", 0, true) != null)
             {
                 return false;
             }
@@ -570,7 +613,8 @@ namespace AsteroidsGoneRogue
                 hits.Add("unknown " + name + " material " + material + " world " + world);
             }
 
-            if (queue < TransparentMin && fact.Emission <= DeadEmissionMax && fact.Albedo <= DeadAlbedoMax && (fact.Unlit || DeadHint(rules, name) || DeadHint(rules, material)))
+            bool deadExempt = MatchAny(rules.DeadExempt, name) || MatchAny(rules.DeadExempt, material);
+            if (!deadExempt && queue < TransparentMin && fact.Emission <= DeadEmissionMax && fact.Albedo <= DeadAlbedoMax && (fact.Unlit || DeadHint(rules, name) || DeadHint(rules, material)))
             {
                 hits.Add("dead " + name + " material " + material);
             }
@@ -919,6 +963,7 @@ namespace AsteroidsGoneRogue
             rules.WaveClearMaterials = new string[0];
             rules.OverlayExemptShaders = new string[] { "AGR/Post" };
             rules.DeadNameHints = new string[] { "Beam", "W3_Beam", "W4_Glow" };
+            rules.DeadExempt = new string[] { "Asteroid*", "FX*", "Smoke", "Chunks", "Mat_Env_Belt", "Mat_FX_*" };
             rules.CanvasSorts = new int[] { 0, 80, 120, 150, 160, 200, 250 };
             return rules;
         }

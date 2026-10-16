@@ -343,14 +343,16 @@ namespace AsteroidsGoneRogue
         public static readonly Vector2 HangarPanelMax = new Vector2(0.55f, 0.888f);
         public static readonly Vector2 TopBarMin = new Vector2(0.012f, 0.905f);
         public static readonly Vector2 TopBarMax = new Vector2(0.988f, 0.995f);
-        // Hangar top bar is two rows. The medal line owns the upper row.
-        // WORLD sits on the row under it so the glyphs do not share a band.
-        private static readonly Vector2 HangarTitleMin = new Vector2(0.012f, 0.952f);
-        private static readonly Vector2 HangarTitleMax = new Vector2(0.200f, 0.992f);
-        private static readonly Vector2 HangarWorldMin = new Vector2(0.012f, 0.906f);
-        private static readonly Vector2 HangarWorldMax = new Vector2(0.340f, 0.948f);
-        private static readonly Vector2 HangarMedalMin = new Vector2(0.220f, 0.952f);
-        private static readonly Vector2 HangarMedalMax = new Vector2(0.490f, 0.992f);
+        // Title owns the full top-bar height on the left so EN and SV fit one line.
+        // The old 0.04-tall box wrapped "rogue" / the Swedish line out of view.
+        // Medal and WORLD sit to the right of that column, clear of the combat plate
+        // (plate max x is at most 0.292) and of the achievement ladder.
+        private static readonly Vector2 HangarTitleMin = new Vector2(0.012f, 0.905f);
+        private static readonly Vector2 HangarTitleMax = new Vector2(0.340f, 0.995f);
+        private static readonly Vector2 HangarWorldMin = new Vector2(0.490f, 0.906f);
+        private static readonly Vector2 HangarWorldMax = new Vector2(0.735f, 0.948f);
+        private static readonly Vector2 HangarMedalMin = new Vector2(0.490f, 0.952f);
+        private static readonly Vector2 HangarMedalMax = new Vector2(0.735f, 0.992f);
         private const float HintScrimAlpha = 0.62f;
         // Gear stays on the top-right. Mute / SFX / Music live in the settings panel.
         public static readonly Vector2 SettingsGearMin = new Vector2(0.900f, 0.905f);
@@ -783,7 +785,7 @@ namespace AsteroidsGoneRogue
             _title.lineSpacing = UiTheme.TitleLine;
             // Top-bar left: title slot. Stretch anchors, zero offset so 16:9 scaler keeps one row.
             Stretch(_title.rectTransform, HangarTitleMin, HangarTitleMax);
-            _title.text = productTitle;
+            _title.text = Loc.T("ui.product_title", productTitle);
             _title.color = UiAmber;
             ClampOneLine(_title);
             _title.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -843,8 +845,8 @@ namespace AsteroidsGoneRogue
             _achievementLadder = CreateText("AchievementLadder", transform, body, SettingsMeasure.LadderFont, TextAnchor.UpperLeft, FontStyle.Normal);
             Stretch(
                 _achievementLadder.rectTransform,
-                new Vector2(SettingsMeasure.LadderMinX, 0.905f),
-                new Vector2(SettingsMeasure.LadderMaxX, 0.950f));
+                new Vector2(SettingsMeasure.LadderMinX, SettingsMeasure.LadderMinY),
+                new Vector2(SettingsMeasure.LadderMaxX, SettingsMeasure.LadderMaxY));
             _achievementLadder.color = UiTheme.WithAlpha(UiTheme.Primary, 0.95f);
             _achievementLadder.horizontalOverflow = HorizontalWrapMode.Wrap;
             _achievementLadder.verticalOverflow = VerticalWrapMode.Overflow;
@@ -873,7 +875,7 @@ namespace AsteroidsGoneRogue
                 0.962f);
             RaiseShopAbovePreview();
             CreateFill("HangarInner", _menuRoot.transform, UiTheme.InnerWash,
-                new Vector2(0.012f, 0.018f), new Vector2(0.988f, 0.948f));
+                new Vector2(0.012f, 0.018f), new Vector2(0.988f, 0.728f));
 
             BuildRunSummary(display, body);
 
@@ -2696,11 +2698,12 @@ namespace AsteroidsGoneRogue
         {
             // WAVE-CLEAR strip: own zone under top bar, above NEXT WAVE. Three rows,
             // hangar-local anchors with zero offset so EN/SV cannot reflow the shop.
+            // Below the panel rule (header 0.962, rule 0.954) and above HangarInner (0.728).
             _summaryRoot = UiTheme.BuildPanel(
                 "RunSummaryCard",
                 _menuRoot.transform,
-                new Vector2(0.02f, 0.82f),
-                new Vector2(0.98f, 0.995f),
+                new Vector2(0.02f, 0.740f),
+                new Vector2(0.98f, 0.948f),
                 0.90f);
             _summaryHeader = _summaryRoot.transform.Find("RunSummaryCardHeader").GetComponent<Image>();
             _summaryRule = _summaryRoot.transform.Find("RunSummaryCardRule").GetComponent<Image>();
@@ -2727,7 +2730,7 @@ namespace AsteroidsGoneRogue
             _continueHint = CreateText("ContinueHint", _summaryRoot.transform, body, UiTheme.ShopHeaderSize, TextAnchor.MiddleLeft, FontStyle.Normal);
             _continueHint.lineSpacing = UiTheme.ShopLineSpacing;
             // r3 upgrades or the run-over explanation. Wrap inside the card; do not cover NEXT WAVE.
-            Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.22f), new Vector2(0.97f, 0.52f));
+            Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.06f), new Vector2(0.97f, 0.70f));
             _continueHint.color = UiTheme.Secondary;
             _continueHint.horizontalOverflow = HorizontalWrapMode.Wrap;
             _continueHint.verticalOverflow = VerticalWrapMode.Truncate;
@@ -2886,7 +2889,7 @@ namespace AsteroidsGoneRogue
                 bool ultraWide = Screen.width * 10 >= Screen.height * 21;
                 if (summaryPhase && ultraWide)
                 {
-                    Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.22f), new Vector2(0.97f, 0.56f));
+                    Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.08f), new Vector2(0.97f, 0.56f));
                     if (_summaryBody != null)
                     {
                         Stretch(_summaryBody.rectTransform, new Vector2(0.03f, 0.60f), new Vector2(0.97f, 0.76f));
@@ -2902,10 +2905,12 @@ namespace AsteroidsGoneRogue
                 }
                 else
                 {
-                    Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.10f), new Vector2(0.97f, 0.34f));
+                    // Hangar status is one wrapped paragraph (wave line + next medal). It needs
+                    // most of the card; the summary title/body sit above it.
+                    Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.06f), new Vector2(0.97f, 0.70f));
                     if (_summaryBody != null)
                     {
-                        Stretch(_summaryBody.rectTransform, new Vector2(0.03f, 0.58f), new Vector2(0.97f, 0.76f));
+                        Stretch(_summaryBody.rectTransform, new Vector2(0.03f, 0.72f), new Vector2(0.97f, 0.80f));
                     }
                 }
             }
