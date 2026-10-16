@@ -1,5 +1,7 @@
-// Soft contact disc. Alpha is the material colour; Reduce does not recolour it.
-// Shader.Find("AGR/BlobShadow").
+// Soft contact shadow. RGB is black, so a normal alpha blend only darkens
+// the floor (result luma is never above the floor). Alpha falls smoothly
+// from the centre to 0 at the quad edge. There is no rim and no ring.
+// Reduce does not recolour it. Shader.Find("AGR/BlobShadow").
 Shader "AGR/BlobShadow"
 {
     Properties
@@ -36,15 +38,10 @@ Shader "AGR/BlobShadow"
             {
                 float2 centered = i.uv * 2.0 - 1.0;
                 float dist = length(centered);
-                float soft = saturate(1.0 - dist);
-                soft = soft * soft;
-                // Black core reads on a bright floor. A cool rim reads on a dark one.
-                // Reduce does not change this colour.
-                float ring = saturate(1.0 - abs(dist - 0.76) * 7.0);
-                float core = _Color.a * soft;
-                fixed3 rimRgb = fixed3(0.62, 0.70, 0.80) * ring;
-                float alpha = saturate(core + ring * 0.62);
-                return fixed4(rimRgb, alpha);
+                float edge = saturate(dist);
+                float fade = edge * edge * (3.0 - 2.0 * edge);
+                float alpha = _Color.a * (1.0 - fade);
+                return fixed4(0.0, 0.0, 0.0, alpha);
             }
             ENDCG
         }

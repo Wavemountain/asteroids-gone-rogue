@@ -16085,6 +16085,10 @@ def test_capture_048_clearance_hud() -> None:
     assert "SameCardOverlap" in capture and "HudCard" in capture
     vfx = (root / "Assets/Scripts/Combat/VfxKit.cs").read_text(encoding="utf-8")
     assert "QuietParticle(_live._chunks)" in vfx and "QuietParticle(_live._sparks)" in vfx
+    blob_shader = (root / "Assets/Resources/Shaders/AgrBlobShadow.shader").read_text(encoding="utf-8")
+    assert "return fixed4(0.0, 0.0, 0.0, alpha);" in blob_shader
+    assert "rimRgb" not in blob_shader and "abs(dist -" not in blob_shader
+    assert "ReduceEffects" not in (root / "Assets/Scripts/Content/ContactBlob.cs").read_text(encoding="utf-8")
     assert "ScaleToFit" in (root / "Assets/Scripts/Core/PromptLayout.cs").read_text(encoding="utf-8")
     assert "PlayHudLayout.ScoreMinY" in ui and "PlayHudLayout.CaptionMaxY" in ui
     assert "alpha <= 0.01f" in capture and "HudWrapsChildren" in capture
