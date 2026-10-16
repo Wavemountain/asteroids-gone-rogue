@@ -1763,7 +1763,6 @@ namespace AsteroidsGoneRogue
         }
 
         private const float SpawnDiscRadius = 3.6f;
-        private const float SpawnDiscWorldY = -0.04f;
         private const int SpawnDiscQueue = 2700;
         private const string SpawnDiscObjectName = "Arena_SpawnContrast";
         private static Texture2D _spawnDiscTex;
@@ -1806,8 +1805,8 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            // The arena is dressed before the ship exists. Spawn is world
-            // (0, PlayHeight, 0); the disc uses that XZ, not the env pivot.
+            // The arena is dressed before the ship exists. SpawnContrastDisc
+            // reads the live hull and parks the disc on that XZ.
             DestroyChild(parent, "SpawnContrast");
             Transform existing = parent.Find(SpawnDiscObjectName);
             GameObject go = null;
@@ -1839,7 +1838,6 @@ namespace AsteroidsGoneRogue
             // Radius 3.6 m stays inside the lip (inner ~29.8 m).
             go.layer = DecorCameraStack.LayerIndex();
             go.transform.localScale = Vector3.one;
-            go.transform.position = new Vector3(0f, SpawnDiscWorldY, 0f);
             go.transform.rotation = Quaternion.Euler(-90f, 0f, 0f);
             float diameter = SpawnDiscRadius * 2f;
             Vector3 lossy = go.transform.lossyScale;
@@ -1873,6 +1871,12 @@ namespace AsteroidsGoneRogue
                 renderer.sortingOrder = -2;
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
+            }
+
+            SpawnContrastDisc tracker = go.GetComponent<SpawnContrastDisc>();
+            if (tracker == null)
+            {
+                go.AddComponent<SpawnContrastDisc>();
             }
         }
 
@@ -3530,6 +3534,192 @@ namespace AsteroidsGoneRogue
             material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
             material.renderQueue = 3000;
             return material;
+        }
+    }
+
+    /// <summary>
+    /// Parks the W1 spawn disc on the ship's start XZ. Gameplay spawn is the
+    /// hull centre the first time the ship is in the arena, and again after a
+    /// teleport (hangar studio, ResetForWave, capture pin). Flight is ignored.
+    /// The disc sits above the floor plate and below the hull. Keep-out must
+    /// not slide it; OpeningClearance treats Arena_SpawnContrast as fixed.
+    /// </summary>
+    public sealed class SpawnContrastDisc : MonoBehaviour
+    {
+        public const float ShipMatchMetres = 0.5f;
+        public const float FloorClearance = 0.08f;
+        private const float TeleportMetres = 2f;
+
+        private Vector3 _spawn;
+        private bool _hasSpawn;
+        private Vector3 _lastHull;
+        private bool _seenHull;
+
+        private void LateUpdate()
+        {
+            Vector3 hull;
+            float shipBottom;
+            float ignored;
+            if (!TryShipHull(out hull, out ignored, out shipBottom))
+            {
+                return;
+            }
+
+            if (!_seenHull)
+            {
+                _seenHull = true;
+                _lastHull = hull;
+                if (InArena(hull))
+                {
+                    _spawn = hull;
+                    _hasSpawn = true;
+                }
+            }
+            else
+            {
+                float jump = Planar(_lastHull, hull);
+                _lastHull = hull;
+                if (jump > TeleportMetres && InArena(hull))
+                {
+                    _spawn = hull;
+                    _hasSpawn = true;
+                }
+            }
+
+            if (!_hasSpawn)
+            {
+                return;
+            }
+
+            float y = DiscY(_spawn.x, _spawn.z, shipBottom);
+            transform.SetPositionAndRotation(new Vector3(_spawn.x, y, _spawn.z), Quaternion.Euler(-90f, 0f, 0f));
+        }
+
+        public static bool TryShipHull(out Vector3 center, out float radius, out float bottom)
+        {
+            center = Vector3.zero;
+            radius = 0.8f;
+            bottom = ShipController.PlayHeight;
+            ShipController ship = UnityEngine.Object.FindAnyObjectByType<ShipController>();
+            if (ship == null)
+            {
+                return false;
+            }
+
+            Renderer[] renderers = ship.GetComponentsInChildren<Renderer>(true);
+            bool any = false;
+            Bounds box = new Bounds(ship.transform.position, Vector3.zero);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (!HullRenderer(renderer))
+                {
+                    continue;
+                }
+
+                if (!any)
+                {
+                    box = renderer.bounds;
+                    any = true;
+                }
+                else
+                {
+                    box.Encapsulate(renderer.bounds);
+                }
+            }
+
+            if (!any)
+            {
+                center = ship.transform.position;
+                bottom = ship.transform.position.y;
+                return true;
+            }
+
+            center = box.center;
+            bottom = box.min.y;
+            float wide = box.extents.x;
+            if (box.extents.z > wide)
+            {
+                wide = box.extents.z;
+            }
+
+            if (wide > 0.2f)
+            {
+                radius = wide;
+            }
+
+            return true;
+        }
+
+        public static bool HullRenderer(Renderer renderer)
+        {
+            if (renderer == null || !renderer.enabled || renderer.gameObject == null || !renderer.gameObject.activeInHierarchy)
+            {
+                return false;
+            }
+
+            string name = renderer.gameObject.name;
+            if (name == "ContactBlob" || name == "ShieldBubble" || name == "Arena_SpawnContrast")
+            {
+                return false;
+            }
+
+            return renderer.GetComponentInParent<Canvas>() == null;
+        }
+
+        private static bool InArena(Vector3 hull)
+        {
+            return hull.z > -40f && (hull.x * hull.x) + (hull.z * hull.z) < 6400f;
+        }
+
+        private static float Planar(Vector3 a, Vector3 b)
+        {
+            float dx = a.x - b.x;
+            float dz = a.z - b.z;
+            return Mathf.Sqrt((dx * dx) + (dz * dz));
+        }
+
+        private static float DiscY(float x, float z, float shipBottom)
+        {
+            float y = FloorClearance;
+            Vector3 origin = new Vector3(x, 6f, z);
+            RaycastHit[] hits = Physics.RaycastAll(origin, Vector3.down, 12f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
+            if (hits != null)
+            {
+                for (int i = 0; i < hits.Length; i++)
+                {
+                    Collider collider = hits[i].collider;
+                    if (collider == null)
+                    {
+                        continue;
+                    }
+
+                    if (collider.GetComponentInParent<ShipController>() != null)
+                    {
+                        continue;
+                    }
+
+                    string hitName = collider.gameObject.name;
+                    if (hitName == "Arena_SpawnContrast" || hitName == "ContactBlob")
+                    {
+                        continue;
+                    }
+
+                    float top = hits[i].point.y + 0.06f;
+                    if (top > y && top < shipBottom)
+                    {
+                        y = top;
+                    }
+                }
+            }
+
+            float ceiling = shipBottom - 0.05f;
+            if (ceiling > FloorClearance && y > ceiling)
+            {
+                y = ceiling;
+            }
+
+            return y;
         }
     }
 }

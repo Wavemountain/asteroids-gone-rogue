@@ -79,6 +79,7 @@ SAME_LANGUAGE_ALLOW = {
     "Assist",
     "Asteroid",
     "Hangar",
+    "{pause} = HANGAR",
     "Analog",
     "D-pad",
     "Pierce",

@@ -257,7 +257,7 @@ namespace AsteroidsGoneRogue
             bool canvas = renderer.GetComponentInParent<Canvas>() != null;
             bool cameraHost = host.GetComponent<Camera>() != null;
             bool line = renderer is LineRenderer;
-            if (host != null && (host.name == "ArenaLip" || host.name == "ContactBlob"))
+            if (host != null && (host.name == "ArenaLip" || host.name == "ContactBlob" || host.name == "Arena_SpawnContrast"))
             {
                 line = true;
             }
