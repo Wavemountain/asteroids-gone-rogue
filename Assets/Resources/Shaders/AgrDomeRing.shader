@@ -5,13 +5,14 @@ Shader "AGR/DomeRing"
     Properties
     {
         _Color ("Color", Color) = (0.416, 0.659, 0.784, 0.30)
+        _ZTest ("ZTest", Float) = 4
     }
     SubShader
     {
         Tags { "Queue"="Transparent" "RenderType"="Transparent" "IgnoreProjector"="True" }
         Blend SrcAlpha OneMinusSrcAlpha
         ZWrite Off
-        ZTest LEqual
+        ZTest [_ZTest]
         Cull Off
         Pass
         {

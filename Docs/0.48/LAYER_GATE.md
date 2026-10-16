@@ -1,0 +1,42 @@
+# Layer gate
+
+A layer bug (the dimmed W3/W4 beam plate, a ring drawn over enemies, a HUD line sitting on another line) must fail a gate before it is treated as a passing capture.
+
+The decision lives in `Assets/Scripts/Core/LayerGate.cs`. `LayerGate.SelfCheck` injects each failure class and requires a FAIL string, then requires a clean scene to pass. `Tools/test_week1_logic.py` runs that self-check. `Tools/layer_gate_check.py` injects bad shader text and a `renderQueue = 4000` literal and requires those to FAIL as well.
+
+Whitelist data: `Tools/layer_whitelist.json`.
+
+## What fails
+
+1. **Unknown renderer.** A visible renderer must match a renderer-name glob and a material-name glob. Patterns come from `renderers` / `materials` plus the shot's world (`hangar`, `1`, `3`, `4`, `death`, `waveclear`). Death and wave-clear also accept world `1`. A disabled renderer is ignored. `*_*` admits compound names; a stray single token such as `OlivePlate` with `Default-Material` does not.
+2. **Dead plate.** A visible opaque renderer (queue under 2500) with emission luma ≤ 0.45 and albedo luma ≤ 0.45 fails when it is unlit or its name/material contains a `deadNameHints` token (`Beam`, `W3_Beam`, `W4_Glow`). That is the dimmed olive plate. An additive beam with alpha 0 is not visible, so it does not fail.
+3. **ZTest Always / Overlay queue.** A shader or material that depth-tests with Always, or sits at queue ≥ 4000, fails when it can draw over the ship, enemies, asteroids, pickups, or pillars. `AGR/Post` and `Hidden/*` are the post exemption. HUD canvases are not mesh renderers.
+4. **Queue and sort.** Gameplay roles must use queue 2000–3999 (Geometry 2000–2449, AlphaTest 2450–2499, Transparent 2500–3999). A negative queue is the shader default, Geometry 2000. The dome ring (`ArenaLip` / `Mat_Env_Lip`) must use ZTest Less (2) or LEqual (4). `AgrDomeRing.shader` exposes `_ZTest` and samples it. Enabled canvases must use a `CanvasOrder` value (`Root` 0, `ShipPreview` 80, `HangarShop` 120, `Overlay` 150, `Rebind` 160, `Boon` 200, `Toast` 250).
+5. **UI overlap.** Rect overlap and glyph boxes (`preferredWidth` / `preferredHeight`) fail the shot. That covers HUD-vs-HUD, HUD vs the hint row, and the hangar title / world / medal rows. The same measurement already logged `AgrCapture FAIL:`; the layer gate records it as `ui-overlap` too.
+6. **Contact shadow.** Every active `ShipController`, `EnemySeeker`, and `Asteroid` needs an enabled child renderer named `ContactBlob`.
+
+## Static vs runtime
+
+| Check | Static (`validate_week1_project.py` → `layer_gate_check.py`) | Runtime (`AgrCapture.CheckLayer`, every shot) |
+| --- | --- | --- |
+| Whitelist file, keys, `Mat_*`, `Beam` hint, `canvasSorts` == `CanvasOrder` | Yes | Reads the same JSON. A missing or broken file is a FAIL. |
+| Unknown renderer / material | Self-check only (injected facts) | Yes, per visible renderer |
+| Dead plate | Self-check only | Yes |
+| `ZTest Always` in `*.shader` | Yes, unless the shader is exempt | Yes, when the material has `_ZTest` == 8 |
+| `Queue="Overlay"` and `renderQueue >= 4000` | Yes | Yes, queue ≥ 4000 on a non-post renderer |
+| Gameplay queue outside 2000–3999 | Self-check only | Yes |
+| Dome ring depth test | `AgrDomeRing.shader` must use `ZTest [_ZTest]` and must not say `ZTest Always` | Yes, role `dome` |
+| Canvas sort uses `CanvasOrder` | Source assignments (existing canvas check) plus the whitelist list | Yes, every enabled `Canvas` |
+| UI overlap, including glyphs and hangar rows | Self-check only | Yes, all six shots |
+| Contact shadow present | Self-check only | Yes |
+
+A runtime hit logs `AgrCapture layer FAIL:` and does **not** stop the remaining shots. The process still exits non-zero (`CaptureContinue.ExitCode` with the layer flag). A fatal capture error (missing session, empty frame) still stops the run.
+
+## Adding a legal object
+
+Add the renderer glob and, if it is not `Mat_*`, the material glob to `Tools/layer_whitelist.json`. World-only props go under `renderers.<world>` or `materials.<world>`. Then run:
+
+```
+python3 Tools/validate_week1_project.py
+python3 Tools/test_week1_logic.py
+```

@@ -331,6 +331,7 @@ namespace UnityEngine
     public static class Application
     {
         public static string persistentDataPath { get { return "/tmp"; } }
+        public static string dataPath { get { return "/tmp/Assets"; } }
         public static int targetFrameRate { get; set; }
         public static bool isPlaying { get { return false; } }
         public static bool isBatchMode { get { return false; } }
@@ -473,6 +474,8 @@ namespace UnityEngine
         public Color GetColor(int nameID) { return Color.white; }
         public void SetFloat(string name, float value) { }
         public void SetFloat(int nameID, float value) { }
+        public float GetFloat(string name) { return 0f; }
+        public float GetFloat(int nameID) { return 0f; }
         public void SetInt(string name, int value) { }
         public void SetInt(int nameID, int value) { }
         public void SetTexture(string name, Texture value) { }
