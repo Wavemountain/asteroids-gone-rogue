@@ -7796,7 +7796,9 @@ namespace AsteroidsGoneRogue
 
             if (waveClear)
             {
-                PaintPrompt(_hint, Loc.T("ui.hint_waveclear", HintWaveClear));
+                _hint.rectTransform.localScale = Vector3.one;
+                _hint.resizeTextForBestFit = false;
+                PaintPrompt(_hint, Loc.T("ui.hint_waveclear", HintWaveClear), true);
             }
             else if (coach)
             {
@@ -7873,13 +7875,18 @@ namespace AsteroidsGoneRogue
 
         private void PaintPrompt(Text host, string source)
         {
+            PaintPrompt(host, source, false);
+        }
+
+        private void PaintPrompt(Text host, string source, bool lockMetrics)
+        {
             if (host == null)
             {
                 return;
             }
 
             float promptScale = SettingsMeasure.CanvasScale(Screen.width, Screen.height);
-            PromptLineView.Paint(host, source, InputSchemeDriver.Current, promptScale);
+            PromptLineView.Paint(host, source, InputSchemeDriver.Current, promptScale, lockMetrics);
         }
 
         private void RestylePrompts()

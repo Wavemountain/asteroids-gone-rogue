@@ -52,6 +52,9 @@ namespace AsteroidsGoneRogue.EditorTools
         const string KeySceneLogged = "AgrCapture.SceneLogged";
         const string KeyLoggedPhase = "AgrCapture.LoggedPhase";
         const string KeyBootKicked = "AgrCapture.BootKicked";
+        const string KeyHintPx = "AgrCapture.W1HintPx";
+        const int W4PinSeed = 48048;
+        const float MineContrastMin = 3.5f;
         const float PlayerClearRadius = 8f;
         const float ScreenCenterClear = 12f;
 
@@ -399,6 +402,10 @@ namespace AsteroidsGoneRogue.EditorTools
                 {
                     PinShip();
                     KeepShipAlive();
+                    if (shot == 3)
+                    {
+                        HoldW4Enemies();
+                    }
                 }
 
                 QuietBanners();
@@ -570,7 +577,16 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             SkipTutorial(game);
-            ApplySeed(game);
+            if (shot == 3)
+            {
+                _w4Pinned = false;
+                ApplySeedValue(game, W4PinSeed);
+            }
+            else
+            {
+                ApplySeed(game);
+            }
+
             ApplyReduceCache();
             if (!InvokeZero(game, "StartWave"))
             {
@@ -589,6 +605,10 @@ namespace AsteroidsGoneRogue.EditorTools
             HoldForShot(shot);
             QuietBanners();
             PinShip();
+            if (shot == 3)
+            {
+                HoldW4Enemies();
+            }
         }
 
         static void FireDeath()
@@ -716,7 +736,11 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static void ApplySeed(object game)
         {
-            int seed = SessionState.GetInt(KeySeed, 1);
+            ApplySeedValue(game, SessionState.GetInt(KeySeed, 1));
+        }
+
+        static void ApplySeedValue(object game, int seed)
+        {
             if (!SetProp(game, "ActiveDailySeed", seed))
             {
                 Debug.Log("AgrCapture: ActiveDailySeed is not writable; RunRng may stay on the engine stream");
@@ -847,6 +871,113 @@ namespace AsteroidsGoneRogue.EditorTools
 
             ClearAroundPlayer();
             SeparateOpening(false);
+        }
+
+        static bool _w4Pinned;
+        static EnemySeeker[] _w4Seekers;
+        static Vector3[] _w4Pos;
+        static Quaternion[] _w4Rot;
+
+        /// <summary>
+        /// Capture-only pin. RunRng is seeded from here; the gameplay stream is not edited.
+        /// The first call freezes the spawned roster. Later calls put that pose back
+        /// so settle frames cannot walk a brute or hatch an extra swarmling.
+        /// </summary>
+        static void HoldW4Enemies()
+        {
+            if (SessionState.GetInt(KeyShot, 0) != 3)
+            {
+                return;
+            }
+
+            EnemySeeker[] live = UnityEngine.Object.FindObjectsByType<EnemySeeker>();
+            if (!_w4Pinned)
+            {
+                int count = live != null ? live.Length : 0;
+                _w4Seekers = new EnemySeeker[count];
+                _w4Pos = new Vector3[count];
+                _w4Rot = new Quaternion[count];
+                for (int i = 0; i < count; i++)
+                {
+                    EnemySeeker seeker = live[i];
+                    _w4Seekers[i] = seeker;
+                    if (seeker == null)
+                    {
+                        continue;
+                    }
+
+                    seeker.enabled = false;
+                    _w4Pos[i] = seeker.transform.position;
+                    _w4Rot[i] = seeker.transform.rotation;
+                    Rigidbody body = seeker.GetComponent<Rigidbody>();
+                    if (body != null)
+                    {
+                        body.linearVelocity = Vector3.zero;
+                        body.angularVelocity = Vector3.zero;
+                    }
+                }
+
+                _w4Pinned = true;
+                Debug.Log("AgrCapture W4 pin enemies " + count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                return;
+            }
+
+            if (live != null)
+            {
+                for (int i = 0; i < live.Length; i++)
+                {
+                    EnemySeeker seeker = live[i];
+                    if (seeker == null || KnownW4(seeker))
+                    {
+                        continue;
+                    }
+
+                    seeker.gameObject.SetActive(false);
+                }
+            }
+
+            if (_w4Seekers == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _w4Seekers.Length; i++)
+            {
+                EnemySeeker seeker = _w4Seekers[i];
+                if (seeker == null)
+                {
+                    continue;
+                }
+
+                seeker.enabled = false;
+                seeker.transform.SetPositionAndRotation(_w4Pos[i], _w4Rot[i]);
+                Rigidbody body = seeker.GetComponent<Rigidbody>();
+                if (body != null)
+                {
+                    body.position = _w4Pos[i];
+                    body.rotation = _w4Rot[i];
+                    body.linearVelocity = Vector3.zero;
+                    body.angularVelocity = Vector3.zero;
+                }
+            }
+        }
+
+        static bool KnownW4(EnemySeeker seeker)
+        {
+            if (_w4Seekers == null || seeker == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < _w4Seekers.Length; i++)
+            {
+                if (_w4Seekers[i] == seeker)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         static void SeparateOpening(bool log)
@@ -2757,6 +2888,8 @@ namespace AsteroidsGoneRogue.EditorTools
             NoteDeathPuff(world);
             NoteSpawnDisc(world);
             NoteBlobShadow(world);
+            NoteMineContrast(world);
+            NotePlayHintSize(world);
             NoteWaveClearHint(world);
         }
 
@@ -2854,6 +2987,12 @@ namespace AsteroidsGoneRogue.EditorTools
                 {
                     NoteLayerFail(world + " spawn-disc buried");
                 }
+
+                string above = CoverHit(renderer);
+                if (above != null)
+                {
+                    NoteLayerFail(world + " " + above);
+                }
             }
 
             if (FrameShipContrast < 1.3f)
@@ -2876,6 +3015,12 @@ namespace AsteroidsGoneRogue.EditorTools
             if (placed != null)
             {
                 NoteLayerFail(world + " " + placed);
+            }
+
+            string above = BlobCoverHit();
+            if (above != null)
+            {
+                NoteLayerFail(world + " " + above);
             }
 
             // A near-black floor cannot show a 15% luma drop. Require the
@@ -2924,6 +3069,12 @@ namespace AsteroidsGoneRogue.EditorTools
                         NoteLayerFail("waveclear hint size " + hint.fontSize.ToString(System.Globalization.CultureInfo.InvariantCulture));
                     }
 
+                    float target = W1HintPx();
+                    if (target < 1f)
+                    {
+                        target = HintLinePx(hint);
+                    }
+
                     Text[] parts = hint.GetComponentsInChildren<Text>(true);
                     bool segment = false;
                     if (parts != null)
@@ -2937,10 +3088,20 @@ namespace AsteroidsGoneRogue.EditorTools
                             }
 
                             segment = true;
-                            int size = part.fontSize;
-                            if (size < normal || size < hint.fontSize)
+                            float px = HintLinePx(part);
+                            float scaleY = 1f;
+                            if (part.rectTransform != null)
                             {
-                                NoteLayerFail("waveclear hint size " + size.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                                scaleY = part.rectTransform.localScale.y;
+                                if (scaleY < 0f)
+                                {
+                                    scaleY = -scaleY;
+                                }
+                            }
+
+                            if (scaleY < 0.98f || scaleY > 1.02f || (target > 1f && Mathf.Abs(px - target) > 1f))
+                            {
+                                NoteLayerFail("waveclear hint size " + px.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
                             }
                         }
                     }
@@ -2956,6 +3117,274 @@ namespace AsteroidsGoneRogue.EditorTools
             {
                 NoteLayerFail("waveclear hint text");
             }
+        }
+
+        static float _w1HintPx = -1f;
+
+        static void NotePlayHintSize(string world)
+        {
+            if (world != "1")
+            {
+                return;
+            }
+
+            Text[] texts = UnityEngine.Object.FindObjectsByType<Text>();
+            if (texts == null)
+            {
+                return;
+            }
+
+            float best = -1f;
+            for (int i = 0; i < texts.Length; i++)
+            {
+                Text part = texts[i];
+                if (part == null || part.gameObject == null || part.gameObject.name != "PSegT" || !part.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                Transform parent = part.transform.parent;
+                if (parent == null || parent.name != "Hint")
+                {
+                    continue;
+                }
+
+                float px = HintLinePx(part);
+                if (px > best)
+                {
+                    best = px;
+                }
+            }
+
+            if (best > 1f)
+            {
+                _w1HintPx = best;
+                SessionState.SetString(KeyHintPx, best.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+            }
+        }
+
+        static float W1HintPx()
+        {
+            if (_w1HintPx > 1f)
+            {
+                return _w1HintPx;
+            }
+
+            string stored = SessionState.GetString(KeyHintPx, string.Empty);
+            float parsed;
+            if (float.TryParse(stored, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out parsed) && parsed > 1f)
+            {
+                _w1HintPx = parsed;
+                return parsed;
+            }
+
+            return -1f;
+        }
+
+        static float HintLinePx(Text text)
+        {
+            if (text == null || text.rectTransform == null)
+            {
+                return 0f;
+            }
+
+            float scale = text.rectTransform.lossyScale.y;
+            if (scale < 0f)
+            {
+                scale = -scale;
+            }
+
+            if (scale < 0.01f)
+            {
+                scale = 1f;
+            }
+
+            float px = text.preferredHeight * scale;
+            if (px < 1f)
+            {
+                px = text.fontSize * scale;
+            }
+
+            return px;
+        }
+
+        static void NoteMineContrast(string world)
+        {
+            if (world != "4")
+            {
+                return;
+            }
+
+            if (FrameMineContrast < 0f)
+            {
+                NoteLayerFail("mine contrast missing");
+                return;
+            }
+
+            if (FrameMineContrast < MineContrastMin)
+            {
+                NoteLayerFail(
+                    "mine contrast "
+                    + FrameMineContrast.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+            }
+        }
+
+        static string BlobCoverHit()
+        {
+            Renderer[] renderers = UnityEngine.Object.FindObjectsByType<Renderer>();
+            if (renderers == null)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null || renderer.gameObject == null || renderer.gameObject.name != "ContactBlob")
+                {
+                    continue;
+                }
+
+                if (!renderer.enabled || !renderer.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                string hit = CoverHit(renderer);
+                if (hit != null)
+                {
+                    return hit;
+                }
+            }
+
+            return null;
+        }
+
+        static string CoverHit(Renderer cover)
+        {
+            if (cover == null)
+            {
+                return null;
+            }
+
+            Bounds box = cover.bounds;
+            float floorY = -4f;
+            float surface;
+            if (FloorSurface.TryTop(box.center.x, box.center.z, box.center.y + 4f, out surface))
+            {
+                floorY = surface;
+            }
+
+            string kind = "blob above ";
+            if (cover.gameObject != null && cover.gameObject.name.IndexOf("SpawnContrast", System.StringComparison.Ordinal) >= 0)
+            {
+                kind = "spawn-disc above ";
+            }
+
+            Renderer[] renderers = UnityEngine.Object.FindObjectsByType<Renderer>();
+            if (renderers == null)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer other = renderers[i];
+                if (!MustStayUnder(other) || other == cover)
+                {
+                    continue;
+                }
+
+                Bounds obstacle = other.bounds;
+                if (box.max.x < obstacle.min.x || box.min.x > obstacle.max.x || box.max.z < obstacle.min.z || box.min.z > obstacle.max.z)
+                {
+                    continue;
+                }
+
+                if (obstacle.max.y <= floorY + FloorSurface.MaxLift + 0.02f)
+                {
+                    continue;
+                }
+
+                if (box.min.y > obstacle.max.y - 0.02f)
+                {
+                    return kind + other.gameObject.name;
+                }
+            }
+
+            return null;
+        }
+
+        static bool MustStayUnder(Renderer renderer)
+        {
+            if (renderer == null || !renderer.enabled || renderer.gameObject == null || !renderer.gameObject.activeInHierarchy)
+            {
+                return false;
+            }
+
+            if (renderer is ParticleSystemRenderer || renderer is LineRenderer || renderer is TrailRenderer)
+            {
+                return false;
+            }
+
+            if (FloorSurface.IsFloor(renderer) || renderer.GetComponentInParent<Canvas>() != null)
+            {
+                return false;
+            }
+
+            string name = renderer.gameObject.name;
+            if (name == "ContactBlob" || name == "Arena_SpawnContrast" || name == "ShieldBubble" || name == "ArenaLip")
+            {
+                return false;
+            }
+
+            if (name == "VoidField" || name == "OuterNebula" || name == "NearDust" || name == "BeltRock")
+            {
+                return false;
+            }
+
+            if (name == "StarFar" || name == "StarMid" || name == "StarNear" || name == "NebulaDome" || name == "NebulaInner")
+            {
+                return false;
+            }
+
+            if (name == "AstroGrid" || name.IndexOf("Grid", System.StringComparison.Ordinal) >= 0)
+            {
+                return false;
+            }
+
+            if (renderer.GetComponentInParent<ArenaHazard>() != null)
+            {
+                return true;
+            }
+
+            if (renderer.GetComponentInParent<EnemySeeker>() != null || renderer.GetComponentInParent<Asteroid>() != null)
+            {
+                return true;
+            }
+
+            if (renderer.GetComponentInParent<Pickup>() != null || renderer.GetComponentInParent<ShipController>() != null)
+            {
+                return true;
+            }
+
+            string material = renderer.sharedMaterial != null ? renderer.sharedMaterial.name : string.Empty;
+            if (HasToken(name, "Beam") || HasToken(name, "Mine") || HasToken(name, "Spike") || HasToken(name, "Hazard") || HasToken(name, "Decal"))
+            {
+                return true;
+            }
+
+            return HasToken(material, "Beam") || HasToken(material, "Mine") || HasToken(material, "Hazard") || HasToken(material, "Accent") || HasToken(material, "Glow");
+        }
+
+        static bool HasToken(string value, string token)
+        {
+            if (string.IsNullOrEmpty(value) || string.IsNullOrEmpty(token))
+            {
+                return false;
+            }
+
+            return value.IndexOf(token, System.StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         static string BlobPlacementHit(Component[] bodies)
@@ -3032,12 +3461,14 @@ namespace AsteroidsGoneRogue.EditorTools
         static float FrameShipContrast = -1f;
         static float FrameBlobDarken = -1f;
         static float FrameFloorLuma = -1f;
+        static float FrameMineContrast = -1f;
 
         static void SampleFrame(RenderTexture hdr, Camera cam)
         {
             FrameShipContrast = -1f;
             FrameBlobDarken = -1f;
             FrameFloorLuma = -1f;
+            FrameMineContrast = -1f;
             int shot = SessionState.GetInt(KeyShot, 0);
             bool contrastShot = shot == 1 || shot == 5;
             bool blobShot = shot == 1 || shot == 2 || shot == 3;
@@ -3084,6 +3515,11 @@ namespace AsteroidsGoneRogue.EditorTools
                 {
                     FrameBlobDarken = MeasureBlob(cam, image, hull, shipRadius);
                 }
+
+                if (shot == 3)
+                {
+                    FrameMineContrast = MeasureMineContrast(cam, image);
+                }
             }
             catch (System.Exception sampleEx)
             {
@@ -3104,60 +3540,276 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static float MeasureContrast(Camera cam, Texture2D image, Vector3 hull, float shipRadius)
         {
-            float ship = Brightest(cam, image, hull, shipRadius * 0.45f);
-            float discRadius = SpawnDiscWorldRadius();
-            float sample = shipRadius * 1.35f;
-            if (discRadius > 0.5f)
-            {
-                // ReadPixels ring on the disc, outside the contact blob. The
-                // texture stays solid until 0.8 of the radius, so 0.72 is disc
-                // colour. A sample inside the blob would pass on the hull shadow.
-                float blobRadius = ContactBlobWorldRadius(hull);
-                if (blobRadius < 0.2f)
-                {
-                    blobRadius = shipRadius * ContactBlob.RadiusPad;
-                }
-
-                float outsideBlob = blobRadius * 1.08f;
-                float solid = discRadius * 0.72f;
-                float edge = discRadius * 0.9f;
-                if (solid > outsideBlob)
-                {
-                    sample = solid;
-                }
-                else if (outsideBlob < edge)
-                {
-                    sample = outsideBlob;
-                }
-                else
-                {
-                    sample = edge;
-                }
-
-                if (sample < shipRadius * 1.2f)
-                {
-                    sample = shipRadius * 1.2f;
-                }
-
-                if (sample > edge)
-                {
-                    sample = edge;
-                }
-            }
-
-            float floor = RingMedian(cam, image, hull, sample);
-            if (ship < 0f || floor < 0f)
+            int cx;
+            int cy;
+            if (!WorldPixel(cam, hull, out cx, out cy))
             {
                 return 0f;
             }
 
-            float safe = floor;
+            float ppm = 26f;
+            int ax;
+            int ay;
+            if (WorldPixel(cam, hull + new Vector3(1f, 0f, 0f), out ax, out ay))
+            {
+                float dx = ax - cx;
+                float dy = ay - cy;
+                float step = Mathf.Sqrt((dx * dx) + (dy * dy));
+                if (step > 1f)
+                {
+                    ppm = step;
+                }
+            }
+
+            float hullPx = shipRadius * ppm;
+            if (hullPx < 8f)
+            {
+                hullPx = 8f;
+            }
+
+            float discPx = SpawnDiscWorldRadius() * ppm;
+            float solidPx = discPx * 0.75f;
+            if (solidPx < hullPx + 6f)
+            {
+                solidPx = hullPx + 18f;
+            }
+
+            float[] hullSamples = new float[16];
+            float[] discSamples = new float[16];
+            int hullCount = 0;
+            int discCount = 0;
+            for (int step = 0; step < 16; step++)
+            {
+                float ang = step * Mathf.PI * 2f / 16f;
+                float c = Mathf.Cos(ang);
+                float s = Mathf.Sin(ang);
+                float inside = -1f;
+                int limit = (int)solidPx;
+                if (limit > 96)
+                {
+                    limit = 96;
+                }
+
+                if (limit < 20)
+                {
+                    limit = 20;
+                }
+
+                for (int radius = 2; radius <= limit; radius++)
+                {
+                    int px = cx + (int)(c * radius);
+                    int py = cy + (int)(s * radius);
+                    if (px < 2 || py < 2 || px >= Width - 2 || py >= Height - 2)
+                    {
+                        break;
+                    }
+
+                    float luma = PatchLuma(image, px, py);
+                    if (radius < hullPx * 0.55f && luma > inside)
+                    {
+                        inside = luma;
+                    }
+
+                    bool edge = inside > 0.02f && radius > hullPx * 0.35f && luma < inside * 0.55f;
+                    if (!edge)
+                    {
+                        continue;
+                    }
+
+                    int hullR = radius - 3;
+                    if (hullR < 1)
+                    {
+                        hullR = 1;
+                    }
+
+                    hullSamples[hullCount] = PatchLuma(image, cx + (int)(c * hullR), cy + (int)(s * hullR));
+                    hullCount++;
+                    int discR = radius + 4;
+                    if (discR > solidPx)
+                    {
+                        discR = radius + 2;
+                    }
+
+                    if (discR > limit)
+                    {
+                        discR = limit;
+                    }
+
+                    discSamples[discCount] = PatchLuma(image, cx + (int)(c * discR), cy + (int)(s * discR));
+                    discCount++;
+                    break;
+                }
+            }
+
+            if (discCount < 4)
+            {
+                hullCount = 0;
+                discCount = 0;
+                int discR = 45;
+                if (hullPx + 6f > 38f && hullPx + 6f < 52f)
+                {
+                    discR = (int)(hullPx + 6f);
+                }
+
+                int hullR = (int)(hullPx * 0.45f);
+                if (hullR < 4)
+                {
+                    hullR = 4;
+                }
+
+                if (hullR > discR - 4)
+                {
+                    hullR = discR - 4;
+                }
+
+                for (int step = 0; step < 16; step++)
+                {
+                    float ang = step * Mathf.PI * 2f / 16f;
+                    float c = Mathf.Cos(ang);
+                    float s = Mathf.Sin(ang);
+                    int hx = cx + (int)(c * hullR);
+                    int hy = cy + (int)(s * hullR);
+                    int dx = cx + (int)(c * discR);
+                    int dy = cy + (int)(s * discR);
+                    if (hx >= 2 && hy >= 2 && hx < Width - 2 && hy < Height - 2)
+                    {
+                        hullSamples[hullCount] = PatchLuma(image, hx, hy);
+                        hullCount++;
+                    }
+
+                    if (dx >= 2 && dy >= 2 && dx < Width - 2 && dy < Height - 2)
+                    {
+                        discSamples[discCount] = PatchLuma(image, dx, dy);
+                        discCount++;
+                    }
+                }
+            }
+
+            float ship = Median(hullSamples, hullCount);
+            float disc = Median(discSamples, discCount);
+            if (ship < 0f || disc < 0f)
+            {
+                return 0f;
+            }
+
+            float safe = disc;
             if (safe < 0.0001f)
             {
                 safe = 0.0001f;
             }
 
             return ship / safe;
+        }
+
+        static float MeasureMineContrast(Camera cam, Texture2D image)
+        {
+            ArenaHazard[] hazards = UnityEngine.Object.FindObjectsByType<ArenaHazard>();
+            if (hazards == null || hazards.Length == 0)
+            {
+                return -1f;
+            }
+
+            float[] ratios = new float[hazards.Length];
+            int count = 0;
+            for (int i = 0; i < hazards.Length; i++)
+            {
+                ArenaHazard hazard = hazards[i];
+                if (hazard == null || !hazard.Damaging || !hazard.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                Renderer[] parts = hazard.GetComponentsInChildren<Renderer>();
+                if (parts == null || parts.Length == 0)
+                {
+                    continue;
+                }
+
+                bool boxed = false;
+                Bounds box = new Bounds(hazard.transform.position, Vector3.zero);
+                float bright = -1f;
+                for (int p = 0; p < parts.Length; p++)
+                {
+                    Renderer part = parts[p];
+                    if (part == null || !part.enabled || part is ParticleSystemRenderer)
+                    {
+                        continue;
+                    }
+
+                    if (!boxed)
+                    {
+                        box = part.bounds;
+                        boxed = true;
+                    }
+                    else
+                    {
+                        box.Encapsulate(part.bounds);
+                    }
+
+                    float sample = Brightest(cam, image, part.bounds.center, part.bounds.extents.magnitude * 0.35f);
+                    if (sample > bright)
+                    {
+                        bright = sample;
+                    }
+                }
+
+                if (!boxed || bright < 0f)
+                {
+                    continue;
+                }
+
+                float reach = box.extents.x;
+                if (box.extents.z > reach)
+                {
+                    reach = box.extents.z;
+                }
+
+                reach += 1.6f;
+                float floor = RingMedian(cam, image, new Vector3(box.center.x, box.min.y, box.center.z), reach);
+                if (floor < 0f)
+                {
+                    continue;
+                }
+
+                float safe = floor;
+                if (safe < 0.0001f)
+                {
+                    safe = 0.0001f;
+                }
+
+                ratios[count] = bright / safe;
+                count++;
+            }
+
+            return Median(ratios, count);
+        }
+
+        static float Median(float[] values, int count)
+        {
+            if (values == null || count <= 0)
+            {
+                return -1f;
+            }
+
+            if (count > values.Length)
+            {
+                count = values.Length;
+            }
+
+            for (int i = 1; i < count; i++)
+            {
+                float key = values[i];
+                int slot = i - 1;
+                while (slot >= 0 && values[slot] > key)
+                {
+                    values[slot + 1] = values[slot];
+                    slot--;
+                }
+
+                values[slot + 1] = key;
+            }
+
+            return values[count / 2];
         }
 
         static float SpawnDiscWorldRadius()

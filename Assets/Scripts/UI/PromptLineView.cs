@@ -12,6 +12,7 @@ namespace AsteroidsGoneRogue
     {
         public string Source;
         public string Stamp;
+        public bool LockMetrics;
     }
 
     /// <summary>
@@ -25,6 +26,17 @@ namespace AsteroidsGoneRogue
         private static readonly HashSet<string> Missing = new HashSet<string>();
 
         public static void Paint(Text host, string source, InputScheme scheme, float canvasScale)
+        {
+            PromptLineMark existing = host != null ? host.GetComponent<PromptLineMark>() : null;
+            bool locked = existing != null && existing.LockMetrics;
+            Paint(host, source, scheme, canvasScale, locked);
+        }
+
+        /// <summary>
+        /// lockMetrics keeps the host font, material, and scale. The wave-clear
+        /// hint uses it so the row is not shrunk or scaled away from the wave-1 hint.
+        /// </summary>
+        public static void Paint(Text host, string source, InputScheme scheme, float canvasScale, bool lockMetrics)
         {
             if (host == null)
             {
@@ -47,7 +59,9 @@ namespace AsteroidsGoneRogue
                 hostHeight = host.rectTransform.rect.height;
             }
 
-            string stamp = ((int)scheme).ToString()
+            string stamp = (lockMetrics ? "L" : "F")
+                + "|"
+                + ((int)scheme).ToString()
                 + "|"
                 + canvasScale.ToString("0.000")
                 + "|"
@@ -67,6 +81,7 @@ namespace AsteroidsGoneRogue
 
             mark.Source = safe;
             mark.Stamp = stamp;
+            mark.LockMetrics = lockMetrics;
             host.text = string.Empty;
             host.raycastTarget = false;
             Clear(host.transform);
@@ -106,7 +121,7 @@ namespace AsteroidsGoneRogue
                 float gap = host.fontSize * 0.12f;
                 float rowWidth = PromptLayout.RowWidth(widths, gap);
                 float fit = 1f;
-                if (hostWidth > 2f && hostHeight > 2f)
+                if (!lockMetrics && hostWidth > 2f && hostHeight > 2f)
                 {
                     fit = PromptLayout.ScaleToFit(rowWidth, lineHeight, hostWidth, hostHeight);
                 }
@@ -162,7 +177,7 @@ namespace AsteroidsGoneRogue
                         pieceWidth = rightLimit - cursorX;
                     }
 
-                    Place(host, pieces[pieceIndex], scheme, hi, drawIcon, drawFont, cursorX, cursorY, pieceWidth, drawLine);
+                    Place(host, pieces[pieceIndex], scheme, hi, drawIcon, drawFont, cursorX, cursorY, pieceWidth, drawLine, lockMetrics);
                     cursorX += pieceWidth + drawGap;
                 }
             }
@@ -181,8 +196,9 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            bool locked = mark.LockMetrics;
             mark.Stamp = string.Empty;
-            Paint(host, mark.Source, scheme, canvasScale);
+            Paint(host, mark.Source, scheme, canvasScale, locked);
         }
 
         private static void Place(
@@ -195,7 +211,8 @@ namespace AsteroidsGoneRogue
             float x,
             float y,
             float width,
-            float lineHeight)
+            float lineHeight,
+            bool lockMetrics)
         {
             if (piece.Kind == PromptPieceKind.Icon)
             {
@@ -242,6 +259,7 @@ namespace AsteroidsGoneRogue
             RectTransform textRect = textObject.AddComponent<RectTransform>();
             Text text = textObject.AddComponent<Text>();
             text.font = host.font;
+            text.material = host.material;
             text.fontSize = fontSize > 0 ? fontSize : host.fontSize;
             text.fontStyle = host.fontStyle;
             text.color = host.color;
@@ -264,13 +282,26 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            textRect.localScale = Vector3.one;
+            if (lockMetrics)
+            {
+                textX = Mathf.Round(textX);
+                textY = Mathf.Round(textY);
+                textWidth = Mathf.Round(textWidth);
+                textHeight = Mathf.Round(textHeight);
+                text.fontSize = host.fontSize > 0 ? host.fontSize : text.fontSize;
+            }
+
             textRect.sizeDelta = new Vector2(textWidth, textHeight);
             textRect.anchoredPosition = new Vector2(textX, textY);
-            int size = text.fontSize;
-            while (size > 1 && (text.preferredWidth > textWidth + 1f || text.preferredHeight > textHeight + 1f))
+            if (!lockMetrics)
             {
-                size--;
-                text.fontSize = size;
+                int size = text.fontSize;
+                while (size > 1 && (text.preferredWidth > textWidth + 1f || text.preferredHeight > textHeight + 1f))
+                {
+                    size--;
+                    text.fontSize = size;
+                }
             }
         }
 
