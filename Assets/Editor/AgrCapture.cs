@@ -45,6 +45,7 @@ namespace AsteroidsGoneRogue.EditorTools
         const string KeySeen = "AgrCapture.Seen";
         const string KeyError = "AgrCapture.Error";
         const string KeyHud = "AgrCapture.Hud";
+        const string KeyLayer = "AgrCapture.Layer";
         const string KeyStart = "AgrCapture.Start";
         const string KeyPlayStart = "AgrCapture.PlayStart";
         const string KeyRestored = "AgrCapture.Restored";
@@ -146,6 +147,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 SessionState.SetInt(KeySeen, -1);
                 SessionState.SetString(KeyError, string.Empty);
                 SessionState.SetString(KeyHud, string.Empty);
+                SessionState.SetString(KeyLayer, string.Empty);
                 SessionState.SetBool(KeyRestored, false);
                 SessionState.SetBool(KeySceneLogged, false);
                 string now = StampNow();
@@ -507,7 +509,7 @@ namespace AsteroidsGoneRogue.EditorTools
                     Debug.Log("AgrCapture backup kept " + kept);
                 }
 
-                int code = CaptureContinue.ExitCode(HasError(), HasHudFail());
+                int code = CaptureContinue.ExitCode(HasError(), HasHudFail(), HasLayerFail());
 
                 ClearSession();
                 EditorApplication.update -= Tick;
@@ -666,6 +668,7 @@ namespace AsteroidsGoneRogue.EditorTools
             Debug.Log("AgrCapture: wrote " + path + " (" + png.Length.ToString() + " bytes)");
             LogGrade("shot " + shot.ToString());
             CheckHudLayout(shot);
+            CheckLayer(shot);
         }
 
         static void AdvanceShot()
@@ -2731,9 +2734,358 @@ namespace AsteroidsGoneRogue.EditorTools
             public float MaxY;
         }
 
+        static readonly System.Collections.Generic.List<string> LayerUiHits = new System.Collections.Generic.List<string>();
+
+        static void CheckLayer(int shot)
+        {
+            string world = LayerWorld(shot);
+            string path = WhitelistPath();
+            LayerGate.Rules rules = null;
+            if (System.IO.File.Exists(path))
+            {
+                string json = System.IO.File.ReadAllText(path);
+                string error;
+                if (!LayerGate.TryParse(json, out rules, out error))
+                {
+                    rules = null;
+                }
+            }
+
+            string[] hits = LayerGate.Evaluate(world, rules, CollectFacts(), CollectCanvases(), LayerUiHits.ToArray(), CollectBodies());
+            for (int i = 0; i < hits.Length; i++)
+            {
+                NoteLayerFail(world + " " + hits[i]);
+            }
+        }
+
+        static string LayerWorld(int shot)
+        {
+            if (shot == 0)
+            {
+                return "hangar";
+            }
+
+            if (shot == 2)
+            {
+                return "3";
+            }
+
+            if (shot == 3)
+            {
+                return "4";
+            }
+
+            if (shot == 4)
+            {
+                return "death";
+            }
+
+            if (shot == 5)
+            {
+                return "waveclear";
+            }
+
+            return "1";
+        }
+
+        static string WhitelistPath()
+        {
+            return System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "..", "Tools", "layer_whitelist.json"));
+        }
+
+        static LayerGate.Fact[] CollectFacts()
+        {
+            System.Collections.Generic.List<LayerGate.Fact> facts = new System.Collections.Generic.List<LayerGate.Fact>();
+            Renderer[] renderers = UnityEngine.Object.FindObjectsByType<Renderer>();
+            if (renderers == null)
+            {
+                return facts.ToArray();
+            }
+
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                if (renderer.GetComponentInParent<Canvas>() != null)
+                {
+                    continue;
+                }
+
+                Material[] slots = renderer.sharedMaterials;
+                if (slots == null || slots.Length == 0)
+                {
+                    facts.Add(FactFrom(renderer, null));
+                    continue;
+                }
+
+                for (int slot = 0; slot < slots.Length; slot++)
+                {
+                    facts.Add(FactFrom(renderer, slots[slot]));
+                }
+            }
+
+            return facts.ToArray();
+        }
+
+        static LayerGate.Fact FactFrom(Renderer renderer, Material material)
+        {
+            string materialName = material != null ? material.name : string.Empty;
+            string shaderName = string.Empty;
+            if (material != null && material.shader != null)
+            {
+                shaderName = material.shader.name;
+            }
+
+            float alpha = 1f;
+            float albedo = 0f;
+            float emission = 0f;
+            if (material != null)
+            {
+                Color color = material.color;
+                alpha = color.a;
+                albedo = Luma(color);
+                if (material.HasProperty("_EmissionColor"))
+                {
+                    emission = Luma(material.GetColor("_EmissionColor"));
+                }
+            }
+
+            int ztest = 0;
+            int queue = -1;
+            if (material != null)
+            {
+                queue = material.renderQueue;
+                if (material.HasProperty("_ZTest"))
+                {
+                    ztest = (int)material.GetFloat("_ZTest");
+                }
+            }
+
+            LayerGate.Fact fact = new LayerGate.Fact();
+            fact.Name = renderer != null ? renderer.gameObject.name : string.Empty;
+            fact.Material = materialName;
+            fact.Shader = shaderName;
+            fact.Role = LayerRole(renderer, materialName, shaderName);
+            fact.Queue = queue;
+            fact.ZTest = ztest;
+            fact.Alpha = alpha;
+            fact.Emission = emission;
+            fact.Albedo = albedo;
+            fact.Unlit = UnlitShader(shaderName);
+            fact.Active = true;
+            return fact;
+        }
+
+        static string LayerRole(Renderer renderer, string material, string shader)
+        {
+            if (renderer == null)
+            {
+                return "decor";
+            }
+
+            string name = renderer.gameObject.name;
+            if (name == "ContactBlob")
+            {
+                return "decor";
+            }
+
+            if (name == "ArenaLip" || material == "Mat_Env_Lip")
+            {
+                return "dome";
+            }
+
+            if (shader != null && shader.IndexOf("AGR/Post", System.StringComparison.Ordinal) >= 0)
+            {
+                return "post";
+            }
+
+            if (renderer.GetComponentInParent<ShipController>() != null)
+            {
+                return "ship";
+            }
+
+            if (renderer.GetComponentInParent<EnemySeeker>() != null)
+            {
+                return "enemy";
+            }
+
+            if (renderer.GetComponentInParent<Asteroid>() != null)
+            {
+                return "asteroid";
+            }
+
+            if (renderer.GetComponentInParent<Pickup>() != null)
+            {
+                return "pickup";
+            }
+
+            if (PillarName(name))
+            {
+                return "pillar";
+            }
+
+            return "decor";
+        }
+
+        static bool PillarName(string name)
+        {
+            if (name == null)
+            {
+                return false;
+            }
+
+            if (name.IndexOf("Pillar", System.StringComparison.Ordinal) >= 0)
+            {
+                return true;
+            }
+
+            if (name.IndexOf("Pylon", System.StringComparison.Ordinal) >= 0)
+            {
+                return true;
+            }
+
+            if (name.IndexOf("LayoutWall", System.StringComparison.Ordinal) >= 0)
+            {
+                return true;
+            }
+
+            return name.IndexOf("Spike", System.StringComparison.Ordinal) >= 0;
+        }
+
+        static bool UnlitShader(string shader)
+        {
+            if (shader == null || shader.Length == 0)
+            {
+                return false;
+            }
+
+            if (shader.IndexOf("Unlit", System.StringComparison.Ordinal) >= 0)
+            {
+                return true;
+            }
+
+            if (shader.IndexOf("BeamAdd", System.StringComparison.Ordinal) >= 0)
+            {
+                return true;
+            }
+
+            if (shader.IndexOf("BlobShadow", System.StringComparison.Ordinal) >= 0)
+            {
+                return true;
+            }
+
+            return shader.IndexOf("Sprites/Default", System.StringComparison.Ordinal) >= 0;
+        }
+
+        static float Luma(Color color)
+        {
+            return (0.2126f * color.r) + (0.7152f * color.g) + (0.0722f * color.b);
+        }
+
+        static LayerGate.CanvasFact[] CollectCanvases()
+        {
+            System.Collections.Generic.List<LayerGate.CanvasFact> facts = new System.Collections.Generic.List<LayerGate.CanvasFact>();
+            Canvas[] canvases = UnityEngine.Object.FindObjectsByType<Canvas>();
+            if (canvases == null)
+            {
+                return facts.ToArray();
+            }
+
+            for (int i = 0; i < canvases.Length; i++)
+            {
+                Canvas canvas = canvases[i];
+                if (canvas == null || !canvas.isActiveAndEnabled)
+                {
+                    continue;
+                }
+
+                LayerGate.CanvasFact fact = new LayerGate.CanvasFact();
+                fact.Name = canvas.gameObject.name;
+                fact.Sort = canvas.sortingOrder;
+                fact.Enabled = true;
+                facts.Add(fact);
+            }
+
+            return facts.ToArray();
+        }
+
+        static LayerGate.BodyFact[] CollectBodies()
+        {
+            System.Collections.Generic.List<LayerGate.BodyFact> bodies = new System.Collections.Generic.List<LayerGate.BodyFact>();
+            AddBodies(UnityEngine.Object.FindObjectsByType<ShipController>(), "ship", bodies);
+            AddBodies(UnityEngine.Object.FindObjectsByType<EnemySeeker>(), "enemy", bodies);
+            AddBodies(UnityEngine.Object.FindObjectsByType<Asteroid>(), "asteroid", bodies);
+            return bodies.ToArray();
+        }
+
+        static void AddBodies(Component[] bodies, string kind, System.Collections.Generic.List<LayerGate.BodyFact> into)
+        {
+            if (bodies == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < bodies.Length; i++)
+            {
+                Component body = bodies[i];
+                if (body == null || !body.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                LayerGate.BodyFact fact = new LayerGate.BodyFact();
+                fact.Name = body.gameObject.name;
+                fact.Kind = kind;
+                fact.Active = true;
+                fact.HasContact = HasContact(body);
+                into.Add(fact);
+            }
+        }
+
+        static bool HasContact(Component body)
+        {
+            if (body == null)
+            {
+                return false;
+            }
+
+            Transform child = body.transform.Find("ContactBlob");
+            if (child == null)
+            {
+                return false;
+            }
+
+            Renderer renderer = child.GetComponent<Renderer>();
+            return renderer != null && renderer.enabled && renderer.gameObject.activeInHierarchy;
+        }
+
+        static void NoteLayerUi(string left, string right)
+        {
+            if (left == null || right == null)
+            {
+                return;
+            }
+
+            string line = left + " x " + right;
+            for (int i = 0; i < LayerUiHits.Count; i++)
+            {
+                if (LayerUiHits[i] == line)
+                {
+                    return;
+                }
+            }
+
+            LayerUiHits.Add(line);
+        }
+
         static void CheckHudLayout(int shot)
         {
-            if (shot < 1 || shot > 4)
+            LayerUiHits.Clear();
+            if (shot < 0)
             {
                 return;
             }
@@ -2947,6 +3299,8 @@ namespace AsteroidsGoneRogue.EditorTools
                     {
                         firstOverlap = "hud overlap " + leftMark.Block + " x " + rightMark.Block;
                     }
+
+                    NoteLayerUi(leftMark.Block, rightMark.Block);
                 }
             }
 
@@ -3022,6 +3376,8 @@ namespace AsteroidsGoneRogue.EditorTools
                     {
                         firstOverlap = "hud glyph overlap " + leftMark.Block + " x " + rightMark.Block;
                     }
+
+                    NoteLayerUi(leftMark.Block, rightMark.Block);
                 }
             }
         }
@@ -3481,6 +3837,11 @@ namespace AsteroidsGoneRogue.EditorTools
             return SessionState.GetString(KeyHud, string.Empty).Length > 0;
         }
 
+        static bool HasLayerFail()
+        {
+            return SessionState.GetString(KeyLayer, string.Empty).Length > 0;
+        }
+
         static bool HudOverlay(HudMark mark, int width, int height)
         {
             if (mark == null)
@@ -3503,6 +3864,24 @@ namespace AsteroidsGoneRogue.EditorTools
             float wide = width > 1 ? width : 1f;
             float tall = height > 1 ? height : 1f;
             return spanX >= wide * 0.9f && spanY >= tall * 0.9f;
+        }
+
+        static void NoteLayerFail(string reason)
+        {
+            Debug.LogError("AgrCapture layer FAIL: " + reason);
+            string prior = SessionState.GetString(KeyLayer, string.Empty);
+            if (prior.Length == 0)
+            {
+                SessionState.SetString(KeyLayer, reason);
+                return;
+            }
+
+            if (prior.IndexOf(reason, System.StringComparison.Ordinal) >= 0)
+            {
+                return;
+            }
+
+            SessionState.SetString(KeyLayer, prior + " | " + reason);
         }
 
         static void NoteHudFail(string reason)
@@ -3565,6 +3944,7 @@ namespace AsteroidsGoneRogue.EditorTools
             SessionState.EraseInt(KeySeen);
             SessionState.EraseString(KeyError);
             SessionState.EraseString(KeyHud);
+            SessionState.EraseString(KeyLayer);
             SessionState.EraseString(KeyStart);
             SessionState.EraseString(KeyPlayStart);
             SessionState.EraseBool(KeyRestored);

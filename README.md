@@ -212,6 +212,8 @@ python3 Tools/validate_week1_project.py
 python3 Tools/test_week1_logic.py
 ```
 
+`validate_week1_project.py` includes the static layer gate (`Tools/layer_gate_check.py`). The capture run checks the live scene. Both are described in **[Docs/0.48/LAYER_GATE.md](Docs/0.48/LAYER_GATE.md)**.
+
 `Tools/generate_unity_assets.py` recreates `.meta` GUIDs, stub materials/prefabs, and `Play.unity`. Re-run it only if you intentionally change that generator.
 
 ## Merge to `main`

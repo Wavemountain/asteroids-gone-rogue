@@ -24,7 +24,12 @@ namespace AsteroidsGoneRogue
 
         public static int ExitCode(bool fatal, bool hudFailed)
         {
-            if (fatal || hudFailed)
+            return ExitCode(fatal, hudFailed, false);
+        }
+
+        public static int ExitCode(bool fatal, bool hudFailed, bool layerFailed)
+        {
+            if (fatal || hudFailed || layerFailed)
             {
                 return 1;
             }
@@ -54,7 +59,12 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            return ExitCode(false, false) == 0;
+            if (ExitCode(false, false, true) != 1)
+            {
+                return false;
+            }
+
+            return ExitCode(false, false) == 0 && ExitCode(false, false, false) == 0;
         }
     }
 }

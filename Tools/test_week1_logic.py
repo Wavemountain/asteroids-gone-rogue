@@ -16029,6 +16029,24 @@ def test_capture_048_clearance_hud() -> None:
     assert "NoteHudFail(firstOutside" in outside_check
     assert "Fail(" not in outside_check.replace("NoteHudFail(", "")
     assert "CaptureContinue.NextShot" in capture and "CaptureContinue.ExitCode" in capture
+    assert "ExitCode(HasError(), HasHudFail(), HasLayerFail())" in capture
+    assert "CheckLayer(" in capture and "AgrCapture layer FAIL:" in capture
+    assert "LayerGate.Evaluate" in capture
+    assert "NoteLayerFail(" in capture
+    layer_gate = (root / "Assets/Scripts/Core/LayerGate.cs").read_text(encoding="utf-8")
+    for token in (
+        "unknown",
+        "dead",
+        "ztest-always",
+        "overlay-queue",
+        "gameplay-queue",
+        "dome-ztest",
+        "canvas-sort",
+        "ui-overlap",
+        "contact-shadow",
+    ):
+        assert f'"{token}"' in layer_gate
+    assert (root / "Tools/layer_whitelist.json").is_file()
     assert "PlayVignette" in capture and "RefitPlayHint" in capture
     assert "HorizontalWrapMode.Wrap" in (root / "Assets/Scripts/UI/PromptLineView.cs").read_text(encoding="utf-8")
     assert "ScaleToFit" in (root / "Assets/Scripts/Core/PromptLayout.cs").read_text(encoding="utf-8")
@@ -16038,6 +16056,10 @@ def test_capture_048_clearance_hud() -> None:
     tools = Path(__file__).resolve().parent
     if str(tools) not in sys.path:
         sys.path.insert(0, str(tools))
+    import layer_gate_check
+
+    assert layer_gate_check.injection_errors() == []
+    assert layer_gate_check.check(root) == []
     from roslyn_core_check import find_dotnet
 
     dotnet = find_dotnet()
@@ -16052,6 +16074,7 @@ def test_capture_048_clearance_hud() -> None:
     shutil.copyfile(root / "Assets/Scripts/Core/EffectScale.cs", work / "EffectScale.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/PromptLayout.cs", work / "PromptLayout.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/CaptureContinue.cs", work / "CaptureContinue.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/LayerGate.cs", work / "LayerGate.cs")
     program = """
 using System;
 namespace AsteroidsGoneRogue
@@ -16071,6 +16094,7 @@ class Program
         if (!AsteroidsGoneRogue.PremiumLook.SelfCheck()) throw new Exception("look");
         if (!AsteroidsGoneRogue.PromptLayout.SelfCheck()) throw new Exception("prompt fit");
         if (!AsteroidsGoneRogue.CaptureContinue.SelfCheck()) throw new Exception("capture continue");
+        if (!AsteroidsGoneRogue.LayerGate.SelfCheck()) throw new Exception("layer gate");
         if (AsteroidsGoneRogue.CaptureContinue.NextShot(2, true, false) != 3) throw new Exception("hud fail still advances");
         Console.WriteLine("clearance-ok");
     }
@@ -16095,6 +16119,7 @@ class Program
                 '    <Compile Include="EffectScale.cs" />',
                 '    <Compile Include="PromptLayout.cs" />',
                 '    <Compile Include="CaptureContinue.cs" />',
+                '    <Compile Include="LayerGate.cs" />',
                 '    <Compile Include="Program.cs" />',
                 "  </ItemGroup>",
                 "</Project>",

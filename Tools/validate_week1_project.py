@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Structural checks for the Asteroids gone rogue Week 1 Unity project."""
+"""Structural checks for the Asteroids gone rogue Week 1 Unity project.
+
+The layer gate's static half lives in Tools/layer_gate_check.py (shader ZTest,
+overlay queues, whitelist, dome depth). Runtime checks run inside AgrCapture.
+See Docs/0.48/LAYER_GATE.md.
+"""
 
 from __future__ import annotations
 
@@ -2298,6 +2303,10 @@ def main() -> int:
         err("GameUi must route settings before hangar Esc")
 
     check_canvas_sort(scripts)
+    import layer_gate_check
+
+    for layer_hit in layer_gate_check.check(ROOT):
+        err("layer gate: " + layer_hit)
 
     if "body.velocity" in blob or "_body.velocity" in blob:
         err("scripts still assign Rigidbody.velocity; use linearVelocity")

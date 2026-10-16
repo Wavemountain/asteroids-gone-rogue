@@ -552,6 +552,11 @@ namespace AsteroidsGoneRogue
                 PremiumLook.DomeRimAlpha);
             material.renderQueue = 3000;
             material.SetInt("_ZWrite", 0);
+            if (shader != null && shader.name == "AGR/DomeRing")
+            {
+                material.SetFloat("_ZTest", (float)LayerGate.ZTestLEqual);
+            }
+
             return material;
         }
 

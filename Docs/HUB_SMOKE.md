@@ -33,4 +33,4 @@ Short checklist for Unity Hub / Speltest on `main`. No VR/XR Continue dialog.
 
 Play Mode: **F9** cycles every ShotId (including `06_rail_charge`), **F12** PNG → `Docs/StoreCaptures/out/`. Menu **Asteroids gone rogue → Store Captures** (named poses + Cycle pose). See `Docs/StoreCaptures/README.md`. Capsule amber `#D4A04A`, 3/4 `Ship_Complete`. PNGs are captured at Hub-smoke, not in repo.
 
-Repo checks (no Editor): `python3 Tools/validate_week1_project.py` and `python3 Tools/test_week1_logic.py`.
+Repo checks (no Editor): `python3 Tools/validate_week1_project.py` and `python3 Tools/test_week1_logic.py`. The validator's layer gate (shader ZTest, overlay queue, whitelist, dome depth) is `Tools/layer_gate_check.py`. Capture runs the same rules per scene. See `Docs/0.48/LAYER_GATE.md`.
