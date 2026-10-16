@@ -17,13 +17,13 @@ namespace AsteroidsGoneRogue
         public const float BounceIntensity = 0.10f;
         public const float KeyR = 1f;
         public const float KeyG = 0.86f;
-        public const float KeyB = 0.66f;
+        public const float KeyB = 0.42f;
         public const float FillR = 0.56f;
         public const float FillG = 0.50f;
-        public const float FillB = 0.42f;
+        public const float FillB = 0.22f;
         public const float RimR = 0.95f;
         public const float RimG = 0.70f;
-        public const float RimB = 0.40f;
+        public const float RimB = 0.22f;
         public const float BounceR = (212f / 255f) * 0.3f;
         public const float BounceG = (160f / 255f) * 0.3f;
         public const float BounceB = (74f / 255f) * 0.3f;

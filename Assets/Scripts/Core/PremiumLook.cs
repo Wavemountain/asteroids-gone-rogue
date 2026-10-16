@@ -52,10 +52,15 @@ namespace AsteroidsGoneRogue
         public const float DomeRimAlpha = 0.30f;
         public const float EnemyCoreLift = 1.12f;
         public const float MinorEnemyLift = 1.30f;
-        public const float PreviewStudioGain = 0.68f;
-        public const float PreviewExposure = 0.56f;
-        public const float PreviewEmissionCap = 0.90f;
-        public const float PreviewAlbedoLift = 1.32f;
+        public const float PreviewStudioGain = 0.58f;
+        public const float PreviewExposure = 0.46f;
+        public const float PreviewEmissionCap = 0.65f;
+        public const float PreviewAlbedoLift = 1.05f;
+        public const float PreviewSteelR = 0.72f;
+        public const float PreviewSteelG = 0.58f;
+        public const float PreviewSteelB = 0.36f;
+        public const float PreviewSteelMix = 0.72f;
+        public const float PreviewSatKeep = 1.55f;
         public const float MineAlbedoR = 1f;
         public const float MineAlbedoG = 0.58f;
         public const float MineAlbedoB = 0.16f;
@@ -64,6 +69,8 @@ namespace AsteroidsGoneRogue
         public const float MineEmitB = 0.08f;
         public const float MineEmitScale = 4.4f;
         public const float DeathEdgeFull = 0.62f;
+        public const float DeathWashDimFull = 0.50f;
+        public const float DeathWashDimReduce = 0.28f;
         public const float HangarBloomGain = 0.45f;
         public const float HangarExposureEv = -0.40f;
         public const float DeathVignetteTarget = 0.78f;
@@ -192,6 +199,65 @@ namespace AsteroidsGoneRogue
             }
 
             return amount * u;
+        }
+
+        /// <summary>
+        /// Black multiply drawn after the warm death wash. Full is stronger.
+        /// Reduce stays milder and still darkens the edge.
+        /// </summary>
+        public static float DeathWashDim(bool reduce)
+        {
+            if (reduce)
+            {
+                return DeathWashDimReduce;
+            }
+
+            return DeathWashDimFull;
+        }
+
+        /// <summary>
+        /// Hangar-only hull grade. Pulls ice-blue steel toward a warm hull and
+        /// lifts saturation. Gameplay albedo is unchanged.
+        /// </summary>
+        public static void PreviewSteel(float red, float green, float blue, out float outR, out float outG, out float outB)
+        {
+            float keepMix = 1f - PreviewSteelMix;
+            float mixedR = (red * keepMix) + (PreviewSteelR * PreviewSteelMix);
+            float mixedG = (green * keepMix) + (PreviewSteelG * PreviewSteelMix);
+            float mixedB = (blue * keepMix) + (PreviewSteelB * PreviewSteelMix);
+            float y = (0.2126f * mixedR) + (0.7152f * mixedG) + (0.0722f * mixedB);
+            outR = y + ((mixedR - y) * PreviewSatKeep);
+            outG = y + ((mixedG - y) * PreviewSatKeep);
+            outB = y + ((mixedB - y) * PreviewSatKeep);
+            if (outR < 0f)
+            {
+                outR = 0f;
+            }
+
+            if (outG < 0f)
+            {
+                outG = 0f;
+            }
+
+            if (outB < 0f)
+            {
+                outB = 0f;
+            }
+
+            if (outR > 1f)
+            {
+                outR = 1f;
+            }
+
+            if (outG > 1f)
+            {
+                outG = 1f;
+            }
+
+            if (outB > 1f)
+            {
+                outB = 1f;
+            }
         }
 
         public static void CapPreviewEmission(float red, float green, float blue, out float outR, out float outG, out float outB)

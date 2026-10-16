@@ -240,6 +240,7 @@ namespace AsteroidsGoneRogue
 
             boss.gameObject.name = "WorldGuardian";
             boss.transform.localScale = Vector3.one * BossRules.VisualScale;
+            OpeningClearance.ScreenPlace(boss.transform);
             boss.ConfigureBoss(BossRules.HitPoints(waveIndex, DifficultySettings.Current));
             _boss = boss;
             Register(boss);
@@ -394,6 +395,7 @@ namespace AsteroidsGoneRogue
 
         private void Update()
         {
+            OpeningClearance.Tick();
             RescueStrandedThreats();
         }
 
