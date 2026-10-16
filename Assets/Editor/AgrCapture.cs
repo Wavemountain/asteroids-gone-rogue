@@ -1679,6 +1679,7 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static void CompositeOverlay(RenderTexture target)
         {
+            OverlayCameraReady = false;
             Canvas[] canvases = UnityEngine.Object.FindObjectsByType<Canvas>();
             int overlayCount = 0;
             if (canvases != null)
@@ -1703,7 +1704,6 @@ namespace AsteroidsGoneRogue.EditorTools
             RenderMode[] modes = new RenderMode[overlayCount];
             Camera[] oldCams = new Camera[overlayCount];
             float[] planes = new float[overlayCount];
-            int mask = 0;
             int filled = 0;
             for (int pickIndex = 0; pickIndex < canvases.Length; pickIndex++)
             {
@@ -1717,32 +1717,24 @@ namespace AsteroidsGoneRogue.EditorTools
                 modes[filled] = picked.renderMode;
                 oldCams[filled] = picked.worldCamera;
                 planes[filled] = picked.planeDistance;
-                int layer = picked.gameObject.layer;
-                if (layer >= 0 && layer < 32)
-                {
-                    mask |= 1 << layer;
-                }
-
                 filled++;
-            }
-
-            if (mask == 0)
-            {
-                mask = (1 << 0) | (1 << 5);
             }
 
             GameObject uiObject = new GameObject("AgrCaptureUiCamera");
             uiObject.hideFlags = HideFlags.HideAndDontSave;
+            uiObject.transform.position = new Vector3(0f, -10000f, 0f);
             Camera uiCam = uiObject.AddComponent<Camera>();
             uiCam.enabled = false;
             uiCam.clearFlags = CameraClearFlags.Depth;
-            uiCam.cullingMask = mask;
+            uiCam.cullingMask = LayerGate.UiCameraMask;
             uiCam.orthographic = true;
             uiCam.nearClipPlane = 0.01f;
             uiCam.farClipPlane = 200f;
             uiCam.rect = new Rect(0f, 0f, 1f, 1f);
             uiCam.allowHDR = false;
             uiCam.targetTexture = target;
+            OverlayCameraMask = uiCam.cullingMask;
+            OverlayCameraReady = true;
             try
             {
                 for (int assignIndex = 0; assignIndex < overlays.Length; assignIndex++)
@@ -2735,6 +2727,8 @@ namespace AsteroidsGoneRogue.EditorTools
         }
 
         static readonly System.Collections.Generic.List<string> LayerUiHits = new System.Collections.Generic.List<string>();
+        static int OverlayCameraMask;
+        static bool OverlayCameraReady;
 
         static void CheckLayer(int shot)
         {
@@ -2751,7 +2745,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 }
             }
 
-            string[] hits = LayerGate.Evaluate(world, rules, CollectFacts(), CollectCanvases(), LayerUiHits.ToArray(), CollectBodies());
+            string[] hits = LayerGate.Evaluate(world, rules, CollectFacts(), CollectCanvases(), LayerUiHits.ToArray(), CollectBodies(), CollectUiCameras(), CollectSpawnIslands());
             for (int i = 0; i < hits.Length; i++)
             {
                 NoteLayerFail(world + " " + hits[i]);
@@ -3006,11 +3000,104 @@ namespace AsteroidsGoneRogue.EditorTools
                 LayerGate.CanvasFact fact = new LayerGate.CanvasFact();
                 fact.Name = canvas.gameObject.name;
                 fact.Sort = canvas.sortingOrder;
+                fact.Layer = canvas.gameObject.layer;
                 fact.Enabled = true;
                 facts.Add(fact);
             }
 
             return facts.ToArray();
+        }
+
+        static LayerGate.CameraFact[] CollectUiCameras()
+        {
+            System.Collections.Generic.List<LayerGate.CameraFact> facts = new System.Collections.Generic.List<LayerGate.CameraFact>();
+            if (OverlayCameraReady)
+            {
+                LayerGate.CameraFact recorded = new LayerGate.CameraFact();
+                recorded.Name = "AgrCaptureUiCamera";
+                recorded.Mask = OverlayCameraMask;
+                recorded.Enabled = true;
+                facts.Add(recorded);
+            }
+
+            Camera[] cameras = UnityEngine.Object.FindObjectsByType<Camera>();
+            if (cameras == null)
+            {
+                return facts.ToArray();
+            }
+
+            for (int i = 0; i < cameras.Length; i++)
+            {
+                Camera cam = cameras[i];
+                if (cam == null || !cam.enabled || cam.gameObject == null)
+                {
+                    continue;
+                }
+
+                string name = cam.gameObject.name;
+                if (name == null || name.IndexOf("UiCamera", System.StringComparison.Ordinal) < 0)
+                {
+                    continue;
+                }
+
+                LayerGate.CameraFact fact = new LayerGate.CameraFact();
+                fact.Name = name;
+                fact.Mask = cam.cullingMask;
+                fact.Enabled = true;
+                facts.Add(fact);
+            }
+
+            return facts.ToArray();
+        }
+
+        static LayerGate.IslandFact[] CollectSpawnIslands()
+        {
+            System.Collections.Generic.List<LayerGate.IslandFact> facts = new System.Collections.Generic.List<LayerGate.IslandFact>();
+            MeshFilter[] filters = UnityEngine.Object.FindObjectsByType<MeshFilter>();
+            if (filters == null)
+            {
+                return facts.ToArray();
+            }
+
+            for (int i = 0; i < filters.Length; i++)
+            {
+                MeshFilter filter = filters[i];
+                if (!ArenaBlockoutMesh(filter))
+                {
+                    continue;
+                }
+
+                SpawnClear.AppendIslands(filter, facts);
+            }
+
+            return facts.ToArray();
+        }
+
+        static bool ArenaBlockoutMesh(MeshFilter filter)
+        {
+            if (filter == null)
+            {
+                return false;
+            }
+
+            Transform cursor = filter.transform;
+            while (cursor != null)
+            {
+                string name = cursor.name;
+                if (name == "ArenaEnv" || name == "ArenaLip")
+                {
+                    return false;
+                }
+
+                if (name != null && name.IndexOf("Blockout", System.StringComparison.Ordinal) >= 0)
+                {
+                    return true;
+                }
+
+                cursor = cursor.parent;
+            }
+
+            return false;
         }
 
         static LayerGate.BodyFact[] CollectBodies()

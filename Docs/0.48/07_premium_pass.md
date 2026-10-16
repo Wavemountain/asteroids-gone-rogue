@@ -9,7 +9,7 @@ Albedo ratios below are relative luminance (0.2126, 0.7152, 0.0722) of the mater
 | Topic | Brief | Chosen | Why |
 |---|---|---|---|
 | Ambient | −30% | `AmbientMul` 0.70 on combat fill and the bootstrap ambient | Applied at the call site. `WorldLight.Row` is unchanged so its self-check still passes. Hangar ambient `(0.20, 0.17, 0.13)` is not darkened; the studio 3-point is the hangar light. |
-| Key | Warm, 35° elevation, soft shadows, steel rim | Elevation 35°, yaw −35°, 45% mix toward `(1, 0.86, 0.62)`, soft shadows, strength 0.65 | Per-world intensities stay in `WorldLight`. Rim and underglow stay `LightShadows.None`. The same `ApplyKey` path also warms the hangar sun. |
+| Key | Warm, 35° elevation, soft shadows, steel rim | Elevation 35°, yaw −35°, 45% mix toward `(1, 0.86, 0.62)`. Key shadows are `LightShadows.None` | The floor is drawn by the decor camera, so a key shadow map never reached it. Contact blobs ground the ship, enemies, and asteroids. Rim and underglow stay `LightShadows.None`. The same `ApplyKey` path also warms the hangar sun. |
 | Asteroid albedo | ×1.5 → ×1.2 once the key exists | `AsteroidAlbedoScale` 1.5 kept, times `AsteroidAlbedoKeep` 0.8 → effective ×1.2 | The named constant and the `ReadabilityPalette.AsteroidAlbedoScale` call stay, because tests lock both. |
 | Craters | Darker contrast | Variant B extra × `CraterDark` 0.78 | Variant A is the lighter stone. |
 | W3/W4 watch lift | (not in the art note) | `WatchAsteroidMul` 1.15 still applies on top | Effective W3/W4 rock is ×1.38 (was ×1.725). Still a reduction, and worlds 3 and 4 stay readable. |

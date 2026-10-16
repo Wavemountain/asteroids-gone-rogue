@@ -423,6 +423,7 @@ namespace AsteroidsGoneRogue
                 }
 
                 floorVisual = visual;
+                SpawnClear.ClearVisual(floorVisual);
                 HideInactiveBeams(floorVisual);
                 DecorDepthClamp.ClampTop(floorVisual, DecorDepthRules.MaxDecorTop);
             }
