@@ -96,12 +96,35 @@ namespace AsteroidsGoneRogue
                 }
 
                 renderer.sortingOrder = 0;
-                Material material = renderer.sharedMaterial;
-                if (material != null && material.renderQueue < 3000 && material.renderQueue != DecorDepthRules.GameplayQueue)
+                Material shared = renderer.sharedMaterial;
+                if (shared == null)
                 {
-                    material.renderQueue = DecorDepthRules.GameplayQueue;
+                    continue;
                 }
+
+                int authored = shared.renderQueue;
+                bool blob = BlobShadow(renderer, shared);
+                int instanceQueue;
+                if (!DecorDepthRules.InstanceQueue(authored, blob, out instanceQueue))
+                {
+                    continue;
+                }
+
+                Material copy = new Material(shared);
+                copy.renderQueue = instanceQueue;
+                renderer.material = copy;
             }
+        }
+
+        private static bool BlobShadow(Renderer renderer, Material shared)
+        {
+            if (renderer != null && renderer.GetComponent<ContactBlob>() != null)
+            {
+                return true;
+            }
+
+            string name = shared != null ? shared.name : string.Empty;
+            return DecorDepthRules.IsBlobMaterial(name);
         }
 
         private static bool WorldSpanY(GameObject root, out float low, out float high)

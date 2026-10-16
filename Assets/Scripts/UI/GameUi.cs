@@ -7199,6 +7199,7 @@ namespace AsteroidsGoneRogue
             int height = _playHudLayoutH > 1 ? _playHudLayoutH : Screen.height;
             float promptScale = SettingsMeasure.CanvasScale(width, height);
             PromptLineView.Restyle(_hint, InputSchemeDriver.Current, promptScale);
+            FinishHintBox();
         }
 
         private static void PlaceAnchored(GameObject plate, float minX, float minY, float maxX, float maxY)
@@ -7828,6 +7829,33 @@ namespace AsteroidsGoneRogue
 
             ClampOneLine(_hint);
             SyncHintScrim();
+            FinishHintBox();
+        }
+
+        /// <summary>
+        /// Wave 1 records the PSegT AgrCapture stores as the hint box.
+        /// Wave clear copies that font, size, anchors, and screen box after
+        /// the canvas scale is current, so the gate's HintBoxPx matches.
+        /// </summary>
+        private void FinishHintBox()
+        {
+            if (_hint == null)
+            {
+                return;
+            }
+
+            Canvas.ForceUpdateCanvases();
+            if (WaveClearHint())
+            {
+                PromptLineView.ApplyPlayBox(_hint);
+                Canvas.ForceUpdateCanvases();
+                return;
+            }
+
+            if (_session != null && _session.Phase == GamePhase.Playing && _session.WaveIndex == 1)
+            {
+                PromptLineView.CapturePlayBox(_hint);
+            }
         }
 
         private void SyncHintScrim()

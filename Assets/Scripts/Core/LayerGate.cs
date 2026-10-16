@@ -75,6 +75,8 @@ namespace AsteroidsGoneRogue
             public float Albedo;
             public bool Unlit;
             public bool Active;
+            public bool ContactBlob;
+            public bool OnFloor;
         }
 
         public sealed class CanvasFact
@@ -471,31 +473,50 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            // Authored queue is 2990. KeepGameplay then writes GameplayQueue 2450
-            // onto the shared material. Black albedo and the unlit classification
-            // are real; they are not a dead plate when the shader is AGR/BlobShadow.
-            Fact blob = FactOf("ContactBlob", "Mat_ContactBlob", "decor", BlobShadowShader, 2450, ZTestLEqual, 0.9f, 0f, 0f, true);
+            // A real blob (component or Mat_ContactBlob, on a floor, alpha
+            // above the visible floor) is a shadow at 2450 and at 2990.
+            Fact blob = BlobFact("ContactBlob", "Mat_ContactBlob", BlobShadowShader, 2450, 0.9f, true);
             string[] blobHits = Evaluate("1", rules, new Fact[] { blob }, null, null, null);
             if (blobHits.Length != 0 || Expect("dead", blobHits))
             {
                 return false;
             }
 
-            Fact blobQueue = FactOf("ContactBlob", "Mat_ContactBlob", "decor", BlobShadowShader, 2990, ZTestLEqual, 0.9f, 0f, 0f, true);
+            Fact blobQueue = BlobFact("ContactBlob", "Mat_ContactBlob", BlobShadowShader, 2990, 0.9f, true);
             if (Evaluate("1", rules, new Fact[] { blobQueue }, null, null, null).Length != 0)
             {
                 return false;
             }
 
-            // The object name is not a waiver. A black unlit plate on that
-            // renderer still fails when the shader is not AGR/BlobShadow.
+            Fact materialOnly = BlobFact("Arena_Disc", "Mat_ContactBlob", BlobShadowShader, 2450, 0.9f, false);
+            if (Evaluate("1", rules, new Fact[] { materialOnly }, null, null, null).Length != 0)
+            {
+                return false;
+            }
+
+            // The object name is not a waiver. Off the floor, Mat_ContactBlob
+            // is still a dead plate. The shader name is not a waiver either.
             Fact namedPlate = FactOf("ContactBlob", "Mat_ContactBlob", "decor", "Unlit/Color", 2450, ZTestLEqual, 0.9f, 0f, 0f, true);
             if (!Expect("dead", Evaluate("1", rules, new Fact[] { namedPlate }, null, null, null)))
             {
                 return false;
             }
 
-            Fact invisibleBlob = FactOf("ContactBlob", "Mat_ContactBlob", "decor", BlobShadowShader, 2450, ZTestLEqual, 0f, 0f, 0f, true);
+            Fact offFloor = BlobFact("ContactBlob", "Mat_ContactBlob", BlobShadowShader, 2450, 0.9f, true);
+            offFloor.OnFloor = false;
+            if (!Expect("dead", Evaluate("1", rules, new Fact[] { offFloor }, null, null, null)))
+            {
+                return false;
+            }
+
+            Fact shaderOnly = FactOf("Arena_Plate", "Mat_Arena_Plate", "decor", BlobShadowShader, 2450, ZTestLEqual, 0.9f, 0f, 0f, true);
+            shaderOnly.OnFloor = true;
+            if (!Expect("dead", Evaluate("1", rules, new Fact[] { shaderOnly }, null, null, null)))
+            {
+                return false;
+            }
+
+            Fact invisibleBlob = BlobFact("ContactBlob", "Mat_ContactBlob", BlobShadowShader, 2450, 0f, true);
             if (!Expect("shadow-alpha", Evaluate("1", rules, new Fact[] { invisibleBlob }, null, null, null)))
             {
                 return false;
@@ -718,14 +739,12 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            bool shadow = IsBlobShadow(fact.Shader);
+            bool shadow = IsRealBlob(fact);
             string name = Bare(fact.Name);
             string material = Bare(fact.Material);
-            // AGR/BlobShadow darkens the floor. Black RGB, unlit, and a queue
-            // under 2500 (KeepGameplay rewrites the authored 2990 to 2450) are
-            // the shadow, not a dead plate. Alpha still has to clear the
-            // visible floor. Placement (on the plate, under bodies) stays in
-            // the capture checks and is not waived here.
+            // Only a real contact shadow skips the dead plate. The blob shader
+            // is not enough: the renderer needs a ContactBlob or Mat_ContactBlob,
+            // it has to sit on a floor plate, and alpha has to clear the floor.
             if (shadow && fact.Alpha <= VisibleAlpha)
             {
                 hits.Add("shadow-alpha " + name + " material " + material);
@@ -854,6 +873,25 @@ namespace AsteroidsGoneRogue
             }
 
             return shader.IndexOf(BlobShadowShader, System.StringComparison.Ordinal) >= 0;
+        }
+
+        /// <summary>
+        /// ContactBlob component or Mat_ContactBlob, on a floor plate.
+        /// Alpha is checked by the caller. The shader name is not a class.
+        /// </summary>
+        static bool IsRealBlob(Fact fact)
+        {
+            if (fact == null || !fact.OnFloor)
+            {
+                return false;
+            }
+
+            if (fact.ContactBlob)
+            {
+                return true;
+            }
+
+            return Bare(fact.Material) == DecorDepthRules.BlobMaterial;
         }
 
         static bool Shown(Fact fact)
@@ -1059,6 +1097,14 @@ namespace AsteroidsGoneRogue
             }
 
             return false;
+        }
+
+        static Fact BlobFact(string name, string material, string shader, int queue, float alpha, bool contact)
+        {
+            Fact fact = FactOf(name, material, "decor", shader, queue, ZTestLEqual, alpha, 0f, 0f, true);
+            fact.ContactBlob = contact;
+            fact.OnFloor = true;
+            return fact;
         }
 
         static Fact FactOf(string name, string material, string role, int queue, int ztest, float alpha, float emission, float albedo, bool unlit)

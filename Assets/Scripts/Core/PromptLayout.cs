@@ -117,7 +117,51 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            // HintBoxPx is rect height times |lossyScale|. The inverse must
+            // reproduce that screen box, including the 0.489 scale that turned
+            // an 18px row into the 8.8px gate reading.
+            float replay = ScreenBox(LocalHeight(26.7f, 0.489f), 0.489f);
+            if (replay < 26.69f || replay > 26.71f)
+            {
+                return false;
+            }
+
+            if (LocalHeight(26.7f, 1f) < 26.69f || LocalHeight(26.7f, 1f) > 26.71f)
+            {
+                return false;
+            }
+
+            float collapsed = ScreenBox(18f, 0.489f);
+            if (collapsed < 8.7f || collapsed > 8.9f)
+            {
+                return false;
+            }
+
             return scale < 1f && ScaleToFit(100f, 10f, 400f, 40f) == 1f;
+        }
+
+        /// <summary>
+        /// Same product AgrCapture.HintBoxPx uses: rect height times |lossyScale|.
+        /// </summary>
+        public static float ScreenBox(float localHeight, float lossyScale)
+        {
+            return localHeight * ScaleOf(lossyScale);
+        }
+
+        public static float LocalHeight(float screenBox, float lossyScale)
+        {
+            return screenBox / ScaleOf(lossyScale);
+        }
+
+        private static float ScaleOf(float lossyScale)
+        {
+            float scale = lossyScale < 0f ? -lossyScale : lossyScale;
+            if (scale < 0.01f)
+            {
+                scale = 1f;
+            }
+
+            return scale;
         }
     }
 }

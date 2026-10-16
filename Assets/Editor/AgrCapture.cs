@@ -3145,6 +3145,7 @@ namespace AsteroidsGoneRogue.EditorTools
 
             float best = -1f;
             float bestBox = -1f;
+            Text bestSegment = null;
             for (int i = 0; i < texts.Length; i++)
             {
                 Text part = texts[i];
@@ -3169,6 +3170,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 if (box > bestBox)
                 {
                     bestBox = box;
+                    bestSegment = part;
                 }
             }
 
@@ -3182,6 +3184,7 @@ namespace AsteroidsGoneRogue.EditorTools
             {
                 _w1HintBox = bestBox;
                 SessionState.SetString(KeyHintBox, bestBox.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+                PromptLineView.CapturePlaySegment(bestSegment);
             }
         }
 
@@ -4215,6 +4218,15 @@ namespace AsteroidsGoneRogue.EditorTools
             fact.Albedo = albedo;
             fact.Unlit = UnlitShader(shaderName);
             fact.Active = true;
+            fact.ContactBlob = renderer != null && renderer.GetComponent<ContactBlob>() != null;
+            fact.OnFloor = false;
+            if (renderer != null)
+            {
+                Vector3 position = renderer.transform.position;
+                float top;
+                fact.OnFloor = FloorSurface.TryTop(position.x, position.z, position.y + 2f, out top);
+            }
+
             return fact;
         }
 

@@ -25,6 +25,22 @@ namespace AsteroidsGoneRogue
         private static readonly Dictionary<string, Sprite> Cache = new Dictionary<string, Sprite>();
         private static readonly HashSet<string> Missing = new HashSet<string>();
 
+        private struct PlayBox
+        {
+            public bool Ready;
+            public float ScreenBox;
+            public Font Font;
+            public int FontSize;
+            public FontStyle Style;
+            public Vector2 AnchorMin;
+            public Vector2 AnchorMax;
+            public Vector2 Pivot;
+            public Vector3 LocalScale;
+        }
+
+        private static PlayBox _play;
+        private static bool _playLocked;
+
         public static void Paint(Text host, string source, InputScheme scheme, float canvasScale)
         {
             PromptLineMark existing = host != null ? host.GetComponent<PromptLineMark>() : null;
@@ -190,6 +206,84 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        /// <summary>
+        /// Records the wave-1 PSegT the capture gate stores as HintBoxPx:
+        /// rect height times |lossyScale|, plus the font, size, anchors, pivot,
+        /// and scale that produced it.
+        /// </summary>
+        public static void CapturePlayBox(Text host)
+        {
+            if (_playLocked)
+            {
+                return;
+            }
+
+            RememberSegment(TallestSegment(host), false);
+        }
+
+        /// <summary>
+        /// The capture gate's own wave-1 measurement. Later wave-1 layouts
+        /// (death settle, the wave-clear row) must not replace it.
+        /// </summary>
+        public static void CapturePlaySegment(Text segment)
+        {
+            RememberSegment(segment, true);
+        }
+
+        /// <summary>
+        /// Writes the captured wave-1 segment onto every wave-clear PSegT.
+        /// Local height is the stored screen box divided by the current
+        /// |lossyScale|, so HintBoxPx matches even when the canvas scale changed.
+        /// </summary>
+        public static void ApplyPlayBox(Text host)
+        {
+            if (!_play.Ready || host == null)
+            {
+                return;
+            }
+
+            Text[] parts = host.GetComponentsInChildren<Text>(true);
+            if (parts == null)
+            {
+                return;
+            }
+
+            for (int index = 0; index < parts.Length; index++)
+            {
+                Text part = parts[index];
+                if (part == null || part.gameObject == null || part.gameObject.name != SegmentPrefix + "T")
+                {
+                    continue;
+                }
+
+                RectTransform rect = part.rectTransform;
+                if (rect == null)
+                {
+                    continue;
+                }
+
+                if (_play.Font != null)
+                {
+                    part.font = _play.Font;
+                }
+
+                if (_play.FontSize > 0)
+                {
+                    part.fontSize = _play.FontSize;
+                }
+
+                part.fontStyle = _play.Style;
+                rect.anchorMin = _play.AnchorMin;
+                rect.anchorMax = _play.AnchorMax;
+                rect.pivot = _play.Pivot;
+                rect.localScale = _play.LocalScale;
+                float local = PromptLayout.LocalHeight(_play.ScreenBox, rect.lossyScale.y);
+                Vector2 size = rect.sizeDelta;
+                size.y = local;
+                rect.sizeDelta = size;
+            }
+        }
+
         public static void Restyle(Text host, InputScheme scheme, float canvasScale)
         {
             if (host == null)
@@ -266,7 +360,6 @@ namespace AsteroidsGoneRogue
             RectTransform textRect = textObject.AddComponent<RectTransform>();
             Text text = textObject.AddComponent<Text>();
             text.font = host.font;
-            text.material = host.material;
             text.fontSize = fontSize > 0 ? fontSize : host.fontSize;
             text.fontStyle = host.fontStyle;
             text.color = host.color;
@@ -298,8 +391,15 @@ namespace AsteroidsGoneRogue
                     row = lineHeight;
                 }
 
-                // ClampToHost can collapse the box onto a stale or icon-sized
-                // host. The wave-1 row is the font line; keep that height.
+                // The wave-clear row copies the wave-1 segment's screen box.
+                // An icon-sized or clamped host (18px, or 18 * 0.489 = 8.8)
+                // is not that box.
+                float play = PlayLocalHeight(host);
+                if (play > row)
+                {
+                    row = play;
+                }
+
                 if (textHeight + 0.5f < row)
                 {
                     textHeight = row;
@@ -476,6 +576,90 @@ namespace AsteroidsGoneRogue
                     UnityEngine.Object.DestroyImmediate(child.gameObject);
                 }
             }
+        }
+
+        private static void RememberSegment(Text segment, bool lockSample)
+        {
+            if (segment == null || segment.rectTransform == null)
+            {
+                return;
+            }
+
+            RectTransform rect = segment.rectTransform;
+            float box = PromptLayout.ScreenBox(rect.rect.height, rect.lossyScale.y);
+            if (box <= 1f)
+            {
+                return;
+            }
+
+            _play.Ready = true;
+            _play.ScreenBox = box;
+            _play.Font = segment.font;
+            _play.FontSize = segment.fontSize;
+            _play.Style = segment.fontStyle;
+            _play.AnchorMin = rect.anchorMin;
+            _play.AnchorMax = rect.anchorMax;
+            _play.Pivot = rect.pivot;
+            _play.LocalScale = rect.localScale;
+            if (lockSample)
+            {
+                _playLocked = true;
+            }
+        }
+
+        private static float PlayLocalHeight(Text host)
+        {
+            if (!_play.Ready || host == null || host.rectTransform == null)
+            {
+                return 0f;
+            }
+
+            return PromptLayout.LocalHeight(_play.ScreenBox, host.rectTransform.lossyScale.y);
+        }
+
+        private static Text TallestSegment(Text host)
+        {
+            if (host == null)
+            {
+                return null;
+            }
+
+            Text[] parts = host.GetComponentsInChildren<Text>(true);
+            if (parts == null)
+            {
+                return null;
+            }
+
+            Text best = null;
+            float bestBox = -1f;
+            for (int index = 0; index < parts.Length; index++)
+            {
+                Text part = parts[index];
+                if (part == null || part.gameObject == null || part.gameObject.name != SegmentPrefix + "T")
+                {
+                    continue;
+                }
+
+                if (!part.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                RectTransform rect = part.rectTransform;
+                if (rect == null)
+                {
+                    continue;
+                }
+
+                float box = PromptLayout.ScreenBox(rect.rect.height, rect.lossyScale.y);
+                if (box > bestBox)
+                {
+                    bestBox = box;
+                    best = part;
+                }
+            }
+
+            return best;
         }
 
         private static float LeftOrigin(float hostWidth)
