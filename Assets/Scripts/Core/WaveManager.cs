@@ -363,6 +363,24 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        public void CollectLive(List<Component> into)
+        {
+            if (into == null)
+            {
+                return;
+            }
+
+            var snapshot = new List<IThreat>(_live);
+            for (int i = 0; i < snapshot.Count; i++)
+            {
+                Component body = snapshot[i] as Component;
+                if (body != null)
+                {
+                    into.Add(body);
+                }
+            }
+        }
+
         public void NotifyDestroyed(IThreat threat, int scoreValue)
         {
             if (threat == null)

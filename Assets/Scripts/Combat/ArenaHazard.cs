@@ -26,6 +26,26 @@ namespace AsteroidsGoneRogue
             _listener = player;
         }
 
+        public static void CollectLive(System.Collections.Generic.List<Component> into)
+        {
+            if (into == null)
+            {
+                return;
+            }
+
+            for (int i = Live.Count - 1; i >= 0; i--)
+            {
+                ArenaHazard hazard = Live[i];
+                if (hazard == null)
+                {
+                    Live.RemoveAt(i);
+                    continue;
+                }
+
+                into.Add(hazard);
+            }
+        }
+
         public static float NearestDamagingDistance(Vector3 point)
         {
             float best = 999f;

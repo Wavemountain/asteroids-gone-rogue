@@ -3614,10 +3614,14 @@ namespace AsteroidsGoneRogue
                 EnsureDeathFlashSprite(_deathFlash);
                 _deathFlash.color = new Color(red, green, blue, alpha);
                 _deathFlash.enabled = alpha > 0.001f;
-                _deathFlash.transform.SetAsLastSibling();
             }
 
             PaintDeathEdge(reduce, alpha > 0.001f);
+            if (_deathFlash != null && alpha > 0.001f)
+            {
+                _deathFlash.transform.SetAsLastSibling();
+            }
+
             return alpha;
         }
 
@@ -3726,12 +3730,11 @@ namespace AsteroidsGoneRogue
                 EnsureDeathFlashSprite(_deathFlash);
                 _deathFlash.color = new Color(red, green, blue, alpha);
                 _deathFlash.enabled = alpha > 0.001f;
+                PaintDeathEdge(reduce, alpha > 0.001f);
                 if (alpha > 0.001f)
                 {
                     _deathFlash.transform.SetAsLastSibling();
                 }
-
-                PaintDeathEdge(reduce, alpha > 0.001f);
             }
             else if (_deathFlash != null)
             {
@@ -6978,8 +6981,11 @@ namespace AsteroidsGoneRogue
 
         private void ApplyPlayHudLayout()
         {
-            int width = Screen.width;
-            int height = Screen.height;
+            ApplyPlayHudLayout(Screen.width, Screen.height);
+        }
+
+        public void ApplyPlayHudLayout(int width, int height)
+        {
             _playHudLayoutW = width;
             _playHudLayoutH = height;
             if (width < 1)

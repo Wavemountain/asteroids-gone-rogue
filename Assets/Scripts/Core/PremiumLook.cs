@@ -21,6 +21,7 @@ namespace AsteroidsGoneRogue
         public const float ShadowStrength = 0.65f;
 
         public const float GridVisibleAlpha = 0.12f;
+        public const float W3GridDim = 0.34f;
         public const float GridEdgeStart = 0.78f;
         public const float FloorSmoothness = 0.2f;
         public const float FloorMetallic = 0.04f;
@@ -42,7 +43,7 @@ namespace AsteroidsGoneRogue
         public const float HudLabel = 14f;
 
         public const float DeathHitstopSeconds = 0.25f;
-        public const float DeathFlashAlpha = 0.20f;
+        public const float DeathFlashAlpha = 0.62f;
         public const float DeathFlashAlphaReduce = 0.08f;
         public const float DeathDesat = 0.70f;
         public const float DeathDesatReduce = 0.28f;
@@ -61,13 +62,13 @@ namespace AsteroidsGoneRogue
         public const float PreviewBlueKeep = 0.62f;
         public const float PreviewSatFloor = 0.55f;
         public const float PreviewSatBoostCap = 3.2f;
-        public const float DeathEdgeFull = 0.62f;
+        public const float DeathEdgeFull = 0.88f;
         public const float DeathWashDimFull = 0.50f;
         public const float DeathWashDimReduce = 0.28f;
         public const float HangarBloomGain = 0.45f;
         public const float HangarExposureEv = -0.40f;
         public const float DeathVignetteTarget = 0.78f;
-        public const float PinnedFlashU = 0.55f;
+        public const float PinnedFlashU = 0.22f;
         public const float OutsideR = 0.015f;
         public const float OutsideG = 0.022f;
         public const float OutsideB = 0.045f;

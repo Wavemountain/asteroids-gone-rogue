@@ -104,12 +104,13 @@ namespace AsteroidsGoneRogue
             ReadabilityPalette.SecondaryRgb(out steelR, out steelG, out steelB);
             Color dangerEmit = new Color(dangerR, dangerG, dangerB);
             Color steelEmit = new Color(steelR, steelG, steelB);
+            Color amberEmit = new Color(1f, 0.55f, 0.14f);
             Color primaryEmit = new Color(EmissionTargets.PrimaryR, EmissionTargets.PrimaryG, EmissionTargets.PrimaryB);
-            Color hullBody = steelEmit * Mathf.Max(ReadabilityPalette.HullBodyEmission, ReadabilityPalette.HullRimScale);
+            Color hullBody = amberEmit * Mathf.Max(ReadabilityPalette.HullBodyEmission, ReadabilityPalette.HullRimScale);
             _hull = MakeShipRim(
                 "Mat_Ship_Hull",
                 new Color(ReadabilityPalette.HullR, ReadabilityPalette.HullG, ReadabilityPalette.HullB),
-                steelEmit,
+                amberEmit,
                 EmissionTargets.HullRimPower,
                 EmissionTargets.HullRimStrength,
                 hullBody,

@@ -585,10 +585,10 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             SnapWorld(WorldFor(shot));
-            PinShip();
             KeepShipAlive();
             HoldForShot(shot);
             QuietBanners();
+            PinShip();
         }
 
         static void FireDeath()
@@ -650,6 +650,7 @@ namespace AsteroidsGoneRogue.EditorTools
             int shot = SessionState.GetInt(KeyShot, 0);
             if (shot != 0)
             {
+                HoldForShot(shot);
                 SeparateOpening(true);
             }
             bool reduce = SessionState.GetInt(KeyReduce, 0) != 0;
@@ -2736,7 +2737,88 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
-            Canvas.ForceUpdateCanvases();
+            int[] widths = new int[] { 1920, 1280, 3440 };
+            int[] heights = new int[] { 1080, 800, 1440 };
+            CanvasScaler[] scalers = UnityEngine.Object.FindObjectsByType<CanvasScaler>();
+            Vector2[] savedResolution = scalers != null ? new Vector2[scalers.Length] : new Vector2[0];
+            if (scalers != null)
+            {
+                for (int scalerIndex = 0; scalerIndex < scalers.Length; scalerIndex++)
+                {
+                    CanvasScaler scaler = scalers[scalerIndex];
+                    savedResolution[scalerIndex] = scaler != null ? scaler.referenceResolution : new Vector2(1920f, 1080f);
+                }
+            }
+
+            GameUi[] uis = UnityEngine.Object.FindObjectsByType<GameUi>();
+            try
+            {
+                for (int probe = 0; probe < widths.Length; probe++)
+                {
+                    int width = widths[probe];
+                    int height = heights[probe];
+                    if (scalers != null)
+                    {
+                        for (int scalerIndex = 0; scalerIndex < scalers.Length; scalerIndex++)
+                        {
+                            CanvasScaler scaler = scalers[scalerIndex];
+                            if (scaler != null)
+                            {
+                                scaler.referenceResolution = new Vector2(width, height);
+                            }
+                        }
+                    }
+
+                    if (uis != null)
+                    {
+                        for (int uiIndex = 0; uiIndex < uis.Length; uiIndex++)
+                        {
+                            GameUi ui = uis[uiIndex];
+                            if (ui != null)
+                            {
+                                ui.ApplyPlayHudLayout(width, height);
+                            }
+                        }
+                    }
+
+                    Canvas.ForceUpdateCanvases();
+                    MeasureHud(width, height);
+                }
+            }
+            finally
+            {
+                if (scalers != null)
+                {
+                    for (int scalerIndex = 0; scalerIndex < scalers.Length; scalerIndex++)
+                    {
+                        CanvasScaler scaler = scalers[scalerIndex];
+                        if (scaler != null)
+                        {
+                            scaler.referenceResolution = savedResolution[scalerIndex];
+                        }
+                    }
+                }
+
+                int restoreW = Screen.width > 1 ? Screen.width : 1920;
+                int restoreH = Screen.height > 1 ? Screen.height : 1080;
+                if (uis != null)
+                {
+                    for (int uiIndex = 0; uiIndex < uis.Length; uiIndex++)
+                    {
+                        GameUi ui = uis[uiIndex];
+                        if (ui != null)
+                        {
+                            ui.ApplyPlayHudLayout(restoreW, restoreH);
+                        }
+                    }
+                }
+
+                Canvas.ForceUpdateCanvases();
+            }
+        }
+
+        static void MeasureHud(int width, int height)
+        {
             Graphic[] graphics = UnityEngine.Object.FindObjectsByType<Graphic>();
             System.Collections.Generic.List<HudMark> marks = new System.Collections.Generic.List<HudMark>();
             if (graphics != null)
@@ -2744,30 +2826,34 @@ namespace AsteroidsGoneRogue.EditorTools
                 for (int graphicIndex = 0; graphicIndex < graphics.Length; graphicIndex++)
                 {
                     HudMark mark;
-                    if (TryHudMark(graphics[graphicIndex], out mark))
+                    if (TryHudMark(graphics[graphicIndex], width, height, out mark))
                     {
                         marks.Add(mark);
                     }
                 }
             }
 
+            string res = width.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + "x"
+                + height.ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (marks.Count == 0)
             {
-                Debug.Log("AgrCapture hud none");
+                Debug.Log("AgrCapture hud res=" + res + " none");
                 return;
             }
 
-            float safeMinX;
-            float safeMinY;
-            float safeMaxX;
-            float safeMaxY;
-            HudSafe(out safeMinX, out safeMinY, out safeMaxX, out safeMaxY);
+            float safeMinX = 0f;
+            float safeMinY = 0f;
+            float safeMaxX = width;
+            float safeMaxY = height;
             string firstFail = string.Empty;
             for (int markIndex = 0; markIndex < marks.Count; markIndex++)
             {
                 HudMark shown = marks[markIndex];
                 Debug.Log(
-                    "AgrCapture hud name="
+                    "AgrCapture hud res="
+                    + res
+                    + " name="
                     + shown.Name
                     + " block="
                     + shown.Block
@@ -2778,6 +2864,8 @@ namespace AsteroidsGoneRogue.EditorTools
                     Debug.Log(
                         "AgrCapture hud outside name="
                         + shown.Name
+                        + " res="
+                        + res
                         + " rect="
                         + HudRectText(shown.MinX, shown.MinY, shown.MaxX, shown.MaxY)
                         + " safe="
@@ -2811,6 +2899,8 @@ namespace AsteroidsGoneRogue.EditorTools
                         + leftMark.Name
                         + " b="
                         + rightMark.Name
+                        + " res="
+                        + res
                         + " blockA="
                         + leftMark.Block
                         + " blockB="
@@ -2828,11 +2918,11 @@ namespace AsteroidsGoneRogue.EditorTools
 
             if (firstFail.Length > 0)
             {
-                Fail(firstFail);
+                Fail(firstFail + " " + res);
             }
         }
 
-        static bool TryHudMark(Graphic graphic, out HudMark mark)
+        static bool TryHudMark(Graphic graphic, int targetW, int targetH, out HudMark mark)
         {
             mark = null;
             if (!HudShown(graphic))
@@ -2887,14 +2977,38 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             string block = HudBlock(graphic.transform);
+            float scaleX = 1f;
+            float scaleY = 1f;
+            float screenW = Screen.width;
+            float screenH = Screen.height;
+            if (screenW < 1f)
+            {
+                screenW = 1f;
+            }
+
+            if (screenH < 1f)
+            {
+                screenH = 1f;
+            }
+
+            if (targetW > 1)
+            {
+                scaleX = targetW / screenW;
+            }
+
+            if (targetH > 1)
+            {
+                scaleY = targetH / screenH;
+            }
+
             mark = new HudMark();
             mark.Name = graphic.gameObject.name;
             mark.Block = block;
             mark.Lane = HudLane(block);
-            mark.MinX = minX;
-            mark.MinY = minY;
-            mark.MaxX = maxX;
-            mark.MaxY = maxY;
+            mark.MinX = minX * scaleX;
+            mark.MinY = minY * scaleY;
+            mark.MaxX = maxX * scaleX;
+            mark.MaxY = maxY * scaleY;
             return true;
         }
 

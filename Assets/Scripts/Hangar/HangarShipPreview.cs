@@ -608,6 +608,11 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (world.gameObject.name == LetterboxClear.CameraName)
+            {
+                return;
+            }
+
             bool decorCam = world.gameObject.name == DecorCameraStack.CameraName;
             if (hangar)
             {
@@ -624,7 +629,14 @@ namespace AsteroidsGoneRogue
                 {
                     if (_savedPlayCull < 0)
                     {
-                        _savedPlayCull = world.cullingMask;
+                        int mask = world.cullingMask;
+                        if (mask == 0)
+                        {
+                            int decor = DecorCameraStack.LayerIndex();
+                            mask = ~0 & ~(1 << decor);
+                        }
+
+                        _savedPlayCull = mask;
                     }
 
                     world.cullingMask = _savedPlayCull & ~(1 << PreviewLayer);

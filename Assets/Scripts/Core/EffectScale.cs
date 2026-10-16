@@ -239,8 +239,22 @@ namespace AsteroidsGoneRogue
                 sine = -1f;
             }
 
-            float amp = damaging ? 0.38f : 0.16f;
-            return 0.72f + (sine * amp);
+            // Full used to pulse down to 0.34 while Reduce stays at SpikeGlowReduced,
+            // so a still caught the trough and the mines read duller than Reduce.
+            float amp = damaging ? 0.35f : 0.10f;
+            float floor = damaging ? SpikeGlowReduced + 0.85f : SpikeIdleReduced;
+            float lift = (sine * 0.5f) + 0.5f;
+            if (lift < 0f)
+            {
+                lift = 0f;
+            }
+
+            if (lift > 1f)
+            {
+                lift = 1f;
+            }
+
+            return floor + (lift * amp);
         }
 
         public static bool FreezePulse(bool reduce)
