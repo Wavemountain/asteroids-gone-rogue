@@ -345,10 +345,6 @@ namespace AsteroidsGoneRogue
             {
                 resting = PremiumLook.W3GridAlpha;
                 quiet = PremiumLook.W3GridQuietRadius;
-                if (gridMul < PremiumLook.W3GridPulseFloor)
-                {
-                    gridMul = PremiumLook.W3GridPulseFloor;
-                }
             }
 
             ApplyGrid(_grid, resting, gridMul, quiet);

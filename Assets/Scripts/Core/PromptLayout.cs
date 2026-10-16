@@ -101,7 +101,7 @@ namespace AsteroidsGoneRogue
         public static bool SelfCheck()
         {
             float boxWidth = (0.72f - 0.04f) * 1280f;
-            float boxHeight = (0.044f - 0.006f) * 800f;
+            float boxHeight = (0.034f - 0.006f) * 800f;
             float abortMin = 0.74f * 1280f;
             float scale = ScaleToFit(1193f, 42.6f, boxWidth, boxHeight);
             float fitted = 1193f * scale;

@@ -341,6 +341,15 @@ namespace AsteroidsGoneRogue
         // top stays under the full-width top bar (0.905) so WAVE CLEAR / shop never sit on chrome.
         public static readonly Vector2 HangarPanelMin = new Vector2(0.014f, 0.080f);
         public static readonly Vector2 HangarPanelMax = new Vector2(0.55f, 0.888f);
+        // Above Primary (local 0.800) and under the panel rule (0.954).
+        // The 0.016 gap is 10.3 px at 800, 14.0 at 1080, 18.6 at 1440.
+        public const float SummaryCardMinX = 0.02f;
+        public const float SummaryCardMinY = 0.816f;
+        public const float SummaryCardMaxX = 0.98f;
+        public const float SummaryCardMaxY = 0.946f;
+        // Ends 0.016 under ShipPreviewMin.y (0.080): 12.8 px at 800, 17.3 at 1080, 23.0 at 1440.
+        public const float HangarHintMinY = 0.008f;
+        public const float HangarHintMaxY = 0.064f;
         public static readonly Vector2 TopBarMin = new Vector2(0.012f, 0.905f);
         public static readonly Vector2 TopBarMax = new Vector2(0.988f, 0.995f);
         // Title owns the full top-bar height on the left so EN and SV fit one line.
@@ -856,12 +865,12 @@ namespace AsteroidsGoneRogue
                 "HintScrim",
                 transform,
                 UiTheme.WithAlpha(UiTheme.Void, HintScrimAlpha),
-                new Vector2(0.14f, 0.008f),
-                new Vector2(0.86f, 0.072f)).GetComponent<Image>();
+                new Vector2(0.14f, HangarHintMinY),
+                new Vector2(0.86f, HangarHintMaxY)).GetComponent<Image>();
             _hint = CreateText("Hint", transform, body, UiTheme.HintSize(Screen.width), TextAnchor.MiddleCenter, FontStyle.Normal);
             _hint.lineSpacing = UiTheme.CaptionLine;
-            // Screen-bottom, outside hangar panel (min.y 0.080). Never in WAVE CLEAR / shop.
-            Stretch(_hint.rectTransform, new Vector2(0.14f, 0.008f), new Vector2(0.86f, 0.072f));
+            // Screen-bottom, under the ship preview (0.080) and the hangar panel. Never in WAVE CLEAR / shop.
+            Stretch(_hint.rectTransform, new Vector2(0.14f, HangarHintMinY), new Vector2(0.86f, HangarHintMaxY));
             _hint.color = UiTheme.FooterHint;
             _hint.text = HintFooter;
             ClampOneLine(_hint);
@@ -2696,14 +2705,13 @@ namespace AsteroidsGoneRogue
 
         private void BuildRunSummary(Font display, Font body)
         {
-            // WAVE-CLEAR strip: own zone under top bar, above NEXT WAVE. Three rows,
-            // hangar-local anchors with zero offset so EN/SV cannot reflow the shop.
-            // Below the panel rule (header 0.962, rule 0.954) and above HangarInner (0.728).
+            // Own zone above Primary (0.735–0.800) and under the panel rule (0.954).
+            // Anchors only: CardSlide used to write a Reduce-dependent offset.
             _summaryRoot = UiTheme.BuildPanel(
                 "RunSummaryCard",
                 _menuRoot.transform,
-                new Vector2(0.02f, 0.740f),
-                new Vector2(0.98f, 0.948f),
+                new Vector2(SummaryCardMinX, SummaryCardMinY),
+                new Vector2(SummaryCardMaxX, SummaryCardMaxY),
                 0.90f);
             _summaryHeader = _summaryRoot.transform.Find("RunSummaryCardHeader").GetComponent<Image>();
             _summaryRule = _summaryRoot.transform.Find("RunSummaryCardRule").GetComponent<Image>();
@@ -2711,31 +2719,32 @@ namespace AsteroidsGoneRogue
             _summaryTitle = CreateText("SummaryTitle", _summaryRoot.transform, display, UiTheme.TypeTitle, TextAnchor.MiddleCenter, FontStyle.Bold);
             _summaryTitle.lineSpacing = UiTheme.TitleLine;
             // r1 headline. One line, left of the medal chip, above the stats row.
-            Stretch(_summaryTitle.rectTransform, new Vector2(0.03f, 0.78f), new Vector2(0.70f, 0.96f));
+            Stretch(_summaryTitle.rectTransform, new Vector2(0.03f, 0.76f), new Vector2(0.70f, 0.98f));
             _summaryTitle.color = UiTheme.Primary;
             ClampOneLine(_summaryTitle);
 
             _summaryBody = CreateText("SummaryBody", _summaryRoot.transform, body, UiTheme.TypeCaption, TextAnchor.MiddleCenter, FontStyle.Normal);
             _summaryBody.lineSpacing = UiTheme.CaptionLine;
-            // r2 SCORE · WAVE · WORLD · CREDITS (+delta). One line, above the upgrades row.
-            Stretch(_summaryBody.rectTransform, new Vector2(0.03f, 0.58f), new Vector2(0.97f, 0.76f));
+            // r2 SCORE · WAVE · WORLD · CREDITS (+delta). Wraps inside the card so EN/SV stay in the rect.
+            Stretch(_summaryBody.rectTransform, new Vector2(0.03f, 0.54f), new Vector2(0.97f, 0.74f));
             _summaryBody.color = UiTheme.Accent;
-            ClampOneLine(_summaryBody);
+            _summaryBody.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _summaryBody.verticalOverflow = VerticalWrapMode.Truncate;
 
             _waveMedal = CreateText("WaveMedal", _summaryRoot.transform, display, 14, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Stretch(_waveMedal.rectTransform, new Vector2(0.72f, 0.78f), new Vector2(0.97f, 0.96f));
+            Stretch(_waveMedal.rectTransform, new Vector2(0.72f, 0.76f), new Vector2(0.97f, 0.98f));
             _waveMedal.color = UiTheme.Primary;
             ClampOneLine(_waveMedal);
 
             _continueHint = CreateText("ContinueHint", _summaryRoot.transform, body, UiTheme.ShopHeaderSize, TextAnchor.MiddleLeft, FontStyle.Normal);
             _continueHint.lineSpacing = UiTheme.ShopLineSpacing;
             // r3 upgrades or the run-over explanation. Wrap inside the card; do not cover NEXT WAVE.
-            Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.06f), new Vector2(0.97f, 0.70f));
+            Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.14f), new Vector2(0.97f, 0.52f));
             _continueHint.color = UiTheme.Secondary;
             _continueHint.horizontalOverflow = HorizontalWrapMode.Wrap;
             _continueHint.verticalOverflow = VerticalWrapMode.Truncate;
             _summaryRecord = CreateText("SummaryRecord", _summaryRoot.transform, body, UiTheme.ShopHeaderSize, TextAnchor.MiddleLeft, FontStyle.Normal);
-            Stretch(_summaryRecord.rectTransform, new Vector2(0.03f, 0.04f), new Vector2(0.97f, 0.20f));
+            Stretch(_summaryRecord.rectTransform, new Vector2(0.03f, 0.02f), new Vector2(0.97f, 0.12f));
             _summaryRecord.color = UiTheme.Secondary;
             _summaryRecord.horizontalOverflow = HorizontalWrapMode.Wrap;
             _summaryRecord.verticalOverflow = VerticalWrapMode.Truncate;
@@ -2839,7 +2848,8 @@ namespace AsteroidsGoneRogue
 
             _summaryBody.fontSize = failed && summaryPhase ? 18 : UiTheme.BodyMin;
             _summaryBody.text = stats;
-            ClampOneLine(_summaryBody);
+            _summaryBody.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _summaryBody.verticalOverflow = VerticalWrapMode.Truncate;
 
             bool medal = summaryPhase && RunSummary.ShowWaveMedal(_session.LastResolvedWave, _session.Phase);
             if (_waveMedal != null)
@@ -2886,33 +2896,6 @@ namespace AsteroidsGoneRogue
                 _continueHint.gameObject.SetActive(true);
                 _continueHint.horizontalOverflow = HorizontalWrapMode.Wrap;
                 _continueHint.verticalOverflow = VerticalWrapMode.Truncate;
-                bool ultraWide = Screen.width * 10 >= Screen.height * 21;
-                if (summaryPhase && ultraWide)
-                {
-                    Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.08f), new Vector2(0.97f, 0.56f));
-                    if (_summaryBody != null)
-                    {
-                        Stretch(_summaryBody.rectTransform, new Vector2(0.03f, 0.60f), new Vector2(0.97f, 0.76f));
-                    }
-                }
-                else if (summaryPhase)
-                {
-                    Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.22f), new Vector2(0.97f, 0.52f));
-                    if (_summaryBody != null)
-                    {
-                        Stretch(_summaryBody.rectTransform, new Vector2(0.03f, 0.58f), new Vector2(0.97f, 0.76f));
-                    }
-                }
-                else
-                {
-                    // Hangar status is one wrapped paragraph (wave line + next medal). It needs
-                    // most of the card; the summary title/body sit above it.
-                    Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.06f), new Vector2(0.97f, 0.70f));
-                    if (_summaryBody != null)
-                    {
-                        Stretch(_summaryBody.rectTransform, new Vector2(0.03f, 0.72f), new Vector2(0.97f, 0.80f));
-                    }
-                }
             }
 
             if (_summaryRecord != null)
@@ -2983,6 +2966,9 @@ namespace AsteroidsGoneRogue
                 _summaryRecord.text = recordLine;
                 _summaryRecord.gameObject.SetActive(summaryPhase && recordLine.Length > 0);
             }
+
+            PlaceSummaryCard();
+            FitRunSummaryText();
         }
 
         private void ApplyFailChrome(bool failed)
@@ -3529,28 +3515,10 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            float elapsed = _summaryPopStart < 0f ? -1f : Time.unscaledTime - _summaryPopStart;
-            float pop = UiCountUp.PopScale(elapsed, UiMotion.Fast, reduce);
-            _summaryTitle.rectTransform.localScale = new Vector3(pop, pop, 1f);
-            if (reduce || _session == null || _session.Phase == GamePhase.Failed || elapsed < 0f)
-            {
-                return;
-            }
-
-            if (elapsed >= UiMotion.Fast)
-            {
-                _summaryTitle.color = UiTheme.Primary;
-                return;
-            }
-
-            float u = elapsed / UiMotion.Fast;
-            if (u < 0f || u > 1f)
-            {
-                return;
-            }
-
-            float tri = u < 0.5f ? u * 2f : (1f - u) * 2f;
-            _summaryTitle.color = Color.Lerp(UiTheme.Primary, UiTheme.Accent, tri);
+            // PopScale returns up to 1.08 only while Reduce is off, and the old
+            // accent lerp ran in that same window. Both changed the measured
+            // title between the two settings. Phase colour stays as Refresh left it.
+            _summaryTitle.rectTransform.localScale = Vector3.one;
         }
 
         private void ConsumeMotionCues()
@@ -3907,6 +3875,15 @@ namespace AsteroidsGoneRogue
 
         private void SlideCard(float pixels)
         {
+            // CardSlide is (1-alpha)*SlidePixels and alpha waits out SlowSeconds,
+            // which is 0 when Reduce is on. Writing pixels into anchoredPosition
+            // moved this stretch card and closed the gap above Primary in one
+            // mode only. The card stays on SummaryCardMinY/MaxY in both modes.
+            PlaceSummaryCard();
+        }
+
+        private void PlaceSummaryCard()
+        {
             if (_summaryRoot == null)
             {
                 return;
@@ -3918,7 +3895,78 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            card.anchoredPosition = new Vector2(0f, -pixels);
+            Stretch(card, new Vector2(SummaryCardMinX, SummaryCardMinY), new Vector2(SummaryCardMaxX, SummaryCardMaxY));
+            card.anchoredPosition = Vector2.zero;
+            card.localScale = Vector3.one;
+            if (_summaryTitle != null)
+            {
+                Stretch(_summaryTitle.rectTransform, new Vector2(0.03f, 0.76f), new Vector2(0.70f, 0.98f));
+                _summaryTitle.rectTransform.localScale = Vector3.one;
+            }
+
+            if (_waveMedal != null)
+            {
+                Stretch(_waveMedal.rectTransform, new Vector2(0.72f, 0.76f), new Vector2(0.97f, 0.98f));
+            }
+
+            if (_summaryBody != null)
+            {
+                Stretch(_summaryBody.rectTransform, new Vector2(0.03f, 0.54f), new Vector2(0.97f, 0.74f));
+                _summaryBody.horizontalOverflow = HorizontalWrapMode.Wrap;
+                _summaryBody.verticalOverflow = VerticalWrapMode.Truncate;
+            }
+
+            if (_continueHint != null)
+            {
+                _continueHint.horizontalOverflow = HorizontalWrapMode.Wrap;
+                _continueHint.verticalOverflow = VerticalWrapMode.Truncate;
+                Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.14f), new Vector2(0.97f, 0.52f));
+            }
+
+            if (_summaryRecord != null)
+            {
+                Stretch(_summaryRecord.rectTransform, new Vector2(0.03f, 0.02f), new Vector2(0.97f, 0.12f));
+                _summaryRecord.horizontalOverflow = HorizontalWrapMode.Wrap;
+                _summaryRecord.verticalOverflow = VerticalWrapMode.Truncate;
+            }
+        }
+
+        private void FitRunSummaryText()
+        {
+            bool summaryPhase = _session != null
+                && (_session.Phase == GamePhase.WaveClear
+                    || _session.Phase == GamePhase.Failed
+                    || _session.Phase == GamePhase.CampaignClear);
+            int titleSize = summaryPhase ? UiTheme.TypeTitle : UiTheme.BodyMin;
+            int bodySize = summaryPhase && _session.Phase == GamePhase.Failed ? 18 : UiTheme.BodyMin;
+            FitInside(_summaryTitle, titleSize, 10);
+            FitInside(_summaryBody, bodySize, 10);
+            FitInside(_waveMedal, 14, 10);
+            FitInside(_continueHint, UiTheme.ShopHeaderSize, 10);
+            FitInside(_summaryRecord, UiTheme.ShopHeaderSize, 10);
+        }
+
+        private static void FitInside(Text text, int preferred, int floor)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            text.resizeTextForBestFit = false;
+            int size = preferred < floor ? floor : preferred;
+            text.fontSize = size;
+            Rect area = text.rectTransform.rect;
+            if (area.width <= 1f || area.height <= 1f)
+            {
+                return;
+            }
+
+            while (size > floor && text.preferredHeight > area.height - 1f)
+            {
+                size--;
+                text.fontSize = size;
+            }
         }
 
         public void PulseHullEdge()
@@ -7093,6 +7141,8 @@ namespace AsteroidsGoneRogue
             }
 
             PlaceAbortButton(width, height);
+            PlaceSummaryCard();
+            FitRunSummaryText();
         }
 
         /// <summary>
@@ -7102,6 +7152,8 @@ namespace AsteroidsGoneRogue
         /// </summary>
         public void RefitPlayHint()
         {
+            PlaceSummaryCard();
+            FitRunSummaryText();
             if (_hint == null || !_hint.gameObject.activeInHierarchy)
             {
                 return;
@@ -7748,7 +7800,7 @@ namespace AsteroidsGoneRogue
             }
             else
             {
-                Stretch(_hint.rectTransform, new Vector2(0.14f, 0.008f), new Vector2(0.86f, 0.072f));
+                Stretch(_hint.rectTransform, new Vector2(0.14f, HangarHintMinY), new Vector2(0.86f, HangarHintMaxY));
             }
 
             if (_hintScrim != null)

@@ -213,8 +213,18 @@ namespace AsteroidsGoneRogue
                     iconRect.anchorMin = new Vector2(0.5f, 0.5f);
                     iconRect.anchorMax = new Vector2(0.5f, 0.5f);
                     iconRect.pivot = new Vector2(0f, 0.5f);
-                    iconRect.sizeDelta = new Vector2(iconPx, iconPx);
-                    iconRect.anchoredPosition = new Vector2(x, y);
+                    float iconW = iconPx;
+                    float iconH = iconPx;
+                    float iconX = x;
+                    float iconY = y;
+                    if (!ClampToHost(host, ref iconX, ref iconY, ref iconW, ref iconH))
+                    {
+                        UnityEngine.Object.DestroyImmediate(iconObject);
+                        return;
+                    }
+
+                    iconRect.sizeDelta = new Vector2(iconW, iconH);
+                    iconRect.anchoredPosition = new Vector2(iconX, iconY);
                     return;
                 }
             }
@@ -245,13 +255,74 @@ namespace AsteroidsGoneRogue
             textRect.anchorMax = new Vector2(0.5f, 0.5f);
             textRect.pivot = new Vector2(0f, 0.5f);
             float textWidth = width > 1f ? width : iconPx;
-            if (text.preferredHeight > lineHeight && text.preferredWidth <= textWidth + 0.5f)
+            float textHeight = lineHeight;
+            float textX = x;
+            float textY = y;
+            if (!ClampToHost(host, ref textX, ref textY, ref textWidth, ref textHeight))
             {
-                lineHeight = text.preferredHeight;
+                UnityEngine.Object.DestroyImmediate(textObject);
+                return;
             }
 
-            textRect.sizeDelta = new Vector2(textWidth, lineHeight);
-            textRect.anchoredPosition = new Vector2(x, y);
+            textRect.sizeDelta = new Vector2(textWidth, textHeight);
+            textRect.anchoredPosition = new Vector2(textX, textY);
+            int size = text.fontSize;
+            while (size > 1 && text.preferredHeight > textHeight + 1f)
+            {
+                size--;
+                text.fontSize = size;
+            }
+        }
+
+        /// <summary>
+        /// Keep a segment inside the hint rect. Growing to preferredHeight
+        /// pushed PSegT out of the parent and off the bottom of the screen.
+        /// </summary>
+        private static bool ClampToHost(Text host, ref float x, ref float y, ref float width, ref float height)
+        {
+            if (host == null || host.rectTransform == null)
+            {
+                return width > 0.5f && height > 0.5f;
+            }
+
+            float hostWidth = host.rectTransform.rect.width;
+            float hostHeight = host.rectTransform.rect.height;
+            if (hostWidth <= 2f || hostHeight <= 2f)
+            {
+                return width > 0.5f && height > 0.5f;
+            }
+
+            float halfW = hostWidth * 0.5f;
+            float halfH = hostHeight * 0.5f;
+            float left = x;
+            float right = x + width;
+            float bottom = y - (height * 0.5f);
+            float top = y + (height * 0.5f);
+            if (left < -halfW)
+            {
+                left = -halfW;
+            }
+
+            if (right > halfW)
+            {
+                right = halfW;
+            }
+
+            if (bottom < -halfH)
+            {
+                bottom = -halfH;
+            }
+
+            if (top > halfH)
+            {
+                top = halfH;
+            }
+
+            width = right - left;
+            height = top - bottom;
+            x = left;
+            y = (bottom + top) * 0.5f;
+            return width > 0.5f && height > 0.5f;
         }
 
         private static float[] MeasurePieces(Text host, PromptPiece[] pieces, InputScheme scheme, bool hi, float iconPx)

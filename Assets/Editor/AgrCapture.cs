@@ -3423,6 +3423,11 @@ namespace AsteroidsGoneRogue.EditorTools
                         continue;
                     }
 
+                    if (LayerGate.IsUiBackgroundPair(leftMark.Block + " x " + rightMark.Block))
+                    {
+                        continue;
+                    }
+
                     if (HudOverlay(leftMark, width, height) || HudOverlay(rightMark, width, height))
                     {
                         continue;
@@ -3507,6 +3512,11 @@ namespace AsteroidsGoneRogue.EditorTools
                     HudMark leftMark = ink[left];
                     HudMark rightMark = ink[right];
                     if (leftMark.Block == rightMark.Block || !HudOverlaps(leftMark, rightMark))
+                    {
+                        continue;
+                    }
+
+                    if (LayerGate.IsUiBackgroundPair(leftMark.Block + " x " + rightMark.Block))
                     {
                         continue;
                     }
