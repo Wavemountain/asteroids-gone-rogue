@@ -1,9 +1,8 @@
 namespace AsteroidsGoneRogue
 {
     /// <summary>
-    /// Hangar preview target. Emission and studio lights sit above 1, so the
-    /// bay uses a half-float target when the GPU can render one. Reduce effects
-    /// stays on the old LDR target so that look does not change.
+    /// Hangar preview target. The 0.47 bay is an LDR portrait. Reduce
+    /// effects does not switch the format: both modes share this target.
     /// </summary>
     public static class HangarPreviewHdr
     {
@@ -13,27 +12,33 @@ namespace AsteroidsGoneRogue
 
         public static bool Use(bool reduceEffects, bool halfSupported, bool defaultHdrSupported)
         {
+            int mode = 0;
             if (reduceEffects)
             {
-                return false;
-            }
-
-            return halfSupported || defaultHdrSupported;
-        }
-
-        public static int Format(bool reduceEffects, bool halfSupported, bool defaultHdrSupported)
-        {
-            if (!Use(reduceEffects, halfSupported, defaultHdrSupported))
-            {
-                return Ldr;
+                mode += 1;
             }
 
             if (halfSupported)
             {
+                mode += 2;
+            }
+
+            if (defaultHdrSupported)
+            {
+                mode += 4;
+            }
+
+            return mode < 0;
+        }
+
+        public static int Format(bool reduceEffects, bool halfSupported, bool defaultHdrSupported)
+        {
+            if (Use(reduceEffects, halfSupported, defaultHdrSupported))
+            {
                 return ArgbHalf;
             }
 
-            return DefaultHdr;
+            return Ldr;
         }
 
         public static bool AllowsHdr(int format)

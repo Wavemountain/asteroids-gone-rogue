@@ -10,10 +10,9 @@ namespace AsteroidsGoneRogue
     {
         public const float LegacySpinDegrees = 18f;
         public const float TurntableScale = 0.5f;
-        public const float KeyIntensity = 0.85f;
-        public const float FillIntensity = 0.16f;
-        public const float RimIntensity = 0.70f;
-        public const float RimReduceScale = 0.45f;
+        public const float KeyIntensity = 2.05f;
+        public const float FillIntensity = 0.48f;
+        public const float RimIntensity = 1.7f;
         public const float BounceIntensity = 0.10f;
         public const float KeyR = 1f;
         public const float KeyG = 0.84f;
@@ -107,14 +106,14 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// Full studio rim, or a calmer rim when Reduce effects is on.
-        /// The turntable already stops for that flag; this only dims the rim light.
+        /// Studio rim intensity. Reduce effects stops the turntable and does
+        /// not dim this light: the hangar colour is the same either way.
         /// </summary>
         public static float StudioRim(bool reduceEffects)
         {
             if (reduceEffects)
             {
-                return RimIntensity * RimReduceScale;
+                return RimIntensity;
             }
 
             return RimIntensity;

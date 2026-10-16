@@ -14827,10 +14827,10 @@ def test_p3_hangar_hero_preview() -> None:
     assert snap(330.0, 3.3) == 0.01
     assert snap(2.4, 3.3) == 1.0
 
-    assert "KeyIntensity = 0.85f" in rig and "RimIntensity = 0.70f" in rig
-    assert "FillIntensity = 0.16f" in rig
+    assert "KeyIntensity = 2.05f" in rig and "RimIntensity = 1.7f" in rig
+    assert "FillIntensity = 0.48f" in rig
     assert "BounceIntensity = 0.10f" in rig
-    assert "RimReduceScale = 0.45f" in rig
+    assert "RimReduceScale" not in rig
     assert "StudioRim" in rig and "HangarPreviewRig.StudioRim" in preview
     assert "interacting || reduceEffects" in rig
     assert "KeyLocalX = -3.0f" in rig and "RimSpotAngle = 30f" in rig
@@ -14838,13 +14838,11 @@ def test_p3_hangar_hero_preview() -> None:
     assert "BackdropRgb" in rig
 
     def studio_rim(reduce):
-        if reduce:
-            return 0.70 * 0.45
-        return 0.70
+        return 1.7
 
-    assert studio_rim(False) == 0.70
-    assert studio_rim(True) < studio_rim(False)
-    assert abs(studio_rim(True) - 0.315) < 1e-6
+    assert studio_rim(False) == 1.7
+    assert studio_rim(True) == studio_rim(False)
+    assert abs(studio_rim(True) - 1.7) < 1e-6
 
     def backdrop(u, v):
         du, dv = u - 0.5, v - 0.5
@@ -15032,8 +15030,8 @@ def test_p4_tutorial_prompt_cards() -> None:
                 Need(TutorialPrompt.Token(TutorialPrompt.Buy) == "confirm", "buy glyph");
 
                 Need(HangarPreviewHdr.Format(true, true, true) == HangarPreviewHdr.Ldr, "reduce stays ldr");
-                Need(HangarPreviewHdr.Format(false, true, true) == HangarPreviewHdr.ArgbHalf, "half preferred");
-                Need(HangarPreviewHdr.Format(false, false, true) == HangarPreviewHdr.DefaultHdr, "default hdr fallback");
+                Need(HangarPreviewHdr.Format(false, true, true) == HangarPreviewHdr.Ldr, "full stays ldr");
+                Need(HangarPreviewHdr.Format(true, true, true) == HangarPreviewHdr.Format(false, false, true), "same target");
                 Need(HangarPreviewHdr.Format(false, false, false) == HangarPreviewHdr.Ldr, "unsupported ldr");
                 Need(!HangarPreviewHdr.AllowsHdr(HangarPreviewHdr.Ldr), "ldr camera");
                 Need(HangarPreviewHdr.AllowsHdr(HangarPreviewHdr.ArgbHalf), "half camera");
@@ -15999,20 +15997,28 @@ def test_capture_048_clearance_hud() -> None:
     assert "new Color(1f, 0.28f, 0.05f) * 2.2f" in factory
     assert "DressBody" not in factory
     assert "DeathWashDimFull = 0.62f" in look and "DeathWashDimReduce = 0.28f" in look
-    assert "PreviewExposure = 0.46f" in look and "PreviewEmissionCap = 0.65f" in look
+    assert "PreviewExposure = 0.85f" in look and "PreviewEmissionCap = 0.65f" in look
+    assert "CombatHullEmission = 1.85f" in look and "CombatShipBeatsGrid" in look
     assert "PreviewBlueKeep = 0.92f" in look and "PreviewSatBoostCap = 1.2f" in look
     assert "PreviewNeutralR = 0.45f" in look and "PreviewNeutralEmit = 0.35f" in look
     assert "HangarSaturation = -4f" in grade and "HangarTint = 0f" in grade
-    assert "PreviewAlbedoLimit" in look and "PreviewAlbedoLimit" in preview
-    assert "PreviewSteel" in look and "PreviewSteel" in preview
-    assert "PreviewNeutralEmission" in preview
+    assert "PreviewAlbedoLimit" in look
+    assert "PreviewSteel" in look and "PreviewSteel" not in preview
+    assert "ClearPreviewTint" in preview and "ShipPaint.ClearRenderer" in preview
     assert "KeyB = 0.62f" in rig and "FillB = 0.84f" in rig and "RimB = 1f" in rig
-    assert "KeyIntensity = 0.85f" in rig
+    assert "KeyIntensity = 2.05f" in rig and "FillIntensity = 0.48f" in rig
     assert "(dist - 0.08f) / 0.28f" in view
     assert "DeathEdge" in ui and "PaintDeathEdge" in ui
     assert "CheckHudLayout" in capture and "AgrCapture hud overlap" in capture
     assert "AgrCapture hud outside" in capture
-    assert "NoteHudFail(firstOverlap" in capture
+    assert "NoteHudFail(firstOverlap" in capture and "NoteHudFail(firstOutside" in capture
+    outside_check = capture.split("if (firstOutside.Length > 0)")[1].split("static bool TryHudMark")[0]
+    assert "NoteHudFail(firstOutside" in outside_check
+    assert "Fail(" not in outside_check.replace("NoteHudFail(", "")
+    assert "CaptureContinue.NextShot" in capture and "CaptureContinue.ExitCode" in capture
+    assert "PlayVignette" in capture and "RefitPlayHint" in capture
+    assert "HorizontalWrapMode.Wrap" in (root / "Assets/Scripts/UI/PromptLineView.cs").read_text(encoding="utf-8")
+    assert "ScaleToFit" in (root / "Assets/Scripts/Core/PromptLayout.cs").read_text(encoding="utf-8")
     assert "PlayHudLayout.ScoreMinY" in ui and "PlayHudLayout.CaptionMaxY" in ui
     assert "alpha <= 0.01f" in capture and "HudWrapsChildren" in capture
 
@@ -16031,6 +16037,8 @@ def test_capture_048_clearance_hud() -> None:
     shutil.copyfile(root / "Assets/Scripts/Core/PlayHudLayout.cs", work / "PlayHudLayout.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/PremiumLook.cs", work / "PremiumLook.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/EffectScale.cs", work / "EffectScale.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/PromptLayout.cs", work / "PromptLayout.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/CaptureContinue.cs", work / "CaptureContinue.cs")
     program = """
 using System;
 namespace AsteroidsGoneRogue
@@ -16048,6 +16056,9 @@ class Program
         if (!AsteroidsGoneRogue.OpeningView.SelfCheck()) throw new Exception("view");
         if (!AsteroidsGoneRogue.PlayHudLayout.SelfCheck()) throw new Exception("hud");
         if (!AsteroidsGoneRogue.PremiumLook.SelfCheck()) throw new Exception("look");
+        if (!AsteroidsGoneRogue.PromptLayout.SelfCheck()) throw new Exception("prompt fit");
+        if (!AsteroidsGoneRogue.CaptureContinue.SelfCheck()) throw new Exception("capture continue");
+        if (AsteroidsGoneRogue.CaptureContinue.NextShot(2, true, false) != 3) throw new Exception("hud fail still advances");
         Console.WriteLine("clearance-ok");
     }
 }
@@ -16069,6 +16080,8 @@ class Program
                 '    <Compile Include="PlayHudLayout.cs" />',
                 '    <Compile Include="PremiumLook.cs" />',
                 '    <Compile Include="EffectScale.cs" />',
+                '    <Compile Include="PromptLayout.cs" />',
+                '    <Compile Include="CaptureContinue.cs" />',
                 '    <Compile Include="Program.cs" />',
                 "  </ItemGroup>",
                 "</Project>",
