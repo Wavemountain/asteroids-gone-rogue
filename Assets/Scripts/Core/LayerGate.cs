@@ -20,6 +20,8 @@ namespace AsteroidsGoneRogue
         public const float VisibleAlpha = 0.04f;
         public const float DeadEmissionMax = 0.45f;
         public const float DeadAlbedoMax = 0.45f;
+        // Darkening shader. A black unlit blend is the shadow, not a dead plate.
+        public const string BlobShadowShader = "AGR/BlobShadow";
         // Built-in UI layer. Capture composites canvases with this mask only.
         public const int UiLayer = 5;
         public const int UiCameraMask = 1 << UiLayer;
@@ -462,6 +464,43 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            // Unlit black beam plate. Not a blob shadow, so the dead rule still fires.
+            Fact deadBeam = FactOf("Arena_Beam", "Mat_Arena_W3_Beam", "decor", "Unlit/Color", 2000, ZTestLEqual, 1f, 0.1f, 0.12f, true);
+            if (!Expect("dead", Evaluate("4", rules, new Fact[] { deadBeam }, null, null, null)))
+            {
+                return false;
+            }
+
+            // Authored queue is 2990. KeepGameplay then writes GameplayQueue 2450
+            // onto the shared material. Black albedo and the unlit classification
+            // are real; they are not a dead plate when the shader is AGR/BlobShadow.
+            Fact blob = FactOf("ContactBlob", "Mat_ContactBlob", "decor", BlobShadowShader, 2450, ZTestLEqual, 0.9f, 0f, 0f, true);
+            string[] blobHits = Evaluate("1", rules, new Fact[] { blob }, null, null, null);
+            if (blobHits.Length != 0 || Expect("dead", blobHits))
+            {
+                return false;
+            }
+
+            Fact blobQueue = FactOf("ContactBlob", "Mat_ContactBlob", "decor", BlobShadowShader, 2990, ZTestLEqual, 0.9f, 0f, 0f, true);
+            if (Evaluate("1", rules, new Fact[] { blobQueue }, null, null, null).Length != 0)
+            {
+                return false;
+            }
+
+            // The object name is not a waiver. A black unlit plate on that
+            // renderer still fails when the shader is not AGR/BlobShadow.
+            Fact namedPlate = FactOf("ContactBlob", "Mat_ContactBlob", "decor", "Unlit/Color", 2450, ZTestLEqual, 0.9f, 0f, 0f, true);
+            if (!Expect("dead", Evaluate("1", rules, new Fact[] { namedPlate }, null, null, null)))
+            {
+                return false;
+            }
+
+            Fact invisibleBlob = FactOf("ContactBlob", "Mat_ContactBlob", "decor", BlobShadowShader, 2450, ZTestLEqual, 0f, 0f, 0f, true);
+            if (!Expect("shadow-alpha", Evaluate("1", rules, new Fact[] { invisibleBlob }, null, null, null)))
+            {
+                return false;
+            }
+
             if (Evaluate("1", rules, new Fact[] { FactOf("Asteroid_M_C", "Mat_Env_Belt", "asteroid", 2000, ZTestLEqual, 1f, 0.1f, 0.2f, true) }, null, null, null).Length != 0)
             {
                 return false;
@@ -674,13 +713,29 @@ namespace AsteroidsGoneRogue
 
         static void NoteFact(string world, Rules rules, string[] rendererPatterns, string[] materialPatterns, Fact fact, System.Collections.Generic.List<string> hits)
         {
+            if (fact == null || !fact.Active)
+            {
+                return;
+            }
+
+            bool shadow = IsBlobShadow(fact.Shader);
+            string name = Bare(fact.Name);
+            string material = Bare(fact.Material);
+            // AGR/BlobShadow darkens the floor. Black RGB, unlit, and a queue
+            // under 2500 (KeepGameplay rewrites the authored 2990 to 2450) are
+            // the shadow, not a dead plate. Alpha still has to clear the
+            // visible floor. Placement (on the plate, under bodies) stays in
+            // the capture checks and is not waived here.
+            if (shadow && fact.Alpha <= VisibleAlpha)
+            {
+                hits.Add("shadow-alpha " + name + " material " + material);
+            }
+
             if (!Shown(fact))
             {
                 return;
             }
 
-            string name = Bare(fact.Name);
-            string material = Bare(fact.Material);
             int queue = EffectiveQueue(fact.Queue);
             if (!MatchAny(rendererPatterns, name) || !MatchAny(materialPatterns, material))
             {
@@ -688,7 +743,7 @@ namespace AsteroidsGoneRogue
             }
 
             bool deadExempt = MatchAny(rules.DeadExempt, name) || MatchAny(rules.DeadExempt, material);
-            if (!deadExempt && queue < TransparentMin && fact.Emission <= DeadEmissionMax && fact.Albedo <= DeadAlbedoMax && (fact.Unlit || DeadHint(rules, name) || DeadHint(rules, material)))
+            if (!shadow && !deadExempt && queue < TransparentMin && fact.Emission <= DeadEmissionMax && fact.Albedo <= DeadAlbedoMax && (fact.Unlit || DeadHint(rules, name) || DeadHint(rules, material)))
             {
                 hits.Add("dead " + name + " material " + material);
             }
@@ -789,6 +844,16 @@ namespace AsteroidsGoneRogue
 
             string name = island.Name == null ? "decor" : island.Name;
             hits.Add("spawn-decor " + name);
+        }
+
+        public static bool IsBlobShadow(string shader)
+        {
+            if (shader == null || shader.Length == 0)
+            {
+                return false;
+            }
+
+            return shader.IndexOf(BlobShadowShader, System.StringComparison.Ordinal) >= 0;
         }
 
         static bool Shown(Fact fact)
@@ -1022,7 +1087,7 @@ namespace AsteroidsGoneRogue
         {
             Rules rules = new Rules();
             rules.Renderers = new string[] { "Ship*", "Enemy*", "Asteroid*", "Arena*", "ContactBlob", "AstroGrid" };
-            rules.Materials = new string[] { "Mat_Ship_*", "Mat_Enemy", "Mat_Asteroid", "Mat_Env_*", "Mat_Arena_*" };
+            rules.Materials = new string[] { "Mat_Ship_*", "Mat_Enemy", "Mat_Asteroid", "Mat_Env_*", "Mat_Arena_*", "Mat_ContactBlob" };
             rules.HangarRenderers = new string[] { "Desk" };
             rules.World1Renderers = new string[0];
             rules.World3Renderers = new string[0];

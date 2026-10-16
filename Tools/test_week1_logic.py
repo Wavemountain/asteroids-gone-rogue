@@ -16096,6 +16096,8 @@ def test_capture_048_clearance_hud() -> None:
     assert "RenderQueue = 2990" in blob_cs
     assert "mine contrast" in capture and "blob above" in capture and "W4PinSeed" in capture
     assert "LockMetrics" in prompt_view and "waveclear hint size" in capture
+    assert "waveclear hint box" in capture and "HintBoxPx" in capture
+    assert "AGR/BlobShadow" in layer_gate and "shadow-alpha" in layer_gate and "IsBlobShadow" in layer_gate
     assert "SummaryBodyMaxX = 0.68f" in ui and "SummaryNewRunMaxY = 0.64f" in ui
     assert 'Loc.T("ui.hint_waveclear", HintWaveClear)' in ui
     assert "spawn-disc ship" in capture and "spawn-disc contrast" in capture and "blob-shadow" in capture
