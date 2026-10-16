@@ -3,7 +3,8 @@ using UnityEngine;
 namespace AsteroidsGoneRogue
 {
     /// <summary>
-    /// Flat radial disc under a body. Colour and alpha stay put when Reduce is on.
+    /// Flat dark disc under a body. The shader keeps RGB black and fades alpha
+    /// to the edge. Colour and alpha stay put when Reduce is on.
     /// </summary>
     public sealed class ContactBlob : MonoBehaviour
     {
