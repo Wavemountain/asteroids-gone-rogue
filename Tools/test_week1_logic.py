@@ -10970,12 +10970,21 @@ def test_speltest_063_marker_title_bank() -> None:
     assert old_parsed is not None and "HullNow" not in old_parsed and "ShieldNow" not in old_parsed
     assert "parsed.HullNow = -1" in save and "parsed.ShieldNow = -1" in save
 
+    anchor_y = r"(?:[0-9.]+f|[A-Za-z_][A-Za-z0-9_]*)"
     title = re.search(
-        r"Stretch\(_summaryTitle\.rectTransform, new Vector2\(([0-9.]+)f, [0-9.]+f\), new Vector2\(([0-9.]+)f, [0-9.]+f\)\)",
+        r"Stretch\(_summaryTitle\.rectTransform, new Vector2\(([0-9.]+)f, "
+        + anchor_y
+        + r"\), new Vector2\(([0-9.]+)f, "
+        + anchor_y
+        + r"\)\)",
         ui,
     )
     chip = re.search(
-        r"Stretch\(_waveMedal\.rectTransform, new Vector2\(([0-9.]+)f, [0-9.]+f\), new Vector2\(([0-9.]+)f, [0-9.]+f\)\)",
+        r"Stretch\(_waveMedal\.rectTransform, new Vector2\(([0-9.]+)f, "
+        + anchor_y
+        + r"\), new Vector2\(([0-9.]+)f, "
+        + anchor_y
+        + r"\)\)",
         ui,
     )
     assert title and chip
@@ -12032,7 +12041,8 @@ def test_honest_fail_copy() -> None:
     assert "HangarPanelMin = new Vector2(0.014f, 0.080f)" in ui
     assert "HangarPanelMax = new Vector2(0.55f, 0.888f)" in ui
     assert "new Vector2(0.03f, 0.735f)" in ui and "new Vector2(0.97f, 0.800f)" in ui
-    assert "Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.14f), new Vector2(0.97f, 0.52f))" in ui
+    assert "Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.14f), new Vector2(0.97f, SummaryContinueMaxY))" in ui
+    assert "SummaryContinueMaxY = 0.42f" in ui
     assert "_primaryLabel.fontSize = 28" in ui
     assert "ShopHeaderSize = 16" in (root / "Assets/Scripts/UI/UiTheme.cs").read_text(encoding="utf-8")
 
@@ -12052,7 +12062,7 @@ def test_honest_fail_copy() -> None:
         canvas_w = width / scale
         canvas_h = height / scale
         summary_box = _map_anchors(*hangar, 0.02, 0.816, 0.98, 0.946)
-        hint = _map_anchors(*summary_box, 0.03, 0.22, 0.97, 0.52)
+        hint = _map_anchors(*summary_box, 0.03, 0.14, 0.97, 0.42)
         primary = _map_anchors(*hangar, 0.03, 0.735, 0.97, 0.800)
         hint_w = (hint[2] - hint[0]) * canvas_w
         hint_h = (hint[3] - hint[1]) * canvas_h
@@ -16057,7 +16067,10 @@ def test_capture_048_clearance_hud() -> None:
     assert "HangarHintMaxY = 0.064f" in ui
     assert "new Vector2(0f, -pixels)" not in ui
     assert "W3GridAlpha = 0.10f" in look and "W3GridPulseFloor" not in look
-    assert "go.layer = 0" in factory and "Mat_Env_SpawnContrast" in factory
+    assert "DecorCameraStack.LayerIndex()" in factory and "Mat_Env_SpawnContrast" in factory
+    assert "Arena_SpawnContrast" in factory
+    assert '"SpawnContrast"' not in (root / "Tools/layer_whitelist.json").read_text(encoding="utf-8")
+    assert "SummaryTitleMaxY = 0.86f" in ui and "SummaryTitleMinY = 0.66f" in ui
     panel_h = 0.888 - 0.080
     for height in (800, 1080, 1440):
         gap = (0.816 - 0.800) * panel_h * height
@@ -16066,7 +16079,12 @@ def test_capture_048_clearance_hud() -> None:
         assert hint_gap > 2.0, (height, hint_gap)
         preview_gap = (0.080 - 0.064) * height
         assert preview_gap > 2.0, (height, preview_gap)
-    assert "HorizontalWrapMode.Wrap" in (root / "Assets/Scripts/UI/PromptLineView.cs").read_text(encoding="utf-8")
+    prompt_view = (root / "Assets/Scripts/UI/PromptLineView.cs").read_text(encoding="utf-8")
+    assert "HorizontalWrapMode.Overflow" in prompt_view and "preferredWidth" in prompt_view
+    assert "SpawnDiscRingHit" in layer_gate and "death-remnant " in layer_gate
+    assert "SameCardOverlap" in capture and "HudCard" in capture
+    vfx = (root / "Assets/Scripts/Combat/VfxKit.cs").read_text(encoding="utf-8")
+    assert "QuietParticle(_live._chunks)" in vfx and "QuietParticle(_live._sparks)" in vfx
     assert "ScaleToFit" in (root / "Assets/Scripts/Core/PromptLayout.cs").read_text(encoding="utf-8")
     assert "PlayHudLayout.ScoreMinY" in ui and "PlayHudLayout.CaptionMaxY" in ui
     assert "alpha <= 0.01f" in capture and "HudWrapsChildren" in capture

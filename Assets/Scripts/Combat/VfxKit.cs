@@ -44,17 +44,43 @@ namespace AsteroidsGoneRogue
         /// </summary>
         public static void ClearHullPuff()
         {
-            if (_live == null || _live._smoke == null)
+            if (_live == null)
             {
                 return;
             }
 
-            _live._smoke.Stop();
-            _live._smoke.Clear();
-            ParticleSystemRenderer renderer = _live._smoke.GetComponent<ParticleSystemRenderer>();
+            QuietParticle(_live._smoke);
+            QuietParticle(_live._chunks);
+            QuietParticle(_live._sparks);
+        }
+
+        private static void QuietParticle(ParticleSystem system)
+        {
+            if (system == null)
+            {
+                return;
+            }
+
+            system.Stop();
+            system.Clear();
+            ParticleSystemRenderer renderer = system.GetComponent<ParticleSystemRenderer>();
             if (renderer != null)
             {
                 renderer.enabled = false;
+            }
+        }
+
+        private static void ShowParticle(ParticleSystem system)
+        {
+            if (system == null)
+            {
+                return;
+            }
+
+            ParticleSystemRenderer renderer = system.GetComponent<ParticleSystemRenderer>();
+            if (renderer != null)
+            {
+                renderer.enabled = true;
             }
         }
 
@@ -104,6 +130,7 @@ namespace AsteroidsGoneRogue
 
             int scaled = VfxBudget.ScaledCount(count, reduce);
             float size = VfxBudget.ScaledSize(0.08f, reduce);
+            ShowParticle(kit._sparks);
             kit.Emit(kit._sparks, position, Vector3.up, 0.15f, size, color, scaled);
         }
 
@@ -142,14 +169,8 @@ namespace AsteroidsGoneRogue
 
         private void PlayExplosion(Vector3 position, int size, bool reduce)
         {
-            if (_smoke != null)
-            {
-                ParticleSystemRenderer smokeRenderer = _smoke.GetComponent<ParticleSystemRenderer>();
-                if (smokeRenderer != null)
-                {
-                    smokeRenderer.enabled = true;
-                }
-            }
+            ShowParticle(_smoke);
+            ShowParticle(_chunks);
 
             int chunks = VfxBudget.Chunks(size, reduce);
             int smokes = VfxBudget.Smokes(size, reduce);
@@ -249,6 +270,7 @@ namespace AsteroidsGoneRogue
 
             int sparks = VfxBudget.MuzzleSparks(mode, reduce);
             Color spark = new Color(VfxBudget.HotR, VfxBudget.HotG, VfxBudget.HotB, 1f);
+            ShowParticle(_sparks);
             Emit(_sparks, position, aim * 6f, 0.12f, VfxBudget.ScaledSize(0.06f, reduce), spark, sparks);
         }
 

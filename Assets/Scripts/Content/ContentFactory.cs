@@ -455,8 +455,8 @@ namespace AsteroidsGoneRogue
             DecorCameraStack.ApplyLayer(_arenaRoot);
             if (env != null && worldNumber == 1)
             {
-                // ApplyLayer puts every arena child on the decor camera, which
-                // the play camera never draws. Re-pin the disc onto layer 0 after that.
+                // ApplyLayer already ran. Dress pins the disc on the decor
+                // camera itself, at the ship spawn, under the ring and grid.
                 DressSpawnContrast(env.transform);
             }
             if (announce)
@@ -1762,14 +1762,26 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        private const float SpawnDiscRadius = 3.6f;
+        private const float SpawnDiscWorldY = -0.04f;
+        private const int SpawnDiscQueue = 2700;
+        private const string SpawnDiscObjectName = "Arena_SpawnContrast";
+        private static Texture2D _spawnDiscTex;
+
         private static void ClearSpawnContrast(Transform parent)
+        {
+            DestroyChild(parent, "SpawnContrast");
+            DestroyChild(parent, SpawnDiscObjectName);
+        }
+
+        private static void DestroyChild(Transform parent, string childName)
         {
             if (parent == null)
             {
                 return;
             }
 
-            Transform existing = parent.Find("SpawnContrast");
+            Transform existing = parent.Find(childName);
             if (existing != null)
             {
                 DestroyImmediate(existing.gameObject);
@@ -1783,10 +1795,10 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            Shader shader = Shader.Find("Unlit/Color");
+            Shader shader = Shader.Find("Unlit/Transparent");
             if (shader == null)
             {
-                shader = Shader.Find("Unlit/Texture");
+                shader = Shader.Find("Particles/Standard Unlit");
             }
 
             if (shader == null)
@@ -1794,7 +1806,10 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            Transform existing = parent.Find("SpawnContrast");
+            // The arena is dressed before the ship exists. Spawn is world
+            // (0, PlayHeight, 0); the disc uses that XZ, not the env pivot.
+            DestroyChild(parent, "SpawnContrast");
+            Transform existing = parent.Find(SpawnDiscObjectName);
             GameObject go = null;
             if (existing != null)
             {
@@ -1804,7 +1819,7 @@ namespace AsteroidsGoneRogue
             if (go == null)
             {
                 go = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                go.name = "SpawnContrast";
+                go.name = SpawnDiscObjectName;
                 go.transform.SetParent(parent, false);
             }
 
@@ -1816,30 +1831,81 @@ namespace AsteroidsGoneRogue
                 DestroyImmediate(collider);
             }
 
-            // Decor layer never reaches the play camera (it clears depth only).
-            // A flat quad on layer 0, above the grid (y 0.03) and the floor
-            // (-0.08) and under the ship (y 0.4), is drawn after that clear.
-            // Queue 3000 skips the dead-plate check (queue < 2500). The old
-            // cylinder was unlit (0.32, 0.50, 0.86), brighter than the floor,
-            // 2 cm tall, and coplanar with AstroGrid, so the floor sample
-            // stayed 0.176. Hull albedo is unchanged. This luma is ~0.018;
-            // the 048n ship sample 0.157 stays above 1.3 even if a grade
-            // multiplies the disc by the same ~2x that lifts the floor.
-            go.layer = 0;
-            go.transform.localPosition = new Vector3(0f, 0.08f, 0f);
-            go.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            go.transform.localScale = new Vector3(16f, 16f, 1f);
+            // Decor camera draws floor (queue 2000), then this disc (2700),
+            // then the grid (2900) and the lip (3000). Layer 0 painted the
+            // old 16 m square over the ring because the play camera draws
+            // after the decor clear. Centre luma is ~0.018; ship sample
+            // 0.157 stays above 1.3 even if a grade lifts the disc ~2x.
+            // Radius 3.6 m stays inside the lip (inner ~29.8 m).
+            go.layer = DecorCameraStack.LayerIndex();
+            go.transform.localScale = Vector3.one;
+            go.transform.position = new Vector3(0f, SpawnDiscWorldY, 0f);
+            go.transform.rotation = Quaternion.Euler(-90f, 0f, 0f);
+            float diameter = SpawnDiscRadius * 2f;
+            Vector3 lossy = go.transform.lossyScale;
+            float spanX = Mathf.Abs(lossy.x);
+            float spanY = Mathf.Abs(lossy.y);
+            if (spanX <= 0.001f)
+            {
+                spanX = 1f;
+            }
+
+            if (spanY <= 0.001f)
+            {
+                spanY = 1f;
+            }
+
+            go.transform.localScale = new Vector3(diameter / spanX, diameter / spanY, 1f);
             Material mat = new Material(shader);
             mat.name = "Mat_Env_SpawnContrast";
+            mat.mainTexture = SpawnDiscTexture();
             mat.color = new Color(0.012f, 0.018f, 0.036f, 1f);
-            mat.renderQueue = 3000;
+            mat.renderQueue = SpawnDiscQueue;
+            if (mat.HasProperty("_ZWrite"))
+            {
+                mat.SetFloat("_ZWrite", 0f);
+            }
+
             Renderer renderer = go.GetComponent<Renderer>();
             if (renderer != null)
             {
                 renderer.sharedMaterial = mat;
+                renderer.sortingOrder = -2;
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
             }
+        }
+
+        private static Texture2D SpawnDiscTexture()
+        {
+            if (_spawnDiscTex != null)
+            {
+                return _spawnDiscTex;
+            }
+
+            const int size = 64;
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            tex.name = "Tex_Env_SpawnContrast";
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+            float half = (size - 1) * 0.5f;
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = (x - half) / half;
+                    float dy = (y - half) / half;
+                    float radius = Mathf.Sqrt((dx * dx) + (dy * dy));
+                    float edge = (radius - 0.15f) / 0.85f;
+                    edge = Mathf.Clamp01(edge);
+                    float smooth = edge * edge * (3f - (2f * edge));
+                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, 1f - smooth));
+                }
+            }
+
+            tex.Apply(false, true);
+            _spawnDiscTex = tex;
+            return tex;
         }
 
         private static void DressArenaFloorRenderers(GameObject visual)

@@ -34,6 +34,9 @@ namespace AsteroidsGoneRogue
         public const float RingBlockOuter = 4f;
         public const float RingBlockSpanMin = 3f;
         public const float RingBlockSpanMax = 12f;
+        // Lip inner edge is ArenaRadius 30 minus the 0.22 m half-width.
+        // A spawn disc whose XZ box reaches this paints the ring.
+        public const float SpawnDiscRingInner = 29.5f;
 
         public sealed class Rules
         {
@@ -355,8 +358,9 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// Smoke billboards spawned on the hull are not ship children. A death
-        /// shot that still has them alive fails. Other worlds may keep the puff.
+        /// Hull particles are not ship children. A death shot that still has
+        /// smoke, chunk, or spark billboards alive fails. Other worlds may
+        /// keep them. The chunk ember is the few-pixel speck at the wreck.
         /// </summary>
         public static string DeathPuffHit(string world, string name, int alive, bool enabled)
         {
@@ -365,9 +369,28 @@ namespace AsteroidsGoneRogue
                 return null;
             }
 
-            if (name == "Smoke")
+            if (name == "Smoke" || name == "Chunks" || name == "Sparks")
             {
-                return "death-remnant Smoke";
+                return "death-remnant " + name;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// The spawn disc must stay inside the arena lip. Farthest XZ corner
+        /// at or past the inner rim overlaps the ring.
+        /// </summary>
+        public static string SpawnDiscRingHit(float minX, float maxX, float minZ, float maxZ)
+        {
+            return SpawnDiscRingHit(minX, maxX, minZ, maxZ, SpawnDiscRingInner);
+        }
+
+        public static string SpawnDiscRingHit(float minX, float maxX, float minZ, float maxZ, float ringInner)
+        {
+            if (FarthestRadius(minX, maxX, minZ, maxZ) >= ringInner)
+            {
+                return "spawn-disc ring";
             }
 
             return null;
@@ -450,6 +473,31 @@ namespace AsteroidsGoneRogue
             }
 
             if (DeathPuffHit("1", "Smoke", 8, true) != null || DeathPuffHit("death", "Smoke", 0, true) != null)
+            {
+                return false;
+            }
+
+            if (DeathPuffHit("death", "Chunks", 3, true) != "death-remnant Chunks")
+            {
+                return false;
+            }
+
+            if (DeathPuffHit("death", "Sparks", 2, true) != "death-remnant Sparks")
+            {
+                return false;
+            }
+
+            if (DeathPuffHit("death", "Sparks", 2, false) != null || DeathPuffHit("1", "Chunks", 3, true) != null)
+            {
+                return false;
+            }
+
+            if (SpawnDiscRingHit(-3.6f, 3.6f, -3.6f, 3.6f) != null)
+            {
+                return false;
+            }
+
+            if (SpawnDiscRingHit(22f, 38f, -8f, 8f) != "spawn-disc ring")
             {
                 return false;
             }

@@ -246,7 +246,7 @@ namespace AsteroidsGoneRogue
             text.fontStyle = host.fontStyle;
             text.color = host.color;
             text.alignment = TextAnchor.MiddleLeft;
-            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
             text.verticalOverflow = VerticalWrapMode.Truncate;
             text.raycastTarget = false;
             text.supportRichText = false;
@@ -267,7 +267,7 @@ namespace AsteroidsGoneRogue
             textRect.sizeDelta = new Vector2(textWidth, textHeight);
             textRect.anchoredPosition = new Vector2(textX, textY);
             int size = text.fontSize;
-            while (size > 1 && text.preferredHeight > textHeight + 1f)
+            while (size > 1 && (text.preferredWidth > textWidth + 1f || text.preferredHeight > textHeight + 1f))
             {
                 size--;
                 text.fontSize = size;
