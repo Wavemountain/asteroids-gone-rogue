@@ -57,8 +57,12 @@ namespace AsteroidsGoneRogue
         public const float PreviewExposure = 0.46f;
         public const float PreviewEmissionCap = 0.65f;
         public const float PreviewAlbedoLift = 1.05f;
-        // 0.47 hull read (0.45, 0.52, 0.58). Warm gameplay albedo is remapped
-        // onto this steel. Cool parts stay. The peak is not raised.
+        // Art-director hangar grade. Blue keep stays 0.92. The chroma stretch
+        // cap is 1.2 (was 1.8) so panel shading is not flattened. Warm hulls
+        // then land on the 0.47 steel read. The peak is not raised.
+        public const float PreviewBlueKeep = 0.92f;
+        public const float PreviewSatFloor = 0.55f;
+        public const float PreviewSatBoostCap = 1.2f;
         public const float PreviewNeutralR = 0.45f;
         public const float PreviewNeutralG = 0.52f;
         public const float PreviewNeutralB = 0.58f;
@@ -254,6 +258,81 @@ namespace AsteroidsGoneRogue
                 scaledB = 1f;
             }
 
+            scaledB *= PreviewBlueKeep;
+            if (scaledB < 0f)
+            {
+                scaledB = 0f;
+            }
+
+            float peak = scaledR;
+            if (scaledG > peak)
+            {
+                peak = scaledG;
+            }
+
+            if (scaledB > peak)
+            {
+                peak = scaledB;
+            }
+
+            float floor = scaledR;
+            if (scaledG < floor)
+            {
+                floor = scaledG;
+            }
+
+            if (scaledB < floor)
+            {
+                floor = scaledB;
+            }
+
+            float boost = 1f;
+            if (peak > 0.0001f)
+            {
+                float sat = (peak - floor) / peak;
+                if (sat < PreviewSatFloor && sat > 0.0001f)
+                {
+                    boost = PreviewSatFloor / sat;
+                    if (boost > PreviewSatBoostCap)
+                    {
+                        boost = PreviewSatBoostCap;
+                    }
+                }
+            }
+
+            scaledR = peak - ((peak - scaledR) * boost);
+            scaledG = peak - ((peak - scaledG) * boost);
+            scaledB = peak - ((peak - scaledB) * boost);
+            if (scaledR < 0f)
+            {
+                scaledR = 0f;
+            }
+
+            if (scaledG < 0f)
+            {
+                scaledG = 0f;
+            }
+
+            if (scaledB < 0f)
+            {
+                scaledB = 0f;
+            }
+
+            if (scaledR > 1f)
+            {
+                scaledR = 1f;
+            }
+
+            if (scaledG > 1f)
+            {
+                scaledG = 1f;
+            }
+
+            if (scaledB > 1f)
+            {
+                scaledB = 1f;
+            }
+
             if (!WarmHull(scaledR, scaledG, scaledB))
             {
                 outR = scaledR;
@@ -344,6 +423,31 @@ namespace AsteroidsGoneRogue
             blue = PreviewRimB * PreviewNeutralEmit;
         }
 
+        /// <summary>
+        /// Albedo ceiling before the viewport multiply. Exposure 0.46 keeps
+        /// the limit at 1, so the graded hull cannot clip.
+        /// </summary>
+        public static float PreviewAlbedoLimit()
+        {
+            return AlbedoLimit(PreviewExposure);
+        }
+
+        private static float AlbedoLimit(float exposure)
+        {
+            if (exposure <= 0.0001f)
+            {
+                return 1f;
+            }
+
+            float limit = 0.995f / exposure;
+            if (limit > 1f)
+            {
+                return 1f;
+            }
+
+            return limit;
+        }
+
         public static float HsvSaturation(float red, float green, float blue)
         {
             float peak = red;
@@ -391,9 +495,26 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            float glassIn = HsvSaturation(0.35f, 0.70f, 0.95f);
-            float glass = GradedSat(0.35f, 0.70f, 0.95f);
-            if (SatGap(glass, glassIn) > 0.02f)
+            float glassR;
+            float glassG;
+            float glassB;
+            PreviewSteel(0.35f, 0.70f, 0.95f, out glassR, out glassG, out glassB);
+            if (SatGap(glassB, 0.95f * PreviewBlueKeep) > 0.01f || glassR > 0.36f || glassG > 0.71f)
+            {
+                return false;
+            }
+
+            float panelR;
+            float panelG;
+            float panelB;
+            PreviewSteel(0.50f, 0.52f, 0.56f, out panelR, out panelG, out panelB);
+            float panelSat = HsvSaturation(panelR, panelG, panelB);
+            if (panelSat > PreviewSatFloor || panelSat < 0.02f)
+            {
+                return false;
+            }
+
+            if (!AlbedoExposureHolds(0.80f, 0.48f, 0.26f) || !AlbedoExposureHolds(1f, 0.55f, 0.14f) || !AlbedoExposureHolds(0.35f, 0.70f, 0.95f))
             {
                 return false;
             }
@@ -414,6 +535,32 @@ namespace AsteroidsGoneRogue
             }
 
             return true;
+        }
+
+        private static bool AlbedoExposureHolds(float red, float green, float blue)
+        {
+            float gradedR;
+            float gradedG;
+            float gradedB;
+            PreviewSteel(red, green, blue, out gradedR, out gradedG, out gradedB);
+            float peak = gradedR;
+            if (gradedG > peak)
+            {
+                peak = gradedG;
+            }
+
+            if (gradedB > peak)
+            {
+                peak = gradedB;
+            }
+
+            peak *= PreviewAlbedoLift;
+            if (peak > PreviewAlbedoLimit())
+            {
+                peak = PreviewAlbedoLimit();
+            }
+
+            return peak * PreviewExposure < 0.995f;
         }
 
         private static bool WarmHull(float red, float green, float blue)
@@ -786,6 +933,11 @@ namespace AsteroidsGoneRogue
             }
 
             if (Bad(BeamEmission > 1.5f || GridVisibleAlpha < 0.11f || DomeRimAlpha > 0.31f))
+            {
+                return false;
+            }
+
+            if (Bad(PreviewBlueKeep < 0.91f || PreviewBlueKeep > 0.93f || PreviewSatBoostCap < 1.19f || PreviewSatBoostCap > 1.21f))
             {
                 return false;
             }

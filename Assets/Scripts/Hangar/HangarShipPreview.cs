@@ -919,6 +919,26 @@ namespace AsteroidsGoneRogue
             }
 
             albedo.a = 1f;
+            float albedoPeak = albedo.r;
+            if (albedo.g > albedoPeak)
+            {
+                albedoPeak = albedo.g;
+            }
+
+            if (albedo.b > albedoPeak)
+            {
+                albedoPeak = albedo.b;
+            }
+
+            float albedoLimit = PremiumLook.PreviewAlbedoLimit();
+            if (albedoPeak > albedoLimit && albedoPeak > 0.0001f)
+            {
+                float albedoDown = albedoLimit / albedoPeak;
+                albedo.r *= albedoDown;
+                albedo.g *= albedoDown;
+                albedo.b *= albedoDown;
+            }
+
             float neutralR;
             float neutralG;
             float neutralB;
