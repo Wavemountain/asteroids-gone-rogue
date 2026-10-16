@@ -1228,6 +1228,19 @@ namespace AsteroidsGoneRogue
             _feel.Elapsed = TransitionTimeline.WaveBreathSeconds * 0.5f;
             PostStack.PinWaveBloom();
             VfxKit.PresentFresh(0.42f);
+            if (_ui != null)
+            {
+                _ui.ShowWaveClearHint();
+            }
+        }
+
+        /// <summary>
+        /// True during the wave-clear breath, before the session phase flips.
+        /// Capture pins that breath and still reads GamePhase.Playing.
+        /// </summary>
+        public bool WaveClearPose()
+        {
+            return _feel.Kind == TransitionKind.WaveClear;
         }
 
         private bool BeginFinalDeath(string cause, bool structured, DamageCause failCause, EnemyKind kind)

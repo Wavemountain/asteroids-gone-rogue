@@ -1762,7 +1762,7 @@ namespace AsteroidsGoneRogue
             }
         }
 
-        private const float SpawnDiscRadius = 3.6f;
+        private const float SpawnDiscRadius = 3.2f;
         private const int SpawnDiscQueue = 2700;
         private const string SpawnDiscObjectName = "Arena_SpawnContrast";
         private static Texture2D _spawnDiscTex;
@@ -1830,13 +1830,12 @@ namespace AsteroidsGoneRogue
                 DestroyImmediate(collider);
             }
 
-            // Decor camera draws floor (queue 2000), then this disc (2700),
-            // then the grid (2900) and the lip (3000). Layer 0 painted the
-            // old 16 m square over the ring because the play camera draws
-            // after the decor clear. Centre luma is ~0.018; ship sample
-            // 0.157 stays above 1.3 even if a grade lifts the disc ~2x.
-            // Radius 3.6 m stays inside the lip (inner ~29.8 m).
-            go.layer = DecorCameraStack.LayerIndex();
+            // The W1 centre plate is on the decor camera. A decor-layer disc
+            // loses the depth test against that plate. Layer 0 is drawn after
+            // the play camera clears depth, so the 3.2 m disc composites over
+            // the plate and the ship still occludes it. The old 16 m square
+            // reached the lip; this radius does not.
+            go.layer = 0;
             go.transform.localScale = Vector3.one;
             go.transform.rotation = Quaternion.Euler(-90f, 0f, 0f);
             float diameter = SpawnDiscRadius * 2f;
@@ -1857,7 +1856,7 @@ namespace AsteroidsGoneRogue
             Material mat = new Material(shader);
             mat.name = "Mat_Env_SpawnContrast";
             mat.mainTexture = SpawnDiscTexture();
-            mat.color = new Color(0.012f, 0.018f, 0.036f, 1f);
+            mat.color = new Color(0.006f, 0.008f, 0.014f, 1f);
             mat.renderQueue = SpawnDiscQueue;
             if (mat.HasProperty("_ZWrite"))
             {
@@ -1900,10 +1899,16 @@ namespace AsteroidsGoneRogue
                     float dx = (x - half) / half;
                     float dy = (y - half) / half;
                     float radius = Mathf.Sqrt((dx * dx) + (dy * dy));
-                    float edge = (radius - 0.15f) / 0.85f;
-                    edge = Mathf.Clamp01(edge);
-                    float smooth = edge * edge * (3f - (2f * edge));
-                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, 1f - smooth));
+                    float alpha = 1f;
+                    if (radius > 0.8f)
+                    {
+                        float edge = (radius - 0.8f) / 0.2f;
+                        edge = Mathf.Clamp01(edge);
+                        float smooth = edge * edge * (3f - (2f * edge));
+                        alpha = 1f - smooth;
+                    }
+
+                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
                 }
             }
 
@@ -3547,7 +3552,6 @@ namespace AsteroidsGoneRogue
     public sealed class SpawnContrastDisc : MonoBehaviour
     {
         public const float ShipMatchMetres = 0.5f;
-        public const float FloorClearance = 0.08f;
         private const float TeleportMetres = 2f;
 
         private Vector3 _spawn;
@@ -3591,6 +3595,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            gameObject.layer = 0;
             float y = DiscY(_spawn.x, _spawn.z, shipBottom);
             transform.SetPositionAndRotation(new Vector3(_spawn.x, y, _spawn.z), Quaternion.Euler(-90f, 0f, 0f));
         }
@@ -3681,45 +3686,13 @@ namespace AsteroidsGoneRogue
 
         private static float DiscY(float x, float z, float shipBottom)
         {
-            float y = FloorClearance;
-            Vector3 origin = new Vector3(x, 6f, z);
-            RaycastHit[] hits = Physics.RaycastAll(origin, Vector3.down, 12f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
-            if (hits != null)
+            float surface;
+            if (!FloorSurface.TryTop(x, z, shipBottom, out surface))
             {
-                for (int i = 0; i < hits.Length; i++)
-                {
-                    Collider collider = hits[i].collider;
-                    if (collider == null)
-                    {
-                        continue;
-                    }
-
-                    if (collider.GetComponentInParent<ShipController>() != null)
-                    {
-                        continue;
-                    }
-
-                    string hitName = collider.gameObject.name;
-                    if (hitName == "Arena_SpawnContrast" || hitName == "ContactBlob")
-                    {
-                        continue;
-                    }
-
-                    float top = hits[i].point.y + 0.06f;
-                    if (top > y && top < shipBottom)
-                    {
-                        y = top;
-                    }
-                }
+                return 0.05f;
             }
 
-            float ceiling = shipBottom - 0.05f;
-            if (ceiling > FloorClearance && y > ceiling)
-            {
-                y = ceiling;
-            }
-
-            return y;
+            return FloorSurface.PlaceY(surface, shipBottom);
         }
     }
 }

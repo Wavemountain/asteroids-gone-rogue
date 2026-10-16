@@ -288,6 +288,11 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        private void LateUpdate()
+        {
+            ContactBlob.Attach(transform);
+        }
+
         private void FixedUpdate()
         {
             if (_dead || _target == null || _body == null)

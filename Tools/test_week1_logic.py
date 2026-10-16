@@ -16067,7 +16067,9 @@ def test_capture_048_clearance_hud() -> None:
     assert "HangarHintMaxY = 0.064f" in ui
     assert "new Vector2(0f, -pixels)" not in ui
     assert "W3GridAlpha = 0.10f" in look and "W3GridPulseFloor" not in look
-    assert "DecorCameraStack.LayerIndex()" in factory and "Mat_Env_SpawnContrast" in factory
+    assert "Mat_Env_SpawnContrast" in factory and "FloorSurface.TryTop" in factory
+    dress = factory.split("private static void DressSpawnContrast")[1].split("private static Texture2D SpawnDiscTexture")[0]
+    assert "go.layer = 0" in dress and "SpawnDiscRadius = 3.2f" in factory
     assert "Arena_SpawnContrast" in factory
     assert '"SpawnContrast"' not in (root / "Tools/layer_whitelist.json").read_text(encoding="utf-8")
     assert "SummaryTitleMaxY = 0.86f" in ui and "SummaryTitleMinY = 0.66f" in ui
@@ -16087,10 +16089,15 @@ def test_capture_048_clearance_hud() -> None:
     assert "QuietParticle(_live._chunks)" in vfx and "QuietParticle(_live._sparks)" in vfx
     blob_shader = (root / "Assets/Resources/Shaders/AgrBlobShadow.shader").read_text(encoding="utf-8")
     assert "return fixed4(0.0, 0.0, 0.0, alpha);" in blob_shader
-    assert "RadiusPad = 1.5f" in (root / "Assets/Scripts/Content/ContactBlob.cs").read_text(encoding="utf-8")
+    blob_cs = (root / "Assets/Scripts/Content/ContactBlob.cs").read_text(encoding="utf-8")
+    assert "RadiusPad = 2f" in blob_cs and "Alpha = 0.9f" in blob_cs
+    assert "FloorSurface.TryTop" in blob_cs
     assert "SummaryBodyMaxX = 0.68f" in ui and "SummaryNewRunMaxY = 0.64f" in ui
     assert 'Loc.T("ui.hint_waveclear", HintWaveClear)' in ui
     assert "spawn-disc ship" in capture and "spawn-disc contrast" in capture and "blob-shadow" in capture
+    assert "spawn-disc buried" in capture and "0.06f" in capture and "waveclear hint text" in capture
+    assert "WaveClearPose" in (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    assert "ShowWaveClearHint" in ui and "WaveClearHint" in ui
     assert "rimRgb" not in blob_shader and "abs(dist -" not in blob_shader
     assert "ReduceEffects" not in (root / "Assets/Scripts/Content/ContactBlob.cs").read_text(encoding="utf-8")
     assert "ScaleToFit" in (root / "Assets/Scripts/Core/PromptLayout.cs").read_text(encoding="utf-8")

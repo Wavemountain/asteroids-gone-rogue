@@ -93,6 +93,11 @@ namespace AsteroidsGoneRogue
             _inputEnabled = !paused;
         }
 
+        private void LateUpdate()
+        {
+            ContactBlob.Attach(transform);
+        }
+
         private void Update()
         {
             if (!_inputEnabled)

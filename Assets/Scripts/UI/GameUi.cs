@@ -7740,6 +7740,27 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        /// <summary>
+        /// Capture pins the wave-clear breath while the phase is still Playing,
+        /// so the wave-1 coach would otherwise keep the hint. The localized
+        /// hangar line wins for that breath and for GamePhase.WaveClear.
+        /// </summary>
+        public void ShowWaveClearHint()
+        {
+            ApplyBottomHint(_session != null && _session.Phase == GamePhase.Playing);
+            Canvas.ForceUpdateCanvases();
+        }
+
+        private bool WaveClearHint()
+        {
+            if (_session != null && _session.Phase == GamePhase.WaveClear)
+            {
+                return true;
+            }
+
+            return _game != null && _game.WaveClearPose();
+        }
+
         private void ApplyBottomHint(bool playing)
         {
             if (_hint == null)
@@ -7748,9 +7769,10 @@ namespace AsteroidsGoneRogue
             }
 
             ApplyFooterHintSize();
+            bool waveClear = WaveClearHint();
             bool combatHint = playing || (_game != null && (_game.TutorialActive || _game.DeathArming));
             PlaceHintBand(combatHint);
-            if (_game != null && _game.TutorialActive)
+            if (!waveClear && _game != null && _game.TutorialActive)
             {
                 _hint.gameObject.SetActive(true);
                 PaintPrompt(_hint, FirstRunRules.SkipHint());
@@ -7759,9 +7781,9 @@ namespace AsteroidsGoneRogue
             }
 
             HintMode mode = _settings != null ? _settings.HintMode : HintMode.HangarFooter;
-            bool firstWave = playing && _session != null && _session.WaveIndex == 1;
+            bool firstWave = playing && !waveClear && _session != null && _session.WaveIndex == 1;
             bool coach = SettingsState.ShowsFirstWaveCoach(firstWave, mode);
-            bool show = coach || (playing
+            bool show = waveClear || coach || (playing
                 ? SettingsState.ShowsPlayHint(mode)
                 : SettingsState.ShowsHangarFooter(mode));
             _hint.gameObject.SetActive(show);
@@ -7772,7 +7794,11 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (coach)
+            if (waveClear)
+            {
+                PaintPrompt(_hint, Loc.T("ui.hint_waveclear", HintWaveClear));
+            }
+            else if (coach)
             {
                 PaintPrompt(_hint, Loc.T("ui.first_wave_coach", FirstWaveCoach));
             }
@@ -7789,10 +7815,6 @@ namespace AsteroidsGoneRogue
                 {
                     PaintPrompt(_hint, Loc.T("ui.hint_play", HintPlay));
                 }
-            }
-            else if (_session != null && _session.Phase == GamePhase.WaveClear)
-            {
-                PaintPrompt(_hint, Loc.T("ui.hint_waveclear", HintWaveClear));
             }
             else
             {
