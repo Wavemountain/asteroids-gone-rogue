@@ -153,6 +153,8 @@ namespace AsteroidsGoneRogue
             {
                 SpawnElitePickup(waveIndex);
             }
+
+            OpeningClearance.ClearWaveStart();
         }
 
         public void SpawnTutorial()
@@ -190,6 +192,7 @@ namespace AsteroidsGoneRogue
 
             Vector3 tutorPickupPos = RingPoint(0.6f, ScaledRing(8f));
             _factory.CreatePickup("Pickup_Shield", tutorPickupPos);
+            OpeningClearance.ClearWaveStart();
         }
 
         private void SpawnEliteBrute(int waveIndex)

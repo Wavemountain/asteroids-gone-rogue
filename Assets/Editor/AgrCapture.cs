@@ -647,6 +647,10 @@ namespace AsteroidsGoneRogue.EditorTools
             QuietBanners();
             ApplyReduceCache();
             int shot = SessionState.GetInt(KeyShot, 0);
+            if (shot != 0)
+            {
+                SeparateOpening(true);
+            }
             bool reduce = SessionState.GetInt(KeyReduce, 0) != 0;
             string folder = SessionState.GetString(KeyOut, string.Empty);
             string fileName = ShotFile(shot, reduce);
@@ -836,6 +840,27 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             ClearAroundPlayer();
+            SeparateOpening(false);
+        }
+
+        static void SeparateOpening(bool log)
+        {
+            System.Type type = FindType("OpeningClearance");
+            if (type == null)
+            {
+                Debug.Log("AgrCapture keep-out OpeningClearance missing");
+                return;
+            }
+
+            string methodName = log ? "LogAndHold" : "Hold";
+            System.Reflection.MethodInfo method = type.GetMethod(methodName, Flags);
+            if (method == null)
+            {
+                Debug.Log("AgrCapture keep-out " + methodName + " missing");
+                return;
+            }
+
+            method.Invoke(null, null);
         }
 
         static void ClearAroundPlayer()

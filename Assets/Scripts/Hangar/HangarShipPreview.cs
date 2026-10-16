@@ -31,7 +31,7 @@ namespace AsteroidsGoneRogue
         {
             get
             {
-                return new Color(HangarPreviewRig.SurfaceR, HangarPreviewRig.SurfaceG, HangarPreviewRig.SurfaceB, 1f);
+                return new Color(HangarPreviewRig.BackdropEdgeR, HangarPreviewRig.BackdropEdgeG, HangarPreviewRig.BackdropEdgeB, 1f);
             }
         }
 
@@ -797,7 +797,7 @@ namespace AsteroidsGoneRogue
 
             EnsureMarkers();
             HangarPreviewRig.Accent accent = HangarPreviewRig.FromMasks(_upgradeMask, _mk2Mask, _paintId, _trailId);
-            float emission = EffectScale.MeshEmission(SettingsState.ReduceEffectsEnabled);
+            float meshEmission = EffectScale.MeshEmission(SettingsState.ReduceEffectsEnabled);
             Renderer[] renderers = _slots.GetComponentsInChildren<Renderer>(true);
             for (int accentIndex = 0; accentIndex < renderers.Length; accentIndex++)
             {
@@ -818,7 +818,7 @@ namespace AsteroidsGoneRogue
                 bool painted = accent.PaintId >= 0 && (NameHas(nodeName, "Ship_Body") || NameHas(nodeName, "Hull"));
                 if (!hardpoint && !engine && !painted)
                 {
-                    ShipPaint.ClearRenderer(renderer);
+                    CapPreviewBody(renderer);
                     continue;
                 }
 
@@ -842,6 +842,7 @@ namespace AsteroidsGoneRogue
                     blue = 1f;
                 }
 
+                float emission = PremiumLook.PreviewAccentEmission(meshEmission, red, green, blue);
                 ShipPaint.TintRenderer(renderer, red, green, blue, emission);
             }
 
@@ -849,7 +850,8 @@ namespace AsteroidsGoneRogue
             if (_mk2Marker != null && accent.Mk2)
             {
                 Renderer markerRenderer = _mk2Marker.GetComponent<Renderer>();
-                ShipPaint.TintRenderer(markerRenderer, 0.831f, 0.627f, 0.29f, emission);
+                float markerEmission = PremiumLook.PreviewAccentEmission(meshEmission, 0.831f, 0.627f, 0.29f);
+                ShipPaint.TintRenderer(markerRenderer, 0.831f, 0.627f, 0.29f, markerEmission);
             }
 
             bool showTrail = ShopSinkCatalog.IsTrail(accent.TrailId);
@@ -861,8 +863,61 @@ namespace AsteroidsGoneRogue
                 float trailB;
                 ShopSinkCatalog.TrailRgb(accent.TrailId, out trailR, out trailG, out trailB);
                 Renderer trailRenderer = _trailRibbon.GetComponent<Renderer>();
-                ShipPaint.TintRenderer(trailRenderer, trailR, trailG, trailB, emission);
+                float trailEmission = PremiumLook.PreviewAccentEmission(meshEmission, trailR, trailG, trailB);
+                ShipPaint.TintRenderer(trailRenderer, trailR, trailG, trailB, trailEmission);
             }
+        }
+
+        private static void CapPreviewBody(Renderer renderer)
+        {
+            if (renderer == null)
+            {
+                return;
+            }
+
+            Material material = renderer.sharedMaterial;
+            if (material == null || !material.HasProperty("_Color"))
+            {
+                ShipPaint.ClearRenderer(renderer);
+                return;
+            }
+
+            Color albedo = material.GetColor("_Color");
+            float lift = PremiumLook.PreviewAlbedoLift;
+            albedo.r = albedo.r * lift;
+            albedo.g = albedo.g * lift;
+            albedo.b = albedo.b * lift;
+            if (albedo.r > 1f)
+            {
+                albedo.r = 1f;
+            }
+
+            if (albedo.g > 1f)
+            {
+                albedo.g = 1f;
+            }
+
+            if (albedo.b > 1f)
+            {
+                albedo.b = 1f;
+            }
+
+            albedo.a = 1f;
+            Color emit = Color.black;
+            if (material.HasProperty("_EmissionColor"))
+            {
+                Color raw = material.GetColor("_EmissionColor");
+                float cappedR;
+                float cappedG;
+                float cappedB;
+                PremiumLook.CapPreviewEmission(raw.r, raw.g, raw.b, out cappedR, out cappedG, out cappedB);
+                emit = new Color(cappedR, cappedG, cappedB, 1f);
+            }
+
+            MaterialPropertyBlock block = new MaterialPropertyBlock();
+            block.SetColor("_Color", albedo);
+            block.SetColor("_EmissionColor", emit);
+            renderer.SetPropertyBlock(block);
         }
 
         private void EnsureMarkers()
