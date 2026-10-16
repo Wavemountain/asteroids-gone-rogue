@@ -2718,6 +2718,7 @@ namespace AsteroidsGoneRogue.EditorTools
         {
             public string Name;
             public string Block;
+            public string Card;
             public bool Lane;
             public bool Raycast;
             public float MinX;
@@ -2752,6 +2753,7 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             NoteDeathPuff(world);
+            NoteSpawnDisc(world);
         }
 
         static void NoteDeathPuff(string world)
@@ -2770,7 +2772,7 @@ namespace AsteroidsGoneRogue.EditorTools
             for (int i = 0; i < systems.Length; i++)
             {
                 ParticleSystem system = systems[i];
-                if (system == null || system.gameObject == null || system.gameObject.name != "Smoke")
+                if (system == null || system.gameObject == null)
                 {
                     continue;
                 }
@@ -2780,6 +2782,42 @@ namespace AsteroidsGoneRogue.EditorTools
                 ParticleSystem.Particle[] alive = new ParticleSystem.Particle[1];
                 int count = system.GetParticles(alive);
                 string hit = LayerGate.DeathPuffHit(world, system.gameObject.name, count, enabled);
+                if (hit != null)
+                {
+                    NoteLayerFail(world + " " + hit);
+                }
+            }
+        }
+
+        static void NoteSpawnDisc(string world)
+        {
+            if (world != "1" && world != "waveclear")
+            {
+                return;
+            }
+
+            Renderer[] renderers = UnityEngine.Object.FindObjectsByType<Renderer>();
+            if (renderers == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null || renderer.gameObject == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                string name = renderer.gameObject.name;
+                if (name == null || name.IndexOf("SpawnContrast", System.StringComparison.Ordinal) < 0)
+                {
+                    continue;
+                }
+
+                Bounds bounds = renderer.bounds;
+                string hit = LayerGate.SpawnDiscRingHit(bounds.min.x, bounds.max.x, bounds.min.z, bounds.max.z);
                 if (hit != null)
                 {
                     NoteLayerFail(world + " " + hit);
@@ -3418,7 +3456,12 @@ namespace AsteroidsGoneRogue.EditorTools
                 {
                     HudMark leftMark = marks[left];
                     HudMark rightMark = marks[right];
-                    if (leftMark.Block == rightMark.Block || !HudOverlaps(leftMark, rightMark))
+                    if (!HudOverlaps(leftMark, rightMark))
+                    {
+                        continue;
+                    }
+
+                    if (leftMark.Block == rightMark.Block && !SameCardOverlap(leftMark, rightMark))
                     {
                         continue;
                     }
@@ -3511,7 +3554,18 @@ namespace AsteroidsGoneRogue.EditorTools
                 {
                     HudMark leftMark = ink[left];
                     HudMark rightMark = ink[right];
-                    if (leftMark.Block == rightMark.Block || !HudOverlaps(leftMark, rightMark))
+                    if (!HudOverlaps(leftMark, rightMark))
+                    {
+                        continue;
+                    }
+
+                    if (leftMark.Block == rightMark.Block && !SameCardOverlap(leftMark, rightMark))
+                    {
+                        continue;
+                    }
+
+                    if (SameCardOverlap(leftMark, rightMark)
+                        && (HudContains(leftMark, rightMark) || HudContains(rightMark, leftMark)))
                     {
                         continue;
                     }
@@ -3657,6 +3711,7 @@ namespace AsteroidsGoneRogue.EditorTools
             mark = new HudMark();
             mark.Name = label.gameObject.name;
             mark.Block = HudBlock(label.transform);
+            mark.Card = HudCard(label.transform);
             mark.MinX = minX * scaleX;
             mark.MinY = minY * scaleY;
             mark.MaxX = maxX * scaleX;
@@ -3792,6 +3847,7 @@ namespace AsteroidsGoneRogue.EditorTools
             mark = new HudMark();
             mark.Name = graphic.gameObject.name;
             mark.Block = block;
+            mark.Card = HudCard(graphic.transform);
             mark.Lane = HudLane(block);
             mark.Raycast = graphic.raycastTarget;
             mark.MinX = minX * scaleX;
@@ -3902,6 +3958,38 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             return cursor.name;
+        }
+
+        static string HudCard(Transform node)
+        {
+            Transform cursor = node;
+            while (cursor != null)
+            {
+                string name = cursor.name;
+                if (name != null && name.EndsWith("Card", System.StringComparison.Ordinal))
+                {
+                    return name;
+                }
+
+                cursor = cursor.parent;
+            }
+
+            return string.Empty;
+        }
+
+        static bool SameCardOverlap(HudMark leftMark, HudMark rightMark)
+        {
+            if (leftMark == null || rightMark == null)
+            {
+                return false;
+            }
+
+            if (leftMark.Card == null || leftMark.Card.Length == 0)
+            {
+                return false;
+            }
+
+            return leftMark.Card == rightMark.Card;
         }
 
         static bool HudLane(string block)

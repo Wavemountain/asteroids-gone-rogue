@@ -347,6 +347,13 @@ namespace AsteroidsGoneRogue
         public const float SummaryCardMinY = 0.816f;
         public const float SummaryCardMaxX = 0.98f;
         public const float SummaryCardMaxY = 0.946f;
+        // Under the header rule (0.892). The band is tall enough for the
+        // hangar title plus Å/Ä ascent, so the glyph box stays off the gold bar.
+        public const float SummaryTitleMinY = 0.66f;
+        public const float SummaryTitleMaxY = 0.86f;
+        public const float SummaryBodyMinY = 0.46f;
+        public const float SummaryBodyMaxY = 0.62f;
+        public const float SummaryContinueMaxY = 0.42f;
         // Ends 0.016 under ShipPreviewMin.y (0.080): 12.8 px at 800, 17.3 at 1080, 23.0 at 1440.
         public const float HangarHintMinY = 0.008f;
         public const float HangarHintMaxY = 0.064f;
@@ -2718,28 +2725,28 @@ namespace AsteroidsGoneRogue
 
             _summaryTitle = CreateText("SummaryTitle", _summaryRoot.transform, display, UiTheme.TypeTitle, TextAnchor.MiddleCenter, FontStyle.Bold);
             _summaryTitle.lineSpacing = UiTheme.TitleLine;
-            // r1 headline. One line, left of the medal chip, above the stats row.
-            Stretch(_summaryTitle.rectTransform, new Vector2(0.03f, 0.76f), new Vector2(0.70f, 0.98f));
+            // r1 headline. One line, left of the medal chip, under the gold rule.
+            Stretch(_summaryTitle.rectTransform, new Vector2(0.03f, SummaryTitleMinY), new Vector2(0.70f, SummaryTitleMaxY));
             _summaryTitle.color = UiTheme.Primary;
             ClampOneLine(_summaryTitle);
 
             _summaryBody = CreateText("SummaryBody", _summaryRoot.transform, body, UiTheme.TypeCaption, TextAnchor.MiddleCenter, FontStyle.Normal);
             _summaryBody.lineSpacing = UiTheme.CaptionLine;
             // r2 SCORE · WAVE · WORLD · CREDITS (+delta). Wraps inside the card so EN/SV stay in the rect.
-            Stretch(_summaryBody.rectTransform, new Vector2(0.03f, 0.54f), new Vector2(0.97f, 0.74f));
+            Stretch(_summaryBody.rectTransform, new Vector2(0.03f, SummaryBodyMinY), new Vector2(0.97f, SummaryBodyMaxY));
             _summaryBody.color = UiTheme.Accent;
             _summaryBody.horizontalOverflow = HorizontalWrapMode.Wrap;
             _summaryBody.verticalOverflow = VerticalWrapMode.Truncate;
 
             _waveMedal = CreateText("WaveMedal", _summaryRoot.transform, display, 14, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Stretch(_waveMedal.rectTransform, new Vector2(0.72f, 0.76f), new Vector2(0.97f, 0.98f));
+            Stretch(_waveMedal.rectTransform, new Vector2(0.72f, SummaryTitleMinY), new Vector2(0.97f, SummaryTitleMaxY));
             _waveMedal.color = UiTheme.Primary;
             ClampOneLine(_waveMedal);
 
             _continueHint = CreateText("ContinueHint", _summaryRoot.transform, body, UiTheme.ShopHeaderSize, TextAnchor.MiddleLeft, FontStyle.Normal);
             _continueHint.lineSpacing = UiTheme.ShopLineSpacing;
             // r3 upgrades or the run-over explanation. Wrap inside the card; do not cover NEXT WAVE.
-            Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.14f), new Vector2(0.97f, 0.52f));
+            Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.14f), new Vector2(0.97f, SummaryContinueMaxY));
             _continueHint.color = UiTheme.Secondary;
             _continueHint.horizontalOverflow = HorizontalWrapMode.Wrap;
             _continueHint.verticalOverflow = VerticalWrapMode.Truncate;
@@ -3900,18 +3907,18 @@ namespace AsteroidsGoneRogue
             card.localScale = Vector3.one;
             if (_summaryTitle != null)
             {
-                Stretch(_summaryTitle.rectTransform, new Vector2(0.03f, 0.76f), new Vector2(0.70f, 0.98f));
+                Stretch(_summaryTitle.rectTransform, new Vector2(0.03f, SummaryTitleMinY), new Vector2(0.70f, SummaryTitleMaxY));
                 _summaryTitle.rectTransform.localScale = Vector3.one;
             }
 
             if (_waveMedal != null)
             {
-                Stretch(_waveMedal.rectTransform, new Vector2(0.72f, 0.76f), new Vector2(0.97f, 0.98f));
+                Stretch(_waveMedal.rectTransform, new Vector2(0.72f, SummaryTitleMinY), new Vector2(0.97f, SummaryTitleMaxY));
             }
 
             if (_summaryBody != null)
             {
-                Stretch(_summaryBody.rectTransform, new Vector2(0.03f, 0.54f), new Vector2(0.97f, 0.74f));
+                Stretch(_summaryBody.rectTransform, new Vector2(0.03f, SummaryBodyMinY), new Vector2(0.97f, SummaryBodyMaxY));
                 _summaryBody.horizontalOverflow = HorizontalWrapMode.Wrap;
                 _summaryBody.verticalOverflow = VerticalWrapMode.Truncate;
             }
@@ -3920,7 +3927,7 @@ namespace AsteroidsGoneRogue
             {
                 _continueHint.horizontalOverflow = HorizontalWrapMode.Wrap;
                 _continueHint.verticalOverflow = VerticalWrapMode.Truncate;
-                Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.14f), new Vector2(0.97f, 0.52f));
+                Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.14f), new Vector2(0.97f, SummaryContinueMaxY));
             }
 
             if (_summaryRecord != null)
@@ -3939,7 +3946,8 @@ namespace AsteroidsGoneRogue
                     || _session.Phase == GamePhase.CampaignClear);
             int titleSize = summaryPhase ? UiTheme.TypeTitle : UiTheme.BodyMin;
             int bodySize = summaryPhase && _session.Phase == GamePhase.Failed ? 18 : UiTheme.BodyMin;
-            FitInside(_summaryTitle, titleSize, 10);
+            // Leave room inside the rect for Å/Ä ascent so the dots stay off the gold bar.
+            FitInside(_summaryTitle, titleSize, 10, 4f);
             FitInside(_summaryBody, bodySize, 10);
             FitInside(_waveMedal, 14, 10);
             FitInside(_continueHint, UiTheme.ShopHeaderSize, 10);
@@ -3947,6 +3955,11 @@ namespace AsteroidsGoneRogue
         }
 
         private static void FitInside(Text text, int preferred, int floor)
+        {
+            FitInside(text, preferred, floor, 1f);
+        }
+
+        private static void FitInside(Text text, int preferred, int floor, float pad)
         {
             if (text == null)
             {
@@ -3962,7 +3975,13 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            while (size > floor && text.preferredHeight > area.height - 1f)
+            float limit = area.height - pad;
+            if (limit < 1f)
+            {
+                limit = 1f;
+            }
+
+            while (size > floor && text.preferredHeight > limit)
             {
                 size--;
                 text.fontSize = size;
