@@ -49,6 +49,7 @@ namespace AsteroidsGoneRogue
         private Texture2D _nebulaBlue;
         private Texture2D _nebulaPurple;
         private Color _floorTint = new Color(0.04f, 0.14f, 0.42f, 1f);
+        private Color _gridQuiet = new Color(1f, 1f, 1f, 0f);
         private int _world = 1;
         private float _nebulaBaseA = NebulaOpacity;
         private float _innerBaseA = NebulaInnerOpacity;
@@ -87,8 +88,11 @@ namespace AsteroidsGoneRogue
             nebula.a = NebulaOpacity;
             Color grid = SoftenAmount(ScaleColor(new Color(tint.GridR, tint.GridG, tint.GridB, PremiumLook.GridVisibleAlpha), bright), tint.Chroma);
             grid.a = PremiumLook.GridVisibleAlpha;
+            _gridQuiet = grid;
+            _gridQuiet.a = 0f;
             if (world == 3)
             {
+                _gridQuiet.a = PremiumLook.W3GridQuietAlpha;
                 float pulledR;
                 float pulledG;
                 float pulledB;
@@ -610,6 +614,10 @@ namespace AsteroidsGoneRogue
             ShipFloor(out shipX, out shipZ);
             material.SetFloat("_ShipX", shipX);
             material.SetFloat("_ShipZ", shipZ);
+            if (material.HasProperty("_QuietColor"))
+            {
+                material.SetColor("_QuietColor", _gridQuiet);
+            }
         }
 
         private void ShipFloor(out float x, out float z)
@@ -971,6 +979,11 @@ namespace AsteroidsGoneRogue
             if (material.HasProperty("_QuietRadius"))
             {
                 material.SetFloat("_QuietRadius", 0f);
+            }
+
+            if (material.HasProperty("_QuietColor"))
+            {
+                material.SetColor("_QuietColor", new Color(1f, 1f, 1f, 0f));
             }
 
             return material;

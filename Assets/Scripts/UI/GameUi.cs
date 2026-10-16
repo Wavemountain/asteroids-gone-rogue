@@ -384,7 +384,7 @@ namespace AsteroidsGoneRogue
             + "Medal ladder (top-left): \u2022 Scout Wing at wave 3.";
         public const string FirstWaveCoach = "Shoot rocks  ·  {pause} returns to hangar";
         public const string HintPlay =
-            "{move} move · {aim} aim · {fire} fire · {utility} utility · {cycle} cycle · {pause} = back to hangar";
+            "{move} move · {aim} aim · {fire} fire · {utility} utility · {cycle} cycle · {pause} = hangar";
         public const string HintFooter = "{confirm} Select · {pause} Launch wave · {settings} Settings";
         public const string HintDual = "{utility} utility · {cycle} cycle primary · {fire} fire";
         public const string HintRail = "Hold {fire} 0.55s, release — Rail. Miss or cancel pays half CD.";

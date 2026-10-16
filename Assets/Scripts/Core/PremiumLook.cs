@@ -25,6 +25,8 @@ namespace AsteroidsGoneRogue
         // toward the void until its luminance is 0.6 of the untinted line.
         public const float W3GridAlpha = 0.07f;
         public const float W3GridLumaKeep = 0.6f;
+        // Faint steel line under the hull. Replaces holding that disk out.
+        public const float W3GridQuietAlpha = 0.04f;
         // Covers the 3 m hull so the beat does not brighten the grid under it.
         public const float W3GridQuietRadius = 1.7f;
         public const float GridEdgeStart = 0.78f;
@@ -320,6 +322,46 @@ namespace AsteroidsGoneRogue
             }
 
             return contrib;
+        }
+
+        /// <summary>
+        /// Emission of a world's decor beam. Worlds 2–6 share the amber/steel
+        /// cap. Other worlds have no Accent/Glow strip.
+        /// </summary>
+        public static void DecorBeamEmission(int world, out float red, out float green, out float blue)
+        {
+            if (world < 2 || world > 6)
+            {
+                red = 0f;
+                green = 0f;
+                blue = 0f;
+                return;
+            }
+
+            BeamEmissionRgb(out red, out green, out blue);
+        }
+
+        /// <summary>
+        /// No world's decor beam or pillar emission luma passes the full-mode
+        /// soft-knee start. The same colour is used with Reduce on.
+        /// </summary>
+        public static bool DecorBeamsUnderKnee()
+        {
+            float kneeStart = 1.10f - (1.10f * 0.35f);
+            for (int world = 2; world <= 6; world++)
+            {
+                float red;
+                float green;
+                float blue;
+                DecorBeamEmission(world, out red, out green, out blue);
+                float emitY = Luma(red, green, blue);
+                if (emitY <= 0.01f || emitY > kneeStart)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         public static bool BeamNotBrighterThanEnemy()
@@ -1127,6 +1169,21 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            // Near the ship the line is the unpulled steel at the quiet alpha,
+            // not the void-held field. It still has to clear 2.5.
+            float quietA = W3GridQuietAlpha;
+            float bareR = 0.08f * 0.76f;
+            float bareG = 0.86f * 0.76f;
+            float bareB = 0.68f * 0.76f;
+            float nearR = floorR + ((bareR - floorR) * quietA);
+            float nearG = floorG + ((bareG - floorG) * quietA);
+            float nearB = floorB + ((bareB - floorB) * quietA);
+            float nearY = Luma(nearR, nearG, nearB);
+            if (nearY <= 0.001f || Luma(shipR, shipG, shipB) / nearY < 2.5f)
+            {
+                return false;
+            }
+
             float sat = HsvSaturation(shipR, shipG, shipB);
             if (sat < 0.60f || sat > 0.95f)
             {
@@ -1285,7 +1342,7 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (!BeamNotBrighterThanEnemy() || !BeamBloomFullMatchesReduce())
+            if (!BeamNotBrighterThanEnemy() || !BeamBloomFullMatchesReduce() || !DecorBeamsUnderKnee())
             {
                 return false;
             }

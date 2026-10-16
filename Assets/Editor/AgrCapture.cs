@@ -2852,6 +2852,7 @@ namespace AsteroidsGoneRogue.EditorTools
             {
                 for (int graphicIndex = 0; graphicIndex < graphics.Length; graphicIndex++)
                 {
+                    NoteTextOverflow(graphics[graphicIndex]);
                     HudMark mark;
                     if (TryHudMark(graphics[graphicIndex], width, height, out mark))
                     {
@@ -2958,6 +2959,52 @@ namespace AsteroidsGoneRogue.EditorTools
             {
                 NoteHudFail(firstOutside + " " + res);
             }
+        }
+
+        /// <summary>
+        /// Truncation is a preferred size that no longer fits the rect.
+        /// Horizontal Overflow is allowed to pass the rect on width alone:
+        /// the score caption is one line drawn that way and is not cut.
+        /// </summary>
+        static void NoteTextOverflow(Graphic graphic)
+        {
+            Text label = graphic as Text;
+            if (label == null || label.font == null || label.resizeTextForBestFit || !HudShown(graphic))
+            {
+                return;
+            }
+
+            Canvas canvas = graphic.GetComponentInParent<Canvas>();
+            if (canvas == null || canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+            {
+                return;
+            }
+
+            RectTransform rect = label.rectTransform;
+            if (rect == null)
+            {
+                return;
+            }
+
+            Rect area = rect.rect;
+            if (area.width <= 1f || area.height <= 1f)
+            {
+                return;
+            }
+
+            float widthOver = label.preferredWidth - area.width;
+            float heightOver = label.preferredHeight - area.height;
+            bool heightCut = heightOver > HudSlop && label.verticalOverflow == VerticalWrapMode.Truncate;
+            bool widthCut = widthOver > HudSlop
+                && label.horizontalOverflow != HorizontalWrapMode.Overflow
+                && label.verticalOverflow == VerticalWrapMode.Truncate
+                && heightOver > HudSlop;
+            if (!heightCut && !widthCut)
+            {
+                return;
+            }
+
+            NoteHudFail("hud text overflow " + label.gameObject.name);
         }
 
         static bool TryHudMark(Graphic graphic, int targetW, int targetH, out HudMark mark)

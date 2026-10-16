@@ -1133,6 +1133,8 @@ namespace UnityEngine.UI
         public bool resizeTextForBestFit { get; set; }
         public int resizeTextMinSize { get; set; }
         public int resizeTextMaxSize { get; set; }
+        public float preferredWidth { get { return 0f; } }
+        public float preferredHeight { get { return 0f; } }
         public TextGenerationSettings GetGenerationSettings(Vector2 extents) { return new TextGenerationSettings(); }
     }
 
