@@ -318,7 +318,13 @@ namespace AsteroidsGoneRogue
             }
 
             float gridMul = ArenaDepth.GridAlphaMul(MusicPlan.TrackBpm(_world), phase, reduce);
-            ApplyLayerAlpha(_grid, PremiumLook.GridVisibleAlpha * gridMul);
+            float gridAlpha = PremiumLook.GridVisibleAlpha * gridMul;
+            if (_world == 3)
+            {
+                gridAlpha *= PremiumLook.W3GridAlphaMul;
+            }
+
+            ApplyLayerAlpha(_grid, gridAlpha);
             TickNearDust(view, reduce);
             if (_belt != null)
             {

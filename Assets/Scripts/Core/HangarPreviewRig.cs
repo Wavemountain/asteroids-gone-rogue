@@ -14,6 +14,11 @@ namespace AsteroidsGoneRogue
         public const float FillIntensity = 0.48f;
         public const float RimIntensity = 1.7f;
         public const float BounceIntensity = 0.10f;
+        // 0.47 drew these point lights into an LDR target. 0.48 keeps the
+        // numbers and the spot pose, then scales them: HDR plus the hull
+        // emission would otherwise clip the preview. Same scale both modes.
+        public const float StudioHdrScale = 0.35f;
+        public const float PreviewEmitCap = 0.40f;
         public const float KeyR = 1f;
         public const float KeyG = 0.84f;
         public const float KeyB = 0.62f;
@@ -117,6 +122,32 @@ namespace AsteroidsGoneRogue
             }
 
             return RimIntensity;
+        }
+
+        /// <summary>
+        /// Intensity actually assigned to a studio light. The authored 0.47
+        /// value stays on the constant. HDR previews use the lower scale.
+        /// </summary>
+        public static float AppliedStudio(float authored)
+        {
+            float scale = StudioHdrScale;
+            if (scale < 0f)
+            {
+                scale = 0f;
+            }
+
+            if (scale > 1f)
+            {
+                scale = 1f;
+            }
+
+            float value = authored * scale;
+            if (value < 0f)
+            {
+                return 0f;
+            }
+
+            return value;
         }
 
         /// <summary>

@@ -21,13 +21,14 @@ namespace AsteroidsGoneRogue
         public const float ShadowStrength = 0.65f;
 
         public const float GridVisibleAlpha = 0.12f;
-        public const float W3GridDim = 0.34f;
+        public const float W3GridDim = 0.12f;
+        public const float W3GridAlphaMul = 0.35f;
         public const float GridEdgeStart = 0.78f;
         public const float FloorSmoothness = 0.2f;
         public const float FloorMetallic = 0.04f;
         public const float FloorTintMix = 0.18f;
         public const float W3ChromaKeep = 0.45f;
-        public const float BeamEmission = 1.5f;
+        public const float BeamEmission = 0.45f;
         public const float BeamR = 0.20f;
         public const float BeamG = 0.95f;
         public const float BeamB = 0.55f;
