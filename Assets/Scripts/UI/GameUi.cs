@@ -353,6 +353,14 @@ namespace AsteroidsGoneRogue
         public const float SummaryTitleMaxY = 0.86f;
         public const float SummaryBodyMinY = 0.46f;
         public const float SummaryBodyMaxY = 0.62f;
+        // Right edge stops 0.06 of the card before the daily button (39 px at 1280).
+        public const float SummaryBodyMaxX = 0.68f;
+        // Below the header rule (0.90) by 0.26 of the card: 22 px at 800, 29 at 1080, 39 at 1440.
+        // Below the medal row (0.66) so the two rects do not meet.
+        public const float SummaryNewRunMinX = 0.74f;
+        public const float SummaryNewRunMinY = 0.48f;
+        public const float SummaryNewRunMaxX = 0.97f;
+        public const float SummaryNewRunMaxY = 0.64f;
         public const float SummaryContinueMaxY = 0.42f;
         // Ends 0.016 under ShipPreviewMin.y (0.080): 12.8 px at 800, 17.3 at 1080, 23.0 at 1440.
         public const float HangarHintMinY = 0.008f;
@@ -414,6 +422,7 @@ namespace AsteroidsGoneRogue
         public const string HintPlay =
             "{move} move · {aim} aim · {fire} fire · {utility} utility · {cycle} cycle · {pause} = hangar";
         public const string HintFooter = "{confirm} Select · {pause} Launch wave · {settings} Settings";
+        public const string HintWaveClear = "{pause} = HANGAR";
         public const string HintDual = "{utility} utility · {cycle} cycle primary · {fire} fire";
         public const string HintRail = "Hold {fire} 0.55s, release — Rail. Miss or cancel pays half CD.";
 
@@ -975,8 +984,8 @@ namespace AsteroidsGoneRogue
                 "NewRun",
                 _summaryRoot.transform,
                 body,
-                new Vector2(0.72f, 0.55f),
-                new Vector2(0.97f, 0.94f));
+                new Vector2(SummaryNewRunMinX, SummaryNewRunMinY),
+                new Vector2(SummaryNewRunMaxX, SummaryNewRunMaxY));
             _newRunLabel = _newRunButton.GetComponentInChildren<Text>();
             _newRunLabel.fontSize = UiTheme.BodyMin;
             _newRunLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -2732,8 +2741,8 @@ namespace AsteroidsGoneRogue
 
             _summaryBody = CreateText("SummaryBody", _summaryRoot.transform, body, UiTheme.TypeCaption, TextAnchor.MiddleCenter, FontStyle.Normal);
             _summaryBody.lineSpacing = UiTheme.CaptionLine;
-            // r2 SCORE · WAVE · WORLD · CREDITS (+delta). Wraps inside the card so EN/SV stay in the rect.
-            Stretch(_summaryBody.rectTransform, new Vector2(0.03f, SummaryBodyMinY), new Vector2(0.97f, SummaryBodyMaxY));
+            // r2 SCORE · WAVE · WORLD · CREDITS (+delta). Stops left of the daily button.
+            Stretch(_summaryBody.rectTransform, new Vector2(0.03f, SummaryBodyMinY), new Vector2(SummaryBodyMaxX, SummaryBodyMaxY));
             _summaryBody.color = UiTheme.Accent;
             _summaryBody.horizontalOverflow = HorizontalWrapMode.Wrap;
             _summaryBody.verticalOverflow = VerticalWrapMode.Truncate;
@@ -3918,9 +3927,17 @@ namespace AsteroidsGoneRogue
 
             if (_summaryBody != null)
             {
-                Stretch(_summaryBody.rectTransform, new Vector2(0.03f, SummaryBodyMinY), new Vector2(0.97f, SummaryBodyMaxY));
+                Stretch(_summaryBody.rectTransform, new Vector2(0.03f, SummaryBodyMinY), new Vector2(SummaryBodyMaxX, SummaryBodyMaxY));
                 _summaryBody.horizontalOverflow = HorizontalWrapMode.Wrap;
                 _summaryBody.verticalOverflow = VerticalWrapMode.Truncate;
+            }
+
+            if (_newRunButton != null)
+            {
+                Stretch(
+                    _newRunButton.GetComponent<RectTransform>(),
+                    new Vector2(SummaryNewRunMinX, SummaryNewRunMinY),
+                    new Vector2(SummaryNewRunMaxX, SummaryNewRunMaxY));
             }
 
             if (_continueHint != null)
@@ -7772,6 +7789,10 @@ namespace AsteroidsGoneRogue
                 {
                     PaintPrompt(_hint, Loc.T("ui.hint_play", HintPlay));
                 }
+            }
+            else if (_session != null && _session.Phase == GamePhase.WaveClear)
+            {
+                PaintPrompt(_hint, Loc.T("ui.hint_waveclear", HintWaveClear));
             }
             else
             {

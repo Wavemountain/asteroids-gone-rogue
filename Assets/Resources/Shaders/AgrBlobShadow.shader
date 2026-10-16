@@ -6,7 +6,7 @@ Shader "AGR/BlobShadow"
 {
     Properties
     {
-        _Color ("Color", Color) = (0,0,0,0.72)
+        _Color ("Color", Color) = (0,0,0,0.8)
     }
     SubShader
     {
@@ -39,8 +39,8 @@ Shader "AGR/BlobShadow"
                 float2 centered = i.uv * 2.0 - 1.0;
                 float dist = length(centered);
                 float edge = saturate(dist);
-                float fade = edge * edge * (3.0 - 2.0 * edge);
-                float alpha = _Color.a * (1.0 - fade);
+                float band = smoothstep(0.42, 1.0, edge);
+                float alpha = _Color.a * (1.0 - band);
                 return fixed4(0.0, 0.0, 0.0, alpha);
             }
             ENDCG

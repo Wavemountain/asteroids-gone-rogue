@@ -16087,6 +16087,10 @@ def test_capture_048_clearance_hud() -> None:
     assert "QuietParticle(_live._chunks)" in vfx and "QuietParticle(_live._sparks)" in vfx
     blob_shader = (root / "Assets/Resources/Shaders/AgrBlobShadow.shader").read_text(encoding="utf-8")
     assert "return fixed4(0.0, 0.0, 0.0, alpha);" in blob_shader
+    assert "RadiusPad = 1.5f" in (root / "Assets/Scripts/Content/ContactBlob.cs").read_text(encoding="utf-8")
+    assert "SummaryBodyMaxX = 0.68f" in ui and "SummaryNewRunMaxY = 0.64f" in ui
+    assert 'Loc.T("ui.hint_waveclear", HintWaveClear)' in ui
+    assert "spawn-disc ship" in capture and "spawn-disc contrast" in capture and "blob-shadow" in capture
     assert "rimRgb" not in blob_shader and "abs(dist -" not in blob_shader
     assert "ReduceEffects" not in (root / "Assets/Scripts/Content/ContactBlob.cs").read_text(encoding="utf-8")
     assert "ScaleToFit" in (root / "Assets/Scripts/Core/PromptLayout.cs").read_text(encoding="utf-8")

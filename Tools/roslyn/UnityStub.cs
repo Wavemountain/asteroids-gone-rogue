@@ -261,6 +261,7 @@ namespace UnityEngine
         public bool forceIntoRenderTexture { get; set; }
         public void Render() { }
         public Ray ScreenPointToRay(Vector3 pos) { return new Ray(pos, Vector3.forward); }
+        public Vector3 WorldToViewportPoint(Vector3 position) { return Vector3.zero; }
     }
 
     public enum CameraClearFlags { Skybox, SolidColor, Depth, Nothing }
@@ -556,7 +557,7 @@ namespace UnityEngine
 
     public enum PrimitiveType { Sphere, Capsule, Cylinder, Cube, Plane, Quad }
 
-    public enum TextureFormat { RGB24, RGBA32, ARGB32 }
+    public enum TextureFormat { RGB24, RGBA32, ARGB32, RGBAHalf, RGBAFloat }
 
     public enum FilterMode { Point, Bilinear, Trilinear }
 
@@ -666,6 +667,7 @@ namespace UnityEngine
         public void Apply() { }
         public void Apply(bool updateMipmaps, bool makeNoLongerReadable) { }
         public void ReadPixels(Rect source, int destX, int destY) { }
+        public Color GetPixel(int x, int y) { return Color.black; }
         public byte[] EncodeToPNG() { return new byte[0]; }
     }
 
@@ -714,6 +716,7 @@ namespace UnityEngine
     {
         ARGB32,
         ARGBHalf,
+        ARGBFloat,
         DefaultHDR,
     }
 
@@ -876,10 +879,25 @@ namespace UnityEngine
         public static T GetBuiltinResource<T>(string path) where T : Object { return null; }
     }
 
+    public enum QueryTriggerInteraction { UseGlobal, Ignore, Collide }
+
+    public struct RaycastHit
+    {
+        public Vector3 point;
+        public Vector3 normal;
+        public Collider collider;
+        public float distance;
+    }
+
     public static class Physics
     {
         public static Vector3 gravity { get; set; }
+        public static int DefaultRaycastLayers { get { return ~0; } }
         public static Collider[] OverlapSphere(Vector3 position, float radius) { return new Collider[0]; }
+        public static RaycastHit[] RaycastAll(Vector3 origin, Vector3 direction, float maxDistance, int layerMask, QueryTriggerInteraction queryTriggerInteraction)
+        {
+            return new RaycastHit[0];
+        }
     }
 
     public static class Gizmos

@@ -1623,6 +1623,7 @@ namespace AsteroidsGoneRogue.EditorTools
                     drawCam.Render();
                 }
 
+                SampleFrame(hdr, mainCam);
                 CompositeOverlay(hdr);
                 Graphics.Blit(hdr, ldr);
                 RenderTexture.active = ldr;
@@ -2754,6 +2755,7 @@ namespace AsteroidsGoneRogue.EditorTools
 
             NoteDeathPuff(world);
             NoteSpawnDisc(world);
+            NoteBlobShadow(world);
         }
 
         static void NoteDeathPuff(string world)
@@ -2822,7 +2824,265 @@ namespace AsteroidsGoneRogue.EditorTools
                 {
                     NoteLayerFail(world + " " + hit);
                 }
+
+                Vector3 hull;
+                float shipRadius;
+                float shipBottom;
+                if (!SpawnContrastDisc.TryShipHull(out hull, out shipRadius, out shipBottom))
+                {
+                    NoteLayerFail(world + " spawn-disc ship missing");
+                    continue;
+                }
+
+                float dx = bounds.center.x - hull.x;
+                float dz = bounds.center.z - hull.z;
+                float apart = Mathf.Sqrt((dx * dx) + (dz * dz));
+                if (apart > SpawnContrastDisc.ShipMatchMetres)
+                {
+                    NoteLayerFail(
+                        world
+                        + " spawn-disc ship "
+                        + apart.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
+                        + "m");
+                }
             }
+
+            if (FrameShipContrast < 1.3f)
+            {
+                NoteLayerFail(
+                    world
+                    + " spawn-disc contrast "
+                    + FrameShipContrast.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+            }
+        }
+
+        static void NoteBlobShadow(string world)
+        {
+            if (world != "1" && world != "3" && world != "4")
+            {
+                return;
+            }
+
+            if (FrameBlobDarken < 0.15f)
+            {
+                NoteLayerFail(
+                    world
+                    + " blob-shadow "
+                    + FrameBlobDarken.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+            }
+        }
+
+        static float FrameShipContrast = -1f;
+        static float FrameBlobDarken = -1f;
+
+        static void SampleFrame(RenderTexture hdr, Camera cam)
+        {
+            FrameShipContrast = -1f;
+            FrameBlobDarken = -1f;
+            int shot = SessionState.GetInt(KeyShot, 0);
+            bool contrastShot = shot == 1 || shot == 5;
+            bool blobShot = shot == 1 || shot == 2 || shot == 3;
+            if (!contrastShot && !blobShot)
+            {
+                return;
+            }
+
+            if (cam == null)
+            {
+                cam = Camera.main;
+            }
+
+            if (cam == null || hdr == null)
+            {
+                return;
+            }
+
+            Vector3 hull;
+            float shipRadius;
+            float shipBottom;
+            if (!SpawnContrastDisc.TryShipHull(out hull, out shipRadius, out shipBottom))
+            {
+                return;
+            }
+
+            RenderTexture sample = new RenderTexture(Width, Height, 0, RenderTextureFormat.ARGBHalf);
+            Texture2D image = null;
+            RenderTexture previous = RenderTexture.active;
+            try
+            {
+                sample.Create();
+                Graphics.Blit(hdr, sample);
+                RenderTexture.active = sample;
+                image = new Texture2D(Width, Height, TextureFormat.RGBAHalf, false);
+                image.ReadPixels(new Rect(0f, 0f, Width, Height), 0, 0);
+                image.Apply(false, false);
+                if (contrastShot)
+                {
+                    FrameShipContrast = MeasureContrast(cam, image, hull, shipRadius);
+                }
+
+                if (blobShot)
+                {
+                    FrameBlobDarken = MeasureBlob(cam, image, hull, shipRadius);
+                }
+            }
+            catch (System.Exception sampleEx)
+            {
+                Debug.Log("AgrCapture sample failed: " + sampleEx.Message);
+            }
+            finally
+            {
+                RenderTexture.active = previous;
+                if (image != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(image);
+                }
+
+                sample.Release();
+                UnityEngine.Object.DestroyImmediate(sample);
+            }
+        }
+
+        static float MeasureContrast(Camera cam, Texture2D image, Vector3 hull, float shipRadius)
+        {
+            float ship = Brightest(cam, image, hull, shipRadius * 0.45f);
+            float floor = RingMedian(cam, image, hull, shipRadius * 1.35f);
+            if (ship < 0f || floor < 0f)
+            {
+                return 0f;
+            }
+
+            float safe = floor;
+            if (safe < 0.0001f)
+            {
+                safe = 0.0001f;
+            }
+
+            return ship / safe;
+        }
+
+        static float MeasureBlob(Camera cam, Texture2D image, Vector3 hull, float shipRadius)
+        {
+            float inner = RingMedian(cam, image, hull, shipRadius * 1.12f);
+            float outer = RingMedian(cam, image, hull, shipRadius * 1.9f);
+            if (inner < 0f || outer < 0f)
+            {
+                return 0f;
+            }
+
+            float safe = outer;
+            if (safe < 0.0001f)
+            {
+                safe = 0.0001f;
+            }
+
+            return (outer - inner) / safe;
+        }
+
+        static float Brightest(Camera cam, Texture2D image, Vector3 hull, float worldRadius)
+        {
+            int px;
+            int py;
+            float best = -1f;
+            if (WorldPixel(cam, hull, out px, out py))
+            {
+                best = PatchLuma(image, px, py);
+            }
+
+            for (int step = 0; step < 8; step++)
+            {
+                float ang = step * Mathf.PI * 2f / 8f;
+                Vector3 at = hull + new Vector3(Mathf.Cos(ang) * worldRadius, 0f, Mathf.Sin(ang) * worldRadius);
+                if (!WorldPixel(cam, at, out px, out py))
+                {
+                    continue;
+                }
+
+                float luma = PatchLuma(image, px, py);
+                if (luma > best)
+                {
+                    best = luma;
+                }
+            }
+
+            return best;
+        }
+
+        static float RingMedian(Camera cam, Texture2D image, Vector3 hull, float worldRadius)
+        {
+            float[] values = new float[12];
+            int count = 0;
+            for (int step = 0; step < 12; step++)
+            {
+                float ang = step * Mathf.PI * 2f / 12f;
+                Vector3 at = hull + new Vector3(Mathf.Cos(ang) * worldRadius, 0f, Mathf.Sin(ang) * worldRadius);
+                int px;
+                int py;
+                if (!WorldPixel(cam, at, out px, out py))
+                {
+                    continue;
+                }
+
+                values[count] = PatchLuma(image, px, py);
+                count++;
+            }
+
+            if (count == 0)
+            {
+                return -1f;
+            }
+
+            for (int i = 1; i < count; i++)
+            {
+                float key = values[i];
+                int slot = i - 1;
+                while (slot >= 0 && values[slot] > key)
+                {
+                    values[slot + 1] = values[slot];
+                    slot--;
+                }
+
+                values[slot + 1] = key;
+            }
+
+            return values[count / 2];
+        }
+
+        static bool WorldPixel(Camera cam, Vector3 world, out int px, out int py)
+        {
+            px = 0;
+            py = 0;
+            if (cam == null)
+            {
+                return false;
+            }
+
+            Vector3 vp = cam.WorldToViewportPoint(world);
+            if (vp.z <= 0.01f)
+            {
+                return false;
+            }
+
+            px = (int)(vp.x * Width);
+            py = (int)(vp.y * Height);
+            return px >= 2 && py >= 2 && px < Width - 2 && py < Height - 2;
+        }
+
+        static float PatchLuma(Texture2D image, int px, int py)
+        {
+            float sum = 0f;
+            int count = 0;
+            for (int y = -1; y <= 1; y++)
+            {
+                for (int x = -1; x <= 1; x++)
+                {
+                    Color pixel = image.GetPixel(px + x, py + y);
+                    sum += (0.2126f * pixel.r) + (0.7152f * pixel.g) + (0.0722f * pixel.b);
+                    count++;
+                }
+            }
+
+            return sum / count;
         }
 
         static string LayerWorld(int shot)

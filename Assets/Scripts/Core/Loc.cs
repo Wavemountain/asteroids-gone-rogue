@@ -127,6 +127,7 @@ namespace AsteroidsGoneRogue
             { "ui.settings.fps.held", "{0}  ·  ignoreras" },
             { "ui.settings.fps.value", "{0}" },
             { "ui.hint_footer", "{confirm} Välj · {pause} Starta våg · {settings} Inställningar" },
+            { "ui.hint_waveclear", "{pause} = HANGAR" },
             { "ach.compact", "\u2022 {0}/{1}" },
             { "ui.difficulty", "SVÅRIGHET" },
             { "ui.diff.easy", "Lätt" },

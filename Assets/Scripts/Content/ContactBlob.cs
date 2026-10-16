@@ -8,9 +8,9 @@ namespace AsteroidsGoneRogue
     /// </summary>
     public sealed class ContactBlob : MonoBehaviour
     {
-        public const float Alpha = 0.72f;
-        public const float FloorY = 0.05f;
-        public const float RadiusPad = 1.25f;
+        public const float Alpha = 0.8f;
+        public const float FloorY = 0.08f;
+        public const float RadiusPad = 1.5f;
         public const float MinRadius = 0.45f;
 
         private Transform _host;
@@ -36,6 +36,7 @@ namespace AsteroidsGoneRogue
             }
 
             quad.name = "ContactBlob";
+            quad.layer = 0;
             quad.transform.SetParent(host, false);
             Collider collider = quad.GetComponent<Collider>();
             if (collider != null)
@@ -97,9 +98,85 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            // Layer 0, queue 3000. The play camera clears depth and does not
+            // redraw the decor floor, so the quad darkens W3/W4 as well as W1.
+            // A decor-layer disc would lose the depth test against those floors.
+            gameObject.layer = 0;
+            float y = FloorAbove(host);
+            float ceiling = host.position.y - 0.12f;
+            if (y > ceiling)
+            {
+                y = ceiling;
+            }
+
+            if (y < 0.02f)
+            {
+                y = 0.02f;
+            }
+
             transform.SetPositionAndRotation(
-                new Vector3(host.position.x, FloorY, host.position.z),
+                new Vector3(host.position.x, y, host.position.z),
                 Quaternion.Euler(90f, 0f, 0f));
+        }
+
+        private static int _floorFrame = -1;
+        private static Renderer[] _floors;
+
+        private static float FloorAbove(Transform host)
+        {
+            float y = FloorY;
+            if (host == null)
+            {
+                return y;
+            }
+
+            if (_floorFrame != Time.frameCount)
+            {
+                _floorFrame = Time.frameCount;
+                _floors = UnityEngine.Object.FindObjectsByType<Renderer>();
+            }
+
+            if (_floors == null)
+            {
+                return y;
+            }
+
+            int decor = DecorCameraStack.LayerIndex();
+            float x = host.position.x;
+            float z = host.position.z;
+            float shipY = host.position.y;
+            for (int i = 0; i < _floors.Length; i++)
+            {
+                Renderer floor = _floors[i];
+                if (floor == null || !floor.enabled || floor.gameObject == null || floor.gameObject.layer == decor)
+                {
+                    continue;
+                }
+
+                if (floor.transform == host || floor.transform.IsChildOf(host))
+                {
+                    continue;
+                }
+
+                Bounds box = floor.bounds;
+                if (x < box.min.x || x > box.max.x || z < box.min.z || z > box.max.z)
+                {
+                    continue;
+                }
+
+                if (box.max.y >= shipY - 0.05f || box.max.y < -0.2f)
+                {
+                    continue;
+                }
+
+                float top = box.max.y + 0.04f;
+                if (top > y)
+                {
+                    y = top;
+                }
+            }
+
+            return y;
         }
 
         private static float Footprint(Transform host)
@@ -129,7 +206,7 @@ namespace AsteroidsGoneRogue
             SphereCollider sphere = host.GetComponent<SphereCollider>();
             if (sphere != null)
             {
-                return sphere.radius * scale;
+                radius = sphere.radius * scale;
             }
 
             CapsuleCollider capsule = host.GetComponent<CapsuleCollider>();
@@ -142,10 +219,31 @@ namespace AsteroidsGoneRogue
                     radial = half;
                 }
 
-                return radial * scale;
+                radius = radial * scale;
             }
 
-            return radius * scale;
+            Renderer[] renderers = host.GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (!SpawnContrastDisc.HullRenderer(renderer))
+                {
+                    continue;
+                }
+
+                float wide = renderer.bounds.extents.x;
+                if (renderer.bounds.extents.z > wide)
+                {
+                    wide = renderer.bounds.extents.z;
+                }
+
+                if (wide > radius)
+                {
+                    radius = wide;
+                }
+            }
+
+            return radius;
         }
 
         private static Material SharedMaterial()
