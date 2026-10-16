@@ -115,6 +115,22 @@ namespace AsteroidsGoneRogue
             return Evaluate(world, rules, facts, canvases, uiOverlaps, bodies, null);
         }
 
+        /// <summary>
+        /// Parent plate behind a single control. HintScrim is drawn as the
+        /// hint's background, so the pair is not two controls competing.
+        /// ShipPreviewFrame is not listed: the hangar hint ends at
+        /// GameUi.HangarHintMaxY (0.064) and the frame starts at 0.080.
+        /// </summary>
+        public static bool IsUiBackgroundPair(string pair)
+        {
+            if (pair == null)
+            {
+                return false;
+            }
+
+            return pair == "Hint x HintScrim" || pair == "HintScrim x Hint";
+        }
+
         public static string[] Evaluate(
             string world,
             Rules rules,
@@ -168,7 +184,7 @@ namespace AsteroidsGoneRogue
                 for (int i = 0; i < uiOverlaps.Length; i++)
                 {
                     string pair = uiOverlaps[i];
-                    if (pair != null && pair.Length > 0)
+                    if (pair != null && pair.Length > 0 && !IsUiBackgroundPair(pair))
                     {
                         hits.Add("ui-overlap " + pair);
                     }
@@ -469,6 +485,16 @@ namespace AsteroidsGoneRogue
             }
 
             if (!Expect("ui-overlap", Evaluate("hangar", rules, null, null, new string[] { "WorldBadge x BadgeRow" }, null)))
+            {
+                return false;
+            }
+
+            if (Expect("ui-overlap", Evaluate("hangar", rules, null, null, new string[] { "Hint x HintScrim" }, null)))
+            {
+                return false;
+            }
+
+            if (Expect("ui-overlap", Evaluate("hangar", rules, null, null, new string[] { "HintScrim x Hint" }, null)))
             {
                 return false;
             }

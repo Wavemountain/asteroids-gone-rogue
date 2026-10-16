@@ -3769,7 +3769,7 @@ def test_hangar_wave_clear_layout() -> None:
     hangar_panel = (0.014, 0.080, 0.55, 0.888)
     preview = (0.562, 0.080, 0.986, 0.596)
     doctrine = (0.562, 0.608, 0.986, 0.898)
-    hint = (0.14, 0.008, 0.86, 0.072)
+    hint = (0.14, 0.008, 0.86, 0.064)
     credits_btn = (0.014, 0.010, 0.128, 0.070)
     gear = (0.900, 0.905, 0.988, 0.995)
     diff = (0.748, 0.905, 0.888, 0.995)
@@ -3790,7 +3790,7 @@ def test_hangar_wave_clear_layout() -> None:
     assert hangar_panel[3] < top_bar[1]
     assert hint[3] < hangar_panel[1]
 
-    strip = (0.02, 0.82, 0.98, 0.995)
+    strip = (0.02, 0.816, 0.98, 0.946)
     cta = (0.03, 0.735, 0.97, 0.800)
     headers = (0.02, 0.675, 0.98, 0.728)
     status = (0.03, 0.016, 0.97, 0.088)
@@ -4334,7 +4334,7 @@ def test_hangar_next_wave_always_selectable() -> None:
     assert _primary_restarts("WaveClear") is False
 
     wave = _map_anchors(0.014, 0.080, 0.55, 0.888, 0.03, 0.735, 0.97, 0.800)
-    strip = _map_anchors(0.014, 0.080, 0.55, 0.888, 0.02, 0.82, 0.98, 0.995)
+    strip = _map_anchors(0.014, 0.080, 0.55, 0.888, 0.02, 0.816, 0.98, 0.946)
     headers = _map_anchors(0.014, 0.080, 0.55, 0.888, 0.02, 0.675, 0.98, 0.728)
     blockers = (
         strip,
@@ -4865,7 +4865,7 @@ def test_doctrine_rows_pad_reachable() -> None:
     assert "{utility} utility · {cycle} cycle · {confirm} confirm · {cancel} Next Wave · {pause} launch wave" in ui
     assert "{move} styr · {0}" in loc
     assert "{utility} verktyg · {cycle} cykla · {confirm} bekräfta · {cancel} nästa våg · {pause} starta våg" in loc
-    # Footer is one line in (0.14, 0.008)–(0.86, 0.072). Icons replace the tokens.
+    # Footer is one line in (0.14, 0.008)–(0.86, 0.064). Icons replace the tokens.
     for width, height in ((1280, 800), (1920, 1080), (3440, 1440)):
         scale = _canvas_scale(width, height)
         hint_w = (0.86 - 0.14) * (width / scale)
@@ -9247,7 +9247,7 @@ def test_world_continue_and_hangar_readability() -> None:
                 assert _estimate_width(word, 14) <= hull_w, (width, word, hull_w)
         for name in wide_en + wide_sv:
             assert _estimate_width(name, 18) <= weapon_w, (width, name, weapon_w)
-        summary_box = _map_anchors(*hangar, 0.02, 0.82, 0.98, 0.995)
+        summary_box = _map_anchors(*hangar, 0.02, 0.816, 0.98, 0.946)
         title_box = _map_anchors(*summary_box, 0.03, 0.78, 0.70, 0.96)
         title_w = (title_box[2] - title_box[0]) * canvas_w
         primary = _map_anchors(*hangar, 0.03, 0.735, 0.97, 0.800)
@@ -9271,7 +9271,7 @@ def test_world_continue_and_hangar_readability() -> None:
         gear = (0.900, 0.905, 0.988, 0.995)
         difficulty = (0.748, 0.905, 0.888, 0.995)
         toast = (0.500, 0.912, 0.735, 0.988)
-        hint = (0.14, 0.008, 0.86, 0.072)
+        hint = (0.14, 0.008, 0.86, 0.064)
         credits = (0.014, 0.010, 0.128, 0.070)
         title = (0.012, 0.905, 0.205, 0.995)
         world = (0.205, 0.905, 0.355, 0.995)
@@ -10386,8 +10386,8 @@ def _loc_values(loc_text: str) -> dict[str, str]:
 def _summary_card_explain(width: int, height: int) -> tuple[float, float]:
     scale = _canvas_scale(width, height)
     hangar = (0.014, 0.080, 0.55, 0.888)
-    summary = _map_anchors(*hangar, 0.02, 0.82, 0.98, 0.995)
-    explain = _map_anchors(*summary, 0.03, 0.22, 0.97, 0.52)
+    summary = _map_anchors(*hangar, 0.02, 0.816, 0.98, 0.946)
+    explain = _map_anchors(*summary, 0.03, 0.14, 0.97, 0.52)
     box_w = (explain[2] - explain[0]) * (width / scale)
     box_h = (explain[3] - explain[1]) * (height / scale)
     return box_w, box_h
@@ -10777,7 +10777,7 @@ def test_pr2_046() -> None:
         for width, height in ((1280, 800), (1920, 1080), (2560, 1080), (3440, 1440)):
             scale = _canvas_scale(width, height)
             hangar = (0.014, 0.080, 0.55, 0.888)
-            summary = _map_anchors(*hangar, 0.02, 0.82, 0.98, 0.995)
+            summary = _map_anchors(*hangar, 0.02, 0.816, 0.98, 0.946)
             chip = _map_anchors(*summary, 0.72, 0.78, 0.97, 0.96)
             box_w = (chip[2] - chip[0]) * (width / scale)
             assert _estimate_width(text, 14) <= box_w, (wave, width, text, box_w)
@@ -10999,7 +10999,7 @@ def test_speltest_063_marker_title_bank() -> None:
     for width, height in resolutions:
         scale = _canvas_scale(width, height)
         canvas_w = width / scale
-        summary_box = _map_anchors(*hangar_box, 0.02, 0.82, 0.98, 0.995)
+        summary_box = _map_anchors(*hangar_box, 0.02, 0.816, 0.98, 0.946)
         title_box = _map_anchors(*summary_box, title_left, 0.78, title_right, 0.96)
         chip_box = _map_anchors(*summary_box, chip_left, 0.78, chip_right, 0.96)
         assert title_box[2] <= chip_box[0] + 1e-9
@@ -12032,7 +12032,7 @@ def test_honest_fail_copy() -> None:
     assert "HangarPanelMin = new Vector2(0.014f, 0.080f)" in ui
     assert "HangarPanelMax = new Vector2(0.55f, 0.888f)" in ui
     assert "new Vector2(0.03f, 0.735f)" in ui and "new Vector2(0.97f, 0.800f)" in ui
-    assert "Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.22f), new Vector2(0.97f, 0.52f))" in ui
+    assert "Stretch(_continueHint.rectTransform, new Vector2(0.03f, 0.14f), new Vector2(0.97f, 0.52f))" in ui
     assert "_primaryLabel.fontSize = 28" in ui
     assert "ShopHeaderSize = 16" in (root / "Assets/Scripts/UI/UiTheme.cs").read_text(encoding="utf-8")
 
@@ -12051,7 +12051,7 @@ def test_honest_fail_copy() -> None:
         scale = _canvas_scale(width, height)
         canvas_w = width / scale
         canvas_h = height / scale
-        summary_box = _map_anchors(*hangar, 0.02, 0.82, 0.98, 0.995)
+        summary_box = _map_anchors(*hangar, 0.02, 0.816, 0.98, 0.946)
         hint = _map_anchors(*summary_box, 0.03, 0.22, 0.97, 0.52)
         primary = _map_anchors(*hangar, 0.03, 0.735, 0.97, 0.800)
         hint_w = (hint[2] - hint[0]) * canvas_w
@@ -15994,7 +15994,7 @@ def test_capture_048_clearance_hud() -> None:
     assert "!NearCentre" not in clearance
     assert "overlap = false" not in clearance
     assert factory.find("OpeningClearance.ScreenPlace") < factory.find("BeginSpawnGrace")
-    assert "PlayHintMaxY = 0.044f" in hud and "HealthMinY = 0.050f" in hud
+    assert "PlayHintMaxY = 0.034f" in hud and "HealthMinY = 0.050f" in hud
     assert "AbortMaxY = 0.072f" in hud and "UtilityMinY = 0.085f" in hud
     assert "DoctrineMinY = 0.21f" in hud and "AbortMinX = 0.74f" in hud
     assert "PlayHudLayout.AbortRect" in ui
@@ -16051,6 +16051,21 @@ def test_capture_048_clearance_hud() -> None:
         assert f'"{token}"' in layer_gate
     assert (root / "Tools/layer_whitelist.json").is_file()
     assert "PlayVignette" in capture and "RefitPlayHint" in capture
+    assert "IsUiBackgroundPair" in capture and "IsUiBackgroundPair" in layer_gate
+    assert 'return pair == "Hint x HintScrim" || pair == "HintScrim x Hint";' in layer_gate
+    assert "SummaryCardMinY = 0.816f" in ui and "SummaryCardMaxY = 0.946f" in ui
+    assert "HangarHintMaxY = 0.064f" in ui
+    assert "new Vector2(0f, -pixels)" not in ui
+    assert "W3GridAlpha = 0.10f" in look and "W3GridPulseFloor" not in look
+    assert "go.layer = 0" in factory and "Mat_Env_SpawnContrast" in factory
+    panel_h = 0.888 - 0.080
+    for height in (800, 1080, 1440):
+        gap = (0.816 - 0.800) * panel_h * height
+        assert gap > 2.0, (height, gap)
+        hint_gap = (0.050 - 0.034) * height
+        assert hint_gap > 2.0, (height, hint_gap)
+        preview_gap = (0.080 - 0.064) * height
+        assert preview_gap > 2.0, (height, preview_gap)
     assert "HorizontalWrapMode.Wrap" in (root / "Assets/Scripts/UI/PromptLineView.cs").read_text(encoding="utf-8")
     assert "ScaleToFit" in (root / "Assets/Scripts/Core/PromptLayout.cs").read_text(encoding="utf-8")
     assert "PlayHudLayout.ScoreMinY" in ui and "PlayHudLayout.CaptionMaxY" in ui

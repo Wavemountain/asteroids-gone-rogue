@@ -31,11 +31,12 @@ namespace AsteroidsGoneRogue
         public const float DoctrineMaxX = 0.985f;
         public const float DoctrineMaxY = 0.255f;
         // Combat hint is its own bottom row, left of the abort slot.
-        // Hangar keeps the footer at y 0.008–0.072.
+        // 0.034 leaves 0.016 under HealthMinY: 12.8 px at 800, 17.3 at 1080, 23.0 at 1440.
+        // Hangar footer is GameUi.HangarHintMinY–HangarHintMaxY, under the ship preview.
         public const float PlayHintMinX = 0.04f;
         public const float PlayHintMinY = 0.006f;
         public const float PlayHintMaxX = 0.72f;
-        public const float PlayHintMaxY = 0.044f;
+        public const float PlayHintMaxY = 0.034f;
         // Abort/Hangar ghost is the 62ee6bf slot: under the tools panel, right of the hint.
         public const float AbortMinX = 0.74f;
         public const float AbortMinY = 0.012f;

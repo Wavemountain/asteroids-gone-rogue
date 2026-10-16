@@ -442,9 +442,9 @@ namespace AsteroidsGoneRogue
             {
                 env.Retint(worldNumber);
                 env.TintFloor(floorVisual);
-                if (worldNumber == 1)
+                if (worldNumber != 1)
                 {
-                    DressSpawnContrast(env.transform);
+                    ClearSpawnContrast(env.transform);
                 }
             }
 
@@ -453,6 +453,12 @@ namespace AsteroidsGoneRogue
             _arenaWorldNumber = worldNumber;
             _arenaApplied = true;
             DecorCameraStack.ApplyLayer(_arenaRoot);
+            if (env != null && worldNumber == 1)
+            {
+                // ApplyLayer puts every arena child on the decor camera, which
+                // the play camera never draws. Re-pin the disc onto layer 0 after that.
+                DressSpawnContrast(env.transform);
+            }
             if (announce)
             {
                 if (AudioCues.Instance != null)
@@ -1756,9 +1762,23 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        private static void ClearSpawnContrast(Transform parent)
+        {
+            if (parent == null)
+            {
+                return;
+            }
+
+            Transform existing = parent.Find("SpawnContrast");
+            if (existing != null)
+            {
+                DestroyImmediate(existing.gameObject);
+            }
+        }
+
         private static void DressSpawnContrast(Transform parent)
         {
-            if (parent == null || parent.Find("SpawnContrast") != null)
+            if (parent == null)
             {
                 return;
             }
@@ -1774,19 +1794,52 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            // World 1's lit floor matches the hull luminance. An unlit disc under
-            // the spawn stays darker than the ship. Hull colour is unchanged.
+            Transform existing = parent.Find("SpawnContrast");
+            GameObject go = null;
+            if (existing != null)
+            {
+                go = existing.gameObject;
+            }
+
+            if (go == null)
+            {
+                go = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                go.name = "SpawnContrast";
+                go.transform.SetParent(parent, false);
+            }
+
+            Collider collider = go.GetComponent<Collider>();
+            if (collider != null)
+            {
+                // CreatePrimitive adds a MeshCollider. Destroy is deferred and
+                // the next physics step logs a concave-collider error.
+                DestroyImmediate(collider);
+            }
+
+            // Decor layer never reaches the play camera (it clears depth only).
+            // A flat quad on layer 0, above the grid (y 0.03) and the floor
+            // (-0.08) and under the ship (y 0.4), is drawn after that clear.
+            // Queue 3000 skips the dead-plate check (queue < 2500). The old
+            // cylinder was unlit (0.32, 0.50, 0.86), brighter than the floor,
+            // 2 cm tall, and coplanar with AstroGrid, so the floor sample
+            // stayed 0.176. Hull albedo is unchanged. This luma is ~0.018;
+            // the 048n ship sample 0.157 stays above 1.3 even if a grade
+            // multiplies the disc by the same ~2x that lifts the floor.
+            go.layer = 0;
+            go.transform.localPosition = new Vector3(0f, 0.08f, 0f);
+            go.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            go.transform.localScale = new Vector3(16f, 16f, 1f);
             Material mat = new Material(shader);
             mat.name = "Mat_Env_SpawnContrast";
-            mat.color = new Color(0.32f, 0.50f, 0.86f, 1f);
-            CreatePrimitive(
-                PrimitiveType.Cylinder,
-                "SpawnContrast",
-                parent,
-                mat,
-                new Vector3(0f, 0.03f, 0f),
-                new Vector3(8f, 0.012f, 8f),
-                Quaternion.identity);
+            mat.color = new Color(0.012f, 0.018f, 0.036f, 1f);
+            mat.renderQueue = 3000;
+            Renderer renderer = go.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                renderer.sharedMaterial = mat;
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+            }
         }
 
         private static void DressArenaFloorRenderers(GameObject visual)
