@@ -26,7 +26,7 @@ namespace AsteroidsGoneRogue
         public const float FloorSmoothness = 0.2f;
         public const float FloorMetallic = 0.04f;
         public const float FloorTintMix = 0.18f;
-        public const float W3ChromaKeep = 0.60f;
+        public const float W3ChromaKeep = 0.45f;
         public const float BeamEmission = 1.5f;
         public const float BeamR = 0.20f;
         public const float BeamG = 0.95f;
@@ -43,7 +43,7 @@ namespace AsteroidsGoneRogue
         public const float HudLabel = 14f;
 
         public const float DeathHitstopSeconds = 0.25f;
-        public const float DeathFlashAlpha = 0.62f;
+        public const float DeathFlashAlpha = 0.38f;
         public const float DeathFlashAlphaReduce = 0.08f;
         public const float DeathDesat = 0.70f;
         public const float DeathDesatReduce = 0.28f;
@@ -59,16 +59,16 @@ namespace AsteroidsGoneRogue
         public const float PreviewAlbedoLift = 1.05f;
         // Cool bias cut, then chroma stretch that never raises the source peak.
         // Mean HSV of the colourful hull/accent/glass/glow read stays at least 0.47.
-        public const float PreviewBlueKeep = 0.62f;
+        public const float PreviewBlueKeep = 0.92f;
         public const float PreviewSatFloor = 0.55f;
-        public const float PreviewSatBoostCap = 3.2f;
-        public const float DeathEdgeFull = 0.88f;
-        public const float DeathWashDimFull = 0.50f;
+        public const float PreviewSatBoostCap = 1.8f;
+        public const float DeathEdgeFull = 0.82f;
+        public const float DeathWashDimFull = 0.62f;
         public const float DeathWashDimReduce = 0.28f;
         public const float HangarBloomGain = 0.45f;
         public const float HangarExposureEv = -0.40f;
-        public const float DeathVignetteTarget = 0.78f;
-        public const float PinnedFlashU = 0.22f;
+        public const float DeathVignetteTarget = 0.85f;
+        public const float PinnedFlashU = 0.30f;
         public const float OutsideR = 0.015f;
         public const float OutsideG = 0.022f;
         public const float OutsideB = 0.045f;
@@ -342,7 +342,7 @@ namespace AsteroidsGoneRogue
         /// </summary>
         public static bool PreviewSaturationHolds()
         {
-            float hull = GradedSat(0.45f, 0.52f, 0.58f);
+            float hull = GradedSat(0.80f, 0.48f, 0.26f);
             float accent = GradedSat(1f, 0.55f, 0.14f);
             float glass = GradedSat(0.35f, 0.70f, 0.95f);
             float glow = GradedSat(1f, 0.55f, 0.15f);
@@ -358,12 +358,93 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (!PeakHeld(0.45f, 0.52f, 0.58f) || !PeakHeld(1f, 0.55f, 0.14f) || !PeakHeld(0.35f, 0.70f, 0.95f) || !PeakHeld(1f, 0.55f, 0.15f))
+            if (!PeakHeld(0.80f, 0.48f, 0.26f) || !PeakHeld(1f, 0.55f, 0.14f) || !PeakHeld(0.35f, 0.70f, 0.95f) || !PeakHeld(1f, 0.55f, 0.15f))
+            {
+                return false;
+            }
+
+            if (HueShift(0.80f, 0.48f, 0.26f) > 10f)
+            {
+                return false;
+            }
+
+            if (HueShift(1f, 0.55f, 0.14f) > 10f || HueShift(0.35f, 0.70f, 0.95f) > 10f || HueShift(1f, 0.55f, 0.15f) > 10f)
             {
                 return false;
             }
 
             return true;
+        }
+
+        private static float HueShift(float red, float green, float blue)
+        {
+            float gradedR;
+            float gradedG;
+            float gradedB;
+            PreviewSteel(red, green, blue, out gradedR, out gradedG, out gradedB);
+            float gap = HueDegrees(red, green, blue) - HueDegrees(gradedR, gradedG, gradedB);
+            if (gap < 0f)
+            {
+                gap = -gap;
+            }
+
+            if (gap > 180f)
+            {
+                gap = 360f - gap;
+            }
+
+            return gap;
+        }
+
+        private static float HueDegrees(float red, float green, float blue)
+        {
+            float peak = red;
+            if (green > peak)
+            {
+                peak = green;
+            }
+
+            if (blue > peak)
+            {
+                peak = blue;
+            }
+
+            float floor = red;
+            if (green < floor)
+            {
+                floor = green;
+            }
+
+            if (blue < floor)
+            {
+                floor = blue;
+            }
+
+            float delta = peak - floor;
+            if (delta <= 0.0001f)
+            {
+                return 0f;
+            }
+
+            float sector;
+            if (peak == red)
+            {
+                sector = (green - blue) / delta;
+                if (sector < 0f)
+                {
+                    sector += 6f;
+                }
+            }
+            else if (peak == green)
+            {
+                sector = 2f + ((blue - red) / delta);
+            }
+            else
+            {
+                sector = 4f + ((red - green) / delta);
+            }
+
+            return sector * 60f;
         }
 
         private static float GradedSat(float red, float green, float blue)
@@ -670,6 +751,11 @@ namespace AsteroidsGoneRogue
             }
 
             if (!PreviewSaturationHolds())
+            {
+                return false;
+            }
+
+            if (!EffectScale.SelfCheck())
             {
                 return false;
             }

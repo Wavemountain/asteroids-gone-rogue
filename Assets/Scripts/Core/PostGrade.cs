@@ -71,8 +71,8 @@ namespace AsteroidsGoneRogue
         public const float HangarDiffusion = 6f;
         public const float HangarExposure = 0.08f;
         public const float HangarTemperature = 4f;
-        public const float HangarTint = 2f;
-        public const float HangarSaturation = -8f;
+        public const float HangarTint = 0f;
+        public const float HangarSaturation = 4f;
         public const float HangarContrast = 6f;
         public const float HangarVignette = 0.32f;
         public const float HangarVignetteSmooth = 0.40f;
@@ -581,7 +581,7 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (!Near(Row(2, false).Bloom, 0.65f) || !Near(Row(3, false).Bloom, 0.60f) || !Near(Row(4, false).Bloom, 0.60f))
+            if (!Near(Row(2, false).Bloom, 0.65f) || !Near(Row(3, false).Bloom, 0.50f) || !Near(Row(4, false).Bloom, 0.60f))
             {
                 return false;
             }
@@ -1052,15 +1052,15 @@ namespace AsteroidsGoneRogue
                     row.Grain = 0.12f;
                     break;
                 case 3:
-                    row.Bloom = 0.60f;
+                    row.Bloom = 0.50f;
                     row.Diffusion = 5.5f;
                     row.Exposure = 0.05f;
                     row.Temperature = 0f;
-                    row.Tint = -2f;
+                    row.Tint = 1f;
                     row.Saturation = -20f;
                     row.Contrast = 10f;
                     row.LiftR = 0.98f;
-                    row.LiftG = 1.01f;
+                    row.LiftG = 1.00f;
                     row.LiftB = 1.02f;
                     row.LiftW = -0.015f;
                     row.GainR = 1.02f;
