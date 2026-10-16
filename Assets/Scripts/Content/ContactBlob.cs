@@ -3,14 +3,245 @@ using UnityEngine;
 namespace AsteroidsGoneRogue
 {
     /// <summary>
+    /// Top of the floor or plate under a world XZ. Raycast plus renderer
+    /// bounds, so a mesh without a collider still counts. Gameplay bodies,
+    /// the spawn disc, and contact blobs are not a floor.
+    /// </summary>
+    public static class FloorSurface
+    {
+        public const float Lift = 0.035f;
+        public const float MinLift = 0.02f;
+        public const float MaxLift = 0.05f;
+
+        private static int _frame = -1;
+        private static Renderer[] _renderers;
+
+        public static float PlaceY(float surface, float ceiling)
+        {
+            float y = surface + Lift;
+            float band = MaxLift;
+            if (y > surface + band)
+            {
+                y = surface + band;
+            }
+
+            float cap = ceiling - 0.05f;
+            if (y > cap)
+            {
+                y = cap;
+            }
+
+            if (y < surface + MinLift)
+            {
+                y = surface + MinLift;
+            }
+
+            return y;
+        }
+
+        public static bool TryTop(float x, float z, float ceiling, out float top)
+        {
+            top = -4f;
+            bool any = false;
+            float hitTop;
+            if (TryRay(x, z, ceiling, out hitTop) && hitTop > top)
+            {
+                top = hitTop;
+                any = true;
+            }
+
+            Renderer[] renderers = Renderers();
+            if (renderers != null)
+            {
+                for (int i = 0; i < renderers.Length; i++)
+                {
+                    Renderer renderer = renderers[i];
+                    if (!FloorRenderer(renderer))
+                    {
+                        continue;
+                    }
+
+                    Bounds box = renderer.bounds;
+                    if (x < box.min.x || x > box.max.x || z < box.min.z || z > box.max.z)
+                    {
+                        continue;
+                    }
+
+                    if (box.extents.x < 0.4f && box.extents.z < 0.4f)
+                    {
+                        continue;
+                    }
+
+                    // A building AABB that happens to cover this XZ is not the
+                    // floor. Plates and the grid are thin; walls are not.
+                    if (box.extents.y > 1f)
+                    {
+                        continue;
+                    }
+
+                    if (box.max.y >= ceiling || box.max.y < -2f)
+                    {
+                        continue;
+                    }
+
+                    if (!any || box.max.y > top)
+                    {
+                        top = box.max.y;
+                        any = true;
+                    }
+                }
+            }
+
+            return any;
+        }
+
+        private static bool TryRay(float x, float z, float ceiling, out float top)
+        {
+            top = -4f;
+            Vector3 origin = new Vector3(x, ceiling + 6f, z);
+            RaycastHit[] hits = Physics.RaycastAll(
+                origin,
+                Vector3.down,
+                16f,
+                Physics.DefaultRaycastLayers,
+                QueryTriggerInteraction.Collide);
+            if (hits == null)
+            {
+                return false;
+            }
+
+            bool any = false;
+            for (int i = 0; i < hits.Length; i++)
+            {
+                Collider collider = hits[i].collider;
+                if (collider == null || SkipCollider(collider))
+                {
+                    continue;
+                }
+
+                float y = hits[i].point.y;
+                if (y >= ceiling || y < -2f)
+                {
+                    continue;
+                }
+
+                if (!any || y > top)
+                {
+                    top = y;
+                    any = true;
+                }
+            }
+
+            return any;
+        }
+
+        private static bool SkipCollider(Collider collider)
+        {
+            string name = collider.gameObject.name;
+            if (name == "ContactBlob" || name == "Arena_SpawnContrast" || name == "ShieldBubble")
+            {
+                return true;
+            }
+
+            if (collider.GetComponentInParent<ShipController>() != null)
+            {
+                return true;
+            }
+
+            if (collider.GetComponentInParent<EnemySeeker>() != null)
+            {
+                return true;
+            }
+
+            if (collider.GetComponentInParent<Asteroid>() != null)
+            {
+                return true;
+            }
+
+            if (collider.GetComponentInParent<Pickup>() != null)
+            {
+                return true;
+            }
+
+            return collider.GetComponentInParent<Projectile>() != null;
+        }
+
+        private static Renderer[] Renderers()
+        {
+            if (_frame != Time.frameCount || _renderers == null)
+            {
+                _frame = Time.frameCount;
+                _renderers = UnityEngine.Object.FindObjectsByType<Renderer>();
+            }
+
+            return _renderers;
+        }
+
+        private static bool FloorRenderer(Renderer renderer)
+        {
+            if (renderer == null || !renderer.enabled || renderer.gameObject == null || !renderer.gameObject.activeInHierarchy)
+            {
+                return false;
+            }
+
+            if (renderer is ParticleSystemRenderer || renderer is LineRenderer || renderer is TrailRenderer)
+            {
+                return false;
+            }
+
+            if (renderer.GetComponentInParent<Canvas>() != null)
+            {
+                return false;
+            }
+
+            string name = renderer.gameObject.name;
+            if (name == "ContactBlob" || name == "Arena_SpawnContrast" || name == "ShieldBubble" || name == "ArenaLip")
+            {
+                return false;
+            }
+
+            if (name == "VoidField" || name == "OuterNebula" || name == "NearDust" || name == "BeltRock")
+            {
+                return false;
+            }
+
+            if (name == "StarFar" || name == "StarMid" || name == "StarNear" || name == "NebulaDome" || name == "NebulaInner")
+            {
+                return false;
+            }
+
+            if (renderer.GetComponentInParent<ShipController>() != null)
+            {
+                return false;
+            }
+
+            if (renderer.GetComponentInParent<EnemySeeker>() != null)
+            {
+                return false;
+            }
+
+            if (renderer.GetComponentInParent<Asteroid>() != null)
+            {
+                return false;
+            }
+
+            if (renderer.GetComponentInParent<Pickup>() != null)
+            {
+                return false;
+            }
+
+            return renderer.GetComponentInParent<Projectile>() == null;
+        }
+    }
+
+    /// <summary>
     /// Flat dark disc under a body. The shader keeps RGB black and fades alpha
     /// to the edge. Colour and alpha stay put when Reduce is on.
     /// </summary>
     public sealed class ContactBlob : MonoBehaviour
     {
-        public const float Alpha = 0.8f;
-        public const float FloorY = 0.08f;
-        public const float RadiusPad = 1.5f;
+        public const float Alpha = 0.9f;
+        public const float RadiusPad = 2f;
         public const float MinRadius = 0.45f;
 
         private Transform _host;
@@ -21,12 +252,6 @@ namespace AsteroidsGoneRogue
             if (host == null || host.Find("ContactBlob") != null)
             {
                 return;
-            }
-
-            float radius = Footprint(host) * RadiusPad;
-            if (radius < MinRadius)
-            {
-                radius = MinRadius;
             }
 
             GameObject quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -46,24 +271,6 @@ namespace AsteroidsGoneRogue
                 DestroyImmediate(collider);
             }
 
-            float axis = host.lossyScale.x;
-            if (host.lossyScale.y > axis)
-            {
-                axis = host.lossyScale.y;
-            }
-
-            if (host.lossyScale.z > axis)
-            {
-                axis = host.lossyScale.z;
-            }
-
-            if (axis < 0.001f)
-            {
-                axis = 1f;
-            }
-
-            float local = (radius * 2f) / axis;
-            quad.transform.localScale = new Vector3(local, local, 1f);
             Renderer renderer = quad.GetComponent<Renderer>();
             if (renderer != null)
             {
@@ -99,19 +306,31 @@ namespace AsteroidsGoneRogue
             }
 
             // Layer 0, queue 3000. The play camera clears depth and does not
-            // redraw the decor floor, so the quad darkens W3/W4 as well as W1.
-            // A decor-layer disc would lose the depth test against those floors.
+            // redraw the decor floor, so the quad darkens whatever the decor
+            // pass already wrote. Y still sits just above that floor so a
+            // play-camera plate cannot depth-reject the blob.
             gameObject.layer = 0;
-            float y = FloorAbove(host);
-            float ceiling = host.position.y - 0.12f;
-            if (y > ceiling)
+            float radius = Footprint(host) * RadiusPad;
+            if (radius < MinRadius)
             {
-                y = ceiling;
+                radius = MinRadius;
             }
 
-            if (y < 0.02f)
+            ApplyScale(host, radius);
+            float ceiling = host.position.y;
+            float surface;
+            float y;
+            if (FloorSurface.TryTop(host.position.x, host.position.z, ceiling, out surface))
             {
-                y = 0.02f;
+                y = FloorSurface.PlaceY(surface, ceiling);
+            }
+            else
+            {
+                y = 0.06f;
+                if (y > ceiling - 0.08f)
+                {
+                    y = ceiling - 0.08f;
+                }
             }
 
             transform.SetPositionAndRotation(
@@ -119,64 +338,30 @@ namespace AsteroidsGoneRogue
                 Quaternion.Euler(90f, 0f, 0f));
         }
 
-        private static int _floorFrame = -1;
-        private static Renderer[] _floors;
-
-        private static float FloorAbove(Transform host)
+        private void ApplyScale(Transform host, float radius)
         {
-            float y = FloorY;
-            if (host == null)
+            float axis = 1f;
+            if (host != null)
             {
-                return y;
-            }
-
-            if (_floorFrame != Time.frameCount)
-            {
-                _floorFrame = Time.frameCount;
-                _floors = UnityEngine.Object.FindObjectsByType<Renderer>();
-            }
-
-            if (_floors == null)
-            {
-                return y;
-            }
-
-            int decor = DecorCameraStack.LayerIndex();
-            float x = host.position.x;
-            float z = host.position.z;
-            float shipY = host.position.y;
-            for (int i = 0; i < _floors.Length; i++)
-            {
-                Renderer floor = _floors[i];
-                if (floor == null || !floor.enabled || floor.gameObject == null || floor.gameObject.layer == decor)
+                axis = host.lossyScale.x;
+                if (host.lossyScale.y > axis)
                 {
-                    continue;
+                    axis = host.lossyScale.y;
                 }
 
-                if (floor.transform == host || floor.transform.IsChildOf(host))
+                if (host.lossyScale.z > axis)
                 {
-                    continue;
-                }
-
-                Bounds box = floor.bounds;
-                if (x < box.min.x || x > box.max.x || z < box.min.z || z > box.max.z)
-                {
-                    continue;
-                }
-
-                if (box.max.y >= shipY - 0.05f || box.max.y < -0.2f)
-                {
-                    continue;
-                }
-
-                float top = box.max.y + 0.04f;
-                if (top > y)
-                {
-                    y = top;
+                    axis = host.lossyScale.z;
                 }
             }
 
-            return y;
+            if (axis < 0.001f)
+            {
+                axis = 1f;
+            }
+
+            float local = (radius * 2f) / axis;
+            transform.localScale = new Vector3(local, local, 1f);
         }
 
         private static float Footprint(Transform host)

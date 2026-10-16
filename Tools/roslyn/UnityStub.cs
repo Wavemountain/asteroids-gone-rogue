@@ -431,6 +431,7 @@ namespace UnityEngine
     public class Renderer : Component
     {
         public bool enabled { get; set; }
+        public bool isVisible { get { return enabled; } }
         public Bounds bounds { get; set; }
         public Bounds localBounds { get; set; }
         public Material material { get; set; }

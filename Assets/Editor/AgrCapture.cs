@@ -1230,6 +1230,7 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             QuietBanners();
+            InvokeZero(FindComponent("GameUi"), "ShowWaveClearHint");
         }
 
         static void RememberGrade()
@@ -2756,6 +2757,7 @@ namespace AsteroidsGoneRogue.EditorTools
             NoteDeathPuff(world);
             NoteSpawnDisc(world);
             NoteBlobShadow(world);
+            NoteWaveClearHint(world);
         }
 
         static void NoteDeathPuff(string world)
@@ -2845,6 +2847,13 @@ namespace AsteroidsGoneRogue.EditorTools
                         + apart.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
                         + "m");
                 }
+
+                float surface;
+                if (FloorSurface.TryTop(hull.x, hull.z, shipBottom, out surface)
+                    && renderer.transform.position.y < surface + FloorSurface.MinLift - 0.004f)
+                {
+                    NoteLayerFail(world + " spawn-disc buried");
+                }
             }
 
             if (FrameShipContrast < 1.3f)
@@ -2863,7 +2872,16 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
-            if (FrameBlobDarken < 0.15f)
+            string placed = BlobPlacementHit();
+            if (placed != null)
+            {
+                NoteLayerFail(world + " " + placed);
+            }
+
+            // A near-black floor cannot show a 15% luma drop. Require the
+            // blob to be drawn instead. Brighter floors still need the pixels.
+            bool darkFloor = FrameFloorLuma >= 0f && FrameFloorLuma <= 0.06f;
+            if (!darkFloor && FrameBlobDarken < 0.15f)
             {
                 NoteLayerFail(
                     world
@@ -2872,13 +2890,154 @@ namespace AsteroidsGoneRogue.EditorTools
             }
         }
 
+        static void NoteWaveClearHint(string world)
+        {
+            if (world != "waveclear")
+            {
+                return;
+            }
+
+            string expected = Loc.T("ui.hint_waveclear", GameUi.HintWaveClear);
+            int normal = UiTheme.HintSize(Width);
+            Text[] texts = UnityEngine.Object.FindObjectsByType<Text>();
+            bool matched = false;
+            if (texts != null)
+            {
+                for (int i = 0; i < texts.Length; i++)
+                {
+                    Text hint = texts[i];
+                    if (hint == null || hint.gameObject == null || hint.gameObject.name != "Hint" || !hint.gameObject.activeInHierarchy)
+                    {
+                        continue;
+                    }
+
+                    PromptLineMark mark = hint.GetComponent<PromptLineMark>();
+                    string source = mark != null && mark.Source != null ? mark.Source : string.Empty;
+                    if (source != expected)
+                    {
+                        continue;
+                    }
+
+                    matched = true;
+                    if (hint.fontSize < normal)
+                    {
+                        NoteLayerFail("waveclear hint size " + hint.fontSize.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    }
+
+                    Text[] parts = hint.GetComponentsInChildren<Text>(true);
+                    bool segment = false;
+                    if (parts != null)
+                    {
+                        for (int partIndex = 0; partIndex < parts.Length; partIndex++)
+                        {
+                            Text part = parts[partIndex];
+                            if (part == null || part.gameObject == null || part.gameObject.name != "PSegT")
+                            {
+                                continue;
+                            }
+
+                            segment = true;
+                            int size = part.fontSize;
+                            if (size < normal || size < hint.fontSize)
+                            {
+                                NoteLayerFail("waveclear hint size " + size.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                            }
+                        }
+                    }
+
+                    if (!segment)
+                    {
+                        NoteLayerFail("waveclear hint segment");
+                    }
+                }
+            }
+
+            if (!matched)
+            {
+                NoteLayerFail("waveclear hint text");
+            }
+        }
+
+        static string BlobPlacementHit(Component[] bodies)
+        {
+            if (bodies == null)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < bodies.Length; i++)
+            {
+                Component body = bodies[i];
+                if (body == null || !body.gameObject.activeInHierarchy || !HullDrawn(body))
+                {
+                    continue;
+                }
+
+                string name = body.gameObject.name;
+                Transform blob = body.transform.Find("ContactBlob");
+                if (blob == null)
+                {
+                    return "blob-shadow missing " + name;
+                }
+
+                Renderer renderer = blob.GetComponent<Renderer>();
+                if (renderer == null || !renderer.enabled || !blob.gameObject.activeInHierarchy)
+                {
+                    return "blob-shadow hidden " + name;
+                }
+
+                float dx = blob.position.x - body.transform.position.x;
+                float dz = blob.position.z - body.transform.position.z;
+                if ((dx * dx) + (dz * dz) > 0.25f)
+                {
+                    return "blob-shadow offset " + name;
+                }
+
+                float ceiling = body.transform.position.y;
+                float surface;
+                if (FloorSurface.TryTop(body.transform.position.x, body.transform.position.z, ceiling, out surface)
+                    && blob.position.y < surface + FloorSurface.MinLift - 0.004f)
+                {
+                    return "blob-shadow buried " + name;
+                }
+
+                float near = (body.transform.position.x * body.transform.position.x)
+                    + (body.transform.position.z * body.transform.position.z);
+                if (near < 196f && !renderer.isVisible)
+                {
+                    return "blob-shadow hidden " + name;
+                }
+            }
+
+            return null;
+        }
+
+        static string BlobPlacementHit()
+        {
+            string hit = BlobPlacementHit(UnityEngine.Object.FindObjectsByType<ShipController>());
+            if (hit != null)
+            {
+                return hit;
+            }
+
+            hit = BlobPlacementHit(UnityEngine.Object.FindObjectsByType<EnemySeeker>());
+            if (hit != null)
+            {
+                return hit;
+            }
+
+            return BlobPlacementHit(UnityEngine.Object.FindObjectsByType<Asteroid>());
+        }
+
         static float FrameShipContrast = -1f;
         static float FrameBlobDarken = -1f;
+        static float FrameFloorLuma = -1f;
 
         static void SampleFrame(RenderTexture hdr, Camera cam)
         {
             FrameShipContrast = -1f;
             FrameBlobDarken = -1f;
+            FrameFloorLuma = -1f;
             int shot = SessionState.GetInt(KeyShot, 0);
             bool contrastShot = shot == 1 || shot == 5;
             bool blobShot = shot == 1 || shot == 2 || shot == 3;
@@ -2946,7 +3105,47 @@ namespace AsteroidsGoneRogue.EditorTools
         static float MeasureContrast(Camera cam, Texture2D image, Vector3 hull, float shipRadius)
         {
             float ship = Brightest(cam, image, hull, shipRadius * 0.45f);
-            float floor = RingMedian(cam, image, hull, shipRadius * 1.35f);
+            float discRadius = SpawnDiscWorldRadius();
+            float sample = shipRadius * 1.35f;
+            if (discRadius > 0.5f)
+            {
+                // ReadPixels ring on the disc, outside the contact blob. The
+                // texture stays solid until 0.8 of the radius, so 0.72 is disc
+                // colour. A sample inside the blob would pass on the hull shadow.
+                float blobRadius = ContactBlobWorldRadius(hull);
+                if (blobRadius < 0.2f)
+                {
+                    blobRadius = shipRadius * ContactBlob.RadiusPad;
+                }
+
+                float outsideBlob = blobRadius * 1.08f;
+                float solid = discRadius * 0.72f;
+                float edge = discRadius * 0.9f;
+                if (solid > outsideBlob)
+                {
+                    sample = solid;
+                }
+                else if (outsideBlob < edge)
+                {
+                    sample = outsideBlob;
+                }
+                else
+                {
+                    sample = edge;
+                }
+
+                if (sample < shipRadius * 1.2f)
+                {
+                    sample = shipRadius * 1.2f;
+                }
+
+                if (sample > edge)
+                {
+                    sample = edge;
+                }
+            }
+
+            float floor = RingMedian(cam, image, hull, sample);
             if (ship < 0f || floor < 0f)
             {
                 return 0f;
@@ -2961,10 +3160,109 @@ namespace AsteroidsGoneRogue.EditorTools
             return ship / safe;
         }
 
+        static float SpawnDiscWorldRadius()
+        {
+            Renderer[] renderers = UnityEngine.Object.FindObjectsByType<Renderer>();
+            if (renderers == null)
+            {
+                return 0f;
+            }
+
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null || !renderer.enabled || renderer.gameObject == null || !renderer.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                string name = renderer.gameObject.name;
+                if (name == null || name.IndexOf("SpawnContrast", System.StringComparison.Ordinal) < 0)
+                {
+                    continue;
+                }
+
+                float radius = renderer.bounds.extents.x;
+                if (renderer.bounds.extents.z > radius)
+                {
+                    radius = renderer.bounds.extents.z;
+                }
+
+                return radius;
+            }
+
+            return 0f;
+        }
+
+        static float ContactBlobWorldRadius(Vector3 hull)
+        {
+            Renderer[] renderers = UnityEngine.Object.FindObjectsByType<Renderer>();
+            if (renderers == null)
+            {
+                return 0f;
+            }
+
+            float best = 0f;
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null || !renderer.enabled || renderer.gameObject == null || renderer.gameObject.name != "ContactBlob")
+                {
+                    continue;
+                }
+
+                float dx = renderer.bounds.center.x - hull.x;
+                float dz = renderer.bounds.center.z - hull.z;
+                if ((dx * dx) + (dz * dz) > 1f)
+                {
+                    continue;
+                }
+
+                float radius = renderer.bounds.extents.x;
+                if (renderer.bounds.extents.z > radius)
+                {
+                    radius = renderer.bounds.extents.z;
+                }
+
+                if (radius > best)
+                {
+                    best = radius;
+                }
+            }
+
+            return best;
+        }
+
         static float MeasureBlob(Camera cam, Texture2D image, Vector3 hull, float shipRadius)
         {
-            float inner = RingMedian(cam, image, hull, shipRadius * 1.12f);
-            float outer = RingMedian(cam, image, hull, shipRadius * 1.9f);
+            float blob = ContactBlobWorldRadius(hull);
+            if (blob < 0.2f)
+            {
+                blob = shipRadius * ContactBlob.RadiusPad;
+            }
+
+            if (blob < 0.4f)
+            {
+                blob = 0.4f;
+            }
+
+            // Shader holds centre alpha until 0.55 of the quad. Sample the
+            // solid core, then the floor just outside the quad.
+            float innerRadius = blob * 0.4f;
+            if (innerRadius < shipRadius * 1.05f)
+            {
+                innerRadius = shipRadius * 1.05f;
+            }
+
+            if (innerRadius > blob * 0.52f)
+            {
+                innerRadius = blob * 0.52f;
+            }
+
+            float outerRadius = blob * 1.2f;
+            float inner = RingMedian(cam, image, hull, innerRadius);
+            float outer = RingMedian(cam, image, hull, outerRadius);
+            FrameFloorLuma = outer;
             if (inner < 0f || outer < 0f)
             {
                 return 0f;

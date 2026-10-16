@@ -64,6 +64,7 @@ namespace AsteroidsGoneRogue
 
         private void LateUpdate()
         {
+            ContactBlob.Attach(transform);
             if (_dead)
             {
                 return;
