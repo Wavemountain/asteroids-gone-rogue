@@ -72,7 +72,7 @@ namespace AsteroidsGoneRogue
         public const float HangarExposure = 0.08f;
         public const float HangarTemperature = 4f;
         public const float HangarTint = 0f;
-        public const float HangarSaturation = 4f;
+        public const float HangarSaturation = -4f;
         public const float HangarContrast = 6f;
         public const float HangarVignette = 0.32f;
         public const float HangarVignetteSmooth = 0.40f;

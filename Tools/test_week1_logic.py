@@ -15972,6 +15972,7 @@ def test_capture_048_clearance_hud() -> None:
     factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
     belt = (root / "Assets/Scripts/Content/ArenaEnv.cs").read_text(encoding="utf-8")
     look = (root / "Assets/Scripts/Core/PremiumLook.cs").read_text(encoding="utf-8")
+    grade = (root / "Assets/Scripts/Core/PostGrade.cs").read_text(encoding="utf-8")
     rig = (root / "Assets/Scripts/Core/HangarPreviewRig.cs").read_text(encoding="utf-8")
     preview = (root / "Assets/Scripts/Hangar/HangarShipPreview.cs").read_text(encoding="utf-8")
     ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
@@ -15999,7 +16000,10 @@ def test_capture_048_clearance_hud() -> None:
     assert "DressBody" not in factory
     assert "DeathWashDimFull = 0.62f" in look and "DeathWashDimReduce = 0.28f" in look
     assert "PreviewExposure = 0.46f" in look and "PreviewEmissionCap = 0.65f" in look
+    assert "PreviewBlueKeep = 0.92f" in look and "PreviewSatBoostCap = 1.2f" in look
     assert "PreviewNeutralR = 0.45f" in look and "PreviewNeutralEmit = 0.35f" in look
+    assert "HangarSaturation = -4f" in grade and "HangarTint = 0f" in grade
+    assert "PreviewAlbedoLimit" in look and "PreviewAlbedoLimit" in preview
     assert "PreviewSteel" in look and "PreviewSteel" in preview
     assert "PreviewNeutralEmission" in preview
     assert "KeyB = 0.62f" in rig and "FillB = 0.84f" in rig and "RimB = 1f" in rig
