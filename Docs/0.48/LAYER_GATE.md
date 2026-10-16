@@ -15,6 +15,7 @@ Whitelist data: `Tools/layer_whitelist.json`.
 5. **UI overlap.** Rect overlap and glyph boxes (`preferredWidth` / `preferredHeight`) fail the shot. That covers HUD-vs-HUD, HUD vs the hint row, and the hangar title / world / medal rows. The same measurement already logged `AgrCapture FAIL:`; the layer gate records it as `ui-overlap` too.
 6. **Contact shadow.** Every active `ShipController`, `EnemySeeker`, and `Asteroid` needs an enabled child renderer named `ContactBlob`.
 7. **UI camera and canvas layer.** Every enabled canvas must sit on the built-in UI layer (`LayerGate.UiLayer`, 5). `GameUi.UseUiLayer` assigns that layer wherever a canvas is created, including nested canvases (`RaiseCanvas`, the shop, the prompt, the rebind overlay). The capture overlay camera (`AgrCaptureUiCamera`) must use `cullingMask = LayerGate.UiCameraMask` (`1 << 5`) and must sit at `(0, -10000, 0)`, so it cannot redraw the ship or other Default-layer objects on top of the HUD. A mask that includes any other layer fails as `ui-camera`. A canvas on another layer fails as `canvas-layer`. The hangar preview camera stays on layer 8 and is not a UI camera.
+8. **Decor near spawn.** Each arena blockout is one mesh. `SpawnClear.ClearVisual`, called from `ApplyArenaForWave`, copies that mesh and drops a connected island when its closest XZ point is within 4 of the origin and its farthest XZ point is within 8. That removes the W3 centre plate and glow pillar, the W2 pads, the W4 pillar, the W5 plinth and pillar, and the W6 plinth. The floor and the W4 lane walls stay, because they reach farther than 8. The same pass drops a compact corner island that straddles the lip (at least 3 inside the arena radius and at least 4 outside, both spans between 3 and 12) so the W4 ring stays continuous. A capture that still finds a spawn island fails as `spawn-decor`. An unreadable blockout mesh fails closed.
 
 ## Static vs runtime
 
@@ -32,6 +33,7 @@ Whitelist data: `Tools/layer_whitelist.json`.
 | Contact shadow present | Self-check only | Yes |
 | Canvas on the UI layer (5) | `GameUi.cs` and `RebindOverlay.cs` must call `UseUiLayer` next to every `AddComponent<Canvas>`. An injected canvas without that call FAILs | Yes, every enabled `Canvas` |
 | Capture/UI camera mask is UI-only | `AgrCapture` must set `cullingMask = LayerGate.UiCameraMask` and park the camera at `(0, -10000, 0)`. A mask built from canvas layers FAILs | Yes, the overlay camera used for that shot |
+| Decor island within 4 of spawn and no farther than 8 | `ContentFactory` must call `SpawnClear.ClearVisual`. `SpawnClear` must use `IsSpawnClutter` and `IsRingCorner`. `AgrCapture` must call `CollectSpawnIslands`. An injected source missing those calls FAILs | Yes, every shot, from the live blockout mesh |
 
 A runtime hit logs `AgrCapture layer FAIL:` and does **not** stop the remaining shots. The process still exits non-zero (`CaptureContinue.ExitCode` with the layer flag). A fatal capture error (missing session, empty frame) still stops the run.
 

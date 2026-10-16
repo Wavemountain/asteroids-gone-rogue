@@ -23,6 +23,17 @@ namespace AsteroidsGoneRogue
         // Built-in UI layer. Capture composites canvases with this mask only.
         public const int UiLayer = 5;
         public const int UiCameraMask = 1 << UiLayer;
+        // Spawn leftovers sit inside the arena mesh. An island is clutter when
+        // its XZ box comes within this of the origin and does not reach past
+        // the outer radius (the floor and the W4 lane walls do).
+        public const float SpawnClearRadius = 4f;
+        public const float SpawnClutterRadius = 8f;
+        // W4 corner blocks straddle the lip: inner edge this far inside the
+        // arena, outer corner this far outside, and both spans in range.
+        public const float RingBlockInner = 3f;
+        public const float RingBlockOuter = 4f;
+        public const float RingBlockSpanMin = 3f;
+        public const float RingBlockSpanMax = 12f;
 
         public sealed class Rules
         {
@@ -83,6 +94,15 @@ namespace AsteroidsGoneRogue
             public bool HasContact;
         }
 
+        public sealed class IslandFact
+        {
+            public string Name;
+            public float MinX;
+            public float MaxX;
+            public float MinZ;
+            public float MaxZ;
+        }
+
         public static string[] Evaluate(
             string world,
             Rules rules,
@@ -102,6 +122,19 @@ namespace AsteroidsGoneRogue
             string[] uiOverlaps,
             BodyFact[] bodies,
             CameraFact[] cameras)
+        {
+            return Evaluate(world, rules, facts, canvases, uiOverlaps, bodies, cameras, null);
+        }
+
+        public static string[] Evaluate(
+            string world,
+            Rules rules,
+            Fact[] facts,
+            CanvasFact[] canvases,
+            string[] uiOverlaps,
+            BodyFact[] bodies,
+            CameraFact[] cameras,
+            IslandFact[] islands)
         {
             System.Collections.Generic.List<string> hits = new System.Collections.Generic.List<string>();
             if (rules == null)
@@ -157,7 +190,97 @@ namespace AsteroidsGoneRogue
                 }
             }
 
+            if (islands != null)
+            {
+                for (int i = 0; i < islands.Length; i++)
+                {
+                    NoteIsland(islands[i], hits);
+                }
+            }
+
             return hits.ToArray();
+        }
+
+        public static bool IsSpawnClutter(float minX, float maxX, float minZ, float maxZ)
+        {
+            float near = ClosestRadius(minX, maxX, minZ, maxZ);
+            float far = FarthestRadius(minX, maxX, minZ, maxZ);
+            return near <= SpawnClearRadius && far <= SpawnClutterRadius;
+        }
+
+        public static bool IsRingCorner(float minX, float maxX, float minZ, float maxZ, float arenaRadius)
+        {
+            float spanX = maxX - minX;
+            float spanZ = maxZ - minZ;
+            if (spanX < RingBlockSpanMin || spanX > RingBlockSpanMax)
+            {
+                return false;
+            }
+
+            if (spanZ < RingBlockSpanMin || spanZ > RingBlockSpanMax)
+            {
+                return false;
+            }
+
+            if (minX < 0f && maxX > 0f)
+            {
+                return false;
+            }
+
+            if (minZ < 0f && maxZ > 0f)
+            {
+                return false;
+            }
+
+            float near = ClosestRadius(minX, maxX, minZ, maxZ);
+            float far = FarthestRadius(minX, maxX, minZ, maxZ);
+            return near <= arenaRadius - RingBlockInner && far >= arenaRadius + RingBlockOuter;
+        }
+
+        public static float ClosestRadius(float minX, float maxX, float minZ, float maxZ)
+        {
+            float x = 0f;
+            if (minX > 0f)
+            {
+                x = minX;
+            }
+            else if (maxX < 0f)
+            {
+                x = maxX;
+            }
+
+            float z = 0f;
+            if (minZ > 0f)
+            {
+                z = minZ;
+            }
+            else if (maxZ < 0f)
+            {
+                z = maxZ;
+            }
+
+            return (float)System.Math.Sqrt((x * x) + (z * z));
+        }
+
+        public static float FarthestRadius(float minX, float maxX, float minZ, float maxZ)
+        {
+            float far = 0f;
+            far = Farther(far, minX, minZ);
+            far = Farther(far, minX, maxZ);
+            far = Farther(far, maxX, minZ);
+            far = Farther(far, maxX, maxZ);
+            return far;
+        }
+
+        static float Farther(float far, float x, float z)
+        {
+            float radius = (float)System.Math.Sqrt((x * x) + (z * z));
+            if (radius > far)
+            {
+                return radius;
+            }
+
+            return far;
         }
 
         public static bool TryParse(string json, out Rules rules, out string error)
@@ -359,6 +482,64 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            float arenaScale = 30f / 22f;
+            IslandFact plate = new IslandFact();
+            plate.Name = "Arena_World3_Blockout";
+            plate.MinX = -2f * arenaScale;
+            plate.MaxX = 2f * arenaScale;
+            plate.MinZ = -3f * arenaScale;
+            plate.MaxZ = 3f * arenaScale;
+            if (!Expect("spawn-decor", Evaluate("3", rules, CleanFacts(), CleanCanvas(), new string[0], CleanBodies(), CleanCameras(), new IslandFact[] { plate })))
+            {
+                return false;
+            }
+
+            if (!IsSpawnClutter(-1.94f * arenaScale, 1.94f * arenaScale, -4.44f * arenaScale, -1.56f * arenaScale))
+            {
+                return false;
+            }
+
+            if (IsSpawnClutter(-18f * arenaScale, 18f * arenaScale, -3f * arenaScale, 3f * arenaScale))
+            {
+                return false;
+            }
+
+            if (IsSpawnClutter(-25f * arenaScale, 25f * arenaScale, -25f * arenaScale, 25f * arenaScale))
+            {
+                return false;
+            }
+
+            if (IsSpawnClutter(-8.88f * arenaScale, -6.12f * arenaScale, -6.43f * arenaScale, -2.23f * arenaScale))
+            {
+                return false;
+            }
+
+            IslandFact floor = new IslandFact();
+            floor.Name = "Arena_Blockout";
+            floor.MinX = -25f * arenaScale;
+            floor.MaxX = 25f * arenaScale;
+            floor.MinZ = -25f * arenaScale;
+            floor.MaxZ = 25f * arenaScale;
+            if (Evaluate("1", rules, CleanFacts(), CleanCanvas(), new string[0], CleanBodies(), CleanCameras(), new IslandFact[] { floor }).Length != 0)
+            {
+                return false;
+            }
+
+            if (!IsRingCorner(13.5f * arenaScale, 18.5f * arenaScale, 13.5f * arenaScale, 18.5f * arenaScale, 30f))
+            {
+                return false;
+            }
+
+            if (IsRingCorner(18.82f * arenaScale, 20.02f * arenaScale, 9.73f * arenaScale, 10.93f * arenaScale, 30f))
+            {
+                return false;
+            }
+
+            if (IsRingCorner(-18.39f * arenaScale, -15.15f * arenaScale, 11.44f * arenaScale, 15.30f * arenaScale, 30f))
+            {
+                return false;
+            }
+
             Rules parsed;
             string error;
             if (!TryParse(TestJson(), out parsed, out error))
@@ -474,6 +655,22 @@ namespace AsteroidsGoneRogue
 
             string name = camera.Name == null ? "camera" : camera.Name;
             hits.Add("ui-camera " + name + " mask " + camera.Mask.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        static void NoteIsland(IslandFact island, System.Collections.Generic.List<string> hits)
+        {
+            if (island == null)
+            {
+                return;
+            }
+
+            if (!IsSpawnClutter(island.MinX, island.MaxX, island.MinZ, island.MaxZ))
+            {
+                return;
+            }
+
+            string name = island.Name == null ? "decor" : island.Name;
+            hits.Add("spawn-decor " + name);
         }
 
         static bool Shown(Fact fact)

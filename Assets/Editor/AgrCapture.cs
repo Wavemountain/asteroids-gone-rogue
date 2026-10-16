@@ -2745,7 +2745,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 }
             }
 
-            string[] hits = LayerGate.Evaluate(world, rules, CollectFacts(), CollectCanvases(), LayerUiHits.ToArray(), CollectBodies(), CollectUiCameras());
+            string[] hits = LayerGate.Evaluate(world, rules, CollectFacts(), CollectCanvases(), LayerUiHits.ToArray(), CollectBodies(), CollectUiCameras(), CollectSpawnIslands());
             for (int i = 0; i < hits.Length; i++)
             {
                 NoteLayerFail(world + " " + hits[i]);
@@ -3048,6 +3048,56 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             return facts.ToArray();
+        }
+
+        static LayerGate.IslandFact[] CollectSpawnIslands()
+        {
+            System.Collections.Generic.List<LayerGate.IslandFact> facts = new System.Collections.Generic.List<LayerGate.IslandFact>();
+            MeshFilter[] filters = UnityEngine.Object.FindObjectsByType<MeshFilter>();
+            if (filters == null)
+            {
+                return facts.ToArray();
+            }
+
+            for (int i = 0; i < filters.Length; i++)
+            {
+                MeshFilter filter = filters[i];
+                if (!ArenaBlockoutMesh(filter))
+                {
+                    continue;
+                }
+
+                SpawnClear.AppendIslands(filter, facts);
+            }
+
+            return facts.ToArray();
+        }
+
+        static bool ArenaBlockoutMesh(MeshFilter filter)
+        {
+            if (filter == null)
+            {
+                return false;
+            }
+
+            Transform cursor = filter.transform;
+            while (cursor != null)
+            {
+                string name = cursor.name;
+                if (name == "ArenaEnv" || name == "ArenaLip")
+                {
+                    return false;
+                }
+
+                if (name != null && name.IndexOf("Blockout", System.StringComparison.Ordinal) >= 0)
+                {
+                    return true;
+                }
+
+                cursor = cursor.parent;
+            }
+
+            return false;
         }
 
         static LayerGate.BodyFact[] CollectBodies()

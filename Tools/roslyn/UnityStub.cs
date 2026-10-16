@@ -737,6 +737,9 @@ namespace UnityEngine
         public Vector3[] vertices { get; set; }
         public Vector2[] uv { get; set; }
         public int[] triangles { get; set; }
+        public int subMeshCount { get { return 1; } }
+        public int[] GetTriangles(int submesh) { return triangles; }
+        public void SetTriangles(int[] triangles, int submesh) { this.triangles = triangles; }
         public void RecalculateBounds() { }
     }
 

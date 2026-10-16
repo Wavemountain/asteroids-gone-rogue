@@ -49,6 +49,7 @@ _SELF_TOKENS = (
     "contact-shadow",
     "canvas-layer",
     "ui-camera",
+    "spawn-decor",
 )
 
 _CANVAS_SOURCES = (
@@ -114,6 +115,14 @@ def injection_errors() -> list[str]:
         errors.append("self-test canvas-layer did not FAIL")
     if canvas_file_hits("UseUiLayer(canvasObject);\ncanvasObject.AddComponent<Canvas>();\n", "Inject.cs"):
         errors.append("self-test UI canvas was flagged")
+    if not spawn_clear_hits("", "", ""):
+        errors.append("self-test spawn-decor did not FAIL")
+    if spawn_clear_hits(
+        "SpawnClear.ClearVisual(floorVisual);\n",
+        "CollectSpawnIslands()\n",
+        "LayerGate.IsSpawnClutter(minX, maxX, minZ, maxZ);\nLayerGate.IsRingCorner(minX, maxX, minZ, maxZ, ring);\n",
+    ):
+        errors.append("self-test spawn carve was flagged")
     return errors
 
 
@@ -126,6 +135,18 @@ def ui_camera_source_hits(source: str) -> list[str]:
         hits.append("ui-camera overlay mask includes a non-UI layer")
     if "new Vector3(0f, -10000f, 0f)" not in source:
         hits.append("ui-camera overlay camera is not parked away from the arena")
+    return hits
+
+
+def spawn_clear_hits(factory: str, capture: str, carve: str) -> list[str]:
+    """FAIL when spawn leftovers are not carved, or capture does not measure them."""
+    hits: list[str] = []
+    if "SpawnClear.ClearVisual(" not in factory:
+        hits.append("spawn-decor arena visual is not cleared around spawn")
+    if "CollectSpawnIslands()" not in capture:
+        hits.append("spawn-decor capture does not measure decor near spawn")
+    if "IsSpawnClutter(" not in carve or "IsRingCorner(" not in carve:
+        hits.append("spawn-decor carve does not use the layer-gate island rules")
     return hits
 
 
@@ -221,6 +242,14 @@ def check(root: Path) -> list[str]:
     ui = root / "Assets/Scripts/UI/GameUi.cs"
     if ui.is_file() and "layer = LayerGate.UiLayer" not in ui.read_text(encoding="utf-8"):
         errors.append("canvas-layer GameUi.UseUiLayer must assign LayerGate.UiLayer")
+    factory = root / "Assets/Scripts/Content/ContentFactory.cs"
+    carve = root / "Assets/Scripts/Content/SpawnClear.cs"
+    factory_text = factory.read_text(encoding="utf-8") if factory.is_file() else ""
+    capture_text = capture.read_text(encoding="utf-8") if capture.is_file() else ""
+    carve_text = carve.read_text(encoding="utf-8") if carve.is_file() else ""
+    if not carve.is_file():
+        errors.append("spawn-decor missing Assets/Scripts/Content/SpawnClear.cs")
+    errors.extend(spawn_clear_hits(factory_text, capture_text, carve_text))
     return errors
 
 
