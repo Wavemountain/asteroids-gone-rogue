@@ -70,6 +70,11 @@ namespace AsteroidsGoneRogue
             }
 
             int decor = LayerIndex();
+            if (gameplay.cullingMask == 0)
+            {
+                gameplay.cullingMask = ~0;
+            }
+
             gameplay.cullingMask &= ~(1 << decor);
             gameplay.clearFlags = CameraClearFlags.Depth;
             gameplay.depth = 0f;

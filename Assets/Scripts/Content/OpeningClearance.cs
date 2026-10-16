@@ -21,8 +21,11 @@ namespace AsteroidsGoneRogue
         private const float FloorExtent = 12f;
         private const float StandingClearance = 0.12f;
         private const int CarveCap = 64;
+        private const float VisualMeshPad = 3.2f;
 
         private static readonly System.Collections.Generic.List<string> Notes = new System.Collections.Generic.List<string>();
+        private static readonly System.Collections.Generic.List<Component> Entities = new System.Collections.Generic.List<Component>();
+        private static readonly System.Collections.Generic.List<float> EntityPush = new System.Collections.Generic.List<float>();
         private static readonly System.Collections.Generic.List<Transform> Moved = new System.Collections.Generic.List<Transform>();
         private static readonly System.Collections.Generic.List<MeshFilter> Carved = new System.Collections.Generic.List<MeshFilter>();
         private static readonly System.Collections.Generic.List<ShotCam> Cams = new System.Collections.Generic.List<ShotCam>();
@@ -139,6 +142,7 @@ namespace AsteroidsGoneRogue
             Notes.Clear();
             Moved.Clear();
             Carved.Clear();
+            RepairPlayMask();
             if (log && !OpeningView.SelfCheck())
             {
                 Notes.Add("AgrCapture keep-out OpeningView.SelfCheck failed");
@@ -176,6 +180,8 @@ namespace AsteroidsGoneRogue
                     Consider(renderers[rendererIndex], ship, view, minU, minV, maxU, maxV, holdStill, log);
                 }
             }
+
+            ClearListed(ship, view, minU, minV, maxU, maxV, holdStill, log);
         }
 
         private static void Consider(
@@ -375,12 +381,7 @@ namespace AsteroidsGoneRogue
                 return 0f;
             }
 
-            Bounds bounds;
-            if (!TryRendererBounds(body, out bounds))
-            {
-                bounds = new Bounds(body.position, new Vector3(2.4f, 2.4f, 2.4f));
-            }
-
+            Bounds bounds = VisualBounds(body);
             float push;
             bool hit = OpeningView.PushAside(
                 view.EyeX,
@@ -414,7 +415,43 @@ namespace AsteroidsGoneRogue
                 out push);
             if (!hit)
             {
-                return 0f;
+                int covered;
+                bool overlaps = OpeningView.Hits(
+                    view.EyeX,
+                    view.EyeY,
+                    view.EyeZ,
+                    view.Fx,
+                    view.Fy,
+                    view.Fz,
+                    view.Rx,
+                    view.Ry,
+                    view.Rz,
+                    view.Ux,
+                    view.Uy,
+                    view.Uz,
+                    view.Fov,
+                    view.Aspect,
+                    view.RectX,
+                    view.RectY,
+                    view.RectW,
+                    view.RectH,
+                    bounds.center.x,
+                    bounds.center.y,
+                    bounds.center.z,
+                    bounds.extents.x,
+                    bounds.extents.y,
+                    bounds.extents.z,
+                    minU,
+                    minV,
+                    maxU,
+                    maxV,
+                    out covered);
+                if (!overlaps)
+                {
+                    return 0f;
+                }
+
+                push = OpeningView.SidestepMetres * OpeningView.SidestepSteps;
             }
 
             float flatX = view.Rx;
@@ -731,6 +768,177 @@ namespace AsteroidsGoneRogue
             return push;
         }
 
+        private static void ClearListed(
+            Vector3 ship,
+            ShotCam view,
+            float minU,
+            float minV,
+            float maxU,
+            float maxV,
+            bool holdStill,
+            bool log)
+        {
+            Entities.Clear();
+            EntityPush.Clear();
+            WaveManager[] waves = UnityEngine.Object.FindObjectsByType<WaveManager>();
+            if (waves != null)
+            {
+                for (int waveIndex = 0; waveIndex < waves.Length; waveIndex++)
+                {
+                    WaveManager wave = waves[waveIndex];
+                    if (wave != null)
+                    {
+                        wave.CollectLive(Entities);
+                    }
+                }
+            }
+
+            ArenaHazard.CollectLive(Entities);
+            for (int entityIndex = 0; entityIndex < Entities.Count; entityIndex++)
+            {
+                Component entity = Entities[entityIndex];
+                if (entity == null)
+                {
+                    EntityPush.Add(0f);
+                    continue;
+                }
+
+                float push = NudgeRoot(entity.transform, view, minU, minV, maxU, maxV, holdStill, true);
+                EntityPush.Add(push);
+            }
+
+            if (!log)
+            {
+                return;
+            }
+
+            for (int entityIndex = 0; entityIndex < Entities.Count; entityIndex++)
+            {
+                Component entity = Entities[entityIndex];
+                if (entity == null)
+                {
+                    continue;
+                }
+
+                float pushed = entityIndex < EntityPush.Count ? EntityPush[entityIndex] : 0f;
+                NoteEntity(entity, view, minU, minV, maxU, maxV, pushed);
+            }
+        }
+
+        private static void NoteEntity(Component entity, ShotCam playerView, float minU, float minV, float maxU, float maxV, float push)
+        {
+            Transform body = entity.transform;
+            int layer = entity.gameObject.layer;
+            ShotCam view = CameraFor(layer, playerView);
+            Bounds bounds = VisualBounds(body);
+            int behind;
+            bool overlap = OpeningView.Hits(
+                view.EyeX,
+                view.EyeY,
+                view.EyeZ,
+                view.Fx,
+                view.Fy,
+                view.Fz,
+                view.Rx,
+                view.Ry,
+                view.Rz,
+                view.Ux,
+                view.Uy,
+                view.Uz,
+                view.Fov,
+                view.Aspect,
+                view.RectX,
+                view.RectY,
+                view.RectW,
+                view.RectH,
+                bounds.center.x,
+                bounds.center.y,
+                bounds.center.z,
+                bounds.extents.x,
+                bounds.extents.y,
+                bounds.extents.z,
+                minU,
+                minV,
+                maxU,
+                maxV,
+                out behind);
+            float boxMinU;
+            float boxMinV;
+            float boxMaxU;
+            float boxMaxV;
+            ScreenBox(bounds, view, out boxMinU, out boxMinV, out boxMaxU, out boxMaxV);
+            int overlapBit = overlap ? 1 : 0;
+            Notes.Add(
+                "AgrCapture keep-out verify name="
+                + entity.gameObject.name
+                + " layer="
+                + LayerText(layer)
+                + " camera="
+                + view.Name
+                + " kind=entity screen="
+                + RectText(boxMinU, boxMinV, boxMaxU, boxMaxV)
+                + " overlap="
+                + overlapBit.ToString(CultureInfo.InvariantCulture)
+                + " push="
+                + push.ToString("0.00", CultureInfo.InvariantCulture)
+                + " behind="
+                + behind.ToString(CultureInfo.InvariantCulture));
+        }
+
+        private static Bounds VisualBounds(Transform body)
+        {
+            Bounds bounds;
+            if (body == null || !TryRendererBounds(body, out bounds))
+            {
+                Vector3 origin = body != null ? body.position : Vector3.zero;
+                bounds = new Bounds(origin, new Vector3(2.4f, 2.4f, 2.4f));
+            }
+
+            if (body != null)
+            {
+                Collider[] colliders = body.GetComponentsInChildren<Collider>(true);
+                for (int colliderIndex = 0; colliderIndex < colliders.Length; colliderIndex++)
+                {
+                    Collider collider = colliders[colliderIndex];
+                    if (collider == null || !collider.enabled)
+                    {
+                        continue;
+                    }
+
+                    bounds.Encapsulate(collider.bounds);
+                }
+            }
+
+            Vector3 grow = bounds.size * (VisualMeshPad - 1f);
+            bounds.size += grow;
+            return bounds;
+        }
+
+        private static void RepairPlayMask()
+        {
+            Camera[] cameras = UnityEngine.Object.FindObjectsByType<Camera>();
+            if (cameras == null)
+            {
+                return;
+            }
+
+            int decor = DecorCameraStack.LayerIndex();
+            int playMask = ~0 & ~(1 << decor);
+            for (int cameraIndex = 0; cameraIndex < cameras.Length; cameraIndex++)
+            {
+                Camera cam = cameras[cameraIndex];
+                if (cam == null || cam.gameObject == null || cam.gameObject.name != "Main Camera")
+                {
+                    continue;
+                }
+
+                if (cam.cullingMask == 0)
+                {
+                    cam.cullingMask = playMask;
+                }
+            }
+        }
+
         private static bool TryFrame(
             out Vector3 ship,
             out ShotCam view,
@@ -828,12 +1036,13 @@ namespace AsteroidsGoneRogue
             for (int i = 0; i < Cams.Count; i++)
             {
                 ShotCam cam = Cams[i];
-                if (cam.Mask == 0)
+                bool playCam = cam.Name == "Main Camera";
+                if (cam.Mask == 0 && !playCam)
                 {
                     continue;
                 }
 
-                bool draws = layer < 0 || layer > 30 || (cam.Mask & bit) != 0;
+                bool draws = layer < 0 || layer > 30 || (cam.Mask & bit) != 0 || (playCam && cam.Mask == 0);
                 if (!draws)
                 {
                     continue;
@@ -892,11 +1101,7 @@ namespace AsteroidsGoneRogue
                 rectH = 1f;
             }
 
-            float aspect = 16f / 9f;
-            if (Screen.height > 1)
-            {
-                aspect = (rectW * Screen.width) / (rectH * (float)Screen.height);
-            }
+            float aspect = ArenaFraming.ReferenceAspect;
 
             shot.Name = cam.gameObject.name;
             shot.Mask = cam.cullingMask;
@@ -936,11 +1141,7 @@ namespace AsteroidsGoneRogue
             float uy;
             float uz;
             OpeningView.Basis(eye.x, eye.y, eye.z, ship.x, ship.y, ship.z, out fx, out fy, out fz, out rx, out ry, out rz, out ux, out uy, out uz);
-            float aspect = 16f / 9f;
-            if (Screen.width > 1 && Screen.height > 1)
-            {
-                aspect = Screen.width / (float)Screen.height;
-            }
+            float aspect = ArenaFraming.ReferenceAspect;
 
             ShotCam shot = new ShotCam();
             shot.Name = "PlayFallback";

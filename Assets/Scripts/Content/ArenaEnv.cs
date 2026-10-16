@@ -85,6 +85,13 @@ namespace AsteroidsGoneRogue
             Color nebula = SoftenAmount(ScaleColor(new Color(tint.NebulaR, tint.NebulaG, tint.NebulaB, NebulaOpacity), bright), tint.Chroma);
             nebula.a = NebulaOpacity;
             Color grid = SoftenAmount(ScaleColor(new Color(tint.GridR, tint.GridG, tint.GridB, PremiumLook.GridVisibleAlpha), bright), tint.Chroma);
+            if (world == 3)
+            {
+                grid.r *= PremiumLook.W3GridDim;
+                grid.g *= PremiumLook.W3GridDim;
+                grid.b *= PremiumLook.W3GridDim;
+            }
+
             grid.a = PremiumLook.GridVisibleAlpha;
             _floorTint = ScaleColor(new Color(tint.FloorR, tint.FloorG, tint.FloorB, 1f), bright);
             Texture2D nebulaTex = _nebulaBlue;
