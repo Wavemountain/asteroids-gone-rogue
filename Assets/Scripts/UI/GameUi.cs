@@ -29,6 +29,7 @@ namespace AsteroidsGoneRogue
         private Text _status;
         private Text _credits;
         private Text _hint;
+        private Image _hintScrim;
         private GameObject _menuRoot;
         private Button _primary;
         private Text _primaryLabel;
@@ -342,6 +343,15 @@ namespace AsteroidsGoneRogue
         public static readonly Vector2 HangarPanelMax = new Vector2(0.55f, 0.888f);
         public static readonly Vector2 TopBarMin = new Vector2(0.012f, 0.905f);
         public static readonly Vector2 TopBarMax = new Vector2(0.988f, 0.995f);
+        // Hangar top bar is two rows. The medal line owns the upper row.
+        // WORLD sits on the row under it so the glyphs do not share a band.
+        private static readonly Vector2 HangarTitleMin = new Vector2(0.012f, 0.952f);
+        private static readonly Vector2 HangarTitleMax = new Vector2(0.200f, 0.992f);
+        private static readonly Vector2 HangarWorldMin = new Vector2(0.012f, 0.906f);
+        private static readonly Vector2 HangarWorldMax = new Vector2(0.340f, 0.948f);
+        private static readonly Vector2 HangarMedalMin = new Vector2(0.220f, 0.952f);
+        private static readonly Vector2 HangarMedalMax = new Vector2(0.490f, 0.992f);
+        private const float HintScrimAlpha = 0.62f;
         // Gear stays on the top-right. Mute / SFX / Music live in the settings panel.
         public static readonly Vector2 SettingsGearMin = new Vector2(0.900f, 0.905f);
         public static readonly Vector2 SettingsGearMax = new Vector2(0.988f, 0.995f);
@@ -761,7 +771,7 @@ namespace AsteroidsGoneRogue
             _title = CreateText("Title", transform, display, UiTheme.TypeTitle, TextAnchor.MiddleLeft, FontStyle.Bold);
             _title.lineSpacing = UiTheme.TitleLine;
             // Top-bar left: title slot. Stretch anchors, zero offset so 16:9 scaler keeps one row.
-            Stretch(_title.rectTransform, new Vector2(0.012f, 0.905f), new Vector2(0.200f, 0.995f));
+            Stretch(_title.rectTransform, HangarTitleMin, HangarTitleMax);
             _title.text = productTitle;
             _title.color = UiAmber;
             ClampOneLine(_title);
@@ -770,10 +780,10 @@ namespace AsteroidsGoneRogue
             AddReadability(_title, true);
 
             _world = CreateText("WorldBadge", transform, display, 22, TextAnchor.MiddleLeft, FontStyle.Bold);
-            // Top-bar left: WORLD badge beside title. Stretch anchors, zero offset.
-            Stretch(_world.rectTransform, new Vector2(0.240f, 0.905f), new Vector2(0.460f, 0.995f));
+            // Hangar: WORLD is the row under the medal line, not beside it.
             _world.color = UiAmber;
             ClampOneLine(_world);
+            PlaceHangarWorldBadge();
             AddReadability(_world, true);
 
             _hud = CreateText("Hud", transform, body, 22, TextAnchor.UpperLeft, FontStyle.Normal);
@@ -797,12 +807,13 @@ namespace AsteroidsGoneRogue
             _deathEdge.raycastTarget = false;
             EnsureDeathEdgeSprite(_deathEdge);
             _waveClearBanner = CreateText("WaveClearBanner", transform, display, UiTheme.TypeDisplay, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Stretch(_waveClearBanner.rectTransform, new Vector2(0.18f, 0.58f), new Vector2(0.82f, 0.72f));
+            // Top third, clear of the ship. Score sits just under the banner.
+            Stretch(_waveClearBanner.rectTransform, new Vector2(0.18f, 0.74f), new Vector2(0.82f, 0.88f));
             _waveClearBanner.color = UiTheme.Primary;
             _waveClearBanner.gameObject.SetActive(false);
             AddReadability(_waveClearBanner, true);
             _waveClearScore = CreateText("WaveClearScore", transform, display, UiTheme.TypeTitle, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Stretch(_waveClearScore.rectTransform, new Vector2(0.30f, 0.50f), new Vector2(0.70f, 0.58f));
+            Stretch(_waveClearScore.rectTransform, new Vector2(0.28f, 0.64f), new Vector2(0.72f, 0.73f));
             _waveClearScore.color = UiTheme.Primary;
             _waveClearScore.gameObject.SetActive(false);
             AddReadability(_waveClearScore, true);
@@ -812,8 +823,8 @@ namespace AsteroidsGoneRogue
             ApplyPlayHudLayout();
 
             _badgeRow = CreateText("BadgeRow", transform, display, 14, TextAnchor.MiddleLeft, FontStyle.Bold);
-            // Top-bar left: MEDALS. Same row as title/WORLD; stretch anchors, zero offset.
-            Stretch(_badgeRow.rectTransform, new Vector2(0.355f, 0.950f), new Vector2(0.478f, 0.995f));
+            // Own row above WORLD, clear of the title and the toast.
+            Stretch(_badgeRow.rectTransform, HangarMedalMin, HangarMedalMax);
             _badgeRow.color = UiAmber;
             ClampOneLine(_badgeRow);
             AddReadability(_badgeRow, false);
@@ -828,6 +839,12 @@ namespace AsteroidsGoneRogue
             _achievementLadder.verticalOverflow = VerticalWrapMode.Overflow;
             AddReadability(_achievementLadder, false);
 
+            _hintScrim = CreateFill(
+                "HintScrim",
+                transform,
+                UiTheme.WithAlpha(UiTheme.Void, HintScrimAlpha),
+                new Vector2(0.14f, 0.008f),
+                new Vector2(0.86f, 0.072f)).GetComponent<Image>();
             _hint = CreateText("Hint", transform, body, UiTheme.HintSize(Screen.width), TextAnchor.MiddleCenter, FontStyle.Normal);
             _hint.lineSpacing = UiTheme.CaptionLine;
             // Screen-bottom, outside hangar panel (min.y 0.080). Never in WAVE CLEAR / shop.
@@ -5050,7 +5067,7 @@ namespace AsteroidsGoneRogue
             bool hangar = _session != null && _session.Phase != GamePhase.Playing;
             if (hangar)
             {
-                Stretch(_world.rectTransform, new Vector2(0.240f, 0.905f), new Vector2(0.460f, 0.995f));
+                PlaceHangarWorldBadge();
             }
             else
             {
@@ -5076,7 +5093,7 @@ namespace AsteroidsGoneRogue
             bool hangar = _session != null && _session.Phase != GamePhase.Playing;
             if (hangar)
             {
-                Stretch(_world.rectTransform, new Vector2(0.240f, 0.905f), new Vector2(0.460f, 0.995f));
+                PlaceHangarWorldBadge();
             }
             else
             {
@@ -5337,7 +5354,7 @@ namespace AsteroidsGoneRogue
                 else
                 {
                     _world.gameObject.SetActive(true);
-                    Stretch(_world.rectTransform, new Vector2(0.240f, 0.905f), new Vector2(0.460f, 0.995f));
+                    PlaceHangarWorldBadge();
                     RefreshWorldBadge();
                 }
             }
@@ -6220,6 +6237,18 @@ namespace AsteroidsGoneRogue
             return System.Enum.TryParse(go.name.Substring(4), out id);
         }
 
+        private void PlaceHangarWorldBadge()
+        {
+            if (_world == null)
+            {
+                return;
+            }
+
+            Stretch(_world.rectTransform, HangarWorldMin, HangarWorldMax);
+            _world.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _world.verticalOverflow = VerticalWrapMode.Truncate;
+        }
+
         private void RefreshWorldBadge()
         {
             if (_world == null || _session == null || Time.unscaledTime < _worldFlashUntil)
@@ -6255,7 +6284,8 @@ namespace AsteroidsGoneRogue
                 _badgeRow.color = playing
                     ? UiTheme.WithAlpha(UiTheme.Primary, 0.92f)
                     : UiTheme.Primary;
-                ClampOneLine(_badgeRow);
+                _badgeRow.horizontalOverflow = HorizontalWrapMode.Wrap;
+                _badgeRow.verticalOverflow = VerticalWrapMode.Truncate;
             }
         }
 
@@ -7074,7 +7104,7 @@ namespace AsteroidsGoneRogue
                 Stretch(rect, new Vector2(minX, minY), new Vector2(maxX, maxY));
             }
 
-            PaintGhostPlate(plate);
+            PaintBottomPlate(plate);
         }
 
         private static void PlacePlayPlate(GameObject plate, float minY, float maxY, float maxX)
@@ -7095,15 +7125,31 @@ namespace AsteroidsGoneRogue
 
         private static void PaintGhostPlate(GameObject plate)
         {
-            if (plate == null)
-            {
-                return;
-            }
-
             float alpha = PremiumLook.PlateAlpha;
             if (alpha > PlayHudLayout.PlayHudAlpha)
             {
                 alpha = PlayHudLayout.PlayHudAlpha;
+            }
+
+            PaintPlate(plate, alpha);
+        }
+
+        private static void PaintBottomPlate(GameObject plate)
+        {
+            float alpha = UiTheme.PanelAlpha;
+            if (alpha < 0.85f)
+            {
+                alpha = 0.85f;
+            }
+
+            PaintPlate(plate, alpha);
+        }
+
+        private static void PaintPlate(GameObject plate, float alpha)
+        {
+            if (plate == null)
+            {
+                return;
             }
 
             Image image = plate.GetComponent<Image>();
@@ -7598,6 +7644,7 @@ namespace AsteroidsGoneRogue
             {
                 _hint.gameObject.SetActive(true);
                 PaintPrompt(_hint, FirstRunRules.SkipHint());
+                SyncHintScrim();
                 return;
             }
 
@@ -7611,6 +7658,7 @@ namespace AsteroidsGoneRogue
             if (!show)
             {
                 PaintPrompt(_hint, string.Empty);
+                SyncHintScrim();
                 return;
             }
 
@@ -7638,6 +7686,28 @@ namespace AsteroidsGoneRogue
             }
 
             ClampOneLine(_hint);
+            SyncHintScrim();
+        }
+
+        private void SyncHintScrim()
+        {
+            if (_hintScrim == null || _hint == null)
+            {
+                return;
+            }
+
+            bool show = _hint.gameObject.activeSelf;
+            if (_hintScrim.gameObject.activeSelf != show)
+            {
+                _hintScrim.gameObject.SetActive(show);
+            }
+
+            if (!show)
+            {
+                return;
+            }
+
+            Stretch(_hintScrim.rectTransform, _hint.rectTransform.anchorMin, _hint.rectTransform.anchorMax);
         }
 
         private void PlaceHintBand(bool combat)
@@ -7653,10 +7723,16 @@ namespace AsteroidsGoneRogue
                     _hint.rectTransform,
                     new Vector2(PlayHudLayout.PlayHintMinX, PlayHudLayout.PlayHintMinY),
                     new Vector2(PlayHudLayout.PlayHintMaxX, PlayHudLayout.PlayHintMaxY));
-                return;
+            }
+            else
+            {
+                Stretch(_hint.rectTransform, new Vector2(0.14f, 0.008f), new Vector2(0.86f, 0.072f));
             }
 
-            Stretch(_hint.rectTransform, new Vector2(0.14f, 0.008f), new Vector2(0.86f, 0.072f));
+            if (_hintScrim != null)
+            {
+                Stretch(_hintScrim.rectTransform, _hint.rectTransform.anchorMin, _hint.rectTransform.anchorMax);
+            }
         }
 
         private void PaintPrompt(Text host, string source)

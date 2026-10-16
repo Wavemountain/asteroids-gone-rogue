@@ -2950,6 +2950,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 }
             }
 
+            NoteGlyphOverlaps(graphics, width, height, res, ref firstOverlap);
             if (firstOverlap.Length > 0)
             {
                 NoteHudFail(firstOverlap + " " + res);
@@ -2959,6 +2960,188 @@ namespace AsteroidsGoneRogue.EditorTools
             {
                 NoteHudFail(firstOutside + " " + res);
             }
+        }
+
+        /// <summary>
+        /// Text overlap uses the glyph box (preferred width and height, placed
+        /// by alignment). A wide rect with a short label does not count as a hit,
+        /// and an overflowing line does.
+        /// </summary>
+        static void NoteGlyphOverlaps(
+            Graphic[] graphics,
+            int width,
+            int height,
+            string res,
+            ref string firstOverlap)
+        {
+            if (graphics == null)
+            {
+                return;
+            }
+
+            System.Collections.Generic.List<HudMark> ink = new System.Collections.Generic.List<HudMark>();
+            for (int graphicIndex = 0; graphicIndex < graphics.Length; graphicIndex++)
+            {
+                Text label = graphics[graphicIndex] as Text;
+                HudMark mark;
+                if (label == null || !TryGlyphMark(label, width, height, out mark))
+                {
+                    continue;
+                }
+
+                ink.Add(mark);
+            }
+
+            for (int left = 0; left < ink.Count; left++)
+            {
+                for (int right = left + 1; right < ink.Count; right++)
+                {
+                    HudMark leftMark = ink[left];
+                    HudMark rightMark = ink[right];
+                    if (leftMark.Block == rightMark.Block || !HudOverlaps(leftMark, rightMark))
+                    {
+                        continue;
+                    }
+
+                    Debug.Log(
+                        "AgrCapture hud glyph overlap a="
+                        + leftMark.Name
+                        + " b="
+                        + rightMark.Name
+                        + " res="
+                        + res
+                        + " blockA="
+                        + leftMark.Block
+                        + " blockB="
+                        + rightMark.Block
+                        + " rectA="
+                        + HudRectText(leftMark.MinX, leftMark.MinY, leftMark.MaxX, leftMark.MaxY)
+                        + " rectB="
+                        + HudRectText(rightMark.MinX, rightMark.MinY, rightMark.MaxX, rightMark.MaxY));
+                    if (firstOverlap.Length == 0)
+                    {
+                        firstOverlap = "hud glyph overlap " + leftMark.Block + " x " + rightMark.Block;
+                    }
+                }
+            }
+        }
+
+        static bool TryGlyphMark(Text label, int targetW, int targetH, out HudMark mark)
+        {
+            mark = null;
+            if (label == null || label.font == null || !HudShown(label))
+            {
+                return false;
+            }
+
+            if (label.preferredWidth < 1f || label.preferredHeight < 1f)
+            {
+                return false;
+            }
+
+            RectTransform rect = label.rectTransform;
+            if (rect == null)
+            {
+                return false;
+            }
+
+            Rect area = rect.rect;
+            float inkW = label.preferredWidth;
+            float inkH = label.preferredHeight;
+            bool clipWidth = label.horizontalOverflow != HorizontalWrapMode.Overflow;
+            bool clipHeight = label.verticalOverflow == VerticalWrapMode.Truncate;
+            if (clipWidth && area.width > 1f && inkW > area.width)
+            {
+                inkW = area.width;
+            }
+
+            if (clipHeight && area.height > 1f && inkH > area.height)
+            {
+                inkH = area.height;
+            }
+
+            TextAnchor align = label.alignment;
+            bool right = align == TextAnchor.UpperRight || align == TextAnchor.MiddleRight || align == TextAnchor.LowerRight;
+            bool centerX = align == TextAnchor.UpperCenter || align == TextAnchor.MiddleCenter || align == TextAnchor.LowerCenter;
+            bool upper = align == TextAnchor.UpperLeft || align == TextAnchor.UpperCenter || align == TextAnchor.UpperRight;
+            bool middle = align == TextAnchor.MiddleLeft || align == TextAnchor.MiddleCenter || align == TextAnchor.MiddleRight;
+            float x0 = area.x;
+            float y0 = area.y;
+            if (right)
+            {
+                x0 = area.x + area.width - inkW;
+            }
+            else if (centerX)
+            {
+                x0 = area.x + ((area.width - inkW) * 0.5f);
+            }
+
+            if (upper)
+            {
+                y0 = area.y + area.height - inkH;
+            }
+            else if (middle)
+            {
+                y0 = area.y + ((area.height - inkH) * 0.5f);
+            }
+
+            Vector3 minCorner = rect.TransformPoint(new Vector3(x0, y0, 0f));
+            Vector3 maxCorner = rect.TransformPoint(new Vector3(x0 + inkW, y0 + inkH, 0f));
+            float minX = minCorner.x;
+            float minY = minCorner.y;
+            float maxX = maxCorner.x;
+            float maxY = maxCorner.y;
+            if (maxX < minX)
+            {
+                float swap = minX;
+                minX = maxX;
+                maxX = swap;
+            }
+
+            if (maxY < minY)
+            {
+                float swap = minY;
+                minY = maxY;
+                maxY = swap;
+            }
+
+            if (maxX - minX <= 0.01f || maxY - minY <= 0.01f)
+            {
+                return false;
+            }
+
+            float scaleX = 1f;
+            float scaleY = 1f;
+            float screenW = Screen.width;
+            float screenH = Screen.height;
+            if (screenW < 1f)
+            {
+                screenW = 1f;
+            }
+
+            if (screenH < 1f)
+            {
+                screenH = 1f;
+            }
+
+            if (targetW > 1)
+            {
+                scaleX = targetW / screenW;
+            }
+
+            if (targetH > 1)
+            {
+                scaleY = targetH / screenH;
+            }
+
+            mark = new HudMark();
+            mark.Name = label.gameObject.name;
+            mark.Block = HudBlock(label.transform);
+            mark.MinX = minX * scaleX;
+            mark.MinY = minY * scaleY;
+            mark.MaxX = maxX * scaleX;
+            mark.MaxY = maxY * scaleY;
+            return true;
         }
 
         /// <summary>

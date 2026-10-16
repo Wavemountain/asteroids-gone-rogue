@@ -22,9 +22,10 @@ namespace AsteroidsGoneRogue
 
         public const float GridVisibleAlpha = 0.12f;
         // W3 only. Other worlds stay on GridVisibleAlpha. Outside the 1.7 m
-        // disk the line is alpha 0.10 and its luminance is 0.8 of the untinted
-        // line. The disk under the ship stays on W3GridQuietAlpha.
-        public const float W3GridAlpha = 0.10f;
+        // disk _Color.a is 0.24 and the pulse is held at or above 0.8. The
+        // disk under the ship stays on W3GridQuietAlpha.
+        public const float W3GridAlpha = 0.24f;
+        public const float W3GridPulseFloor = 0.8f;
         public const float W3GridLumaKeep = 0.8f;
         // Faint steel line under the hull. Replaces holding that disk out.
         public const float W3GridQuietAlpha = 0.04f;
@@ -1303,6 +1304,11 @@ namespace AsteroidsGoneRogue
             }
 
             if (Bad(BeamEmission > 1.5f || GridVisibleAlpha < 0.11f || DomeRimAlpha > 0.31f))
+            {
+                return false;
+            }
+
+            if (Bad(W3GridAlpha < 0.22f || W3GridAlpha > 0.25f || W3GridPulseFloor < 0.8f))
             {
                 return false;
             }
