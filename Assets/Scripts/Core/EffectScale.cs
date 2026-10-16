@@ -239,22 +239,35 @@ namespace AsteroidsGoneRogue
                 sine = -1f;
             }
 
-            // Full used to pulse down to 0.34 while Reduce stays at SpikeGlowReduced,
-            // so a still caught the trough and the mines read duller than Reduce.
-            float amp = damaging ? 0.35f : 0.10f;
-            float floor = damaging ? SpikeGlowReduced + 0.85f : SpikeIdleReduced;
-            float lift = (sine * 0.5f) + 0.5f;
-            if (lift < 0f)
+            // Damaging full is SpikeGlowReduced ± 0.15 (trough 1.00, still above Reduce idle).
+            // Idle full is ± 0.10 and its trough stays on SpikeIdleReduced, so a still
+            // cannot land dimmer than Reduce.
+            float amp = damaging ? 0.15f : 0.10f;
+            float center = damaging ? SpikeGlowReduced : SpikeIdleReduced + 0.10f;
+            return center + (sine * amp);
+        }
+
+        public static bool SelfCheck()
+        {
+            float fullTrough = SpikeMul(false, true, -1f);
+            float reduceIdle = SpikeMul(true, false, 0f);
+            if (fullTrough < reduceIdle)
             {
-                lift = 0f;
+                return false;
             }
 
-            if (lift > 1f)
+            float idleTrough = SpikeMul(false, false, -1f);
+            if (idleTrough < reduceIdle)
             {
-                lift = 1f;
+                return false;
             }
 
-            return floor + (lift * amp);
+            if (SpikeMul(false, true, 0f) < SpikeGlowReduced)
+            {
+                return false;
+            }
+
+            return SpikeMul(true, true, -1f) == SpikeGlowReduced;
         }
 
         public static bool FreezePulse(bool reduce)

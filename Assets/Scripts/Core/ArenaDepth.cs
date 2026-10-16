@@ -38,8 +38,8 @@ namespace AsteroidsGoneRogue
         public const float AccentG = 206f / 255f;
         public const float AccentB = 214f / 255f;
 
-        public const float GridBeat1 = 0.12f;
-        public const float GridBeatOther = 0.04f;
+        public const float GridBeat1 = 0.04f;
+        public const float GridBeatOther = 0.02f;
         public const float GridPulseDecay = 8f;
 
         public static void Parallax(
@@ -149,7 +149,7 @@ namespace AsteroidsGoneRogue
         /// <summary>
         /// Multiplier on the resting grid alpha. BPM 0 and Reduce both stay at 1
         /// (a static grid). pulse = exp(-8 * beat fraction). Beat 1 of 4 uses
-        /// 0.12; the other beats use 0.04.
+        /// 0.04; the other beats use 0.02.
         /// </summary>
         public static float GridAlphaMul(float bpm, float phaseSeconds, bool reduce)
         {
@@ -275,7 +275,7 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (!Near(GridAlphaMul(120f, 0f, false), 1.12f) || !Near(GridAlphaMul(120f, 0.5f, false), 1.04f))
+            if (!Near(GridAlphaMul(120f, 0f, false), 1.04f) || !Near(GridAlphaMul(120f, 0.5f, false), 1.02f))
             {
                 return false;
             }

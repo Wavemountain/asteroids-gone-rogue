@@ -15997,7 +15997,7 @@ def test_capture_048_clearance_hud() -> None:
     assert "glow.intensity = damaging ? 1.55f : 0.78f" in factory
     assert "new Color(1f, 0.28f, 0.05f) * 2.2f" in factory
     assert "DressBody" not in factory
-    assert "DeathWashDimFull = 0.50f" in look and "DeathWashDimReduce = 0.28f" in look
+    assert "DeathWashDimFull = 0.62f" in look and "DeathWashDimReduce = 0.28f" in look
     assert "PreviewExposure = 0.46f" in look and "PreviewEmissionCap = 0.65f" in look
     assert "PreviewSatFloor = 0.55f" in look
     assert "PreviewSteel" in look and "PreviewSteel" in preview
