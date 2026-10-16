@@ -55,7 +55,7 @@ namespace AsteroidsGoneRogue
         public const float MinorEnemyLift = 1.30f;
         public const float PreviewStudioGain = 0.58f;
         public const float PreviewExposure = 0.85f;
-        public const float CombatHullEmission = 1.85f;
+        public const float CombatHullEmission = 1.0f;
         public const float PreviewEmissionCap = 0.65f;
         public const float PreviewAlbedoLift = 1.05f;
         // Art-director hangar grade. Blue keep stays 0.92. The chroma stretch
@@ -224,10 +224,9 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// Hangar-only hull grade. Warm gameplay albedo is rewritten to the
-        /// 0.47 steel read at the same luminance. Cool glass stays. The source
-        /// peak is not raised. Reduce does not enter this function, so the
-        /// hangar body colour is the same with Reduce on or off.
+        /// Optional glass chroma keep. The hull does not pass through here:
+        /// hangar parts keep their own material colour. Warm colours are not
+        /// swapped onto the steel neutral. Reduce does not enter.
         /// </summary>
         public static void PreviewSteel(float red, float green, float blue, out float outR, out float outG, out float outB)
         {
@@ -339,84 +338,9 @@ namespace AsteroidsGoneRogue
                 scaledB = 1f;
             }
 
-            if (!WarmHull(scaledR, scaledG, scaledB))
-            {
-                outR = scaledR;
-                outG = scaledG;
-                outB = scaledB;
-                return;
-            }
-
-            float y = Luma(scaledR, scaledG, scaledB);
-            float steelY = Luma(PreviewNeutralR, PreviewNeutralG, PreviewNeutralB);
-            float scale = 1f;
-            if (steelY > 0.0001f)
-            {
-                scale = y / steelY;
-            }
-
-            outR = PreviewNeutralR * scale;
-            outG = PreviewNeutralG * scale;
-            outB = PreviewNeutralB * scale;
-            float inPeak = scaledR;
-            if (scaledG > inPeak)
-            {
-                inPeak = scaledG;
-            }
-
-            if (scaledB > inPeak)
-            {
-                inPeak = scaledB;
-            }
-
-            float outPeak = outR;
-            if (outG > outPeak)
-            {
-                outPeak = outG;
-            }
-
-            if (outB > outPeak)
-            {
-                outPeak = outB;
-            }
-
-            if (outPeak > inPeak && outPeak > 0.0001f)
-            {
-                float down = inPeak / outPeak;
-                outR *= down;
-                outG *= down;
-                outB *= down;
-            }
-
-            if (outR < 0f)
-            {
-                outR = 0f;
-            }
-
-            if (outG < 0f)
-            {
-                outG = 0f;
-            }
-
-            if (outB < 0f)
-            {
-                outB = 0f;
-            }
-
-            if (outR > 1f)
-            {
-                outR = 1f;
-            }
-
-            if (outG > 1f)
-            {
-                outG = 1f;
-            }
-
-            if (outB > 1f)
-            {
-                outB = 1f;
-            }
+            outR = scaledR;
+            outG = scaledG;
+            outB = scaledB;
         }
 
         /// <summary>
@@ -487,16 +411,44 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// Warm hangar body colours land on the 0.47 steel read. Cool glass
-        /// keeps its own saturation. The grade does not raise a source peak.
+        /// The hull keeps its own saturation. It is not pulled onto the steel
+        /// neutral. Cool glass still keeps its blue. The grade does not raise
+        /// a source peak.
         /// </summary>
         public static bool PreviewSaturationHolds()
         {
-            float steel = HsvSaturation(PreviewNeutralR, PreviewNeutralG, PreviewNeutralB);
-            float hull = GradedSat(0.80f, 0.48f, 0.26f);
-            float accent = GradedSat(1f, 0.55f, 0.14f);
-            float glow = GradedSat(1f, 0.55f, 0.15f);
-            if (SatGap(hull, steel) > 0.02f || SatGap(accent, steel) > 0.02f || SatGap(glow, steel) > 0.02f)
+            float hullR;
+            float hullG;
+            float hullB;
+            PreviewSteel(0.80f, 0.48f, 0.26f, out hullR, out hullG, out hullB);
+            float sourceSat = HsvSaturation(0.80f, 0.48f, 0.26f);
+            float hullSat = HsvSaturation(hullR, hullG, hullB);
+            float steelSat = HsvSaturation(PreviewNeutralR, PreviewNeutralG, PreviewNeutralB);
+            if (SatGap(hullSat, sourceSat) > 0.10f || SatGap(hullSat, steelSat) < 0.20f)
+            {
+                return false;
+            }
+
+            if (HueGap(0.80f, 0.48f, 0.26f, hullR, hullG, hullB) > 10f)
+            {
+                return false;
+            }
+
+            if (hullR <= hullG || hullG <= hullB)
+            {
+                return false;
+            }
+
+            float accentR;
+            float accentG;
+            float accentB;
+            PreviewSteel(1f, 0.55f, 0.14f, out accentR, out accentG, out accentB);
+            if (HueGap(1f, 0.55f, 0.14f, accentR, accentG, accentB) > 10f)
+            {
+                return false;
+            }
+
+            if (SatGap(HsvSaturation(accentR, accentG, accentB), HsvSaturation(1f, 0.55f, 0.14f)) > 0.10f)
             {
                 return false;
             }
@@ -530,17 +482,23 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (GradedHueGap(0.80f, 0.48f, 0.26f) > 8f)
-            {
-                return false;
-            }
-
-            if (GradedHueGap(1f, 0.55f, 0.14f) > 8f || GradedHueGap(1f, 0.55f, 0.15f) > 8f)
-            {
-                return false;
-            }
-
             return true;
+        }
+
+        private static float HueGap(float red, float green, float blue, float otherR, float otherG, float otherB)
+        {
+            float gap = HueDegrees(red, green, blue) - HueDegrees(otherR, otherG, otherB);
+            if (gap < 0f)
+            {
+                gap = -gap;
+            }
+
+            if (gap > 180f)
+            {
+                gap = 360f - gap;
+            }
+
+            return gap;
         }
 
         private static bool AlbedoExposureHolds(float red, float green, float blue)
@@ -567,22 +525,6 @@ namespace AsteroidsGoneRogue
             }
 
             return peak * PreviewExposure < 0.995f;
-        }
-
-        private static bool WarmHull(float red, float green, float blue)
-        {
-            if (HsvSaturation(red, green, blue) <= 0.34f)
-            {
-                return false;
-            }
-
-            float hue = HueDegrees(red, green, blue);
-            if (hue < 50f)
-            {
-                return true;
-            }
-
-            return hue > 330f;
         }
 
         private static float SatGap(float left, float right)
@@ -869,8 +811,9 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// Warm hull emission versus the dimmed W3 grid line. Same colour with
-        /// Reduce on or off; bloom may still scale, the material does not.
+        /// 0.47 hull albedo versus the dimmed W3 grid line. Emission stays at
+        /// <see cref="CombatHullEmission"/> and under the bloom threshold, so
+        /// Reduce cannot recolour the body by changing bloom.
         /// </summary>
         public static bool CombatShipBeatsGrid()
         {
@@ -878,9 +821,9 @@ namespace AsteroidsGoneRogue
             float gridG = 0.86f * 0.76f * W3GridDim;
             float gridB = 0.68f * 0.76f * W3GridDim;
             float gridY = Luma(gridR, gridG, gridB);
-            float shipR = 1f * CombatHullEmission;
-            float shipG = 0.55f * CombatHullEmission;
-            float shipB = 0.14f * CombatHullEmission;
+            float shipR = 0.80f;
+            float shipG = 0.48f;
+            float shipB = 0.26f;
             if (shipR <= shipG || shipG <= shipB)
             {
                 return false;
@@ -891,7 +834,45 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            return Luma(shipR, shipG, shipB) / gridY >= 2.5f;
+            if (Luma(shipR, shipG, shipB) / gridY < 2.5f)
+            {
+                return false;
+            }
+
+            float sat = HsvSaturation(shipR, shipG, shipB);
+            if (sat < 0.60f || sat > 0.95f)
+            {
+                return false;
+            }
+
+            return HullEmissionClearsBloom();
+        }
+
+        /// <summary>
+        /// 0.47 steel rim times the fixed hull scale. Peak stays under the full
+        /// bloom threshold and under the soft knee, in both Reduce modes.
+        /// </summary>
+        public static bool HullEmissionClearsBloom()
+        {
+            float scale = 0.35f * CombatHullEmission;
+            float steelR = (106f / 255f) * scale;
+            float steelG = (168f / 255f) * scale;
+            float steelB = (200f / 255f) * scale;
+            float peak = steelR;
+            if (steelG > peak)
+            {
+                peak = steelG;
+            }
+
+            if (steelB > peak)
+            {
+                peak = steelB;
+            }
+
+            float fullThreshold = 1.10f;
+            float reduceThreshold = fullThreshold + 0.15f;
+            float kneeStart = fullThreshold - 0.35f;
+            return peak < fullThreshold && peak < reduceThreshold && peak < kneeStart;
         }
 
         public static float Luma(float red, float green, float blue)

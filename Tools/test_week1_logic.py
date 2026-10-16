@@ -15029,10 +15029,13 @@ def test_p4_tutorial_prompt_cards() -> None:
                 Need(TutorialPrompt.Token(TutorialPrompt.Pause) == "pause", "pause glyph");
                 Need(TutorialPrompt.Token(TutorialPrompt.Buy) == "confirm", "buy glyph");
 
-                Need(HangarPreviewHdr.Format(true, true, true) == HangarPreviewHdr.Ldr, "reduce stays ldr");
-                Need(HangarPreviewHdr.Format(false, true, true) == HangarPreviewHdr.Ldr, "full stays ldr");
-                Need(HangarPreviewHdr.Format(true, true, true) == HangarPreviewHdr.Format(false, false, true), "same target");
+                Need(HangarPreviewHdr.Format(true, true, true) == HangarPreviewHdr.ArgbHalf, "reduce uses half");
+                Need(HangarPreviewHdr.Format(false, true, true) == HangarPreviewHdr.ArgbHalf, "full uses half");
+                Need(HangarPreviewHdr.Format(true, true, true) == HangarPreviewHdr.Format(false, true, true), "same hdr target");
+                Need(HangarPreviewHdr.Format(true, false, true) == HangarPreviewHdr.DefaultHdr, "reduce default hdr");
+                Need(HangarPreviewHdr.Format(false, false, true) == HangarPreviewHdr.DefaultHdr, "full default hdr");
                 Need(HangarPreviewHdr.Format(false, false, false) == HangarPreviewHdr.Ldr, "unsupported ldr");
+                Need(HangarPreviewHdr.Format(true, false, false) == HangarPreviewHdr.Ldr, "reduce unsupported ldr");
                 Need(!HangarPreviewHdr.AllowsHdr(HangarPreviewHdr.Ldr), "ldr camera");
                 Need(HangarPreviewHdr.AllowsHdr(HangarPreviewHdr.ArgbHalf), "half camera");
                 Need(HangarPreviewHdr.AllowsHdr(HangarPreviewHdr.DefaultHdr), "default camera");
@@ -15998,7 +16001,12 @@ def test_capture_048_clearance_hud() -> None:
     assert "DressBody" not in factory
     assert "DeathWashDimFull = 0.62f" in look and "DeathWashDimReduce = 0.28f" in look
     assert "PreviewExposure = 0.85f" in look and "PreviewEmissionCap = 0.65f" in look
-    assert "CombatHullEmission = 1.85f" in look and "CombatShipBeatsGrid" in look
+    assert "CombatHullEmission = 1.0f" in look and "CombatShipBeatsGrid" in look
+    assert "HullEmissionClearsBloom" in look
+    assert "MakeMaterial(\n                \"Mat_Ship_Hull\"" in factory
+    assert "ReadabilityPalette.HullRimScale * PremiumLook.CombatHullEmission" in factory
+    assert "EffectScale.MeshEmission(SettingsState.ReduceEffectsEnabled)" in preview
+    assert "ShipPaint.ClearRenderer" in preview
     assert "PreviewBlueKeep = 0.92f" in look and "PreviewSatBoostCap = 1.2f" in look
     assert "PreviewNeutralR = 0.45f" in look and "PreviewNeutralEmit = 0.35f" in look
     assert "HangarSaturation = -4f" in grade and "HangarTint = 0f" in grade

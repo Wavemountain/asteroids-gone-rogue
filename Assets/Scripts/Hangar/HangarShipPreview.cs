@@ -819,7 +819,7 @@ namespace AsteroidsGoneRogue
 
             EnsureMarkers();
             HangarPreviewRig.Accent accent = HangarPreviewRig.FromMasks(_upgradeMask, _mk2Mask, _paintId, _trailId);
-            float meshEmission = EffectScale.MeshEmission(false);
+            float meshEmission = EffectScale.MeshEmission(SettingsState.ReduceEffectsEnabled);
             Renderer[] renderers = _slots.GetComponentsInChildren<Renderer>(true);
             for (int accentIndex = 0; accentIndex < renderers.Length; accentIndex++)
             {

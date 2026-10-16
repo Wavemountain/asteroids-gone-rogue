@@ -104,21 +104,20 @@ namespace AsteroidsGoneRogue
             ReadabilityPalette.SecondaryRgb(out steelR, out steelG, out steelB);
             Color dangerEmit = new Color(dangerR, dangerG, dangerB);
             Color steelEmit = new Color(steelR, steelG, steelB);
-            Color amberEmit = new Color(1f, 0.55f, 0.14f);
             Color primaryEmit = new Color(EmissionTargets.PrimaryR, EmissionTargets.PrimaryG, EmissionTargets.PrimaryB);
-            Color hullBody = amberEmit * Mathf.Max(
-                ReadabilityPalette.HullBodyEmission,
-                Mathf.Max(ReadabilityPalette.HullRimScale, PremiumLook.CombatHullEmission));
-            _hull = MakeShipRim(
+            Color hullEmit = steelEmit * ReadabilityPalette.HullRimScale * PremiumLook.CombatHullEmission;
+            float bodyCap = ReadabilityPalette.HullBodyEmission;
+            if (hullEmit.maxColorComponent > bodyCap && hullEmit.maxColorComponent > 0.0001f)
+            {
+                hullEmit *= bodyCap / hullEmit.maxColorComponent;
+            }
+
+            _hull = MakeMaterial(
                 "Mat_Ship_Hull",
                 new Color(ReadabilityPalette.HullR, ReadabilityPalette.HullG, ReadabilityPalette.HullB),
-                amberEmit,
-                EmissionTargets.HullRimPower,
-                EmissionTargets.HullRimStrength,
-                hullBody,
-                0.12f,
+                0.45f,
                 0.35f,
-                false);
+                hullEmit);
             _accent = MakeMaterial("Mat_Ship_Accent", new Color(1f, 0.55f, 0.14f), 0.2f, 0.55f, new Color(1f, 0.4f, 0.05f) * 1.4f);
             _accentHot = MakeMaterial("Mat_Ship_Accent_Hot", new Color(1f, 0.38f, 0.08f), 0.15f, 0.45f, new Color(1f, 0.25f, 0.04f) * 1.8f);
             _accentHotHero = MakeShipRim(
