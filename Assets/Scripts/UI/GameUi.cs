@@ -142,7 +142,9 @@ namespace AsteroidsGoneRogue
         private GameObject _hudPlate;
         private Text _hudCaption;
         private Image _deathFlash;
+        private Image _deathEdge;
         private static Sprite _deathFlashSprite;
+        private static Sprite _deathEdgeSprite;
         private Text _waveClearBanner;
         private Text _waveClearScore;
         private float _waveClearUntil;
@@ -791,6 +793,9 @@ namespace AsteroidsGoneRogue
             _deathFlash = CreateFill("DeathFlash", transform, new Color(1f, 1f, 1f, 0f), Vector2.zero, Vector2.one).GetComponent<Image>();
             _deathFlash.raycastTarget = false;
             EnsureDeathFlashSprite(_deathFlash);
+            _deathEdge = CreateFill("DeathEdge", transform, new Color(0f, 0f, 0f, 0f), Vector2.zero, Vector2.one).GetComponent<Image>();
+            _deathEdge.raycastTarget = false;
+            EnsureDeathEdgeSprite(_deathEdge);
             _waveClearBanner = CreateText("WaveClearBanner", transform, display, UiTheme.TypeDisplay, TextAnchor.MiddleCenter, FontStyle.Bold);
             Stretch(_waveClearBanner.rectTransform, new Vector2(0.18f, 0.58f), new Vector2(0.82f, 0.72f));
             _waveClearBanner.color = UiTheme.Primary;
@@ -876,7 +881,7 @@ namespace AsteroidsGoneRogue
             _primaryPlate = _primary.targetGraphic as Image;
             UiTheme.ApplyButton(_primary, true, false, false);
 
-            _abortButton = CreateButton("AbortWave", transform, body, new Vector2(0.78f, 0.09f), new Vector2(0.97f, 0.155f));
+            _abortButton = CreateButton("AbortWave", transform, body, new Vector2(0.78f, 0.006f), new Vector2(0.985f, 0.048f));
             _abortLabel = _abortButton.GetComponentInChildren<Text>();
             _abortLabel.text = "Abort > Hangar";
             _abortLabel.fontSize = 18;
@@ -884,6 +889,7 @@ namespace AsteroidsGoneRogue
             _abortPlate = _abortButton.targetGraphic as Image;
             UiTheme.ApplyButton(_abortButton, false, true, false);
             PaintAbortGhost(0f);
+            PlaceAbortButton(Screen.width, Screen.height);
             _abortButton.gameObject.SetActive(false);
 
             // End-credits roll, not currency. Anchored under hangar min.y 0.080 so it
@@ -3611,6 +3617,7 @@ namespace AsteroidsGoneRogue
                 _deathFlash.transform.SetAsLastSibling();
             }
 
+            PaintDeathEdge(reduce, alpha > 0.001f);
             return alpha;
         }
 
@@ -3649,6 +3656,62 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        private static void EnsureDeathEdgeSprite(Image image)
+        {
+            if (image == null)
+            {
+                return;
+            }
+
+            if (_deathEdgeSprite == null)
+            {
+                const int size = 64;
+                Texture2D mask = new Texture2D(size, size, TextureFormat.RGBA32, false);
+                mask.name = "DeathEdgeMask";
+                mask.wrapMode = TextureWrapMode.Clamp;
+                mask.filterMode = FilterMode.Bilinear;
+                for (int y = 0; y < size; y++)
+                {
+                    for (int x = 0; x < size; x++)
+                    {
+                        float u = (x + 0.5f) / size;
+                        float v = (y + 0.5f) / size;
+                        float cover = 1f - OpeningView.FlashCoverage(u, v);
+                        mask.SetPixel(x, y, new Color(1f, 1f, 1f, cover));
+                    }
+                }
+
+                mask.Apply(false, true);
+                _deathEdgeSprite = Sprite.Create(mask, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 1f);
+            }
+
+            if (image.sprite != _deathEdgeSprite)
+            {
+                image.sprite = _deathEdgeSprite;
+            }
+        }
+
+        private void PaintDeathEdge(bool reduce, bool show)
+        {
+            if (_deathEdge == null)
+            {
+                return;
+            }
+
+            if (!show)
+            {
+                _deathEdge.color = new Color(0f, 0f, 0f, 0f);
+                _deathEdge.enabled = false;
+                return;
+            }
+
+            EnsureDeathEdgeSprite(_deathEdge);
+            float dim = PremiumLook.DeathWashDim(reduce);
+            _deathEdge.color = new Color(0f, 0f, 0f, dim);
+            _deathEdge.enabled = dim > 0.001f;
+            _deathEdge.transform.SetAsLastSibling();
+        }
+
         private void TickPremiumChrome()
         {
             bool reduce = SettingsState.ReduceEffectsEnabled;
@@ -3667,11 +3730,14 @@ namespace AsteroidsGoneRogue
                 {
                     _deathFlash.transform.SetAsLastSibling();
                 }
+
+                PaintDeathEdge(reduce, alpha > 0.001f);
             }
             else if (_deathFlash != null)
             {
                 _deathFlash.color = new Color(1f, 1f, 1f, 0f);
                 _deathFlash.enabled = false;
+                PaintDeathEdge(reduce, false);
             }
 
             if (_waveClearBanner == null)
@@ -5337,21 +5403,12 @@ namespace AsteroidsGoneRogue
                 screenH = 1080f;
             }
 
-            float spanX = PlayHudLayout.AbortWidthPx / screenW;
-            float spanY = PlayHudLayout.AbortHeightPx / screenH;
-            if (spanX > 0.22f)
-            {
-                spanX = 0.22f;
-            }
-
-            if (spanY > 0.055f)
-            {
-                spanY = 0.055f;
-            }
-
-            float maxX = PlayHudLayout.AbortMaxX;
-            float maxY = PlayHudLayout.AbortMaxY;
-            Stretch(_abortButton.GetComponent<RectTransform>(), new Vector2(maxX - spanX, maxY - spanY), new Vector2(maxX, maxY));
+            float minX;
+            float minY;
+            float maxX;
+            float maxY;
+            PlayHudLayout.AbortRect(screenW, screenH, out minX, out minY, out maxX, out maxY);
+            Stretch(_abortButton.GetComponent<RectTransform>(), new Vector2(minX, minY), new Vector2(maxX, maxY));
             EnsureAbortFrame();
         }
 
@@ -6906,7 +6963,7 @@ namespace AsteroidsGoneRogue
             float barMin;
             float barMax;
             PremiumLook.BarSpan(width, out barMin, out barMax);
-            PlaceAnchored(_healthRoot, barMin, 0.016f, barMax, 0.098f);
+            PlaceAnchored(_healthRoot, barMin, PlayHudLayout.HealthMinY, barMax, PlayHudLayout.HealthMaxY);
         }
 
         private void NotePlayHudLayout()
@@ -6941,12 +6998,12 @@ namespace AsteroidsGoneRogue
             float barMax;
             PremiumLook.BarSpan(width, out barMin, out barMax);
             PlacePlayPlate(_hudPlate, 0.905f, 0.985f, corner);
-            PlaceAnchored(_utilityHud, 0.74f, 0.085f, 0.985f, 0.205f);
-            PlaceAnchored(_bossRoot, barMin, 0.105f, barMax, 0.145f);
+            PlaceAnchored(_utilityHud, PlayHudLayout.UtilityMinX, PlayHudLayout.UtilityMinY, PlayHudLayout.UtilityMaxX, PlayHudLayout.UtilityMaxY);
+            PlaceAnchored(_bossRoot, barMin, PlayHudLayout.BossMinY, barMax, PlayHudLayout.BossMaxY);
             bool failed = _session != null && _session.Phase == GamePhase.Failed;
             if (!failed)
             {
-                PlaceAnchored(_healthRoot, barMin, 0.016f, barMax, 0.098f);
+                PlaceAnchored(_healthRoot, barMin, PlayHudLayout.HealthMinY, barMax, PlayHudLayout.HealthMaxY);
             }
 
             if (_hud != null)
@@ -6969,7 +7026,7 @@ namespace AsteroidsGoneRogue
 
             if (_doctrineBadge != null)
             {
-                Stretch(_doctrineBadge.rectTransform, new Vector2(0.74f, 0.21f), new Vector2(0.985f, 0.255f));
+                Stretch(_doctrineBadge.rectTransform, new Vector2(PlayHudLayout.DoctrineMinX, PlayHudLayout.DoctrineMinY), new Vector2(PlayHudLayout.DoctrineMaxX, PlayHudLayout.DoctrineMaxY));
                 _doctrineBadge.alignment = TextAnchor.MiddleRight;
             }
 

@@ -507,6 +507,7 @@ namespace AsteroidsGoneRogue
                     }
                 }
 
+                OpeningClearance.FitBelt(slot);
                 DecorDepthClamp.ClampTop(slot.gameObject, DecorDepthRules.MaxDecorTop);
             }
         }

@@ -8758,6 +8758,7 @@ def main() -> int:
     test_p8_vfx_pool()
     test_p9_audio_arena()
     test_loc_tf_formats_every_key()
+    test_capture_048_clearance_hud()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -15954,6 +15955,112 @@ class Program
     )
     assert result.returncode == 0, result.stdout
     assert "audio-arena-ok" in result.stdout
+
+
+def test_capture_048_clearance_hud() -> None:
+    """W4 keep-out, bottom hint row, hangar grade, and death-edge dim."""
+    import os
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    view = (root / "Assets/Scripts/Core/OpeningView.cs").read_text(encoding="utf-8")
+    clearance = (root / "Assets/Scripts/Content/OpeningClearance.cs").read_text(encoding="utf-8")
+    hud = (root / "Assets/Scripts/Core/PlayHudLayout.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    belt = (root / "Assets/Scripts/Content/ArenaEnv.cs").read_text(encoding="utf-8")
+    look = (root / "Assets/Scripts/Core/PremiumLook.cs").read_text(encoding="utf-8")
+    rig = (root / "Assets/Scripts/Core/HangarPreviewRig.cs").read_text(encoding="utf-8")
+    preview = (root / "Assets/Scripts/Hangar/HangarShipPreview.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+
+    assert "WatchSeconds = 2f" in clearance
+    assert "ScreenPlace" in clearance and "OpeningClearance.ScreenPlace" in factory
+    assert "FitBelt" in clearance and "OpeningClearance.FitBelt" in belt
+    assert "BeltFitRadius = 2.2f" in clearance
+    assert "OpeningClearance.Tick()" in waves
+    assert "RunRng" not in clearance
+    assert "LayerMask.LayerToName" in clearance
+    assert "kind=" in clearance and "behind=" in clearance
+    assert factory.find("OpeningClearance.ScreenPlace") < factory.find("BeginSpawnGrace")
+    assert "PlayHintMaxY = 0.044f" in hud and "HealthMinY = 0.056f" in hud
+    assert "AbortMaxY = 0.048f" in hud and "UtilityMinY = 0.196f" in hud
+    assert "PlayHudLayout.AbortRect" in ui
+    assert "PlayHudLayout.UtilityMinY" in ui
+    assert "DeathWashDimFull = 0.50f" in look and "DeathWashDimReduce = 0.28f" in look
+    assert "PreviewExposure = 0.46f" in look and "PreviewEmissionCap = 0.65f" in look
+    assert "PreviewSteel" in look and "PreviewSteel" in preview
+    assert "KeyB = 0.42f" in rig and "FillB = 0.22f" in rig and "RimB = 0.22f" in rig
+    assert "KeyIntensity = 0.85f" in rig
+    assert "(dist - 0.08f) / 0.28f" in view
+    assert "DeathEdge" in ui and "PaintDeathEdge" in ui
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    from roslyn_core_check import find_dotnet
+
+    dotnet = find_dotnet()
+    assert dotnet, "clearance tests need dotnet"
+    work = Path(os.environ.get("TMPDIR", "/tmp")) / "agr-clearance-048"
+    if work.exists():
+        shutil.rmtree(work)
+    work.mkdir(parents=True)
+    shutil.copyfile(root / "Assets/Scripts/Core/OpeningView.cs", work / "OpeningView.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/PlayHudLayout.cs", work / "PlayHudLayout.cs")
+    program = """
+using System;
+class Program
+{
+    static void Main()
+    {
+        if (!AsteroidsGoneRogue.OpeningView.SelfCheck()) throw new Exception("view");
+        if (!AsteroidsGoneRogue.PlayHudLayout.SelfCheck()) throw new Exception("hud");
+        Console.WriteLine("clearance-ok");
+    }
+}
+"""
+    (work / "Program.cs").write_text(program, encoding="utf-8")
+    (work / "clearance.csproj").write_text(
+        "\n".join(
+            (
+                '<Project Sdk="Microsoft.NET.Sdk">',
+                "  <PropertyGroup>",
+                "    <OutputType>Exe</OutputType>",
+                "    <TargetFramework>net8.0</TargetFramework>",
+                "    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>",
+                "    <Nullable>disable</Nullable>",
+                "    <ImplicitUsings>disable</ImplicitUsings>",
+                "  </PropertyGroup>",
+                "  <ItemGroup>",
+                '    <Compile Include="OpeningView.cs" />',
+                '    <Compile Include="PlayHudLayout.cs" />',
+                '    <Compile Include="Program.cs" />',
+                "  </ItemGroup>",
+                "</Project>",
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
+    env["DOTNET_NOLOGO"] = "1"
+    env["DOTNET_ROOT"] = str(Path(dotnet).resolve().parent)
+    env["PATH"] = str(Path(dotnet).resolve().parent) + os.pathsep + env.get("PATH", "")
+    result = subprocess.run(
+        [dotnet, "run", "--project", str(work / "clearance.csproj"), "-v", "q"],
+        cwd=work,
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout
+    assert "clearance-ok" in result.stdout
 
 
 if __name__ == "__main__":

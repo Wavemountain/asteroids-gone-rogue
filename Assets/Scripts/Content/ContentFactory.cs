@@ -1136,6 +1136,7 @@ namespace AsteroidsGoneRogue
 
             EnemySeeker seeker = root.AddComponent<EnemySeeker>();
             seeker.Initialize(player, waves, kind);
+            OpeningClearance.ScreenPlace(root.transform);
             seeker.BeginSpawnGrace();
             DecorDepthClamp.KeepGameplay(root);
             CastFormShadow(root.transform);

@@ -837,9 +837,9 @@ namespace AsteroidsGoneRogue
                 }
                 else
                 {
-                    red = 0.45f;
-                    green = 0.78f;
-                    blue = 1f;
+                    red = 1f;
+                    green = 0.62f;
+                    blue = 0.22f;
                 }
 
                 float emission = PremiumLook.PreviewAccentEmission(meshEmission, red, green, blue);
@@ -883,10 +883,14 @@ namespace AsteroidsGoneRogue
             }
 
             Color albedo = material.GetColor("_Color");
+            float gradedR;
+            float gradedG;
+            float gradedB;
+            PremiumLook.PreviewSteel(albedo.r, albedo.g, albedo.b, out gradedR, out gradedG, out gradedB);
             float lift = PremiumLook.PreviewAlbedoLift;
-            albedo.r = albedo.r * lift;
-            albedo.g = albedo.g * lift;
-            albedo.b = albedo.b * lift;
+            albedo.r = gradedR * lift;
+            albedo.g = gradedG * lift;
+            albedo.b = gradedB * lift;
             if (albedo.r > 1f)
             {
                 albedo.r = 1f;

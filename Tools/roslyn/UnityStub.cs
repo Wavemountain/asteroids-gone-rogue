@@ -889,6 +889,7 @@ namespace UnityEngine
     public static class LayerMask
     {
         public static int NameToLayer(string layerName) { return 0; }
+        public static string LayerToName(int layer) { return ""; }
     }
 
     public static class RectTransformUtility
