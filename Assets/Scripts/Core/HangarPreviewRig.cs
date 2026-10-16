@@ -18,12 +18,12 @@ namespace AsteroidsGoneRogue
         public const float KeyR = 1f;
         public const float KeyG = 0.86f;
         public const float KeyB = 0.66f;
-        public const float FillR = 0.42f;
-        public const float FillG = 0.62f;
-        public const float FillB = 0.84f;
-        public const float RimR = 0.62f;
-        public const float RimG = 0.78f;
-        public const float RimB = 1f;
+        public const float FillR = 0.56f;
+        public const float FillG = 0.50f;
+        public const float FillB = 0.42f;
+        public const float RimR = 0.95f;
+        public const float RimG = 0.70f;
+        public const float RimB = 0.40f;
         public const float BounceR = (212f / 255f) * 0.3f;
         public const float BounceG = (160f / 255f) * 0.3f;
         public const float BounceB = (74f / 255f) * 0.3f;
@@ -46,6 +46,12 @@ namespace AsteroidsGoneRogue
         public const float FillRange = 10f;
         public const float RimRange = 14f;
         public const float BounceRange = 4f;
+        public const float BackdropCenterR = 34f / 255f;
+        public const float BackdropCenterG = 26f / 255f;
+        public const float BackdropCenterB = 20f / 255f;
+        public const float BackdropEdgeR = 10f / 255f;
+        public const float BackdropEdgeG = 12f / 255f;
+        public const float BackdropEdgeB = 16f / 255f;
         public const float SurfaceR = 14f / 255f;
         public const float SurfaceG = 21f / 255f;
         public const float SurfaceB = 32f / 255f;
@@ -115,7 +121,7 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// Radial backdrop: Surface2 at the centre, Surface at the edge. Never pure black.
+        /// Radial backdrop: warm centre, cool edge. Never pure black or green.
         /// </summary>
         public static void BackdropRgb(float u, float v, out float red, out float green, out float blue)
         {
@@ -132,9 +138,9 @@ namespace AsteroidsGoneRogue
                 dist = 1f;
             }
 
-            red = Surface2R + ((SurfaceR - Surface2R) * dist);
-            green = Surface2G + ((SurfaceG - Surface2G) * dist);
-            blue = Surface2B + ((SurfaceB - Surface2B) * dist);
+            red = BackdropCenterR + ((BackdropEdgeR - BackdropCenterR) * dist);
+            green = BackdropCenterG + ((BackdropEdgeG - BackdropCenterG) * dist);
+            blue = BackdropCenterB + ((BackdropEdgeB - BackdropCenterB) * dist);
         }
 
         public static Accent FromMasks(int upgradeMask, int mk2Mask, int paintId, int trailId)

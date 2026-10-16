@@ -465,6 +465,8 @@ namespace UnityEngine
         public int renderQueue { get; set; }
         public void SetColor(string name, Color color) { }
         public void SetColor(int nameID, Color color) { }
+        public Color GetColor(string name) { return Color.white; }
+        public Color GetColor(int nameID) { return Color.white; }
         public void SetFloat(string name, float value) { }
         public void SetFloat(int nameID, float value) { }
         public void SetInt(string name, int value) { }
@@ -724,6 +726,9 @@ namespace UnityEngine
     public class Mesh : Object
     {
         public Bounds bounds { get { return new Bounds(Vector3.zero, Vector3.zero); } }
+        public bool isReadable { get { return true; } }
+        public Vector3[] vertices { get; set; }
+        public void RecalculateBounds() { }
     }
 
     public class CanvasRenderer : Component

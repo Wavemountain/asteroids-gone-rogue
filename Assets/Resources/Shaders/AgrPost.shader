@@ -18,6 +18,7 @@ Shader "AGR/Post"
         _Contrast ("Contrast", Float) = 0
         _Vignette ("Vignette", Float) = 0.28
         _VignetteSmooth ("Vignette Smooth", Float) = 0.40
+        _DeathEdge ("Death Edge", Float) = 0
         _Grain ("Grain", Float) = 0.12
         _GrainLum ("Grain Lum", Float) = 0.85
         _GrainTime ("Grain Time", Float) = 0
@@ -151,6 +152,7 @@ Shader "AGR/Post"
             float4 _Gain;
             float _Vignette;
             float _VignetteSmooth;
+            float _DeathEdge;
             float4 _VignetteColor;
             float _Grain;
             float _GrainLum;
@@ -200,6 +202,8 @@ Shader "AGR/Post"
                 float edge = 1.0 - _VignetteSmooth;
                 float mask = 1.0 - _Vignette * smoothstep(edge, 1.0, dist);
                 color = lerp(_VignetteColor.rgb, color, saturate(mask));
+                float falloff = smoothstep(edge, 1.0, dist);
+                color *= 1.0 - saturate(_DeathEdge) * falloff;
                 float2 pixel = i.uv * _ScreenParams.xy;
                 float n = frac(sin(dot(pixel + _GrainTime, float2(12.9898, 78.233))) * 43758.5453);
                 n = n * 2.0 - 1.0;

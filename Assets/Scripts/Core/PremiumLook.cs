@@ -52,8 +52,18 @@ namespace AsteroidsGoneRogue
         public const float DomeRimAlpha = 0.30f;
         public const float EnemyCoreLift = 1.12f;
         public const float MinorEnemyLift = 1.30f;
-        public const float PreviewStudioGain = 0.62f;
-        public const float PreviewExposure = 0.28f;
+        public const float PreviewStudioGain = 0.68f;
+        public const float PreviewExposure = 0.56f;
+        public const float PreviewEmissionCap = 0.90f;
+        public const float PreviewAlbedoLift = 1.32f;
+        public const float MineAlbedoR = 1f;
+        public const float MineAlbedoG = 0.58f;
+        public const float MineAlbedoB = 0.16f;
+        public const float MineEmitR = 1f;
+        public const float MineEmitG = 0.46f;
+        public const float MineEmitB = 0.08f;
+        public const float MineEmitScale = 4.4f;
+        public const float DeathEdgeFull = 0.62f;
         public const float HangarBloomGain = 0.45f;
         public const float HangarExposureEv = -0.40f;
         public const float DeathVignetteTarget = 0.78f;
@@ -156,6 +166,86 @@ namespace AsteroidsGoneRogue
             }
 
             return graded + ((target - graded) * u);
+        }
+
+        /// <summary>
+        /// Extra edge multiply after the vignette. Zero in normal play. Reduce
+        /// keeps a milder darkening that is still darker than the centre.
+        /// </summary>
+        public static float DeathEdge(float deathU, bool reduce)
+        {
+            float u = deathU;
+            if (u < 0f)
+            {
+                u = 0f;
+            }
+
+            if (u > 1f)
+            {
+                u = 1f;
+            }
+
+            float amount = DeathEdgeFull;
+            if (reduce)
+            {
+                amount *= EffectScale.PostVignetteMul;
+            }
+
+            return amount * u;
+        }
+
+        public static void CapPreviewEmission(float red, float green, float blue, out float outR, out float outG, out float outB)
+        {
+            float max = red;
+            if (green > max)
+            {
+                max = green;
+            }
+
+            if (blue > max)
+            {
+                max = blue;
+            }
+
+            if (max <= PreviewEmissionCap || max <= 0.0001f)
+            {
+                outR = red;
+                outG = green;
+                outB = blue;
+                return;
+            }
+
+            float scale = PreviewEmissionCap / max;
+            outR = red * scale;
+            outG = green * scale;
+            outB = blue * scale;
+        }
+
+        public static float PreviewAccentEmission(float meshEmission, float red, float green, float blue)
+        {
+            float max = red;
+            if (green > max)
+            {
+                max = green;
+            }
+
+            if (blue > max)
+            {
+                max = blue;
+            }
+
+            if (max <= 0.0001f)
+            {
+                return 0f;
+            }
+
+            float capped = PreviewEmissionCap / max;
+            if (meshEmission < capped)
+            {
+                return meshEmission;
+            }
+
+            return capped;
         }
 
         public static float PinnedFlashAlpha(bool reduce)
@@ -322,8 +412,8 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            float glow = (212f / 255f) * 4f * PreviewExposure;
-            if (glow >= 1f || PreviewStudioGain > 0.7f || MinorEnemyLift < 1.25f)
+            float glow = (212f / 255f) * PreviewEmissionCap * PreviewExposure;
+            if (glow >= 1f || PreviewStudioGain > 0.7f || PreviewEmissionCap >= 1f || MinorEnemyLift < 1.25f)
             {
                 return false;
             }

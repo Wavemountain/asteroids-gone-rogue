@@ -21,6 +21,16 @@ namespace AsteroidsGoneRogue
         public const float BossMaxY = 0.560f;
         public const float HealthMinY = 0.250f;
         public const float HealthMaxY = 0.475f;
+        // Play hint sits above the bottom health rack, boss bar, utility plate,
+        // and doctrine badge. Hangar keeps the footer at y 0.008–0.072.
+        public const float PlayHintMinX = 0.14f;
+        public const float PlayHintMinY = 0.280f;
+        public const float PlayHintMaxX = 0.86f;
+        public const float PlayHintMaxY = 0.344f;
+        public const float AbortWidthPx = 220f;
+        public const float AbortHeightPx = 36f;
+        public const float AbortMaxX = 0.985f;
+        public const float AbortMaxY = 0.070f;
 
         public static float ColumnMaxX(float screenWidth)
         {

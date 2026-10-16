@@ -27,6 +27,7 @@ namespace AsteroidsGoneRogue
 
         private float _waveBloomUntil;
         private float _waveBloomAdd;
+        private float _deathEdge;
 
         private Camera _camera;
         private Material _material;
@@ -185,6 +186,7 @@ namespace AsteroidsGoneRogue
 
             shown.Saturation = PremiumLook.DeathSaturation(shown.Saturation, deathU, reduce);
             shown.Vignette = PremiumLook.PresentedVignette(shown.Vignette, deathU, reduce);
+            _deathEdge = PremiumLook.DeathEdge(deathU, reduce);
             vignette = shown.Vignette;
             if (Time.unscaledTime < _waveBloomUntil)
             {
@@ -397,6 +399,7 @@ namespace AsteroidsGoneRogue
             _material.SetFloat("_Contrast", shown.Contrast);
             _material.SetFloat("_Vignette", shown.Vignette);
             _material.SetFloat("_VignetteSmooth", shown.VignetteSmooth);
+            _material.SetFloat("_DeathEdge", _deathEdge);
             _material.SetFloat("_Grain", shown.Grain);
             _material.SetFloat("_GrainLum", 0.85f);
             _material.SetFloat("_GrainTime", Time.unscaledTime);

@@ -142,6 +142,7 @@ namespace AsteroidsGoneRogue
         private GameObject _hudPlate;
         private Text _hudCaption;
         private Image _deathFlash;
+        private static Sprite _deathFlashSprite;
         private Text _waveClearBanner;
         private Text _waveClearScore;
         private float _waveClearUntil;
@@ -789,6 +790,7 @@ namespace AsteroidsGoneRogue
             _hudCaption.gameObject.SetActive(false);
             _deathFlash = CreateFill("DeathFlash", transform, new Color(1f, 1f, 1f, 0f), Vector2.zero, Vector2.one).GetComponent<Image>();
             _deathFlash.raycastTarget = false;
+            EnsureDeathFlashSprite(_deathFlash);
             _waveClearBanner = CreateText("WaveClearBanner", transform, display, UiTheme.TypeDisplay, TextAnchor.MiddleCenter, FontStyle.Bold);
             Stretch(_waveClearBanner.rectTransform, new Vector2(0.18f, 0.58f), new Vector2(0.82f, 0.72f));
             _waveClearBanner.color = UiTheme.Primary;
@@ -3603,12 +3605,48 @@ namespace AsteroidsGoneRogue
             float alpha = PremiumLook.PinnedFlashAlpha(reduce);
             if (_deathFlash != null)
             {
+                EnsureDeathFlashSprite(_deathFlash);
                 _deathFlash.color = new Color(red, green, blue, alpha);
                 _deathFlash.enabled = alpha > 0.001f;
                 _deathFlash.transform.SetAsLastSibling();
             }
 
             return alpha;
+        }
+
+        private static void EnsureDeathFlashSprite(Image image)
+        {
+            if (image == null)
+            {
+                return;
+            }
+
+            if (_deathFlashSprite == null)
+            {
+                const int size = 64;
+                Texture2D mask = new Texture2D(size, size, TextureFormat.RGBA32, false);
+                mask.name = "DeathFlashMask";
+                mask.wrapMode = TextureWrapMode.Clamp;
+                mask.filterMode = FilterMode.Bilinear;
+                for (int y = 0; y < size; y++)
+                {
+                    for (int x = 0; x < size; x++)
+                    {
+                        float u = (x + 0.5f) / size;
+                        float v = (y + 0.5f) / size;
+                        float cover = OpeningView.FlashCoverage(u, v);
+                        mask.SetPixel(x, y, new Color(1f, 1f, 1f, cover));
+                    }
+                }
+
+                mask.Apply(false, true);
+                _deathFlashSprite = Sprite.Create(mask, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 1f);
+            }
+
+            if (image.sprite != _deathFlashSprite)
+            {
+                image.sprite = _deathFlashSprite;
+            }
         }
 
         private void TickPremiumChrome()
@@ -3622,6 +3660,7 @@ namespace AsteroidsGoneRogue
                 float blue;
                 PremiumLook.FlashRgb(arm, out red, out green, out blue);
                 float alpha = PremiumLook.FlashAlpha(arm, reduce);
+                EnsureDeathFlashSprite(_deathFlash);
                 _deathFlash.color = new Color(red, green, blue, alpha);
                 _deathFlash.enabled = alpha > 0.001f;
                 if (alpha > 0.001f)
@@ -5279,17 +5318,84 @@ namespace AsteroidsGoneRogue
             PaintAbortGhost(pulse);
         }
 
+        private void PlaceAbortButton(int width, int height)
+        {
+            if (_abortButton == null)
+            {
+                return;
+            }
+
+            float screenW = width;
+            float screenH = height;
+            if (screenW < 1f)
+            {
+                screenW = 1920f;
+            }
+
+            if (screenH < 1f)
+            {
+                screenH = 1080f;
+            }
+
+            float spanX = PlayHudLayout.AbortWidthPx / screenW;
+            float spanY = PlayHudLayout.AbortHeightPx / screenH;
+            if (spanX > 0.22f)
+            {
+                spanX = 0.22f;
+            }
+
+            if (spanY > 0.055f)
+            {
+                spanY = 0.055f;
+            }
+
+            float maxX = PlayHudLayout.AbortMaxX;
+            float maxY = PlayHudLayout.AbortMaxY;
+            Stretch(_abortButton.GetComponent<RectTransform>(), new Vector2(maxX - spanX, maxY - spanY), new Vector2(maxX, maxY));
+            EnsureAbortFrame();
+        }
+
+        private void EnsureAbortFrame()
+        {
+            if (_abortButton == null || _abortButton.transform.Find("AbortEdgeT") != null)
+            {
+                return;
+            }
+
+            MakeAbortEdge("AbortEdgeT", new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, 1f));
+            MakeAbortEdge("AbortEdgeB", new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, 1f));
+            MakeAbortEdge("AbortEdgeL", new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(1f, 0f));
+            MakeAbortEdge("AbortEdgeR", new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(1f, 0f));
+        }
+
+        private void MakeAbortEdge(string name, Vector2 min, Vector2 max, Vector2 size)
+        {
+            GameObject edge = new GameObject(name);
+            edge.transform.SetParent(_abortButton.transform, false);
+            Image image = edge.AddComponent<Image>();
+            image.color = UiTheme.Secondary;
+            image.raycastTarget = false;
+            RectTransform rect = edge.GetComponent<RectTransform>();
+            rect.anchorMin = min;
+            rect.anchorMax = max;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            rect.sizeDelta = size;
+        }
+
         private void PaintAbortGhost(float pulse)
         {
             if (_abortPlate != null)
             {
                 // Ghost plate. UiTheme.DangerTint is the old filled abort and is not applied here.
-                _abortPlate.color = UiTheme.WithAlpha(UiTheme.Surface, PremiumLook.PlateAlpha);
+                _abortPlate.color = UiTheme.WithAlpha(UiTheme.Secondary, 0f);
             }
 
             if (_abortLabel != null)
             {
-                _abortLabel.color = Color.Lerp(UiTheme.Accent, UiTheme.Secondary, pulse);
+                _abortLabel.color = Color.Lerp(UiTheme.Accent, UiTheme.Secondary, pulse * 0.35f);
+                _abortLabel.fontSize = UiTheme.BodyMin;
             }
 
             if (_abortButton == null)
@@ -5303,9 +5409,10 @@ namespace AsteroidsGoneRogue
                 ring = _abortButton.gameObject.AddComponent<Outline>();
             }
 
-            ring.effectColor = UiTheme.WithAlpha(UiTheme.Secondary, 0.55f + (0.4f * pulse));
+            ring.effectColor = UiTheme.Secondary;
             ring.effectDistance = new Vector2(1f, -1f);
-            ring.enabled = true;
+            ring.enabled = false;
+            EnsureAbortFrame();
         }
 
         private void PulseAchievementToast()
@@ -6866,10 +6973,7 @@ namespace AsteroidsGoneRogue
                 _doctrineBadge.alignment = TextAnchor.MiddleRight;
             }
 
-            if (_abortButton != null)
-            {
-                Stretch(_abortButton.GetComponent<RectTransform>(), new Vector2(0.74f, 0.012f), new Vector2(0.985f, 0.072f));
-            }
+            PlaceAbortButton(width, height);
         }
 
         private static void PlaceAnchored(GameObject plate, float minX, float minY, float maxX, float maxY)
@@ -7403,6 +7507,8 @@ namespace AsteroidsGoneRogue
             }
 
             ApplyFooterHintSize();
+            bool combatHint = playing || (_game != null && (_game.TutorialActive || _game.DeathArming));
+            PlaceHintBand(combatHint);
             if (_game != null && _game.TutorialActive)
             {
                 _hint.gameObject.SetActive(true);
@@ -7447,6 +7553,25 @@ namespace AsteroidsGoneRogue
             }
 
             ClampOneLine(_hint);
+        }
+
+        private void PlaceHintBand(bool combat)
+        {
+            if (_hint == null)
+            {
+                return;
+            }
+
+            if (combat)
+            {
+                Stretch(
+                    _hint.rectTransform,
+                    new Vector2(PlayHudLayout.PlayHintMinX, PlayHudLayout.PlayHintMinY),
+                    new Vector2(PlayHudLayout.PlayHintMaxX, PlayHudLayout.PlayHintMaxY));
+                return;
+            }
+
+            Stretch(_hint.rectTransform, new Vector2(0.14f, 0.008f), new Vector2(0.86f, 0.072f));
         }
 
         private void PaintPrompt(Text host, string source)
