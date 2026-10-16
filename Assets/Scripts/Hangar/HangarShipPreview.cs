@@ -919,20 +919,25 @@ namespace AsteroidsGoneRogue
             }
 
             albedo.a = 1f;
-            Color emit = Color.black;
-            if (material.HasProperty("_EmissionColor"))
-            {
-                Color raw = material.GetColor("_EmissionColor");
-                float cappedR;
-                float cappedG;
-                float cappedB;
-                PremiumLook.CapPreviewEmission(raw.r, raw.g, raw.b, out cappedR, out cappedG, out cappedB);
-                emit = new Color(cappedR, cappedG, cappedB, 1f);
-            }
-
+            float neutralR;
+            float neutralG;
+            float neutralB;
+            PremiumLook.PreviewNeutralEmission(out neutralR, out neutralG, out neutralB);
+            float cappedR;
+            float cappedG;
+            float cappedB;
+            PremiumLook.CapPreviewEmission(neutralR, neutralG, neutralB, out cappedR, out cappedG, out cappedB);
+            Color emit = new Color(cappedR, cappedG, cappedB, 1f);
             MaterialPropertyBlock block = new MaterialPropertyBlock();
             block.SetColor("_Color", albedo);
             block.SetColor("_EmissionColor", emit);
+            if (material.HasProperty("_RimColor"))
+            {
+                block.SetColor(
+                    "_RimColor",
+                    new Color(PremiumLook.PreviewRimR, PremiumLook.PreviewRimG, PremiumLook.PreviewRimB, 1f));
+            }
+
             renderer.SetPropertyBlock(block);
         }
 

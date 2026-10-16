@@ -44,6 +44,7 @@ namespace AsteroidsGoneRogue.EditorTools
         const string KeyWaited = "AgrCapture.Waited";
         const string KeySeen = "AgrCapture.Seen";
         const string KeyError = "AgrCapture.Error";
+        const string KeyHud = "AgrCapture.Hud";
         const string KeyStart = "AgrCapture.Start";
         const string KeyPlayStart = "AgrCapture.PlayStart";
         const string KeyRestored = "AgrCapture.Restored";
@@ -144,6 +145,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 SessionState.SetInt(KeyWaited, 0);
                 SessionState.SetInt(KeySeen, -1);
                 SessionState.SetString(KeyError, string.Empty);
+                SessionState.SetString(KeyHud, string.Empty);
                 SessionState.SetBool(KeyRestored, false);
                 SessionState.SetBool(KeySceneLogged, false);
                 string now = StampNow();
@@ -506,7 +508,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 }
 
                 int code = 0;
-                if (HasError())
+                if (HasError() || HasHudFail())
                 {
                     code = 1;
                 }
@@ -2846,7 +2848,8 @@ namespace AsteroidsGoneRogue.EditorTools
             float safeMinY = 0f;
             float safeMaxX = width;
             float safeMaxY = height;
-            string firstFail = string.Empty;
+            string firstOutside = string.Empty;
+            string firstOverlap = string.Empty;
             for (int markIndex = 0; markIndex < marks.Count; markIndex++)
             {
                 HudMark shown = marks[markIndex];
@@ -2870,9 +2873,9 @@ namespace AsteroidsGoneRogue.EditorTools
                         + HudRectText(shown.MinX, shown.MinY, shown.MaxX, shown.MaxY)
                         + " safe="
                         + HudRectText(safeMinX, safeMinY, safeMaxX, safeMaxY));
-                    if (firstFail.Length == 0)
+                    if (firstOutside.Length == 0)
                     {
-                        firstFail = "hud outside " + shown.Name;
+                        firstOutside = "hud outside " + shown.Name;
                     }
                 }
             }
@@ -2909,16 +2912,21 @@ namespace AsteroidsGoneRogue.EditorTools
                         + HudRectText(leftMark.MinX, leftMark.MinY, leftMark.MaxX, leftMark.MaxY)
                         + " rectB="
                         + HudRectText(rightMark.MinX, rightMark.MinY, rightMark.MaxX, rightMark.MaxY));
-                    if (firstFail.Length == 0)
+                    if (firstOverlap.Length == 0)
                     {
-                        firstFail = "hud overlap " + leftMark.Block + " x " + rightMark.Block;
+                        firstOverlap = "hud overlap " + leftMark.Block + " x " + rightMark.Block;
                     }
                 }
             }
 
-            if (firstFail.Length > 0)
+            if (firstOverlap.Length > 0)
             {
-                Fail(firstFail + " " + res);
+                NoteHudFail(firstOverlap + " " + res);
+            }
+
+            if (firstOutside.Length > 0)
+            {
+                Fail(firstOutside + " " + res);
             }
         }
 
@@ -2971,7 +2979,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 }
             }
 
-            if (maxX - minX < 0.5f && maxY - minY < 0.5f)
+            if (maxX - minX <= 0.01f || maxY - minY <= 0.01f)
             {
                 return false;
             }
@@ -3020,7 +3028,7 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             float alpha = graphic.color.a * HudGroupAlpha(graphic.transform);
-            if (alpha <= 0.04f)
+            if (alpha <= 0.01f)
             {
                 return false;
             }
@@ -3031,7 +3039,54 @@ namespace AsteroidsGoneRogue.EditorTools
                 return false;
             }
 
+            if (label == null && HudWrapsChildren(graphic))
+            {
+                return false;
+            }
+
             return true;
+        }
+
+        static bool HudWrapsChildren(Graphic graphic)
+        {
+            Transform root = graphic.transform;
+            int count = root.childCount;
+            for (int childIndex = 0; childIndex < count; childIndex++)
+            {
+                Transform child = root.GetChild(childIndex);
+                if (child == null || !child.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                Graphic nested = child.GetComponent<Graphic>();
+                if (nested == null || !nested.isActiveAndEnabled)
+                {
+                    continue;
+                }
+
+                float childAlpha = nested.color.a * HudGroupAlpha(child);
+                if (childAlpha <= 0.01f)
+                {
+                    continue;
+                }
+
+                Text childText = nested as Text;
+                if (childText != null && string.IsNullOrWhiteSpace(childText.text))
+                {
+                    continue;
+                }
+
+                RectTransform childRect = nested.rectTransform;
+                if (childRect != null && (childRect.rect.width <= 0.01f || childRect.rect.height <= 0.01f))
+                {
+                    continue;
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
         static float HudGroupAlpha(Transform node)
@@ -3160,6 +3215,20 @@ namespace AsteroidsGoneRogue.EditorTools
             return SessionState.GetString(KeyError, string.Empty).Length > 0;
         }
 
+        static bool HasHudFail()
+        {
+            return SessionState.GetString(KeyHud, string.Empty).Length > 0;
+        }
+
+        static void NoteHudFail(string reason)
+        {
+            Debug.LogError("AgrCapture FAIL: " + reason);
+            if (!HasHudFail())
+            {
+                SessionState.SetString(KeyHud, reason);
+            }
+        }
+
         static void Fail(string reason)
         {
             if (!HasError())
@@ -3201,6 +3270,7 @@ namespace AsteroidsGoneRogue.EditorTools
             SessionState.EraseInt(KeyWaited);
             SessionState.EraseInt(KeySeen);
             SessionState.EraseString(KeyError);
+            SessionState.EraseString(KeyHud);
             SessionState.EraseString(KeyStart);
             SessionState.EraseString(KeyPlayStart);
             SessionState.EraseBool(KeyRestored);
