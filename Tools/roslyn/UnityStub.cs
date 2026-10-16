@@ -732,6 +732,8 @@ namespace UnityEngine
         public Bounds bounds { get { return new Bounds(Vector3.zero, Vector3.zero); } }
         public bool isReadable { get { return true; } }
         public Vector3[] vertices { get; set; }
+        public Vector2[] uv { get; set; }
+        public int[] triangles { get; set; }
         public void RecalculateBounds() { }
     }
 

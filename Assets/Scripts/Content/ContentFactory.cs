@@ -226,20 +226,9 @@ namespace AsteroidsGoneRogue
                 PremiumLook.FloorMetallic,
                 PremiumLook.FloorSmoothness);
             _arena.mainTexture = FloorNoise();
-            float beamR;
-            float beamG;
-            float beamB;
-            PremiumLook.BeamRgb(out beamR, out beamG, out beamB);
-            float emitR;
-            float emitG;
-            float emitB;
-            PremiumLook.BeamEmissionRgb(out emitR, out emitG, out emitB);
-            _w3Beam = MakeMaterial(
-                "Mat_Arena_W3_Beam",
-                new Color(beamR, beamG, beamB),
-                0.12f,
-                0.28f,
-                new Color(emitR, emitG, emitB));
+            // Inactive decor beams are not a dimmed opaque plate. Additive
+            // black adds nothing, so a resting beam is invisible.
+            _w3Beam = MakeInvisibleBeam("Mat_Arena_W3_Beam");
             _astroRim = MakeMaterial("Mat_AstroRim", new Color(0.357f, 0.561f, 0.659f), 0.12f, 0.38f, new Color(0.357f, 0.561f, 0.659f) * 0.55f);
             _projectile = MakeMaterial("Mat_Projectile", primaryEmit, 0f, 0.32f, primaryEmit * EmissionTargets.PlayerShot);
             _projectileSpread = MakeMaterial("Mat_Projectile_Spread", primaryEmit, 0f, 0.28f, primaryEmit * EmissionTargets.PlayerShot);
@@ -434,6 +423,7 @@ namespace AsteroidsGoneRogue
                 }
 
                 floorVisual = visual;
+                HideInactiveBeams(floorVisual);
                 DecorDepthClamp.ClampTop(floorVisual, DecorDepthRules.MaxDecorTop);
             }
             else
@@ -2499,9 +2489,9 @@ namespace AsteroidsGoneRogue
         private Material RemapImported(string importedName, Material fallback)
         {
             string name = importedName ?? string.Empty;
-            // W2–W6 Accent/Glow strips are the decor beams. W3 was special-cased;
-            // W4 Glow was still falling through to Mat_Ship_Glow (Primary × 4),
-            // which is the white pillar beside the ship.
+            // W2–W6 Accent/Glow strips are the decor beams. W4 Glow used to
+            // fall through to Mat_Ship_Glow (the white pillar). Inactive beams
+            // use the additive zero material, not an opaque unlit plate.
             if (IsArenaDecorBeam(name))
             {
                 return _w3Beam != null ? _w3Beam : _arena;
@@ -2803,6 +2793,81 @@ namespace AsteroidsGoneRogue
         private static bool ContainsIgnoreCase(string value, string token)
         {
             return value.IndexOf(token, System.StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        /// <summary>
+        /// A renderer that is only an inactive decor beam is turned off.
+        /// Mixed meshes keep the floor and hide the beam submesh via the
+        /// additive zero material.
+        /// </summary>
+        private static void HideInactiveBeams(GameObject visual)
+        {
+            if (visual == null)
+            {
+                return;
+            }
+
+            Renderer[] renderers = visual.GetComponentsInChildren<Renderer>(true);
+            for (int rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
+            {
+                Renderer renderer = renderers[rendererIndex];
+                if (renderer == null)
+                {
+                    continue;
+                }
+
+                Material[] slots = renderer.sharedMaterials;
+                if (slots == null || slots.Length == 0)
+                {
+                    continue;
+                }
+
+                bool anyBeam = false;
+                bool onlyBeam = true;
+                for (int slotIndex = 0; slotIndex < slots.Length; slotIndex++)
+                {
+                    Material slot = slots[slotIndex];
+                    bool beam = slot != null && slot.name.IndexOf("W3_Beam", System.StringComparison.Ordinal) >= 0;
+                    if (beam)
+                    {
+                        anyBeam = true;
+                    }
+                    else
+                    {
+                        onlyBeam = false;
+                    }
+                }
+
+                if (anyBeam && onlyBeam)
+                {
+                    renderer.enabled = false;
+                }
+            }
+        }
+
+        private static Material MakeInvisibleBeam(string materialName)
+        {
+            Shader shader = Shader.Find("AGR/BeamAdd");
+            if (shader == null)
+            {
+                shader = Shader.Find("Particles/Additive");
+            }
+
+            if (shader == null)
+            {
+                shader = Shader.Find("Unlit/Transparent");
+            }
+
+            if (shader == null)
+            {
+                return MakeTransparent(materialName, new Color(0f, 0f, 0f, 0f), Color.black);
+            }
+
+            Material material = new Material(shader);
+            material.name = materialName;
+            material.color = new Color(0f, 0f, 0f, 0f);
+            material.renderQueue = 3000;
+            return material;
         }
 
         /// <summary>
@@ -3174,7 +3239,7 @@ namespace AsteroidsGoneRogue
             for (int i = 0; i < renderers.Length; i++)
             {
                 Renderer form = renderers[i];
-                if (form == null)
+                if (form == null || form.gameObject.name == "ContactBlob")
                 {
                     continue;
                 }
@@ -3182,6 +3247,8 @@ namespace AsteroidsGoneRogue
                 form.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
                 form.receiveShadows = true;
             }
+
+            ContactBlob.Attach(root);
         }
 
         private Material MakeShipRim(

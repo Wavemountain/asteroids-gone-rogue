@@ -257,6 +257,10 @@ namespace AsteroidsGoneRogue
             bool canvas = renderer.GetComponentInParent<Canvas>() != null;
             bool cameraHost = host.GetComponent<Camera>() != null;
             bool line = renderer is LineRenderer;
+            if (host != null && (host.name == "ArenaLip" || host.name == "ContactBlob"))
+            {
+                line = true;
+            }
             bool dust = IsDust(host);
             bool shell = IsShell(bounds);
             if (player)
@@ -1369,7 +1373,7 @@ namespace AsteroidsGoneRogue
             for (int i = 0; i < renderers.Length; i++)
             {
                 Renderer renderer = renderers[i];
-                if (renderer == null)
+                if (renderer == null || renderer.gameObject.name == "ContactBlob")
                 {
                     continue;
                 }

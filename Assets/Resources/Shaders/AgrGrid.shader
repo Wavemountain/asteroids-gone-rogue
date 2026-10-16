@@ -51,6 +51,11 @@ Shader "AGR/Grid"
             {
                 fixed4 tex = tex2D(_MainTex, i.uv);
                 float pulse = _Pulse;
+                if (pulse < 0.8)
+                {
+                    pulse = 0.8;
+                }
+
                 if (_QuietRadius > 0.001)
                 {
                     float dx = i.world.x - _ShipX;

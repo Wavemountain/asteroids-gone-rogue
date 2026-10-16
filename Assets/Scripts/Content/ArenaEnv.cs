@@ -43,6 +43,7 @@ namespace AsteroidsGoneRogue
         private Material _nebula;
         private Material _nebulaInner;
         private Material _grid;
+        private Material _voidField;
         private Transform _belt;
         private Transform[] _beltSlots;
         private Material _beltTint;
@@ -265,6 +266,16 @@ namespace AsteroidsGoneRogue
                 float floorB;
                 PremiumLook.FloorRgb(_world, _floorTint.r, _floorTint.g, _floorTint.b, out floorR, out floorG, out floorB);
                 Material paintedMat = floorRenderer.material;
+                Shader floorFade = Shader.Find("AGR/FloorFade");
+                if (floorFade != null)
+                {
+                    paintedMat.shader = floorFade;
+                    paintedMat.SetColor("_Void", new Color(PremiumLook.OutsideR, PremiumLook.OutsideG, PremiumLook.OutsideB, 1f));
+                    float dome = WaveManager.ArenaRadius;
+                    paintedMat.SetFloat("_FadeStart", dome * 0.82f);
+                    paintedMat.SetFloat("_FadeEnd", dome);
+                }
+
                 paintedMat.color = new Color(floorR, floorG, floorB, 1f);
                 if (paintedMat.HasProperty("_Glossiness"))
                 {
@@ -333,9 +344,23 @@ namespace AsteroidsGoneRogue
             {
                 resting = PremiumLook.W3GridAlpha;
                 quiet = PremiumLook.W3GridQuietRadius;
+                if (gridMul < PremiumLook.W3GridPulseFloor)
+                {
+                    gridMul = PremiumLook.W3GridPulseFloor;
+                }
             }
 
             ApplyGrid(_grid, resting, gridMul, quiet);
+            if (_voidField != null)
+            {
+                float motion = 1f;
+                if (reduce)
+                {
+                    motion = ArenaDepth.ReduceMotion;
+                }
+
+                _voidField.SetFloat("_Motion", motion);
+            }
             TickNearDust(view, reduce);
             if (_belt != null)
             {
@@ -381,7 +406,9 @@ namespace AsteroidsGoneRogue
                 MakeGridTexture(),
                 new Color(EmissionTargets.SteelR, EmissionTargets.SteelG, EmissionTargets.SteelB, PremiumLook.GridVisibleAlpha),
                 2900);
+            _voidField = VoidFieldMaterial();
 
+            CreateDome("VoidField", radius * 7.2f, _voidField);
             CreateDome("OuterNebula", radius * 11.5f, OuterNebulaMaterial());
             CreateDome("StarFar", radius * 8.8f, _starFar);
             CreateDome("StarMid", radius * 7.5f, _starMid);
@@ -444,14 +471,68 @@ namespace AsteroidsGoneRogue
         {
             GameObject go = new GameObject("ArenaLip");
             go.transform.SetParent(transform, false);
-            LineRenderer line = go.AddComponent<LineRenderer>();
-            line.loop = true;
-            line.useWorldSpace = false;
-            line.positionCount = 72;
-            line.widthMultiplier = 0.38f;
-            line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            line.receiveShadows = false;
-            Shader shader = Shader.Find("Unlit/Transparent");
+            MeshFilter filter = go.AddComponent<MeshFilter>();
+            MeshRenderer renderer = go.AddComponent<MeshRenderer>();
+            filter.sharedMesh = DomeRingMesh(radius, 0.22f, 0.09f, 72);
+            renderer.sharedMaterial = DomeRingMaterial();
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+        }
+
+        private static Mesh DomeRingMesh(float radius, float halfWidth, float height, int segments)
+        {
+            int count = segments;
+            if (count < 8)
+            {
+                count = 8;
+            }
+
+            float inner = radius - halfWidth;
+            if (inner < 0.2f)
+            {
+                inner = 0.2f;
+            }
+
+            float outer = radius + halfWidth;
+            Vector3[] vertices = new Vector3[count * 2];
+            Vector2[] uv = new Vector2[count * 2];
+            int[] triangles = new int[count * 6];
+            for (int segment = 0; segment < count; segment++)
+            {
+                float angle = (segment / (float)count) * Mathf.PI * 2f;
+                float cosine = Mathf.Cos(angle);
+                float sine = Mathf.Sin(angle);
+                vertices[segment * 2] = new Vector3(cosine * inner, height, sine * inner);
+                vertices[segment * 2 + 1] = new Vector3(cosine * outer, height, sine * outer);
+                uv[segment * 2] = new Vector2(0f, segment / (float)count);
+                uv[segment * 2 + 1] = new Vector2(1f, segment / (float)count);
+                int next = (segment + 1) % count;
+                int tri = segment * 6;
+                triangles[tri] = segment * 2;
+                triangles[tri + 1] = next * 2;
+                triangles[tri + 2] = segment * 2 + 1;
+                triangles[tri + 3] = segment * 2 + 1;
+                triangles[tri + 4] = next * 2;
+                triangles[tri + 5] = next * 2 + 1;
+            }
+
+            Mesh mesh = new Mesh();
+            mesh.name = "DomeRing";
+            mesh.vertices = vertices;
+            mesh.uv = uv;
+            mesh.triangles = triangles;
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        private static Material DomeRingMaterial()
+        {
+            Shader shader = Shader.Find("AGR/DomeRing");
+            if (shader == null)
+            {
+                shader = Shader.Find("Unlit/Transparent");
+            }
+
             if (shader == null)
             {
                 shader = Shader.Find("Particles/Standard Unlit");
@@ -462,27 +543,33 @@ namespace AsteroidsGoneRogue
                 shader = Shader.Find("Unlit/Color");
             }
 
-            if (shader == null)
-            {
-                shader = Shader.Find("Standard");
-            }
-
             Material material = new Material(shader);
             material.name = "Mat_Env_Lip";
-            Color lip = new Color(
+            material.color = new Color(
                 EmissionTargets.SteelR,
                 EmissionTargets.SteelG,
                 EmissionTargets.SteelB,
                 PremiumLook.DomeRimAlpha);
-            material.color = lip;
-            line.sharedMaterial = material;
-            line.startColor = lip;
-            line.endColor = lip;
-            for (int i = 0; i < 72; i++)
+            material.renderQueue = 3000;
+            material.SetInt("_ZWrite", 0);
+            return material;
+        }
+
+        private static Material VoidFieldMaterial()
+        {
+            Shader shader = Shader.Find("AGR/VoidField");
+            if (shader == null)
             {
-                float ang = (i / 72f) * Mathf.PI * 2f;
-                line.SetPosition(i, new Vector3(Mathf.Cos(ang) * radius, 0.09f, Mathf.Sin(ang) * radius));
+                shader = Shader.Find("Unlit/Color");
             }
+
+            Material material = new Material(shader);
+            material.name = "Mat_Env_VoidField";
+            material.color = new Color(PremiumLook.OutsideR, PremiumLook.OutsideG, PremiumLook.OutsideB, 1f);
+            material.renderQueue = 2600;
+            material.SetFloat("_Motion", 1f);
+            material.SetInt("_ZWrite", 0);
+            return material;
         }
 
         private void CreateBelt(float radius)
