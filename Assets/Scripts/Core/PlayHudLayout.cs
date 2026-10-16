@@ -41,6 +41,12 @@ namespace AsteroidsGoneRogue
         public const float AbortMinY = 0.012f;
         public const float AbortMaxX = 0.985f;
         public const float AbortMaxY = 0.072f;
+        // Hud is the amber score. HudCaption is the wave line under it.
+        // 0.012 of height is 9.6 px at 800, 13.0 px at 1080, 17.3 px at 1440.
+        public const float CaptionMinY = 0.908f;
+        public const float CaptionMaxY = 0.933f;
+        public const float ScoreMinY = 0.945f;
+        public const float ScoreMaxY = 0.982f;
 
         public static float ColumnMaxX(float screenWidth)
         {
@@ -94,6 +100,11 @@ namespace AsteroidsGoneRogue
             }
 
             if (!Stacked(AbortMaxY, UtilityMinY) || !Stacked(UtilityMaxY, DoctrineMinY) || !Stacked(HealthMaxY, BossMinY))
+            {
+                return false;
+            }
+
+            if (!ScoreClearsCaption())
             {
                 return false;
             }
@@ -176,6 +187,26 @@ namespace AsteroidsGoneRogue
             if (Overlaps(UtilityMinX, UtilityMinY, UtilityMaxX, UtilityMaxY, DoctrineMinX, DoctrineMinY, DoctrineMaxX, DoctrineMaxY))
             {
                 return false;
+            }
+
+            return true;
+        }
+
+        private static bool ScoreClearsCaption()
+        {
+            if (!Stacked(CaptionMinY, CaptionMaxY) || !Stacked(CaptionMaxY, ScoreMinY) || !Stacked(ScoreMinY, ScoreMaxY))
+            {
+                return false;
+            }
+
+            float[] heights = { 800f, 1080f, 1440f };
+            for (int heightIndex = 0; heightIndex < heights.Length; heightIndex++)
+            {
+                float gap = (ScoreMinY - CaptionMaxY) * heights[heightIndex];
+                if (gap < 4f)
+                {
+                    return false;
+                }
             }
 
             return true;

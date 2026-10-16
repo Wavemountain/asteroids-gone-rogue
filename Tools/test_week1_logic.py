@@ -15999,14 +15999,18 @@ def test_capture_048_clearance_hud() -> None:
     assert "DressBody" not in factory
     assert "DeathWashDimFull = 0.62f" in look and "DeathWashDimReduce = 0.28f" in look
     assert "PreviewExposure = 0.46f" in look and "PreviewEmissionCap = 0.65f" in look
-    assert "PreviewSatFloor = 0.55f" in look
+    assert "PreviewNeutralR = 0.45f" in look and "PreviewNeutralEmit = 0.35f" in look
     assert "PreviewSteel" in look and "PreviewSteel" in preview
-    assert "KeyB = 0.42f" in rig and "FillB = 0.22f" in rig and "RimB = 0.22f" in rig
+    assert "PreviewNeutralEmission" in preview
+    assert "KeyB = 0.62f" in rig and "FillB = 0.84f" in rig and "RimB = 1f" in rig
     assert "KeyIntensity = 0.85f" in rig
     assert "(dist - 0.08f) / 0.28f" in view
     assert "DeathEdge" in ui and "PaintDeathEdge" in ui
     assert "CheckHudLayout" in capture and "AgrCapture hud overlap" in capture
     assert "AgrCapture hud outside" in capture
+    assert "NoteHudFail(firstOverlap" in capture
+    assert "PlayHudLayout.ScoreMinY" in ui and "PlayHudLayout.CaptionMaxY" in ui
+    assert "alpha <= 0.01f" in capture and "HudWrapsChildren" in capture
 
     tools = Path(__file__).resolve().parent
     if str(tools) not in sys.path:

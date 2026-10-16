@@ -7014,7 +7014,8 @@ namespace AsteroidsGoneRogue
 
             if (_hud != null)
             {
-                Stretch(_hud.rectTransform, new Vector2(0.02f, 0.945f), new Vector2(corner - 0.008f, 0.982f));
+                // Hud: amber score numeral at the top of the corner plate.
+                Stretch(_hud.rectTransform, new Vector2(0.02f, PlayHudLayout.ScoreMinY), new Vector2(corner - 0.008f, PlayHudLayout.ScoreMaxY));
                 _hud.fontSize = (int)PremiumLook.HudNumber;
                 _hud.fontStyle = FontStyle.Bold;
                 _hud.color = UiAmber;
@@ -7025,9 +7026,12 @@ namespace AsteroidsGoneRogue
 
             if (_hudCaption != null)
             {
-                Stretch(_hudCaption.rectTransform, new Vector2(0.02f, 0.908f), new Vector2(corner - 0.008f, 0.948f));
+                // HudCaption: wave, world, and remaining line under the score.
+                Stretch(_hudCaption.rectTransform, new Vector2(0.02f, PlayHudLayout.CaptionMinY), new Vector2(corner - 0.008f, PlayHudLayout.CaptionMaxY));
                 _hudCaption.fontSize = (int)PremiumLook.HudLabel;
                 _hudCaption.color = UiBody;
+                _hudCaption.verticalOverflow = VerticalWrapMode.Truncate;
+                _hudCaption.horizontalOverflow = HorizontalWrapMode.Overflow;
             }
 
             if (_doctrineBadge != null)
