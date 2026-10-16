@@ -294,6 +294,8 @@ namespace UnityEngine
         public static float Exp(float v) { return (float)Math.Exp(v); }
         public static float PingPong(float t, float length) { return 0f; }
         public static int RoundToInt(float v) { return (int)Math.Round(v); }
+        public static int FloorToInt(float v) { return (int)Math.Floor(v); }
+        public static int CeilToInt(float v) { return (int)Math.Ceiling(v); }
         public static float Tan(float v) { return (float)Math.Tan(v); }
         public const float Deg2Rad = 0.0174532924f;
         public const float Rad2Deg = 57.29578f;
@@ -652,12 +654,15 @@ namespace UnityEngine
     public class Font : Object
     {
         public static Font CreateDynamicFontFromOSFont(string fontname, int size) { return null; }
+        public void RequestCharactersInTexture(string characters, int size, FontStyle style) { }
     }
 
     public class Texture : Object
     {
         public FilterMode filterMode { get; set; }
         public TextureWrapMode wrapMode { get; set; }
+        public int width { get; set; }
+        public int height { get; set; }
     }
 
     public class Texture2D : Texture
@@ -789,7 +794,9 @@ namespace UnityEngine
         public int sortingOrder { get; set; }
         public Camera worldCamera { get; set; }
         public float planeDistance { get; set; }
+        public float scaleFactor { get; set; }
         public static void ForceUpdateCanvases() { }
+        public static Material GetDefaultCanvasMaterial() { return null; }
     }
 
     public class CanvasGroup : Behaviour
@@ -1119,6 +1126,7 @@ namespace UnityEngine.UI
         public Color color { get; set; }
         public Material material { get; set; }
         public RectTransform rectTransform { get { return null; } }
+        public Canvas canvas { get { return null; } }
         public CanvasRenderer canvasRenderer { get { return null; } }
     }
 

@@ -7834,8 +7834,8 @@ namespace AsteroidsGoneRogue
 
         /// <summary>
         /// Wave 1 records the PSegT AgrCapture stores as the hint box.
-        /// Wave clear copies that font, size, anchors, and screen box after
-        /// the canvas scale is current, so the gate's HintBoxPx matches.
+        /// Wave clear copies that font and screen box after the canvas scale
+        /// is current. Glyphs stay at scale 1 on the shared UI material.
         /// </summary>
         private void FinishHintBox()
         {
