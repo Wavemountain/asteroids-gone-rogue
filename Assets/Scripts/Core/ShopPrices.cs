@@ -9,8 +9,8 @@ namespace AsteroidsGoneRogue
     {
         public const int Mk2Percent = 160;
         public const int WorldScaleStart = 3;
-        public const int WorldScaleStepPercent = 6;
-        public const int WorldScaleCapPercent = 36;
+        public const int WorldScaleStepPercent = 9;
+        public const int WorldScaleCapPercent = 54;
         public const int HullRepairCost = 60;
         public const int ExtraLifeCost = 400;
         public const int ShieldRefillCost = 40;

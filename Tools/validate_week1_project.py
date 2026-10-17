@@ -1781,6 +1781,55 @@ def check_input_prompts() -> None:
             err("InputPromptsImporter must live under Assets/Editor")
 
 
+def check_economy_049() -> None:
+    """0.49 economy + rail package. Income stays put. Catalogue is world-1 Mk I + Mk II + gates."""
+    prices = read(ROOT / "Assets/Scripts/Core/ShopPrices.cs")
+    catalog = read(ROOT / "Assets/Scripts/Core/ShopCatalog.cs")
+    loadout = read(ROOT / "Assets/Scripts/Core/LoadoutState.cs")
+    rules = read(ROOT / "Assets/Scripts/Core/DoctrineRules.cs")
+    curve = read(ROOT / "Assets/Scripts/Core/DifficultyCurve.cs")
+    loc = read(ROOT / "Assets/Scripts/Core/Loc.cs")
+    if "WorldScaleStepPercent = 9" not in prices or "WorldScaleCapPercent = 54" not in prices:
+        err("ShopPrices world scale must be 9 / 54")
+    if "CreditBonusPerWorld = 8" not in curve or "MaxCreditBonus = 50" not in curve:
+        err("credit income constants must stay 8 / 50")
+    if "AfterburnerCooldown = 0.085f" not in loadout:
+        err("AfterburnerCooldown must be 0.085f")
+    if "return AfterburnerCooldown * Mk2EngineMul();" not in loadout:
+        err("Afterburner Mk II must multiply FireCooldown")
+    if "RailDamageMul = 8f" not in rules:
+        err("RailDamageMul must be 8f")
+    if "Damage ×8" not in catalog or "Skada ×8" not in loc:
+        err("Rail EN and SV copy must say damage ×8")
+    expected = {
+        "RapidFire": 60,
+        "NoseHardpoint": 80,
+        "NoseUpgrade02": 150,
+        "TwinGuns": 190,
+        "EngineUpgrade02": 340,
+        "EngineUpgrade03": 1700,
+        "NoseUpgrade03": 775,
+        "Afterburner": 230,
+        "Overcharger": 230,
+    }
+    for name, cost in expected.items():
+        block = catalog.split(f"UpgradeId.{name}")[1].split("new ShopItem")[0]
+        found = None
+        for line in block.splitlines():
+            token = line.strip().rstrip(",")
+            if token.isdigit():
+                found = int(token)
+                break
+        if found != cost:
+            err(f"ShopCatalog {name} cost is {found}, expected {cost}")
+    shop = [int(token) for token in re.findall(r",\s*(\d+)\s*,\s*ShopGroup\.", catalog)]
+    mk2 = sum(cost * 160 // 100 for cost in shop)
+    gates = 55 + 45 + 40
+    catalogue = sum(shop) + mk2 + gates
+    if catalogue != 15766:
+        err(f"world-1 catalogue is {catalogue}, expected 15766")
+
+
 def main() -> int:
     require(ROOT / "Packages/manifest.json")
     require(ROOT / "ProjectSettings/ProjectVersion.txt")
@@ -2303,6 +2352,7 @@ def main() -> int:
         err("GameUi must route settings before hangar Esc")
 
     check_canvas_sort(scripts)
+    check_economy_049()
     import layer_gate_check
 
     for layer_hit in layer_gate_check.check(ROOT):
