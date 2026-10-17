@@ -179,7 +179,8 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// Steps of +35% enemy HP. Unwrapped world 8 stays at the world-7 cap.
+        /// Steps of +35% enemy HP, capped at <see cref="DifficultySettings.MaxWorldHpSteps"/>.
+        /// World 11 is the first world on that cap. Later worlds hold there.
         /// </summary>
         public static int HpSteps(int worldNumber)
         {

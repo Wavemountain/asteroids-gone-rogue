@@ -12,8 +12,12 @@ namespace AsteroidsGoneRogue
         public const int MaxCount = 8;
 
         /// <summary>
-        /// Elite waves that are also world finales (10, 15, 20, …).
-        /// Hostile actors exclude rocks. Overflow is cut from the roster tail.
+        /// Safety rail for a wave that is both elite and a world finale.
+        /// The 0.49 cadence (first elite 8, stride 5) is 8, 13, 18, … and
+        /// never lands on a finale, so this cap is dormant on that schedule.
+        /// If a wave is both, hostile actors excluding rocks stay at or under
+        /// this cap. The guardian and the elite brute are reserved and are
+        /// not dropped, so the wave still has something to fight.
         /// </summary>
         public const int EliteBossHostileCap = 14;
 
@@ -62,9 +66,10 @@ namespace AsteroidsGoneRogue
         /// <summary>
         /// Roster the spawner walks. On an elite boss wave, drop from the tail
         /// until roster slots, curve extras, the elite brute, and the guardian
-        /// stay at or under <see cref="EliteBossHostileCap"/>. Other waves
-        /// keep the ladder. Deterministic: the same wave and extra count
-        /// always drop the same tail.
+        /// stay at or under <see cref="EliteBossHostileCap"/>. The reserved
+        /// pair is spawned by the wave manager after this list, so trimming
+        /// the roster cannot empty the wave. Other waves keep the ladder.
+        /// Deterministic: the same wave and extra count always drop the same tail.
         /// </summary>
         public static EnemyKind[] FitEliteBossRoster(EnemyKind[] roster, int waveIndex, int extraCount)
         {

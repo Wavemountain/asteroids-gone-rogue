@@ -52,9 +52,10 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// +35% per world step (capped), plus +6% for each wave inside the world.
-        /// Wave 5 of a world is harder than wave 1. After world 7 the percent holds at the peak
-        /// so later loops do not drop.
+        /// +35% per world step (capped at MaxWorldHpSteps), plus +6% for each wave
+        /// inside the world. Wave 5 of a world is harder than wave 1. Once the
+        /// step cap is reached past world 7, the percent holds at the peak so
+        /// later loops do not drop.
         /// </summary>
         public static int HpPercentForWave(int waveIndex)
         {

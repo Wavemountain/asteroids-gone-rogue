@@ -180,7 +180,7 @@ namespace AsteroidsGoneRogue
         }
 
         public const int WorldHpPercent = 35;
-        public const int MaxWorldHpSteps = 6;
+        public const int MaxWorldHpSteps = 10;
 
         public static int ScaleEnemyHp(int hp)
         {
@@ -194,7 +194,8 @@ namespace AsteroidsGoneRogue
 
         /// <summary>
         /// Grade scale, then +35% enemy HP per unwrapped world after world 1.
-        /// Steps stay capped (<see cref="MaxWorldHpSteps"/>); world 8 does not drop to world 1.
+        /// Steps stay capped at <see cref="MaxWorldHpSteps"/> (world 11 holds);
+        /// a later world does not drop back to world 1.
         /// </summary>
         public static int ScaleEnemyHpForWorld(int hp, int worldIndex)
         {
