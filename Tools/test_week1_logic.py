@@ -16112,8 +16112,10 @@ def test_capture_048_clearance_hud() -> None:
     assert "FinishHintBox" in ui and "ApplyPlayBox" in ui
     assert "GlyphSharpnessHit" in layer_gate and "LaplacianVariance" in layer_gate and "hint-soft" in layer_gate
     assert "GlyphSharpRatio = 0.9f" in layer_gate and "hint-soft error" in layer_gate
-    assert "TryGlyphVariance" in layer_gate and "hint_sharp.bmp" in layer_gate and "hint_flat.bmp" in layer_gate
-    assert "hint_w1.bmp" in layer_gate and "hint_hangar.bmp" in layer_gate and "hint_hangar_blur.bmp" in layer_gate
+    assert "TryGlyphVariance" in layer_gate and "hint_flat.bmp" in layer_gate
+    assert "GlyphSharpMargin = 0.95f" in layer_gate and "GlyphBlurCeiling = 0.5f" in layer_gate
+    assert "RiseGlyphRank = 20" in layer_gate and "RiseInkFraction = 0.55f" in layer_gate
+    assert "GlyphSceneNames" in layer_gate and '"waveclear"' in layer_gate and "GlyphModeGap = 0.05f" in layer_gate
     assert "float.IsNaN" in layer_gate and "!= measured" not in layer_gate and "variance != variance" not in layer_gate
     assert "NoteHintGlyphs" in capture and "waveclear hint material" in capture
     assert "WorldToViewportPoint" in capture and "AgrCapture layer ERROR:" in capture
@@ -16155,7 +16157,13 @@ def test_capture_048_clearance_hud() -> None:
     shutil.copyfile(root / "Assets/Scripts/Core/CaptureContinue.cs", work / "CaptureContinue.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/LayerGate.cs", work / "LayerGate.cs")
     hint_fixtures = root / "Tools" / "fixtures" / "hint"
-    for hint_name in ("hint_sharp.bmp", "hint_blur.bmp", "hint_flat.bmp", "hint_w1.bmp", "hint_hangar.bmp", "hint_hangar_blur.bmp"):
+    hint_names = ["hint_flat.bmp"]
+    for hint_scene, hint_count in (("w1", 2), ("w3", 6), ("w4", 6), ("death", 2), ("hangar", 3), ("waveclear", 1)):
+        for hint_mode in (0, 1):
+            for hint_index in range(hint_count):
+                hint_names.append(f"hint_{hint_scene}_r{hint_mode}_{hint_index}.bmp")
+    for hint_name in hint_names:
+        assert (hint_fixtures / hint_name).is_file(), hint_name
         shutil.copyfile(hint_fixtures / hint_name, work / hint_name)
     shutil.copyfile(root / "Assets/Scripts/Core/DecorDepthRules.cs", work / "DecorDepthRules.cs")
     program = """
