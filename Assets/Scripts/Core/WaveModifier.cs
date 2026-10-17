@@ -9,12 +9,14 @@ namespace AsteroidsGoneRogue
     }
 
     /// <summary>
-    /// Elite waves are 10, 15, 20… (every multiple of 5 from wave 10 on).
-    /// The modifier is a pure function of the wave number. Names go through Loc.
+    /// Elite waves are 8, 13, 18, 23, 28, 33… (FirstEliteWave, then every
+    /// EliteStride). World finales stay on multiples of 5, so this cadence
+    /// does not land on a boss wave. The modifier is a pure function of the
+    /// wave number. Names go through Loc.
     /// </summary>
     public static class WaveModifier
     {
-        public const int FirstEliteWave = 10;
+        public const int FirstEliteWave = 8;
         public const int EliteStride = 5;
         public const int EliteHpPercent = 140;
         public const int EliteCreditPercent = 25;
@@ -25,7 +27,12 @@ namespace AsteroidsGoneRogue
         public static bool IsElite(int waveIndex)
         {
             int wave = waveIndex < 1 ? 1 : waveIndex;
-            return wave >= FirstEliteWave && (wave % EliteStride) == 0;
+            if (wave < FirstEliteWave)
+            {
+                return false;
+            }
+
+            return ((wave - FirstEliteWave) % EliteStride) == 0;
         }
 
         public static WaveModifierKind ForWave(int waveIndex)
@@ -35,7 +42,7 @@ namespace AsteroidsGoneRogue
                 return WaveModifierKind.None;
             }
 
-            int slot = ((waveIndex / EliteStride) - (FirstEliteWave / EliteStride)) % 3;
+            int slot = ((waveIndex - FirstEliteWave) / EliteStride) % 3;
             if (slot < 0)
             {
                 slot += 3;

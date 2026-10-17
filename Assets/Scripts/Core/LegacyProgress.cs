@@ -61,9 +61,9 @@ namespace AsteroidsGoneRogue
         public const int DiscountPerk = 1;
         public const int ShieldPerk = 2;
         public const int HullPerk = 3;
-        public const int CreditsPerLevel = 10;
-        public const int DiscountPercentPerLevel = 7;
-        public const int DiscountCapPercent = 20;
+        public const int CreditsPerLevel = 60;
+        public const int DiscountPercentPerLevel = 15;
+        public const int DiscountCapPercent = 40;
         public const int ShieldBonusCap = 2;
         public const int HullBonusCap = 2;
         public const int ShieldDurationStep = 10;

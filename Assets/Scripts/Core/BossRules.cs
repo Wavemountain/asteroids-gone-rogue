@@ -39,7 +39,8 @@ namespace AsteroidsGoneRogue
 
         /// <summary>
         /// 18 × base Brute HP × world HP percent, then Easy/Normal/Hard.
-        /// World 8 holds at the world-7 cap, so the sequence never drops.
+        /// The world percent uses the unwrapped world and holds at
+        /// <see cref="DifficultySettings.MaxWorldHpSteps"/>, so the sequence never drops.
         /// </summary>
         public static int HitPoints(int waveIndex, DifficultyGrade grade)
         {

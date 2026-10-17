@@ -188,7 +188,9 @@ def _credit_percent(spec: dict, world: int, per: int | None = None) -> int:
 
 def _is_elite(spec: dict, wave: int) -> bool:
     shown = 1 if wave < 1 else wave
-    return shown >= spec["elite_first"] and (shown % spec["elite_stride"]) == 0
+    if shown < spec["elite_first"]:
+        return False
+    return (shown - spec["elite_first"]) % spec["elite_stride"] == 0
 
 
 def _is_boss(spec: dict, wave: int) -> bool:
@@ -199,7 +201,10 @@ def _is_boss(spec: dict, wave: int) -> bool:
 def _modifier(spec: dict, wave: int) -> str:
     if not _is_elite(spec, wave):
         return "None"
-    slot = ((wave // spec["elite_stride"]) - (spec["elite_first"] // spec["elite_stride"])) % 3
+    shown = 1 if wave < 1 else wave
+    slot = ((shown - spec["elite_first"]) // spec["elite_stride"]) % 3
+    if slot < 0:
+        slot += 3
     return ("FasterEnemies", "ShieldedAsteroids", "DenseSwarm")[slot]
 
 
@@ -284,13 +289,23 @@ def _grade_extras(grade: str) -> int:
     return 1 if grade == "hard" else 0
 
 
-def hostile_plan(spec: dict, wave: int, grade: str) -> tuple[list[str], int]:
-    """Spawn list excluding rocks, and how many roster-tail slots were dropped."""
+def hostile_plan(
+    spec: dict,
+    wave: int,
+    grade: str,
+    force_elite: bool | None = None,
+    force_boss: bool | None = None,
+) -> tuple[list[str], int]:
+    """Spawn list excluding rocks, and how many roster-tail slots were dropped.
+
+    force_elite / force_boss override the schedule so a test can prove the
+    elite+boss cap still leaves a fight when the shipped cadence does not overlap.
+    """
     roster = list(_roster(spec, wave))
     included = [kind for kind in roster if _include(spec, kind, wave)]
     extras = _extra_enemies(spec, _world(spec, wave)) + _grade_extras(grade)
-    elite = _is_elite(spec, wave)
-    boss = _is_boss(spec, wave)
+    elite = _is_elite(spec, wave) if force_elite is None else force_elite
+    boss = _is_boss(spec, wave) if force_boss is None else force_boss
     reserved = (1 if boss else 0) + (1 if elite else 0)
     budget = spec["max_spawned"] - reserved
     if budget < 1:
@@ -408,6 +423,9 @@ def sweep(root: Path | None = None) -> dict:
 
         boundary = wave > 1 and _world(spec, wave) != _world(spec, wave - 1)
         boss_wave = _is_boss(spec, wave)
+        # Elite brutes are an intentional spike. They used to ride boss waves,
+        # which this check already skips. The 0.49 cadence starts at wave 8.
+        elite_wave = _is_elite(spec, wave)
         for grade in grades:
             kinds, dropped = hostile_plan(spec, wave, grade)
             cap = spec["hostile_cap"] if boss_wave and _is_elite(spec, wave) else spec["max_spawned"]
@@ -420,7 +438,7 @@ def sweep(root: Path | None = None) -> dict:
                     non_finite.append(f"hp {grade} {wave} {kind}")
                 budget += amount
             previous = previous_hp[grade]
-            if previous is not None and not boundary and not boss_wave:
+            if previous is not None and not boundary and not boss_wave and not elite_wave:
                 if budget * 100 > previous * 160:
                     jumps.append((grade, wave, previous, budget))
             previous_hp[grade] = budget
@@ -480,7 +498,8 @@ def sweep(root: Path | None = None) -> dict:
         applied_discount = spec["discount_cap"]
     if applied_discount > spec["discount_cap"] or spec["shield_cap"] > 2 or spec["hull_cap"] > 2:
         cap_breaks.append("legacy caps")
-    if spec["legacy_max"] * spec["legacy_credits"] > 30:
+    # Package C: CreditsPerLevel 10 -> 60, so max rank is 180 starting credits.
+    if spec["legacy_max"] * spec["legacy_credits"] > 180:
         cap_breaks.append("legacy credits")
 
     ratio = {grade: credit_total[grade] / catalogue for grade in grades}

@@ -6272,8 +6272,8 @@ def _hp_steps(world: int) -> int:
     steps = world - 1
     if steps < 0:
         steps = 0
-    if steps > 6:
-        steps = 6
+    if steps > 10:
+        steps = 10
     return steps
 
 
@@ -6282,11 +6282,12 @@ def _hp_percent_for_wave(wave: int) -> int:
     world = _curve_world(shown)
     steps = _hp_steps(world)
     within = (shown - 1) % 5
-    if steps >= 6 and world > 7:
+    if steps >= 10 and world > 7:
         within = 4
-    # Package A: WorldHpPercent 15 -> 35, WithinWorldHpPercent 3 -> 6. Peak 202 -> 334.
+    # Package A: WorldHpPercent 35, within-world +6. Package C: MaxWorldHpSteps 6 -> 10.
+    # Wave 35 stays 334. The curve peak, once 10 steps and within-world +24 land, is 474.
     percent = 100 + 35 * steps + 6 * within
-    peak = 100 + 35 * 6 + 6 * 4
+    peak = 100 + 35 * 10 + 6 * 4
     return min(percent, peak)
 
 
@@ -6328,7 +6329,9 @@ def _credit_percent(world: int) -> int:
 
 
 def _is_elite_wave(wave: int) -> bool:
-    return wave >= 10 and wave % 5 == 0
+    if wave < 8:
+        return False
+    return (wave - 8) % 5 == 0
 
 
 def _is_boss_wave(wave: int) -> bool:
@@ -6338,7 +6341,9 @@ def _is_boss_wave(wave: int) -> bool:
 def _modifier_for_wave(wave: int) -> str:
     if not _is_elite_wave(wave):
         return "None"
-    slot = ((wave // 5) - 2) % 3
+    slot = ((wave - 8) // 5) % 3
+    if slot < 0:
+        slot += 3
     return ("FasterEnemies", "ShieldedAsteroids", "DenseSwarm")[slot]
 
 
@@ -6482,7 +6487,7 @@ def test_long_haul_difficulty_046() -> None:
     assert "MarkElite" in factory
     assert "ConfigureBoss" in seeker and "SpawnTelegraphRing" in seeker
     assert "VisualScale = 1.8f" in boss and "HpFactor = 18" in boss
-    assert "FirstEliteWave = 10" in modifier
+    assert "FirstEliteWave = 8" in modifier
     assert "MaxCount = 8" in roster_src
     for key in (
         "wave.elite.banner",
@@ -6520,7 +6525,7 @@ def test_long_haul_difficulty_046() -> None:
         assert fire >= prev_fire
         assert rocks >= prev_rocks
         assert credit_pct >= prev_credit_pct
-        assert 100 <= hp <= 334
+        assert 100 <= hp <= 474
         assert 100 <= dmg <= 160
         assert 0 <= extra <= 4
         assert 100 <= fire <= 130
@@ -6542,9 +6547,9 @@ def test_long_haul_difficulty_046() -> None:
     assert _hp_percent_for_wave(6) == 135  # was 115
     assert _hp_percent_for_wave(10) == 159  # was 127
     assert _hp_percent_for_wave(20) == 229  # was 157
-    assert _hp_percent_for_wave(35) == 334  # was 202
-    assert _hp_percent_for_wave(36) == 334  # was 202
-    assert _hp_percent_for_wave(200) == 334  # was 202
+    assert _hp_percent_for_wave(35) == 334  # world 7 still 6 steps
+    assert _hp_percent_for_wave(36) == 345  # world 8, 7 steps, was 334
+    assert _hp_percent_for_wave(200) == 474  # 10 steps + within-world peak
     assert _damage_percent(1) == 100
     assert _damage_percent(_curve_world(10)) == 110  # was 104
     assert _damage_percent(_curve_world(20)) == 130  # was 112
@@ -6575,10 +6580,13 @@ def test_long_haul_difficulty_046() -> None:
 
     assert _scale_credits(165, 1) == 165
     assert _scale_credits(165, 5) == 165
-    assert _scale_credits(165, 10) == 222
-    assert _scale_credits(165, 20) == 255
+    assert _scale_credits(165, 8) == 222
+    assert _scale_credits(165, 10) == 178
+    assert _scale_credits(165, 18) == 255
+    assert _scale_credits(165, 20) == 204
     assert _scale_credits(165, 31) == 244
-    assert _scale_credits(165, 35) == 305
+    assert _scale_credits(165, 33) == 305
+    assert _scale_credits(165, 35) == 244
     assert _scale_credits(165, 36) == 247
     world_credits = []
     for world in range(1, 11):
@@ -6592,15 +6600,16 @@ def test_long_haul_difficulty_046() -> None:
 
     for wave in range(1, 81):
         elite = _is_elite_wave(wave)
-        assert elite == (wave in {10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80})
+        assert elite == (wave in {8, 13, 18, 23, 28, 33, 38, 43, 48, 53, 58, 63, 68, 73, 78})
         assert (not elite) or _modifier_for_wave(wave) != "None"
         assert elite or _modifier_for_wave(wave) == "None"
         assert _modifier_for_wave(wave) == _modifier_for_wave(wave)
     assert _modifier_for_wave(5) == "None"
-    assert _modifier_for_wave(10) == "FasterEnemies"
-    assert _modifier_for_wave(15) == "ShieldedAsteroids"
-    assert _modifier_for_wave(20) == "DenseSwarm"
-    assert _modifier_for_wave(25) == "FasterEnemies"
+    assert _modifier_for_wave(8) == "FasterEnemies"
+    assert _modifier_for_wave(10) == "None"
+    assert _modifier_for_wave(13) == "ShieldedAsteroids"
+    assert _modifier_for_wave(18) == "DenseSwarm"
+    assert _modifier_for_wave(23) == "FasterEnemies"
     assert not _is_boss_wave(1) and not _is_boss_wave(4) and not _is_boss_wave(6)
     assert _is_boss_wave(5) and _is_boss_wave(10) and _is_boss_wave(35)
 
@@ -6629,8 +6638,8 @@ def test_long_haul_difficulty_046() -> None:
     assert _boss_hp(20, "normal") == 369  # was 174; spec 412
     assert _boss_hp(25, "normal") == 432  # spec 475
     assert _boss_hp(30, "normal") == 495  # spec 538
-    assert _boss_hp(35, "normal") == 558  # was 228; spec 601
-    assert _boss_hp(40, "normal") == 558  # was 228
+    assert _boss_hp(35, "normal") == 558  # world 7 still 6 steps; spec 601
+    assert _boss_hp(40, "normal") == 621  # world 8, 7 steps; was 558
 
     seen = []
     for wave in range(1, 81):
@@ -6690,7 +6699,7 @@ def test_longhaul_balance_046e() -> None:
     assert report["aimed_shots"] <= 4
     assert report["radial_shots"] <= 8
     assert report["wave45_hard_count"] == 14
-    assert report["wave45_hard_dropped"] == 1
+    assert report["wave45_hard_dropped"] == 0
     assert report["wave5_easy_count"] <= 6
     assert report["wave10_hard_count"] <= 14
 
@@ -8951,6 +8960,129 @@ def test_balance_049_package_b() -> None:
     assert abs(report["ratio"]["hard"] - 0.6393) < 0.0002
 
 
+def test_balance_049_package_c() -> None:
+    """0.49 package C: elite cadence, 10 world-HP steps, legacy perk numbers.
+
+    Daily still refuses the legacy start shield. Elite and boss waves do not
+    overlap on the shipped cadence; a forced overlap still stays inside the
+    hostile cap and keeps the guardian plus the elite brute.
+    """
+    import sys
+    from pathlib import Path
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    import sim_longhaul
+
+    root = tools.parent
+    modifier = (root / "Assets/Scripts/Core/WaveModifier.cs").read_text(encoding="utf-8")
+    settings = (root / "Assets/Scripts/Core/DifficultySettings.cs").read_text(encoding="utf-8")
+    legacy = (root / "Assets/Scripts/Core/LegacyProgress.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    policy = (root / "Assets/Scripts/Core/RunBonusPolicy.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    roster = (root / "Assets/Scripts/Core/WaveRoster.cs").read_text(encoding="utf-8")
+    meta = (root / "Assets/Scripts/Core/LegacyProgress.cs").read_text(encoding="utf-8")
+
+    assert "FirstEliteWave = 8" in modifier
+    assert "if (wave < FirstEliteWave)" in modifier
+    assert "(wave - FirstEliteWave) % EliteStride" in modifier
+    assert "MaxWorldHpSteps = 10" in settings
+    assert "WorldHpPercent = 35" in settings
+    assert "CreditsPerLevel = 60" in legacy
+    assert "DiscountPercentPerLevel = 15" in legacy
+    assert "DiscountCapPercent = 40" in legacy
+    assert "CurrentVersion = 2" in meta
+    assert "EliteBossHostileCap = 14" in roster
+
+    before = [wave for wave in range(1, 36) if wave >= 10 and wave % 5 == 0]
+    after = [wave for wave in range(1, 36) if _is_elite_wave(wave)]
+    bosses = [wave for wave in range(1, 36) if _is_boss_wave(wave)]
+    assert before == [10, 15, 20, 25, 30, 35]
+    assert after == [8, 13, 18, 23, 28, 33]
+    assert bosses == [5, 10, 15, 20, 25, 30, 35]
+    assert [wave for wave in after if wave in bosses] == []
+    for wave in range(1, 201):
+        both = _is_elite_wave(wave) and _is_boss_wave(wave)
+        assert not both
+
+    # 10 steps × 35% world HP. The per-wave curve also adds +6% × 4 inside the world.
+    assert _hp_percent(11) == 450
+    assert _hp_percent_for_wave(51) == 474
+
+    assert _legacy_credits(0) == 0
+    assert _legacy_credits(1) == 60
+    assert _legacy_credits(2) == 120
+    assert _legacy_credits(3) == 180
+    assert _legacy_discount(1) == 15
+    assert _legacy_discount(2) == 30
+    assert _legacy_discount(3) == 40
+    assert 'Loc.Tf(\n                        "ui.legacy.credits",\n                        "+{0} cr"' in legacy
+    assert 'Loc.Tf(\n                        "ui.legacy.discount",\n                        "First -{0}%"' in legacy
+    assert '{ "ui.legacy.credits", "+{0} kr" }' in loc
+    assert '{ "ui.legacy.discount", "Första -{0}%" }' in loc
+
+    def applies_legacy(daily_seed: int) -> bool:
+        return daily_seed <= 0
+
+    assert applies_legacy(0)
+    assert not applies_legacy(1)
+    assert not applies_legacy(40621)
+    assert "return dailySeed <= 0;" in policy
+    assert "RunBonusPolicy.AppliesLegacy" in manager
+
+    spec = sim_longhaul._load(root)
+    for wave in range(1, 81):
+        elite = sim_longhaul._is_elite(spec, wave)
+        boss = sim_longhaul._is_boss(spec, wave)
+        for grade in ("easy", "normal", "hard"):
+            kinds, _dropped = sim_longhaul.hostile_plan(spec, wave, grade)
+            cap = spec["hostile_cap"] if elite and boss else spec["max_spawned"]
+            assert 1 <= len(kinds) <= cap, (grade, wave, len(kinds), cap)
+            if elite:
+                assert "EliteBrute" in kinds
+            if boss:
+                assert "Boss" in kinds
+
+    stacked, dropped = sim_longhaul.hostile_plan(spec, 45, "hard", force_elite=True, force_boss=True)
+    assert "Boss" in stacked and "EliteBrute" in stacked
+    assert 2 <= len(stacked) <= spec["hostile_cap"]
+    assert dropped >= 1
+    assert len(stacked) == 14
+
+    sample = {
+        "Version": 7,
+        "WaveIndex": 8,
+        "Score": 40,
+        "Credits": 60,
+        "Lives": 3,
+        "Hull": 3,
+        "Shield": 0,
+        "Difficulty": 1,
+        "UpgradeMask": 0,
+        "Doctrine": 0,
+        "PrimaryMode": 0,
+        "UtilityMode": 0,
+        "HasUtility": 0,
+        "RunId": 4,
+        "LastResolvedWave": 7,
+        "LastRunScore": 40,
+        "LastCreditsAwarded": 0,
+        "ExtraLifeStreak": 0,
+        "LegacyHull": 2,
+        "FirstDiscount": 20,
+        "FirstDiscountUsed": 0,
+        "Timestamp": "2026-10-17T00:00:00Z",
+    }
+    old_cap = _save_parse(_save_to_json(sample))
+    assert old_cap is not None and old_cap["Version"] == 7
+    assert old_cap["FirstDiscount"] == 20 and old_cap["LegacyHull"] == 2
+    raised = _save_parse(_save_to_json(dict(sample, FirstDiscount=40)))
+    assert raised is not None and raised["FirstDiscount"] == 40
+    assert _save_parse(_save_to_json(dict(sample, FirstDiscount=41))) is None
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -9050,6 +9182,7 @@ def main() -> int:
     test_p9_audio_arena()
     test_loc_tf_formats_every_key()
     test_capture_048_clearance_hud()
+    test_balance_049_package_c()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -9071,8 +9204,8 @@ def _hp_percent(world: int) -> int:
     steps = world - 1
     if steps < 0:
         steps = 0
-    if steps > 6:
-        steps = 6
+    if steps > 10:
+        steps = 10
     return 100 + 35 * steps
 
 
@@ -9162,7 +9295,7 @@ def test_worlds_intro_medals() -> None:
         assert loop >= 1
         assert 1 <= layout <= 7
         assert percent >= previous
-        assert percent <= 310  # was 190
+        assert percent <= 450  # 10 steps × 35%; was 310 at 6 steps
         previous = percent
         assert _world_name(number)
     assert _world_number(5) == 1 and _loop_number(5) == 1
@@ -9172,9 +9305,10 @@ def test_worlds_intro_medals() -> None:
     assert _world_number(40) == 8 and _loop_number(40) == 2 and _layout_world(40) == 1
     assert _hp_percent(1) == 100
     assert _hp_percent(2) == 135  # was 115
-    assert _hp_percent(7) == 310  # was 190
-    assert _hp_percent(8) == 310  # was 190
-    assert _hp_percent(40) == 310  # was 190
+    assert _hp_percent(7) == 310  # 6 steps, unchanged
+    assert _hp_percent(8) == 345  # 7 steps; was held at 310
+    assert _hp_percent(11) == 450  # 10 steps
+    assert _hp_percent(40) == 450  # cap holds
     assert "return WorldCatalog.HpSteps" in diff
     assert "WorldCatalog.NumberForWave(waves.ActiveWave)" in seeker
     assert "ArenaLayout.WorldIndexForWave(waves.ActiveWave)" not in seeker
@@ -9329,8 +9463,8 @@ def _scale_enemy_hp(hp: int, grade: str, world: int) -> int:
     steps = world - 1
     if steps < 0:
         steps = 0
-    if steps > 6:
-        steps = 6
+    if steps > 10:
+        steps = 10
     return max(1, graded * (100 + 35 * steps) // 100)
 
 
@@ -9401,7 +9535,7 @@ def test_world_continue_and_hangar_readability() -> None:
     assert "return phase == GamePhase.Failed" in session
     assert "CompleteCampaign" not in manager
     assert "ShouldUnlockHardClear" in ach and "IsFinalWave" in ach
-    assert "WorldHpPercent = 35" in diff and "MaxWorldHpSteps = 6" in diff
+    assert "WorldHpPercent = 35" in diff and "MaxWorldHpSteps = 10" in diff
     assert "Mathf.Clamp(waveIndex, 1, 10)" in waves
     assert "ArenaWorlds" in factory
 
@@ -9451,8 +9585,8 @@ def test_world_continue_and_hangar_readability() -> None:
     assert _layout_for_wave(31) == "SpokeRing"
     assert _scale_enemy_hp(10, "normal", 1) == 10
     assert _scale_enemy_hp(10, "normal", 2) == 13  # was 11
-    assert _scale_enemy_hp(10, "normal", 7) == 31  # was 19
-    assert _scale_enemy_hp(10, "normal", 8) == 31  # was 19
+    assert _scale_enemy_hp(10, "normal", 7) == 31  # 6 steps, 310%
+    assert _scale_enemy_hp(10, "normal", 8) == 34  # 7 steps, 345%; was 31
     assert _scale_enemy_hp(10, "easy", 1) == 8
     assert "WavesPerLayout = 5" in layout and "LayoutCount = 7" in layout
     assert 'Loc.Tf("run.sector_world", "SECTOR CLEAR - World {0}"' in cap
@@ -9645,12 +9779,12 @@ def _legacy_award(worlds_cleared: int, highest_wave: int) -> int:
 
 
 def _legacy_credits(level: int) -> int:
-    return 10 * _legacy_clamp_level(level)
+    return 60 * _legacy_clamp_level(level)
 
 
 def _legacy_discount(level: int) -> int:
-    raw = 7 * _legacy_clamp_level(level)
-    return 20 if raw > 20 else raw
+    raw = 15 * _legacy_clamp_level(level)
+    return 40 if raw > 40 else raw
 
 
 def _legacy_shield(level: int) -> int:
@@ -9871,7 +10005,7 @@ def _save_valid(data: dict) -> bool:
         return False
     if not 0 <= data.get("LegacyHull", -1) <= 2:
         return False
-    if not 0 <= data.get("FirstDiscount", -1) <= 20:
+    if not 0 <= data.get("FirstDiscount", -1) <= 40:
         return False
     if data.get("FirstDiscountUsed") not in (0, 1):
         return False
@@ -10207,14 +10341,15 @@ def test_save_continue_legacy() -> None:
     assert _legacy_shield(0) == 0
     assert _legacy_shield(1) == 1 and _legacy_shield(2) == 1 and _legacy_shield(3) == 2 and _legacy_shield(9) == 2
     assert _legacy_hull(0) == 0 and _legacy_hull(2) == 1 and _legacy_hull(3) == 2 and _legacy_hull(8) == 2
-    assert _legacy_credits(0) == 0 and _legacy_credits(3) == 30 and _legacy_credits(9) == 30
+    assert _legacy_credits(0) == 0 and _legacy_credits(3) == 180 and _legacy_credits(9) == 180
     assert _legacy_discount(0) == 0
-    assert _legacy_discount(1) == 7 and _legacy_discount(2) == 14
-    assert _legacy_discount(3) == 20 and _legacy_discount(9) == 20
-    assert "DiscountCapPercent = 20" in legacy
+    assert _legacy_discount(1) == 15 and _legacy_discount(2) == 30
+    assert _legacy_discount(3) == 40 and _legacy_discount(9) == 40
+    assert "DiscountCapPercent = 40" in legacy
+    assert "DiscountPercentPerLevel = 15" in legacy
     assert "HullBonusCap = 2" in legacy and "ShieldBonusCap = 2" in legacy
     assert "MaxLevel = 3" in legacy
-    assert "CreditsPerLevel = 10" in legacy
+    assert "CreditsPerLevel = 60" in legacy
     assert "AwardPoints" in legacy and "TryAward" in legacy and "TryBuy" in legacy
 
     swedish = _sv_keys(loc)
@@ -10945,13 +11080,13 @@ def test_pr2_046() -> None:
         loop = _loop_number(wave)
         assert names[layout - 1] == names[(layout - 1) % 7]
         boss_wave = wave >= 5 and wave % 5 == 0
-        elite = wave >= 10 and wave % 5 == 0
+        elite = _is_elite_wave(wave)
         final = layout == 7 or loop >= 2
         if boss_wave and final:
             assert "boss_guardian_final" in music
         if boss_wave and not final:
             assert "boss_guardian" in music
-        assert elite == (wave >= 10 and wave % 5 == 0)
+        assert elite == (wave >= 8 and (wave - 8) % 5 == 0)
     assert "AimedWindupSeconds = 0.4f" in boss
     assert "WindupInBand" in boss
     assert "_aimedDir" in seeker and "FireAimedBurst(_aimedDir)" in seeker
