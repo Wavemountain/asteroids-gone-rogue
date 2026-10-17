@@ -20,8 +20,8 @@ namespace AsteroidsGoneRogue
 
     public static class DifficultyCurve
     {
-        public const int WithinWorldHpPercent = 3;
-        public const int DamageBonusPerWorld = 4;
+        public const int WithinWorldHpPercent = 6;
+        public const int DamageBonusPerWorld = 10;
         public const int MaxDamageBonus = 60;
         public const int ExtraEnemyWorldSpan = 2;
         public const int MaxExtraEnemies = 4;
@@ -52,7 +52,7 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// Existing +15% per world step (capped), plus +3% for each wave inside the world.
+        /// +35% per world step (capped), plus +6% for each wave inside the world.
         /// Wave 5 of a world is harder than wave 1. After world 7 the percent holds at the peak
         /// so later loops do not drop.
         /// </summary>
@@ -194,8 +194,11 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// Slow outgoing-damage scale. Half-up so a base of 1 stays 1 until the
-        /// bonus crosses +50%, then steps to 2. The percent itself caps at +60%.
+        /// Outgoing damage uses integer half-up: (amount * percent + 50) / 100.
+        /// With +10% per world, a 1-point hit stays 1 through world 5 (140%) and
+        /// steps to 2 at world 6 (150%). That matches Mathf.RoundToInt for 1.4,
+        /// 1.5, and 1.6, so this path does not carry a HitRemainder. The percent
+        /// itself caps at +60% (world 7).
         /// </summary>
         public static int ScaleOutgoingDamage(int amount, int waveIndex)
         {

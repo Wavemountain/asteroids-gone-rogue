@@ -179,7 +179,7 @@ namespace AsteroidsGoneRogue
             get { return Current == DifficultyGrade.Hard ? 1 : 0; }
         }
 
-        public const int WorldHpPercent = 15;
+        public const int WorldHpPercent = 35;
         public const int MaxWorldHpSteps = 6;
 
         public static int ScaleEnemyHp(int hp)
@@ -193,7 +193,7 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// Grade scale, then +15% enemy HP per unwrapped world after world 1.
+        /// Grade scale, then +35% enemy HP per unwrapped world after world 1.
         /// Steps stay capped (<see cref="MaxWorldHpSteps"/>); world 8 does not drop to world 1.
         /// </summary>
         public static int ScaleEnemyHpForWorld(int hp, int worldIndex)
