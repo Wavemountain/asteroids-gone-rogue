@@ -3375,6 +3375,142 @@ def test_campaign_cap_and_session_best() -> None:
     assert s.extra_life_streak == 0
 
 
+def test_hard_clear_world7_wave35() -> None:
+    """Hard Clear is world 7 wave 35 on Hard. Wave 5 does not unlock it.
+
+    Existing rule: Easy and Normal never unlock Hard Clear. Only Hard does.
+    The live clear still advances into the loop. Far Drift stays on wave 10.
+    A v7 save from before and after the cap still loads.
+    """
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    cap = (root / "Assets/Scripts/Core/CampaignCap.cs").read_text(encoding="utf-8")
+    ach = (root / "Assets/Scripts/Core/AchievementCatalog.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
+    save = (root / "Assets/Scripts/Core/RunSave.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+
+    final_wave = int(re.search(r"FinalWave = (\d+)", cap).group(1))
+    final_world = int(re.search(r"FinalWorld = (\d+)", cap).group(1))
+    assert final_wave == 35 and final_world == 7
+
+    def hard_clear(wave: int, grade: str) -> bool:
+        return wave == final_wave and _world_number(wave) == final_world and grade == "hard"
+
+    assert _world_number(5) == 1
+    assert hard_clear(5, "hard") is False
+    assert _world_number(35) == 7
+    assert hard_clear(35, "hard") is True
+    assert hard_clear(35, "easy") is False
+    assert hard_clear(35, "normal") is False
+    assert hard_clear(34, "hard") is False
+    assert hard_clear(36, "hard") is False
+    assert hard_clear(70, "hard") is False
+
+    unlock = ach.split("bool ShouldUnlockHardClear")[1].split("public static bool")[0]
+    assert "CampaignCap.IsFinalWave" in unlock
+    assert "CampaignCap.FinalWorld" in unlock
+    assert "DifficultyGrade.Hard" in unlock
+    assert "Easy" not in unlock and "Normal" not in unlock
+
+    medal = summary.split("public static string WaveMedal")[1].split("public static string")[0]
+    assert "CampaignCap.FinalWave" not in medal
+    assert "WorldCatalog.WavesPerWorld" in medal
+    show = summary.split("public static bool ShowWaveMedal")[1].split("public static")[0]
+    assert "CampaignCap.FinalWave" not in show
+    hook = summary.split("public static string NextMedalHook")[1].split("public static string")[0]
+    assert "CampaignCap.FinalWave" not in hook
+    assert "WorldCatalog.WavesPerWorld" in hook
+    assert "MedalCatalog.FarDriftClearsAtWave" in hook
+    hint = summary.split("public static string ContinueHint")[1].split("public static string DeepOrbitTeaser")[0]
+    assert "CampaignCap.FinalWave" not in hint
+    far = ach.split("bool ShouldUnlockFarDrift")[1].split("public static bool")[0]
+    assert "FarDriftClearsAtWave" in far
+    assert "CampaignCap" not in far
+
+    assert "CompleteCampaign" not in manager
+    assert "_session.CompleteWave" in manager
+    complete = session.split("void CompleteWave(")[1].split("void CompleteCampaign")[0]
+    assert "WaveIndex += 1" in complete
+    assert "Phase = GamePhase.WaveClear" in complete
+    assert "CampaignClear" not in complete
+    assert "return phase == GamePhase.Failed" in session
+
+    cleared = Session()
+    cleared.begin()
+    cleared.wave = 35
+    cleared.complete()
+    assert cleared.phase == "WaveClear"
+    assert cleared.wave == 36
+    assert cleared.campaign_won is False
+    assert cleared.world_cleared == 7
+    assert cleared.last_resolved_wave == 35
+    assert _primary_restarts(cleared.phase) is False
+    assert _primary_restarts("CampaignClear") is False
+    assert _primary_label("WaveClear", 7, 8) == "Continue to World 8"
+    assert _primary_label("CampaignClear", 0, 8) == "Next Wave"
+    assert _is_world_boundary(35)
+    assert _medal_on_wave(10) == "FarDrift"
+    assert _medal_on_wave(35) == "SpokeRing"
+
+    early = Session()
+    early.begin()
+    early.wave = 5
+    early.complete()
+    assert early.phase == "WaveClear"
+    assert early.wave == 6
+    assert early.world_cleared == 1
+    assert early.campaign_won is False
+
+    clear_case = ui.split("case GamePhase.CampaignClear:")[1].split("case GamePhase.Failed:")[0]
+    assert "CampaignCap.FinalWave + 1" in clear_case
+    assert "CampaignCap.FinalWorld" in clear_case
+
+    assert "CurrentVersion = 7" in save
+    assert "MaxWave = 9999" in save
+    base = {
+        "Version": 7,
+        "WaveIndex": 6,
+        "Score": 400,
+        "Credits": 80,
+        "Lives": 3,
+        "Hull": 4,
+        "Shield": 0,
+        "Difficulty": 2,
+        "UpgradeMask": 0,
+        "Doctrine": 0,
+        "PrimaryMode": 0,
+        "UtilityMode": 0,
+        "HasUtility": 0,
+        "RunId": 4,
+        "LastResolvedWave": 5,
+        "LastRunScore": 400,
+        "LastCreditsAwarded": 140,
+        "ExtraLifeStreak": 0,
+        "LegacyHull": 0,
+        "FirstDiscount": 0,
+        "FirstDiscountUsed": 0,
+        "Timestamp": "2026-10-17T08:00:00Z",
+    }
+    before = _save_parse(_save_to_json(base))
+    assert before is not None and before["Version"] == 7
+    assert before["WaveIndex"] == 6 and before["LastResolvedWave"] == 5
+    after_cap = dict(base)
+    after_cap["WaveIndex"] = 36
+    after_cap["LastResolvedWave"] = 35
+    after_cap["Score"] = 9000
+    loaded = _save_parse(_save_to_json(after_cap))
+    assert loaded is not None
+    assert loaded["Version"] == 7
+    assert loaded["WaveIndex"] == 36
+    assert loaded["LastResolvedWave"] == 35
+    assert loaded["Difficulty"] == 2
+
+
 def test_steam_slice_044() -> None:
     from pathlib import Path
 
@@ -3407,8 +3543,8 @@ def test_steam_slice_044() -> None:
     store = (root / "Docs/StoreCaptures/README.md").read_text(encoding="utf-8")
 
     assert "CampaignClear" in phase
-    assert "FinalWave = 5" in cap
-    assert "FinalWorld = 1" in cap
+    assert "FinalWave = 35" in cap
+    assert "FinalWorld = 7" in cap
     assert "CompleteCampaign" in session
     assert "CampaignWon" in session
     assert "WaveTookHit" in session
@@ -9223,6 +9359,7 @@ def main() -> int:
     test_asteroid_play_plane_and_turn()
     test_juice_firstrun_044()
     test_campaign_cap_and_session_best()
+    test_hard_clear_world7_wave35()
     test_steam_slice_044()
     test_ui_theme_pad_menus_044()
     test_hangar_wave_clear_layout()
@@ -10923,7 +11060,7 @@ def test_sector_chip_differs_from_title() -> None:
     swedish = _loc_values(loc)
 
     medal_fn = summary.split("public static string WaveMedal")[1].split("public static string")[0]
-    final_branch = medal_fn.split("CampaignCap.FinalWave")[1].split("World2StartsAtWave")[0]
+    final_branch = medal_fn.split("WorldCatalog.WavesPerWorld")[1].split("World2StartsAtWave")[0]
     assert "WorldCatalog.ClearedMedal" in final_branch
     assert "SectorClearTitle" not in final_branch
     assert "CampaignCap.SectorClearTitle(_session.WorldCleared)" in ui

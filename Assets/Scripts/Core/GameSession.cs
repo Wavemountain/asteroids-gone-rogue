@@ -374,8 +374,9 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// World 1 content-cap win. Score/credits award like a wave clear, but
-        /// the wave index stays on the final wave and play does not continue.
+        /// Dormant campaign-clear snapshot. The wave index stays put, so play
+        /// would not continue. The live loop uses <see cref="CompleteWave"/>,
+        /// including on world 7 wave 35, and the run keeps going into the loop.
         /// </summary>
         public void CompleteCampaign(int bonusScore, int credits)
         {

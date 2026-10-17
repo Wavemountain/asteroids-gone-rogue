@@ -1,15 +1,16 @@
 namespace AsteroidsGoneRogue
 {
     /// <summary>
-    /// World 1 still has a sector-clear beat at wave 5 (achievement, medal, headline).
-    /// That beat does not end the run: every multiple of <see cref="ArenaLayout.WavesPerLayout"/>
-    /// is a world boundary and play continues. Pure C# so tests can lock the boundary
-    /// without Play Mode.
+    /// Campaign final is world 7, wave 35 (Hard Clear). That beat does not end
+    /// the run: every multiple of <see cref="ArenaLayout.WavesPerLayout"/> is a
+    /// world boundary and play continues into the loop. World 1's medal chip and
+    /// the "World 2 after wave 5" hook stay on <see cref="WorldCatalog.WavesPerWorld"/>.
+    /// Pure C# so tests can lock the boundary without Play Mode.
     /// </summary>
     public static class CampaignCap
     {
-        public const int FinalWave = 5;
-        public const int FinalWorld = 1;
+        public const int FinalWave = 35;
+        public const int FinalWorld = 7;
         public const string WinTitle = "SECTOR CLEAR";
 
         public static bool IsFinalWave(int waveIndex)
@@ -36,11 +37,17 @@ namespace AsteroidsGoneRogue
             return WorldCatalog.NumberForWave(upcoming);
         }
 
+        /// <summary>
+        /// World-boundary clear at or past the campaign final. Later loop
+        /// boundaries stay won. Callers must still advance the wave: this
+        /// flag does not end the run.
+        /// </summary>
         public static bool IsWon(int lastResolvedWave, GamePhase phase)
         {
             return phase == GamePhase.WaveClear
                 && IsWorldBoundary(lastResolvedWave)
-                && lastResolvedWave >= FinalWave;
+                && lastResolvedWave >= FinalWave
+                && WorldCatalog.NumberForWave(lastResolvedWave) >= FinalWorld;
         }
 
         public static string WinLine()

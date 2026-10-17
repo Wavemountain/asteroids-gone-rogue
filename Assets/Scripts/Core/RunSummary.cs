@@ -425,7 +425,7 @@ namespace AsteroidsGoneRogue
                 string cap = Loc.Tf(
                     "run.next_sector",
                     "Next  ·  World 2 after wave {0}",
-                    CampaignCap.FinalWave);
+                    WorldCatalog.WavesPerWorld);
                 return next != null
                     ? cap + "  ·  " + Loc.Tf("run.buy", "Buy {0}", next.Title)
                     : cap;
@@ -521,7 +521,7 @@ namespace AsteroidsGoneRogue
                 return phase == GamePhase.WaveClear;
             }
 
-            if (lastResolvedWave == CampaignCap.FinalWave)
+            if (lastResolvedWave == WorldCatalog.WavesPerWorld)
             {
                 return phase == GamePhase.WaveClear;
             }
@@ -568,7 +568,7 @@ namespace AsteroidsGoneRogue
                     World2StartsAtWave);
             }
 
-            if (lastResolvedWave == CampaignCap.FinalWave)
+            if (lastResolvedWave == WorldCatalog.WavesPerWorld)
             {
                 return WorldCatalog.ClearedMedal(WorldCatalog.NumberForWave(lastResolvedWave));
             }
@@ -613,12 +613,12 @@ namespace AsteroidsGoneRogue
                     MedalCatalog.ScoutWingClearsAtWave);
             }
 
-            if (nextWave <= CampaignCap.FinalWave)
+            if (nextWave <= WorldCatalog.WavesPerWorld)
             {
                 return Loc.Tf(
                     "run.next_sector",
                     "Next  ·  World 2 after wave {0}",
-                    CampaignCap.FinalWave);
+                    WorldCatalog.WavesPerWorld);
             }
 
             if (nextWave <= World2StartsAtWave)
