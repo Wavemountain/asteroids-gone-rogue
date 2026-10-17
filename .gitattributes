@@ -31,6 +31,7 @@
 Assets/Resources/Art/Import/*.fbx binary
 Assets/Resources/Art/Import/*.FBX binary
 *.png binary
+*.bmp binary
 *.jpg binary
 *.jpeg binary
 *.tga binary

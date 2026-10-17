@@ -36,6 +36,13 @@ namespace AsteroidsGoneRogue
             public Vector2 AnchorMax;
             public Vector2 Pivot;
             public float RasterScale;
+            public Color Color;
+            public TextAnchor Alignment;
+            public bool AlignByGeometry;
+            public float LineSpacing;
+            public HorizontalWrapMode Horizontal;
+            public VerticalWrapMode Vertical;
+            public bool RichText;
         }
 
         private static PlayBox _play;
@@ -221,6 +228,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            SnapHintChildren(host);
             RememberSegment(TallestSegment(host), false);
         }
 
@@ -230,6 +238,11 @@ namespace AsteroidsGoneRogue
         /// </summary>
         public static void CapturePlaySegment(Text segment)
         {
+            if (segment != null)
+            {
+                SnapHintText(segment, null, Screen.width, Screen.height);
+            }
+
             RememberSegment(segment, true);
         }
 
@@ -277,11 +290,24 @@ namespace AsteroidsGoneRogue
                 UseDefaultUiMaterial(part);
                 part.resizeTextForBestFit = false;
                 part.fontStyle = _play.Style;
+                part.color = _play.Color;
+                part.alignment = _play.Alignment;
+                part.alignByGeometry = _play.AlignByGeometry;
+                part.lineSpacing = _play.LineSpacing;
+                part.horizontalOverflow = _play.Horizontal;
+                part.verticalOverflow = _play.Vertical;
+                part.supportRichText = _play.RichText;
                 float now = RasterScaleOf(part);
                 int size = _play.FontSize;
                 if (_play.RasterScale > 0.01f && now > 0.01f && Mathf.Abs(now - _play.RasterScale) > 0.02f)
                 {
-                    size = Mathf.RoundToInt(_play.FontSize * _play.RasterScale / now);
+                    int pixels = Mathf.RoundToInt(_play.FontSize * _play.RasterScale);
+                    if (pixels < 1)
+                    {
+                        pixels = 1;
+                    }
+
+                    size = Mathf.RoundToInt(pixels / now);
                 }
 
                 if (size < 1)
@@ -289,10 +315,9 @@ namespace AsteroidsGoneRogue
                     size = 1;
                 }
 
-                if (size > 0)
-                {
-                    part.fontSize = size;
-                }
+                part.fontSize = size;
+                part.resizeTextMinSize = size;
+                part.resizeTextMaxSize = size;
 
                 rect.anchorMin = _play.AnchorMin;
                 rect.anchorMax = _play.AnchorMax;
@@ -319,7 +344,97 @@ namespace AsteroidsGoneRogue
 
                 rect.sizeDelta = sized;
                 RequestGlyphs(part, now);
+                SnapHintText(part, null, Screen.width, Screen.height);
             }
+        }
+
+        /// <summary>
+        /// Moves one hint glyph onto whole pixels. A null camera reads overlay
+        /// world corners, which are already screen pixels. A capture camera
+        /// maps the same corners through its viewport into the render target,
+        /// so the snap matches the image and not the game-view size.
+        /// </summary>
+        public static void SnapHintText(Text part, Camera cam, float pixelWidth, float pixelHeight)
+        {
+            if (part == null || part.rectTransform == null || pixelWidth < 2f || pixelHeight < 2f)
+            {
+                return;
+            }
+
+            part.resizeTextForBestFit = false;
+            RectTransform rect = part.rectTransform;
+            rect.localScale = Vector3.one;
+            Vector3[] corners = new Vector3[4];
+            rect.GetWorldCorners(corners);
+            float minX;
+            float minY;
+            float maxX;
+            float maxY;
+            if (!HintScreenRect(corners, cam, pixelWidth, pixelHeight, out minX, out minY, out maxX, out maxY))
+            {
+                return;
+            }
+
+            float left = Mathf.Round(minX);
+            float bottom = Mathf.Round(minY);
+            float right = Mathf.Round(maxX);
+            float top = Mathf.Round(maxY);
+            if (right < left + 1f)
+            {
+                right = left + 1f;
+            }
+
+            if (top < bottom + 1f)
+            {
+                top = bottom + 1f;
+            }
+
+            float width = maxX - minX;
+            float height = maxY - minY;
+            float pivotX = rect.pivot.x;
+            float pivotY = rect.pivot.y;
+            float dx = (left + ((right - left) * pivotX)) - (minX + (width * pivotX));
+            float dy = (bottom + ((top - bottom) * pivotY)) - (minY + (height * pivotY));
+            float dw = (right - left) - width;
+            float dh = (top - bottom) - height;
+            if (Mathf.Abs(dx) < 0.01f && Mathf.Abs(dy) < 0.01f && Mathf.Abs(dw) < 0.01f && Mathf.Abs(dh) < 0.01f)
+            {
+                return;
+            }
+
+            Vector3 move = PixelsToLocal(rect, cam, corners, pixelWidth, pixelHeight, dx, dy);
+            Vector3 grown = PixelsToLocal(rect, cam, corners, pixelWidth, pixelHeight, dw, dh);
+            if (Mathf.Abs(move.x) > 8f || Mathf.Abs(move.y) > 8f || Mathf.Abs(grown.x) > 8f || Mathf.Abs(grown.y) > 8f)
+            {
+                return;
+            }
+
+            Vector2 pos = rect.anchoredPosition;
+            pos.x += move.x;
+            pos.y += move.y;
+            rect.anchoredPosition = pos;
+            Vector2 sized = rect.sizeDelta;
+            sized.x += grown.x;
+            sized.y += grown.y;
+            if (sized.x < 1f)
+            {
+                sized.x = 1f;
+            }
+
+            if (sized.y < 1f)
+            {
+                sized.y = 1f;
+            }
+
+            rect.sizeDelta = sized;
+        }
+
+        /// <summary>
+        /// Asks the font for this segment at the size the canvas will draw.
+        /// </summary>
+        public static void WarmGlyphs(Text part)
+        {
+            RequestGlyphs(part, RasterScaleOf(part));
         }
 
         public static void Restyle(Text host, InputScheme scheme, float canvasScale)
@@ -639,6 +754,13 @@ namespace AsteroidsGoneRogue
             _play.AnchorMax = rect.anchorMax;
             _play.Pivot = rect.pivot;
             _play.RasterScale = RasterScaleOf(segment);
+            _play.Color = segment.color;
+            _play.Alignment = segment.alignment;
+            _play.AlignByGeometry = segment.alignByGeometry;
+            _play.LineSpacing = segment.lineSpacing;
+            _play.Horizontal = segment.horizontalOverflow;
+            _play.Vertical = segment.verticalOverflow;
+            _play.RichText = segment.supportRichText;
             if (lockSample)
             {
                 _playLocked = true;
@@ -696,7 +818,7 @@ namespace AsteroidsGoneRogue
             }
 
             float scale = rasterScale > 0.01f ? rasterScale : 1f;
-            int pixel = Mathf.FloorToInt(part.fontSize * scale);
+            int pixel = Mathf.RoundToInt(part.fontSize * scale);
             if (pixel < 1)
             {
                 pixel = 1;
@@ -713,6 +835,118 @@ namespace AsteroidsGoneRogue
             }
 
             return Mathf.Round(local * scale) / scale;
+        }
+
+        private static void SnapHintChildren(Text host)
+        {
+            if (host == null)
+            {
+                return;
+            }
+
+            Text[] parts = host.GetComponentsInChildren<Text>(true);
+            if (parts == null)
+            {
+                return;
+            }
+
+            float pixelW = Screen.width;
+            float pixelH = Screen.height;
+            for (int index = 0; index < parts.Length; index++)
+            {
+                Text part = parts[index];
+                if (part == null || part.gameObject == null || part.gameObject.name != SegmentPrefix + "T")
+                {
+                    continue;
+                }
+
+                SnapHintText(part, null, pixelW, pixelH);
+            }
+        }
+
+        private static bool HintScreenRect(Vector3[] corners, Camera cam, float pixelWidth, float pixelHeight, out float minX, out float minY, out float maxX, out float maxY)
+        {
+            minX = 0f;
+            minY = 0f;
+            maxX = 0f;
+            maxY = 0f;
+            if (corners == null || corners.Length == 0)
+            {
+                return false;
+            }
+
+            bool any = false;
+            for (int index = 0; index < corners.Length; index++)
+            {
+                float x;
+                float y;
+                if (cam == null)
+                {
+                    x = corners[index].x;
+                    y = corners[index].y;
+                }
+                else
+                {
+                    Vector3 vp = cam.WorldToViewportPoint(corners[index]);
+                    if (vp.z <= 0.01f)
+                    {
+                        return false;
+                    }
+
+                    x = vp.x * pixelWidth;
+                    y = vp.y * pixelHeight;
+                }
+
+                if (!any)
+                {
+                    minX = x;
+                    minY = y;
+                    maxX = x;
+                    maxY = y;
+                    any = true;
+                    continue;
+                }
+
+                if (x < minX)
+                {
+                    minX = x;
+                }
+
+                if (y < minY)
+                {
+                    minY = y;
+                }
+
+                if (x > maxX)
+                {
+                    maxX = x;
+                }
+
+                if (y > maxY)
+                {
+                    maxY = y;
+                }
+            }
+
+            return any && maxX - minX > 0.5f && maxY - minY > 0.5f;
+        }
+
+        private static Vector3 PixelsToLocal(RectTransform rect, Camera cam, Vector3[] corners, float pixelWidth, float pixelHeight, float dx, float dy)
+        {
+            if (rect == null)
+            {
+                return Vector3.zero;
+            }
+
+            if (cam == null || corners == null || corners.Length == 0)
+            {
+                return rect.InverseTransformVector(new Vector3(dx, dy, 0f));
+            }
+
+            Vector3 vp = cam.WorldToViewportPoint(corners[0]);
+            Vector3 from = cam.ViewportToWorldPoint(new Vector3(vp.x, vp.y, vp.z));
+            Vector3 to = cam.ViewportToWorldPoint(new Vector3(vp.x + (dx / pixelWidth), vp.y + (dy / pixelHeight), vp.z));
+            return rect.InverseTransformVector(to - from);
         }
 
         private static float PlayLocalHeight(Text host)

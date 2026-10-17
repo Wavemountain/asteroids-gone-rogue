@@ -16111,7 +16111,12 @@ def test_capture_048_clearance_hud() -> None:
     assert "rect.localScale = Vector3.one" in prompt_view
     assert "FinishHintBox" in ui and "ApplyPlayBox" in ui
     assert "GlyphSharpnessHit" in layer_gate and "LaplacianVariance" in layer_gate and "hint-soft" in layer_gate
+    assert "GlyphSharpRatio = 0.9f" in layer_gate and "hint-soft error" in layer_gate
+    assert "TryGlyphVariance" in layer_gate and "hint_sharp.bmp" in layer_gate and "hint_flat.bmp" in layer_gate
     assert "NoteHintGlyphs" in capture and "waveclear hint material" in capture
+    assert "WorldToViewportPoint" in capture and "AgrCapture layer ERROR:" in capture
+    assert "SnapHintText" in prompt_view and "SnapHintText" in capture
+    assert "GlyphLuma" in capture and "resizeTextForBestFit = false" in prompt_view
     assert "AGR/BlobShadow" in layer_gate and "shadow-alpha" in layer_gate and "IsBlobShadow" in layer_gate
     assert "SummaryBodyMaxX = 0.68f" in ui and "SummaryNewRunMaxY = 0.64f" in ui
     assert 'Loc.T("ui.hint_waveclear", HintWaveClear)' in ui
@@ -16147,6 +16152,9 @@ def test_capture_048_clearance_hud() -> None:
     shutil.copyfile(root / "Assets/Scripts/Core/PromptLayout.cs", work / "PromptLayout.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/CaptureContinue.cs", work / "CaptureContinue.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/LayerGate.cs", work / "LayerGate.cs")
+    hint_fixtures = root / "Tools" / "fixtures" / "hint"
+    for hint_name in ("hint_sharp.bmp", "hint_blur.bmp", "hint_flat.bmp"):
+        shutil.copyfile(hint_fixtures / hint_name, work / hint_name)
     shutil.copyfile(root / "Assets/Scripts/Core/DecorDepthRules.cs", work / "DecorDepthRules.cs")
     program = """
 using System;
