@@ -1984,12 +1984,12 @@ def test_daily_shield_and_remainder_047() -> None:
     import sim_longhaul
 
     report = sim_longhaul.sweep(root)
-    # Package B LanceGateCost 25 -> 45 adds 20 to the catalogue. Earnings stay
-    # put, so the old 84.7 / 75.5 / 64.1 ratios move to 84.5 / 75.4 / 63.9.
-    assert report["catalogue"] == 9903
-    assert abs(report["ratio"]["easy"] - 0.845) <= 0.001
-    assert abs(report["ratio"]["normal"] - 0.754) <= 0.001
-    assert abs(report["ratio"]["hard"] - 0.639) <= 0.001
+    # Economy package raises the world-1 catalogue 9903 -> 15766. Earnings stay
+    # put, so 84.5 / 75.4 / 63.9 move to 53.1 / 47.3 / 40.2.
+    assert report["catalogue"] == 15766
+    assert abs(report["ratio"]["easy"] - 0.531) <= 0.001
+    assert abs(report["ratio"]["normal"] - 0.473) <= 0.001
+    assert abs(report["ratio"]["hard"] - 0.402) <= 0.001
 
 
 def test_roslyn_stub_artefact_gate() -> None:
@@ -2409,7 +2409,8 @@ def test_weapons_upgrades_040b() -> None:
     assert "MaxShieldCharges = 2" in loadout
     assert "CurrentMaxShield" in loadout and "CurrentMaxShield" in health
     assert "NoseUpgrade03Damage = 4" in loadout
-    assert "AfterburnerCooldown = 0.075f" in loadout
+    assert "AfterburnerCooldown = 0.085f" in loadout
+    assert "return AfterburnerCooldown * Mk2EngineMul();" in loadout
     assert "SeekerFireCooldown = BaseFireCooldown * SeekerCooldownMul" in loadout
     assert "SeekerFireCooldown" in shooter
     assert "mode == FireMode.Seeker" in shooter.split("public void TryFireUtility()")[1].split("else if (mode == FireMode.Ricochet)")[0]
@@ -2427,7 +2428,7 @@ def test_weapons_upgrades_040b() -> None:
         for line in catalog.split("public static readonly ShopItem[] Items")[1].split("};")[0].splitlines()
         if line.strip().rstrip(",").isdigit()
     ]
-    assert min(costs) == 80
+    assert min(costs) == 60
     assert "Hull 02" in summary and "Nose 03" in summary and "Engine 03" in summary
     assert "Overcharger" in summary and "Afterburner" in summary
     assert "Twin" in summary and "Seeker" in summary and "Ricochet" in summary
@@ -3082,20 +3083,27 @@ def test_difficulty_economy_043() -> None:
             "ShieldMatrix",
         )
     }
+    prices = (root / "Assets/Scripts/Core/ShopPrices.cs").read_text(encoding="utf-8")
+    assert "WorldScaleStepPercent = 9" in prices
+    assert "WorldScaleCapPercent = 54" in prices
+    assert "CreditBonusPerWorld = 8" in (root / "Assets/Scripts/Core/DifficultyCurve.cs").read_text(encoding="utf-8")
     assert costs["ShieldCell"] == 80
-    assert costs["RapidFire"] == 100
+    assert costs["NoseHardpoint"] == 80
+    assert costs["RapidFire"] == 60
     assert costs["SpreadBolt"] == 110
     assert costs["Seeker"] == 125
-    assert costs["TwinGuns"] == 140
+    assert costs["TwinGuns"] == 190
+    assert costs["EngineUpgrade02"] == 340
     assert costs["Pierce"] == 155
     assert costs["Ricochet"] == 170
     assert costs["BodyUpgrade02"] == 175
     assert costs["ShieldMatrix"] == 185
-    assert costs["EngineUpgrade03"] == 190
-    assert costs["NoseUpgrade03"] == 200
+    assert costs["NoseUpgrade02"] == 150
+    assert costs["EngineUpgrade03"] == 1700
+    assert costs["NoseUpgrade03"] == 775
     assert costs["Overcharger"] == 230
     assert costs["Afterburner"] == 230
-    assert min(costs.values()) == 80
+    assert min(costs.values()) == 60
 
     assert "ArenaMusicScale = 0.65f" in audio
     assert "HighWaveMusicWave = 8" in audio
@@ -4197,7 +4205,7 @@ def test_doctrine_rail_045() -> None:
     assert "StormCooldownMul = 1.3f" in rules
     assert "StormSeconds = 0.1f" in rules
     assert "RailHoldSeconds = 0.55f" in rules
-    assert "RailDamageMul = 3f" in rules
+    assert "RailDamageMul = 8f" in rules
     assert "RailSpeedMul = 1.2f" in rules
     assert "RailCooldownMul = 1.6f" in rules
     assert "RailMissCancelCooldownMul = 0.5f" in rules
@@ -4369,8 +4377,8 @@ def test_doctrine_w1_affordability() -> None:
     """Barrage and Hunter still fit a Normal wave-1 clear. Lance does not.
 
     Credits are the flat wave-clear purse (kills do not pay credits). A doctrine
-    costs its gate weapon plus the entry pick. Package B raised LanceGateCost
-    from 25 to 45, so Twin 140 + 45 = 185 misses the Normal purse (165).
+    costs its gate weapon plus the entry pick. Twin is 190, so Twin + Lance 45
+    is 235. Pierce + Lance is 200 and is the cheaper miss of the Normal purse.
     """
     from pathlib import Path
 
@@ -4392,21 +4400,21 @@ def test_doctrine_w1_affordability() -> None:
     barrage_gate = _cs_int(rules, "BarrageGateCost")
     lance_gate = _cs_int(rules, "LanceGateCost")
     hunter_gate = _cs_int(rules, "HunterGateCost")
-    assert spread == 110 and seeker == 125 and twin == 140 and pierce == 155
+    assert spread == 110 and seeker == 125 and twin == 190 and pierce == 155
 
     barrage = spread + barrage_gate
     hunter = seeker + hunter_gate
     lance_twin = twin + lance_gate
     lance_pierce = pierce + lance_gate
-    # Barrage and Hunter still land on the Normal purse. Lance's cheapest
-    # path is 20 over that purse after the gate moved 25 -> 45.
+    # Barrage and Hunter still land on the Normal purse. Pierce is the cheaper
+    # Lance entry and still misses that purse. Twin is further over.
     assert barrage == normal
     assert hunter == normal
     assert lance_gate == 45
-    assert lance_twin == 185
-    assert lance_twin > normal
+    assert lance_twin == 235
     assert lance_pierce == 200
-    assert lance_pierce > lance_twin
+    assert lance_pierce < lance_twin
+    assert lance_pierce > normal
     # Hard wave-1 purse cannot buy any of the three doctrines.
     assert barrage > hard and hunter > hard and lance_twin > hard
 
@@ -4637,17 +4645,17 @@ def test_hangar_next_wave_always_selectable() -> None:
 _PAD_ITEMS = (
     ("BodyUpgrade01", "Hull", 90),
     ("BodyUpgrade02", "Hull", 175),
-    ("NoseHardpoint", "Hull", 120),
+    ("NoseHardpoint", "Hull", 80),
     ("NoseUpgrade02", "Hull", 150),
-    ("NoseUpgrade03", "Hull", 200),
-    ("RapidFire", "Hull", 100),
-    ("EngineUpgrade02", "Hull", 140),
-    ("EngineUpgrade03", "Hull", 190),
+    ("NoseUpgrade03", "Hull", 775),
+    ("RapidFire", "Hull", 60),
+    ("EngineUpgrade02", "Hull", 340),
+    ("EngineUpgrade03", "Hull", 1700),
     ("Overcharger", "Hull", 230),
     ("Afterburner", "Hull", 230),
     ("SpreadBolt", "Weapons", 110),
     ("Pierce", "Weapons", 155),
-    ("TwinGuns", "Weapons", 140),
+    ("TwinGuns", "Weapons", 190),
     ("Seeker", "Weapons", 125),
     ("Ricochet", "Weapons", 170),
     ("ShieldCell", "Defense", 80),
@@ -6956,7 +6964,7 @@ def test_longhaul_balance_046e() -> None:
     for grade in ("easy", "normal", "hard"):
         assert report["credit_total"][grade] > 0
         # credits through wave 35 / (Mk I + Mk II + doctrine gates). ±6 points.
-        target = {"easy": 0.85, "normal": 0.76, "hard": 0.64}[grade]
+        target = {"easy": 0.53, "normal": 0.47, "hard": 0.40}[grade]
         assert abs(report["ratio"][grade] - target) <= 0.06, (grade, report["ratio"][grade])
     assert report["credit_bonus_per_world"] == 8
     assert report["floor_ratio"]["normal"] < report["ratio"]["normal"]
@@ -7308,12 +7316,12 @@ def test_fairness_047b() -> None:
     import sim_longhaul
 
     report = sim_longhaul.sweep(root)
-    # Package B LanceGateCost 25 -> 45 adds 20 to the catalogue. Earnings stay
-    # put, so the old 84.7 / 75.5 / 64.1 ratios move to 84.5 / 75.4 / 63.9.
-    assert report["catalogue"] == 9903
-    assert abs(report["ratio"]["easy"] - 0.845) <= 0.001
-    assert abs(report["ratio"]["normal"] - 0.754) <= 0.001
-    assert abs(report["ratio"]["hard"] - 0.639) <= 0.001
+    # Economy package raises the world-1 catalogue 9903 -> 15766. Earnings stay
+    # put, so 84.5 / 75.4 / 63.9 move to 53.1 / 47.3 / 40.2.
+    assert report["catalogue"] == 15766
+    assert abs(report["ratio"]["easy"] - 0.531) <= 0.001
+    assert abs(report["ratio"]["normal"] - 0.473) <= 0.001
+    assert abs(report["ratio"]["hard"] - 0.402) <= 0.001
     assert report["credit_total"]["normal"] == 7464
 
 
@@ -9118,9 +9126,9 @@ def test_balance_049_package_b() -> None:
     storm_ab_before = spread_row(ab_cd, 4, True, True, False)
     storm_ab_after = spread_row(ab_cd, 4, True, True, True)
     assert abs(storm_ab_before["all"] - 3.333) < 0.01
-    # 0.075 × 1.35 × 0.85 × 1.3. The 0.1s floor stays under this product.
-    assert abs(storm_ab_after["interval"] - 0.11188125) < 1e-6
-    assert abs(storm_ab_after["all"] - 89.381) < 0.01
+    # 0.085 × 1.35 × 0.85 × 1.3. The 0.1s floor stays under this product.
+    assert abs(storm_ab_after["interval"] - 0.12679875) < 1e-6
+    assert abs(storm_ab_after["all"] - 78.865) < 0.01
 
     storm_oc_before = spread_row(e3_cd + oc_penalty, 4 + 1, True, True, False)
     storm_oc_after = spread_row(e3_cd + oc_penalty, 4 + oc_bonus, True, True, True)
@@ -9138,11 +9146,11 @@ def test_balance_049_package_b() -> None:
         return shots * row["interval"]
 
     assert abs(body_ttk(storm_ab_before, swarm_hp) - 25.5) < 0.01
-    assert abs(body_ttk(storm_ab_after, swarm_hp) - 1.007) < 0.01
+    assert abs(body_ttk(storm_ab_after, swarm_hp) - 1.141) < 0.01
     assert abs(body_ttk(storm_oc_before, swarm_hp) - 25.5) < 0.01
     assert abs(body_ttk(storm_oc_after, swarm_hp) - 1.074) < 0.01
     assert abs(body_ttk(storm_ab_before, ling_hp) - 3.0) < 0.01
-    assert abs(body_ttk(storm_ab_after, ling_hp) - 0.112) < 0.01
+    assert abs(body_ttk(storm_ab_after, ling_hp) - 0.127) < 0.01
     assert abs(body_ttk(nose_before, swarm_hp) - 8.721) < 0.01
     assert abs(body_ttk(nose_after, swarm_hp) - 4.617) < 0.01
 
@@ -9175,33 +9183,33 @@ def test_balance_049_package_b() -> None:
         cycle = rail_hold + (e3_cd + oc_penalty) * rail_cd_mul
         return _boss_hp(35, "normal") / (damage / cycle)
 
-    assert rail_boss_ttk(4 + 1) > 12.0
-    assert rail_boss_ttk(4 + oc_bonus) > 12.0
-    assert abs(rail_boss_ttk(4 + 1) - 27.60) < 0.05
-    assert abs(rail_boss_ttk(4 + oc_bonus) - 23.00) < 0.05
+    # Rail ×8. Nose 03 + Overcharger (6 × 8) on Engine 03 is the V7 rail build.
+    assert rail_boss_ttk(4 + 1) < 12.0
+    assert rail_boss_ttk(4 + oc_bonus) < 12.0
+    assert abs(rail_boss_ttk(4 + 1) - 10.35) < 0.05
+    assert abs(rail_boss_ttk(4 + oc_bonus) - 8.63) < 0.05
 
-    # Spec max build: Twin + Afterburner + Mk II on nose and Twin, not Afterburner.
-    max_dps = (5 * 2) / (ab_cd * twin_mul * 0.92)
-    assert abs(max_dps - 131.752) < 0.01
+    # Max build: Twin + Afterburner + Mk II on nose, Twin, and Afterburner.
+    # FireCooldown multiplies Afterburner by Mk2EngineMul, so that Mk II lands.
+    max_dps = (5 * 2) / (ab_cd * twin_mul * 0.92 * 0.92)
+    assert abs(max_dps - 126.361) < 0.01
     max_ttk = _boss_hp(35, "normal") / max_dps
     assert max_ttk >= 4.0
     assert 3.0 < max_ttk < 12.0
-    assert abs(max_ttk - 4.235) < 0.01
+    assert abs(max_ttk - 4.416) < 0.01
     # Spec paper ~4.6s uses boss HP 601. This formula returns 558.
-    assert abs(601 / max_dps - 4.562) < 0.01
-    # Afterburner returns 0.075 before Mk2EngineMul, so that Mk II does not
-    # shorten the cycle. Twin's own Mk II does, via Mk2WeaponMul.
-    # Overcharge Lance is legal on this same path and was not retuned here.
-    # It pulls world-7 boss TTK under the 4s floor.
-    lance_dps = (5 * 2) / (ab_cd * twin_mul * 0.9 * 0.92)
+    assert abs(601 / max_dps - 4.756) < 0.01
+    # Overcharge Lance is legal on this path. Its own Mk II stacks with Twin
+    # and Afterburner, and the world-7 boss still lands under the 4s floor.
+    lance_dps = (5 * 2) / (ab_cd * twin_mul * 0.9 * 0.92 * 0.92 * 0.92)
     lance_ttk = _boss_hp(35, "normal") / lance_dps
-    assert abs(lance_dps - 146.391) < 0.01
-    assert abs(lance_ttk - 3.812) < 0.01
+    assert abs(lance_dps - 152.610) < 0.01
+    assert abs(lance_ttk - 3.656) < 0.01
     assert lance_ttk < 4.0
     brute35 = _scale_hp(10, 35, "normal")
     assert brute35 == 33
-    assert abs(brute35 / max_dps - 0.250) < 0.002
-    assert abs(max_dps / brute35 - 3.992) < 0.01
+    assert abs(brute35 / max_dps - 0.261) < 0.002
+    assert abs(max_dps / brute35 - 3.829) < 0.01
 
     # Typical Twin ladder. World 4 with Nose 03 + Engine 03 falls under the 5s band.
     ladder = {1: (0.16, 2), 2: (0.12, 3), 3: (0.12, 3), 4: (0.09, 4), 5: (0.09, 4), 6: (0.09, 4), 7: (0.09, 4)}
@@ -9226,11 +9234,11 @@ def test_balance_049_package_b() -> None:
 
     report = sim_longhaul.sweep(root)
     assert report["gates"] == 140
-    assert report["catalogue"] == 9903
+    assert report["catalogue"] == 15766
     assert report["credit_total"] == {"easy": 8367, "normal": 7464, "hard": 6331}
-    assert abs(report["ratio"]["easy"] - 0.8449) < 0.0002
-    assert abs(report["ratio"]["normal"] - 0.7537) < 0.0002
-    assert abs(report["ratio"]["hard"] - 0.6393) < 0.0002
+    assert abs(report["ratio"]["easy"] - 0.5307) < 0.0002
+    assert abs(report["ratio"]["normal"] - 0.4734) < 0.0002
+    assert abs(report["ratio"]["hard"] - 0.4016) < 0.0002
 
 
 def test_storm_floor_049() -> None:
@@ -9314,12 +9322,13 @@ def test_storm_floor_049() -> None:
         if strongest_ttk is None or ttk < strongest_ttk:
             strongest_ttk = ttk
 
-    afterburner = interval(0.075, True)
-    assert abs(afterburner - (0.075 * 1.35 * 0.85 * 1.3)) < 1e-9
-    assert abs(afterburner - 0.112) < 0.001
-    # Strongest of these tiers is Afterburner + Nose 03: 9 shots of 2 damage.
+    afterburner = interval(0.085, True)
+    assert abs(afterburner - (0.085 * 1.35 * 0.85 * 1.3)) < 1e-9
+    assert abs(afterburner - 0.127) < 0.001
+    # Afterburner 0.085 needs 9 shots of 2 on a 17 HP body (1.141s).
+    # Overcharger needs 6 shots of 3 and is the faster of these tiers.
     assert strongest_ttk is not None
-    assert abs(strongest_ttk - 1.00693125) < 1e-6
+    assert abs(strongest_ttk - 1.07406) < 1e-6
     assert strongest_ttk >= 1.0
 
 
@@ -11987,7 +11996,7 @@ def test_mk2_grant_and_abandoned_lives() -> None:
 
         def fire_cd(self) -> float:
             if "Afterburner" in self.owned:
-                cooldown = 0.075
+                cooldown = 0.085
             elif "EngineUpgrade03" in self.owned:
                 cooldown = 0.09
             elif "EngineUpgrade02" in self.owned:
@@ -14160,7 +14169,7 @@ def test_rebind_047e2() -> None:
 
 
 def test_part_f_preview_and_sinks() -> None:
-    """0.47 F1 preview motion and F4 bay sinks. Sinks stay outside the 9903 catalogue."""
+    """0.47 F1 preview motion and F4 bay sinks. Sinks stay outside the 15766 catalogue."""
     import math
     from pathlib import Path
 
@@ -14217,7 +14226,7 @@ def test_part_f_preview_and_sinks() -> None:
     assert "ReachCap = 2" in catalog
     assert "class ShopSinkCatalog" not in shop
     assert "420" not in shop
-    for sticker in ("90,", "175,", "120,", "80,", "185,"):
+    for sticker in ("90,", "175,", "60,", "80,", "185,"):
         assert sticker in shop
 
     def sink_price(sink_id: int, rank: int) -> int:

@@ -20,7 +20,7 @@ namespace AsteroidsGoneRogue
         public const float RapidFireCooldown = 0.16f;
         public const float EngineUpgrade02Cooldown = 0.12f;
         public const float EngineUpgrade03Cooldown = 0.09f;
-        public const float AfterburnerCooldown = 0.075f;
+        public const float AfterburnerCooldown = 0.085f;
         public const float OverchargerCooldownPenalty = 0.03f;
         public const float BaseProjectileSpeed = 28f;
         public const float HardpointProjectileSpeed = 42f;
@@ -193,7 +193,7 @@ namespace AsteroidsGoneRogue
             {
                 if (Afterburner)
                 {
-                    return AfterburnerCooldown;
+                    return AfterburnerCooldown * Mk2EngineMul();
                 }
 
                 float cooldown = BaseFireCooldown;

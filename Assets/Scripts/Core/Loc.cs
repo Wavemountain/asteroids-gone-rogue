@@ -222,7 +222,7 @@ namespace AsteroidsGoneRogue
             { "shop.title.ShieldMatrix", "Sköldmatris" },
             { "shop.desc.ShieldMatrix", "Kräver två Sköldceller. Höjer sköldtaket till 3." },
             { "shop.title.Rail", "Räl" },
-            { "shop.desc.Rail", "Lans-mitt. PRIMÄR: håll {fire} 0.55s, släpp. Skada ×3, fart ×1.2, ingen pierce. CD ×1.6. Miss eller avbryt ger halv cooldown." },
+            { "shop.desc.Rail", "Lans-mitt. PRIMÄR: håll {fire} 0.55s, släpp. Skada ×8, fart ×1.2, ingen pierce. CD ×1.6. Miss eller avbryt ger halv cooldown." },
             { "shop.title.FlakFeed", "Flakmatning" },
             { "shop.desc.FlakFeed", "Salva-mitt. Spread-cooldown ×0.85 och halvvinkel +4°. Mjuklåser andra vägar." },
             { "shop.title.Storm", "Storm" },

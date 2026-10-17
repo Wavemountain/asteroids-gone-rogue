@@ -60,7 +60,7 @@ namespace AsteroidsGoneRogue
                 UpgradeId.NoseHardpoint,
                 "Nose Hardpoint",
                 "Swaps the nose slot for faster, harder-hitting shots.",
-                120,
+                80,
                 ShopGroup.Hull),
             new ShopItem(
                 UpgradeId.NoseUpgrade02,
@@ -72,25 +72,25 @@ namespace AsteroidsGoneRogue
                 UpgradeId.NoseUpgrade03,
                 "Nose Upgrade 03",
                 "Requires Nose 02. 4-damage shots. Reuses the Nose 02 mesh.",
-                200,
+                775,
                 ShopGroup.Hull),
             new ShopItem(
                 UpgradeId.RapidFire,
                 "Rapid Fire",
                 "Cuts cannon cooldown nearly in half and swaps the engine slot.",
-                100,
+                60,
                 ShopGroup.Hull),
             new ShopItem(
                 UpgradeId.EngineUpgrade02,
                 "Engine Upgrade 02",
                 "Requires Rapid Fire. Swaps to Ship_Engine_Upgrade02 (faster gun).",
-                140,
+                340,
                 ShopGroup.Hull),
             new ShopItem(
                 UpgradeId.EngineUpgrade03,
                 "Engine Upgrade 03",
                 "Requires Engine 02. Faster cannon. Reuses the Engine 02 mesh.",
-                190,
+                1700,
                 ShopGroup.Hull),
             new ShopItem(
                 UpgradeId.Overcharger,
@@ -120,7 +120,7 @@ namespace AsteroidsGoneRogue
                 UpgradeId.TwinGuns,
                 "Twin Guns",
                 "Primary slot: two parallel full-damage bolts. Not a spread fan.",
-                140,
+                190,
                 ShopGroup.Weapons),
             new ShopItem(
                 UpgradeId.Seeker,
@@ -149,7 +149,7 @@ namespace AsteroidsGoneRogue
             new ShopItem(
                 UpgradeId.Rail,
                 "Rail",
-                "Lance mid. Primary: hold {fire} 0.55s, release. Damage ×3, speed ×1.2, no pierce. CD ×1.6. Miss or cancel pays half.",
+                "Lance mid. Primary: hold {fire} 0.55s, release. Damage ×8, speed ×1.2, no pierce. CD ×1.6. Miss or cancel pays half.",
                 160,
                 ShopGroup.Doctrine),
             new ShopItem(
