@@ -2,7 +2,7 @@ namespace AsteroidsGoneRogue
 {
     /// <summary>
     /// Late-game credit sinks. Not part of <see cref="ShopCatalog"/>, so the
-    /// wave-35 catalogue stays 9883. Unity-free.
+    /// wave-35 catalogue stays 9903. Unity-free.
     /// </summary>
     public static class ShopSinkCatalog
     {

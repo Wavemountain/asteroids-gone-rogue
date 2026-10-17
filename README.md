@@ -98,16 +98,16 @@ Upgrades persist into the next wave.
 | Nose Upgrade 03 | 200 | Requires Nose 02; 4 damage. Reuses Nose 02 mesh |
 | Engine Upgrade 02 | 140 | Requires Rapid Fire; `Ship_Engine_Upgrade02`; faster gun |
 | Engine Upgrade 03 | 190 | Requires Engine 02; faster cannon. Reuses Engine 02 mesh |
-| Overcharger | 230 | Nose branch (+1 dmg, slower gun). Locks Afterburner |
+| Overcharger | 230 | Nose branch (+2 dmg, slower gun). Locks Afterburner |
 | Afterburner | 230 | Engine branch (fastest gun). Locks Overcharger |
-| Spread Bolt | 110 | **Primary** only. 3 lower-damage amber pellets (SpreadCore). LB / Q cycle. CD ×1.35, pellet `max(1, dmg/3)` |
+| Spread Bolt | 110 | **Primary** only. 3 amber pellets (SpreadCore). LB / Q cycle. CD ×1.35, pellet `max(1, (dmg+1)/2)` |
 | Pierce | 155 | **Primary** only. Cyan needle through targets (PierceNeedle). LB / Q cycle |
 | Twin Guns | 140 | **Primary** only. Two parallel full-damage bolts (not a fan). CD ×1.1 |
-| Seeker | 125 | **Utility** only. Magenta missile; hold LT / E. Own CD `0.38×2.4` (~0.91s), speed 0.58, −1 damage, turn 165. First utility purchase auto-equips if empty |
+| Seeker | 125 | **Utility** only. Magenta missile; hold LT / E. Own CD `0.38×2.0` (0.76s), speed 0.58, full damage, turn 165. First utility purchase auto-equips if empty |
 | Ricochet | 170 | **Utility** only. Lime bolt, **2** rim bounces. Hold LT / E. Own CD `0.38×1.5` (~0.57s). Wildcard on every doctrine, no capstone |
 | Rail | 160 | **Lance mid / primary.** Hold RT 0.55s, release. Damage ×3, speed ×1.2, no pierce. CD ×1.6. Miss or cancel pays half. LB cycle |
 | Flak Feed | 150 | **Barrage mid.** Spread CD ×0.85, half-angle +4°. Soft-locks other paths |
-| Storm | 240 | **Barrage cap.** 5 pellets, CD ×1.8, at least 1.5s |
+| Storm | 240 | **Barrage cap.** 5 pellets, CD ×1.3, at least 0.3s |
 | Overcharge Lance | 235 | **Lance cap.** Pierce +1 target / Twin CD ×0.9 |
 | Seeker Cadence | 155 | **Hunter mid.** Utility CD ×0.75, seeker turn 165 |
 | Twin Seek | 225 | **Hunter cap.** Hold LT: 2 seekers at 70% damage, utility CD ×1.2 |

@@ -1850,10 +1850,12 @@ def test_daily_shield_and_remainder_047() -> None:
     import sim_longhaul
 
     report = sim_longhaul.sweep(root)
-    assert report["catalogue"] == 9883
-    assert abs(report["ratio"]["easy"] - 0.847) <= 0.001
-    assert abs(report["ratio"]["normal"] - 0.755) <= 0.001
-    assert abs(report["ratio"]["hard"] - 0.641) <= 0.001
+    # Package B LanceGateCost 25 -> 45 adds 20 to the catalogue. Earnings stay
+    # put, so the old 84.7 / 75.5 / 64.1 ratios move to 84.5 / 75.4 / 63.9.
+    assert report["catalogue"] == 9903
+    assert abs(report["ratio"]["easy"] - 0.845) <= 0.001
+    assert abs(report["ratio"]["normal"] - 0.754) <= 0.001
+    assert abs(report["ratio"]["hard"] - 0.639) <= 0.001
 
 
 def test_roslyn_stub_artefact_gate() -> None:
@@ -2277,9 +2279,9 @@ def test_weapons_upgrades_040b() -> None:
     assert "SeekerFireCooldown = BaseFireCooldown * SeekerCooldownMul" in loadout
     assert "SeekerFireCooldown" in shooter
     assert "mode == FireMode.Seeker" in shooter.split("public void TryFireUtility()")[1].split("else if (mode == FireMode.Ricochet)")[0]
-    assert abs(0.38 * 2.4 - 0.912) < 1e-6
-    assert 0.38 * 2.4 >= 0.38 * 2.2
-    assert "OverchargerDamageBonus" in loadout
+    assert abs(0.38 * 2.0 - 0.76) < 1e-6
+    assert 0.38 * 2.0 > 0.38 * 1.5
+    assert "OverchargerDamageBonus = 2" in loadout
     assert "HasAltFire" in loadout and "HasAltFire" in ui and "HasAltFire" in shooter
     assert "hullIndex % 4" in ui
     assert "{cycle} cycle primary" in ui
@@ -2912,7 +2914,7 @@ def test_difficulty_economy_043() -> None:
 
     assert "SeekerFireCooldown = BaseFireCooldown * SeekerCooldownMul" in loadout
     assert "SeekerSpeedScale = 0.58f" in loadout
-    assert "SeekerDamagePenalty = 1" in loadout
+    assert "SeekerDamagePenalty = 0" in loadout
     assert "SeekerTurnDegrees = 165f" in projectile
     assert "SeekerSpeedScale" in shooter and "SeekerDamagePenalty" in shooter
 
@@ -3846,14 +3848,15 @@ def test_dual_fire_v1() -> None:
     lock = (root / "Packages/packages-lock.json").read_text(encoding="utf-8")
 
     assert "enum WeaponSlot" in slots
-    assert "SeekerCooldownMul = 2.4f" in slots
+    assert "SeekerCooldownMul = 2.0f" in slots
     assert "RicochetCooldownMul = 1.5f" in slots
     assert "SpreadCooldownMul = 1.35f" in slots
     assert "TwinCooldownMul = 1.1f" in slots
-    assert abs(0.38 * 2.4 - 0.912) < 1e-6
+    assert abs(0.38 * 2.0 - 0.76) < 1e-6
     assert abs(0.38 * 1.5 - 0.57) < 1e-6
     assert "RicochetBounces = 2" in loadout
-    assert "ProjectileDamage / 3" in loadout
+    assert "(ProjectileDamage + 1) / 2" in loadout
+    assert "ProjectileDamage / 3" not in loadout
     assert "HasUtility" in loadout and "PrimaryMode" in loadout
     assert "AutoEquipAfterPurchase" in loadout and "AutoEquipAfterPurchase" in hangar
     assert "TryEquip" in loadout and "TryEquip" in hangar and "TryEquip" in ui
@@ -3915,14 +3918,14 @@ def test_doctrine_rail_045() -> None:
 
     assert "UnlockWave = 2" in rules
     assert "BarrageGateCost = 55" in rules
-    assert "LanceGateCost = 25" in rules
+    assert "LanceGateCost = 45" in rules
     assert "HunterGateCost = 40" in rules
     assert "OffPathMul = 1.35f" in rules
     assert "FlakFeedCooldownMul = 0.85f" in rules
     assert "FlakFeedHalfAngleBonus = 4f" in rules
     assert "StormPelletCount = 5" in rules
-    assert "StormCooldownMul = 1.8f" in rules
-    assert "StormSeconds = 1.5f" in rules
+    assert "StormCooldownMul = 1.3f" in rules
+    assert "StormSeconds = 0.3f" in rules
     assert "RailHoldSeconds = 0.55f" in rules
     assert "RailDamageMul = 3f" in rules
     assert "RailSpeedMul = 1.2f" in rules
@@ -4093,10 +4096,11 @@ def _shop_cost(catalog: str, upgrade_id: str) -> int:
 
 
 def test_doctrine_w1_affordability() -> None:
-    """Regression: all three doctrines fit a Normal wave-1 clear, and none fit Hard.
+    """Barrage and Hunter still fit a Normal wave-1 clear. Lance does not.
 
     Credits are the flat wave-clear purse (kills do not pay credits). A doctrine
-    costs its gate weapon plus the entry pick. Lance's cheaper legal gate is Twin.
+    costs its gate weapon plus the entry pick. Package B raised LanceGateCost
+    from 25 to 45, so Twin 140 + 45 = 185 misses the Normal purse (165).
     """
     from pathlib import Path
 
@@ -4124,11 +4128,15 @@ def test_doctrine_w1_affordability() -> None:
     hunter = seeker + hunter_gate
     lance_twin = twin + lance_gate
     lance_pierce = pierce + lance_gate
-    # Minimal entry costs: each cheapest path lands on the Normal purse exactly.
+    # Barrage and Hunter still land on the Normal purse. Lance's cheapest
+    # path is 20 over that purse after the gate moved 25 -> 45.
     assert barrage == normal
     assert hunter == normal
-    assert lance_twin == normal
-    assert lance_pierce > normal
+    assert lance_gate == 45
+    assert lance_twin == 185
+    assert lance_twin > normal
+    assert lance_pierce == 200
+    assert lance_pierce > lance_twin
     # Hard wave-1 purse cannot buy any of the three doctrines.
     assert barrage > hard and hunter > hard and lance_twin > hard
 
@@ -4615,7 +4623,7 @@ def _pad_shop_mask(owned: frozenset[str], shield: int, doctrine: str, credits: i
     if doctrine == "None":
         gates = (
             ("SpreadBolt" in owned, 55, _PAD_BARRAGE),
-            ("Pierce" in owned or "TwinGuns" in owned, 25, _PAD_LANCE),
+            ("Pierce" in owned or "TwinGuns" in owned, 45, _PAD_LANCE),
             ("Seeker" in owned, 40, _PAD_HUNTER),
         )
         for gate_met, cost, slot in gates:
@@ -7021,10 +7029,12 @@ def test_fairness_047b() -> None:
     import sim_longhaul
 
     report = sim_longhaul.sweep(root)
-    assert report["catalogue"] == 9883
-    assert abs(report["ratio"]["easy"] - 0.847) <= 0.001
-    assert abs(report["ratio"]["normal"] - 0.755) <= 0.001
-    assert abs(report["ratio"]["hard"] - 0.641) <= 0.001
+    # Package B LanceGateCost 25 -> 45 adds 20 to the catalogue. Earnings stay
+    # put, so the old 84.7 / 75.5 / 64.1 ratios move to 84.5 / 75.4 / 63.9.
+    assert report["catalogue"] == 9903
+    assert abs(report["ratio"]["easy"] - 0.845) <= 0.001
+    assert abs(report["ratio"]["normal"] - 0.754) <= 0.001
+    assert abs(report["ratio"]["hard"] - 0.639) <= 0.001
     assert report["credit_total"]["normal"] == 7464
 
 
@@ -8689,6 +8699,249 @@ def test_loc_tf_formats_every_key() -> None:
     assert '{ "ui.hint_hangar", "{move} styr · {0}" }' in swedish
 
 
+def _cs_float(src: str, name: str) -> float:
+    import re
+
+    match = re.search(rf"{name}\s*=\s*(-?\d+(?:\.\d+)?)f", src)
+    assert match, name
+    return float(match.group(1))
+
+
+def _round_half_even(value: float) -> int:
+    """Unity Mathf.RoundToInt on a non-negative value."""
+    base = int(value)
+    frac = value - base
+    if frac > 0.5:
+        return base + 1
+    if frac < 0.5:
+        return base
+    return base if base % 2 == 0 else base + 1
+
+
+def test_balance_049_package_b() -> None:
+    """Package B paper model: doctrine and weapon numbers, swarm DPS, boss TTK.
+
+    RailHoldSeconds stays 0.55. The spec lists 0.55 -> 0.4 as optional
+    (valfritt), not as a recommendation.
+    Spread DPS assumes one pellet hits one body. All-pellet DPS is the
+    ceiling when every pellet hits a different swarm body.
+    """
+    import struct
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    rules = (root / "Assets/Scripts/Core/DoctrineRules.cs").read_text(encoding="utf-8")
+    loadout = (root / "Assets/Scripts/Core/LoadoutState.cs").read_text(encoding="utf-8")
+    slots = (root / "Assets/Scripts/Core/WeaponSlots.cs").read_text(encoding="utf-8")
+    catalog = (root / "Assets/Scripts/Core/ShopCatalog.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+
+    assert "StormSeconds = 0.3f" in rules
+    assert "StormCooldownMul = 1.3f" in rules
+    assert "LanceGateCost = 45" in rules
+    assert "RailHoldSeconds = 0.55f" in rules
+    assert "SeekerCooldownMul = 2.0f" in slots
+    assert "SeekerDamagePenalty = 0" in loadout
+    assert "OverchargerDamageBonus = 2" in loadout
+    assert "(ProjectileDamage + 1) / 2" in loadout
+    assert "ProjectileDamage / 3" not in loadout
+    assert "Cooldown ×1.3, at least 0.3s." in catalog
+    assert "Cooldown ×1.3, minst 0.3s." in loc
+    assert "+2 damage, slightly slower gun." in catalog
+    assert "+2 skada, lite långsammare kanon." in loc
+    assert "full damage." in catalog
+    assert "full skada." in loc
+    assert "−1 damage" not in catalog
+    assert "lägre skada" not in loc
+    assert "at least 1.5s" not in catalog
+    assert "minst 1.5s" not in loc
+
+    storm_floor = _cs_float(rules, "StormSeconds")
+    storm_mul = _cs_float(rules, "StormCooldownMul")
+    seeker_mul = _cs_float(slots, "SeekerCooldownMul")
+    penalty = _cs_int(loadout, "SeekerDamagePenalty")
+    oc_bonus = _cs_int(loadout, "OverchargerDamageBonus")
+    base_cd = _cs_float(loadout, "BaseFireCooldown")
+    ab_cd = _cs_float(loadout, "AfterburnerCooldown")
+    e3_cd = _cs_float(loadout, "EngineUpgrade03Cooldown")
+    oc_penalty = _cs_float(loadout, "OverchargerCooldownPenalty")
+    spread_mul = _cs_float(slots, "SpreadCooldownMul")
+    flak_mul = _cs_float(rules, "FlakFeedCooldownMul")
+    rail_hold = _cs_float(rules, "RailHoldSeconds")
+    rail_cd_mul = _cs_float(rules, "RailCooldownMul")
+    rail_dmg_mul = _cs_float(rules, "RailDamageMul")
+    twin_mul = _cs_float(slots, "TwinCooldownMul")
+    assert storm_floor == 0.3 and storm_mul == 1.3
+    assert seeker_mul == 2.0 and penalty == 0 and oc_bonus == 2
+    assert rail_hold == 0.55
+
+    def pellet(damage: int, new: bool) -> int:
+        if new:
+            return max(1, (damage + 1) // 2)
+        return max(1, damage // 3)
+
+    for damage, old, new in (
+        (1, 1, 1),
+        (2, 1, 1),
+        (3, 1, 2),
+        (4, 1, 2),
+        (5, 1, 3),
+        (6, 2, 3),
+        (7, 2, 4),
+    ):
+        assert pellet(damage, False) == old
+        assert pellet(damage, True) == new
+
+    def spread_interval(fire: float, storm: bool, flak: bool, new: bool) -> float:
+        mul = spread_mul
+        if flak:
+            mul *= flak_mul
+        if storm:
+            mul *= 1.3 if new else 1.8
+        interval = fire * mul
+        if storm:
+            interval = max(interval, 0.3 if new else 1.5)
+        return interval
+
+    def spread_row(fire: float, proj: int, storm: bool, flak: bool, new: bool) -> dict:
+        interval = spread_interval(fire, storm, flak, new)
+        shot = pellet(proj, new)
+        count = 5 if storm else 3
+        return {
+            "pellet": shot,
+            "interval": interval,
+            "one": shot / interval,
+            "all": count * shot / interval,
+        }
+
+    bare_before = spread_row(base_cd, 1, False, False, False)
+    bare_after = spread_row(base_cd, 1, False, False, True)
+    assert bare_before["pellet"] == bare_after["pellet"] == 1
+    assert abs(bare_before["all"] - bare_after["all"]) < 1e-9
+    assert abs(bare_after["all"] - 5.848) < 0.01
+
+    nose_before = spread_row(base_cd, 4, False, False, False)
+    nose_after = spread_row(base_cd, 4, False, False, True)
+    assert nose_before["pellet"] == 1 and nose_after["pellet"] == 2
+    assert abs(nose_before["all"] - 5.848) < 0.01
+    assert abs(nose_after["all"] - 11.696) < 0.01
+
+    storm_base_before = spread_row(base_cd, 4, True, True, False)
+    storm_base_after = spread_row(base_cd, 4, True, True, True)
+    assert abs(storm_base_before["interval"] - 1.5) < 1e-9
+    assert abs(storm_base_after["interval"] - 0.566865) < 1e-4
+    assert abs(storm_base_before["all"] - 3.333) < 0.01
+    assert abs(storm_base_after["all"] - 17.641) < 0.01
+
+    storm_ab_before = spread_row(ab_cd, 4, True, True, False)
+    storm_ab_after = spread_row(ab_cd, 4, True, True, True)
+    assert abs(storm_ab_before["all"] - 3.333) < 0.01
+    assert abs(storm_ab_after["interval"] - 0.3) < 1e-9
+    assert abs(storm_ab_after["all"] - 33.333) < 0.01
+
+    storm_oc_before = spread_row(e3_cd + oc_penalty, 4 + 1, True, True, False)
+    storm_oc_after = spread_row(e3_cd + oc_penalty, 4 + oc_bonus, True, True, True)
+    assert storm_oc_before["pellet"] == 1 and storm_oc_after["pellet"] == 3
+    assert abs(storm_oc_before["all"] - 3.333) < 0.01
+    assert abs(storm_oc_after["all"] - 50.0) < 0.01
+
+    # Debris Islands is world 6. Wave 28 is mid-world. Swarm body / swarmling.
+    swarm_hp = _scale_hp(6, 28, "normal")
+    ling_hp = _scale_hp(1, 28, "normal")
+    assert swarm_hp == 17 and ling_hp == 2
+
+    def body_ttk(row: dict, hp: int) -> float:
+        shots = (hp + row["pellet"] - 1) // row["pellet"]
+        return shots * row["interval"]
+
+    assert abs(body_ttk(storm_ab_before, swarm_hp) - 25.5) < 0.01
+    assert abs(body_ttk(storm_ab_after, swarm_hp) - 2.7) < 0.01
+    assert abs(body_ttk(storm_oc_before, swarm_hp) - 25.5) < 0.01
+    assert abs(body_ttk(storm_oc_after, swarm_hp) - 1.8) < 0.01
+    assert abs(body_ttk(storm_ab_before, ling_hp) - 3.0) < 0.01
+    assert abs(body_ttk(storm_ab_after, ling_hp) - 0.3) < 0.01
+    assert abs(body_ttk(nose_before, swarm_hp) - 8.721) < 0.01
+    assert abs(body_ttk(nose_after, swarm_hp) - 4.617) < 0.01
+
+    def f32(value: float) -> float:
+        return struct.unpack("f", struct.pack("f", float(value)))[0]
+
+    def seeker_dps(proj: int, new: bool, cadence: bool, twin: bool) -> float:
+        mul = 2.0 if new else 2.4
+        pen = 0 if new else 1
+        shot = max(1, proj - pen)
+        count = 1
+        if twin:
+            shot = max(1, _round_half_even(f32(shot) * f32(0.70)))
+            count = 2
+        extra = 1.0
+        if cadence:
+            extra *= 0.75
+        if twin:
+            extra *= 1.2
+        interval = base_cd * mul * extra
+        return count * shot / interval
+
+    assert abs(seeker_dps(4, False, False, False) - 3.2895) < 0.01
+    assert abs(seeker_dps(4, True, False, False) - 5.2632) < 0.01
+    assert abs(seeker_dps(4, False, True, True) - 4.8733) < 0.01
+    assert abs(seeker_dps(4, True, True, True) - 8.7719) < 0.01
+
+    def rail_boss_ttk(proj: int) -> float:
+        damage = max(1, _round_half_even(f32(proj) * f32(rail_dmg_mul)))
+        cycle = rail_hold + (e3_cd + oc_penalty) * rail_cd_mul
+        return _boss_hp(35, "normal") / (damage / cycle)
+
+    assert rail_boss_ttk(4 + 1) > 12.0
+    assert rail_boss_ttk(4 + oc_bonus) > 12.0
+    assert abs(rail_boss_ttk(4 + 1) - 27.60) < 0.05
+    assert abs(rail_boss_ttk(4 + oc_bonus) - 23.00) < 0.05
+
+    # Spec max build: Twin + Afterburner + Mk II on nose and Twin, not Afterburner.
+    max_dps = (5 * 2) / (ab_cd * twin_mul * 0.92)
+    assert abs(max_dps - 131.752) < 0.01
+    max_ttk = _boss_hp(35, "normal") / max_dps
+    assert max_ttk >= 4.0
+    assert 3.0 < max_ttk < 12.0
+    assert abs(max_ttk - 4.235) < 0.01
+    # Spec paper ~4.6s uses boss HP 601. This formula returns 558.
+    assert abs(601 / max_dps - 4.562) < 0.01
+    brute35 = _scale_hp(10, 35, "normal")
+    assert brute35 == 33
+    assert abs(brute35 / max_dps - 0.250) < 0.002
+    assert abs(max_dps / brute35 - 3.992) < 0.01
+
+    # Typical Twin ladder. World 4 with Nose 03 + Engine 03 falls under the 5s band.
+    ladder = {1: (0.16, 2), 2: (0.12, 3), 3: (0.12, 3), 4: (0.09, 4), 5: (0.09, 4), 6: (0.09, 4), 7: (0.09, 4)}
+    bands = {1: (7.0, 10.0), 2: (5.0, 8.0), 3: (5.0, 8.0), 4: (5.0, 8.0), 5: (5.0, 8.0), 6: (5.0, 8.0), 7: (6.0, 9.0)}
+    for world, (fire, damage) in ladder.items():
+        dps = (damage * 2) / (fire * twin_mul)
+        ttk = _boss_hp(world * 5, "normal") / dps
+        low, high = bands[world]
+        if world == 4:
+            assert abs(ttk - 4.567) < 0.01
+            assert ttk < low and ttk > 3.0
+        else:
+            assert low <= ttk <= high, (world, ttk)
+        brute = _scale_hp(10, (world - 1) * 5 + 3, "normal")
+        brute_ttk = brute / dps
+        assert 0.2 <= brute_ttk <= 0.5, (world, brute, brute_ttk)
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    import sim_longhaul
+
+    report = sim_longhaul.sweep(root)
+    assert report["gates"] == 140
+    assert report["catalogue"] == 9903
+    assert report["credit_total"] == {"easy": 8367, "normal": 7464, "hard": 6331}
+    assert abs(report["ratio"]["easy"] - 0.8449) < 0.0002
+    assert abs(report["ratio"]["normal"] - 0.7537) < 0.0002
+    assert abs(report["ratio"]["hard"] - 0.6393) < 0.0002
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -8742,6 +8995,7 @@ def main() -> int:
     test_dual_fire_v1()
     test_doctrine_rail_045()
     test_doctrine_w1_affordability()
+    test_balance_049_package_b()
     test_hotfix_045_rail_cancel_and_duck_merge()
     test_hangar_next_wave_always_selectable()
     test_doctrine_rows_pad_reachable()
@@ -13395,7 +13649,7 @@ def test_rebind_047e2() -> None:
 
 
 def test_part_f_preview_and_sinks() -> None:
-    """0.47 F1 preview motion and F4 bay sinks. Default catalogue stays 9883."""
+    """0.47 F1 preview motion and F4 bay sinks. Sinks stay outside the 9903 catalogue."""
     import math
     from pathlib import Path
 

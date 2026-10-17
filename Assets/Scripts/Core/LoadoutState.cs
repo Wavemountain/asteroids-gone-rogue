@@ -16,7 +16,7 @@ namespace AsteroidsGoneRogue
         public const float SeekerFireCooldown = BaseFireCooldown * SeekerCooldownMul;
         public const float RicochetFireCooldown = BaseFireCooldown * RicochetCooldownMul;
         public const float SeekerSpeedScale = 0.58f;
-        public const int SeekerDamagePenalty = 1;
+        public const int SeekerDamagePenalty = 0;
         public const float RapidFireCooldown = 0.16f;
         public const float EngineUpgrade02Cooldown = 0.12f;
         public const float EngineUpgrade03Cooldown = 0.09f;
@@ -30,7 +30,7 @@ namespace AsteroidsGoneRogue
         public const float NoseUpgrade02Speed = 48f;
         public const int NoseUpgrade03Damage = 4;
         public const float NoseUpgrade03Speed = 52f;
-        public const int OverchargerDamageBonus = 1;
+        public const int OverchargerDamageBonus = 2;
         public const int BodyUpgradeHullBonus = 1;
         public const float TwinOffsetMeters = 0.45f;
         public const int RicochetBounces = 2;
@@ -266,9 +266,10 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        /// <summary>Integer (ProjectileDamage + 1) / 2, at least 1.</summary>
         public int SpreadPelletDamage
         {
-            get { return Math.Max(1, ProjectileDamage / 3); }
+            get { return Math.Max(1, (ProjectileDamage + 1) / 2); }
         }
 
         public bool HasPrimaryAlt
