@@ -8907,6 +8907,15 @@ def test_balance_049_package_b() -> None:
     assert abs(max_ttk - 4.235) < 0.01
     # Spec paper ~4.6s uses boss HP 601. This formula returns 558.
     assert abs(601 / max_dps - 4.562) < 0.01
+    # Afterburner returns 0.075 before Mk2EngineMul, so that Mk II does not
+    # shorten the cycle. Twin's own Mk II does, via Mk2WeaponMul.
+    # Overcharge Lance is legal on this same path and was not retuned here.
+    # It pulls world-7 boss TTK under the 4s floor.
+    lance_dps = (5 * 2) / (ab_cd * twin_mul * 0.9 * 0.92)
+    lance_ttk = _boss_hp(35, "normal") / lance_dps
+    assert abs(lance_dps - 146.391) < 0.01
+    assert abs(lance_ttk - 3.812) < 0.01
+    assert lance_ttk < 4.0
     brute35 = _scale_hp(10, 35, "normal")
     assert brute35 == 33
     assert abs(brute35 / max_dps - 0.250) < 0.002
