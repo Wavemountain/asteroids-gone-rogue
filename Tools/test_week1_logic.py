@@ -1835,6 +1835,338 @@ def test_daily_legacy_start_matches_rank0() -> None:
     assert "ApplyLegacyToNewRun" not in accept
 
 
+def test_daily_carry_loadout_matches_fresh() -> None:
+    """A Normal hangar buy with max Legacy must not ride into Daily.
+
+    Compiles the real GameManager: start Normal at max rank, buy Rapid Fire,
+    switch to Daily, and require the loadout to match a fresh Reset. A v7
+    daily save that already holds that purchase still loads, with the gear
+    stripped. A progressed daily and a normal save keep it.
+    """
+    import os
+    import shutil
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    from roslyn_core_check import EDITOR_STUB, STUB, compiled_sources, find_dotnet
+
+    dotnet = find_dotnet()
+    assert dotnet, "daily carry test needs dotnet"
+    work = Path(os.environ.get("TMPDIR", "/tmp")) / "agr-daily-carry"
+    if work.exists():
+        shutil.rmtree(work)
+    work.mkdir(parents=True)
+    program = r"""
+using System;
+using System.Reflection;
+
+namespace AsteroidsGoneRogue
+{
+    public static class DailyCarryProbe
+    {
+        public static void Main()
+        {
+            try
+            {
+                Run();
+                Console.WriteLine("daily-carry-ok");
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex);
+                Environment.Exit(1);
+            }
+        }
+
+        static void Run()
+        {
+            MetaData meta = MetaData.Fresh();
+            meta.CreditPerk = LegacyProgress.MaxLevel;
+            meta.DiscountPerk = LegacyProgress.MaxLevel;
+            meta.ShieldPerk = LegacyProgress.MaxLevel;
+            meta.HullPerk = LegacyProgress.MaxLevel;
+
+            GameManager game = new GameManager();
+            GameSession session = new GameSession();
+            PlayerLoadout loadout = new PlayerLoadout();
+            LoadoutState state = new LoadoutState();
+            loadout.Bind(state);
+            SetField(game, "_session", session);
+            SetField(game, "_loadout", loadout);
+            SetField(game, "_runLaunched", false);
+            SetField(game, "_legacyApplied", false);
+            PropertyInfo metaProp = typeof(GameManager).GetProperty("Meta");
+            metaProp.GetSetMethod(true).Invoke(game, new object[] { meta });
+
+            Call(game, "ApplyLegacyToNewRun");
+            int startCredits = LegacyProgress.StartingCredits(meta);
+            if (session.Credits != startCredits || startCredits < 1)
+            {
+                throw new Exception("normal start credits " + session.Credits);
+            }
+
+            if (!state.RapidFire && state.ShieldCharges < 1)
+            {
+                throw new Exception("max legacy did not grant a start shield");
+            }
+
+            HangarShop shop = new HangarShop();
+            shop.Initialize(loadout, session, game);
+            if (!shop.TryBuy(UpgradeId.RapidFire))
+            {
+                throw new Exception("Rapid Fire buy failed credits=" + session.Credits);
+            }
+
+            if (!state.RapidFire || session.Credits >= startCredits)
+            {
+                throw new Exception("buy did not stick");
+            }
+
+            int spent = session.Credits;
+            Call(game, "ApplyDailyClock", 2026, 10, 17);
+            if (game.ActiveDailySeed <= 0)
+            {
+                throw new Exception("daily clock did not stamp");
+            }
+
+            LoadoutState fresh = new LoadoutState();
+            fresh.Reset();
+            if (Finger(state) != Finger(fresh) || session.Credits != 0)
+            {
+                throw new Exception(
+                    "daily loadout " + Finger(state)
+                    + " credits " + session.Credits
+                    + " spent-left " + spent
+                    + " fresh " + Finger(fresh));
+            }
+
+            if (meta.CreditPerk != LegacyProgress.MaxLevel)
+            {
+                throw new Exception("meta rank was wiped");
+            }
+
+            LoadoutState worn = new LoadoutState();
+            worn.Reset();
+            worn.Apply(UpgradeId.RapidFire);
+            worn.SetLegacyBonuses(LegacyProgress.HullBonusCap, LegacyProgress.DiscountCapPercent);
+            int wornMask = RunSaveCodec.PackUpgrades(worn);
+            if (wornMask == 0)
+            {
+                throw new Exception("worn mask empty");
+            }
+
+            ExpectLoad(worn, 1, 0, 40, true, wornMask, true);
+            ExpectLoad(worn, 4, 20, 40, true, wornMask, false);
+            ExpectLoad(worn, 1, 0, 40, false, wornMask, false);
+            ExpectGlassStillLoads();
+        }
+
+        static void ExpectLoad(LoadoutState worn, int wave, int score, int credits, bool daily, int wornMask, bool strip)
+        {
+            GameSession session = new GameSession();
+            session.RestoreHangar(wave, score, credits, 3, 0, 0, 0, 0);
+            int seed = 0;
+            int date = 0;
+            if (daily)
+            {
+                date = DailySeed.PackDate(2026, 10, 17);
+                seed = DailySeed.ForDate(2026, 10, 17);
+            }
+
+            int glass = MutatorCatalog.Bit(MutatorCatalog.Glass);
+            int swarm = MutatorCatalog.Bit(MutatorCatalog.Swarm);
+            RunSaveData data = RunSaveCodec.Capture(
+                session,
+                worn,
+                1,
+                2,
+                "2026-10-17T00:00:00Z",
+                new BoonRun(),
+                -1,
+                -1,
+                seed,
+                date,
+                glass | swarm);
+            string json = RunSaveCodec.ToJson(data);
+            RunSaveData loaded;
+            if (!RunSaveCodec.TryParse(json, out loaded) || loaded == null)
+            {
+                throw new Exception("v7 did not load wave=" + wave + " daily=" + daily);
+            }
+
+            if (loaded.Version != RunSaveCodec.CurrentVersion)
+            {
+                throw new Exception("version changed " + loaded.Version);
+            }
+
+            if (strip)
+            {
+                if (loaded.UpgradeMask != 0 || loaded.Mk2Mask != 0 || loaded.Doctrine != 0 || loaded.Shield != 0)
+                {
+                    throw new Exception("carry gear kept mask=" + loaded.UpgradeMask);
+                }
+
+                if (loaded.Credits != 0 || loaded.LegacyHull != 0 || loaded.FirstDiscount != 0 || loaded.FirstDiscountUsed != 0)
+                {
+                    throw new Exception("carry bonuses kept");
+                }
+
+                if (loaded.DailySeed != seed)
+                {
+                    throw new Exception("daily seed dropped");
+                }
+            }
+            else if (loaded.UpgradeMask != wornMask || loaded.Credits != credits)
+            {
+                throw new Exception("kept save changed mask=" + loaded.UpgradeMask + " credits=" + loaded.Credits);
+            }
+
+            int keptMutator = MutatorRules.Sanitize(glass | swarm);
+            if (loaded.MutatorMask != keptMutator)
+            {
+                throw new Exception("mutator changed " + loaded.MutatorMask);
+            }
+        }
+
+        static void ExpectGlassStillLoads()
+        {
+            GameSession session = new GameSession();
+            session.RestoreHangar(3, 15, 20, 3, 2, 10, 5, 0);
+            LoadoutState worn = new LoadoutState();
+            worn.Reset();
+            worn.Apply(UpgradeId.RapidFire);
+            int date = DailySeed.PackDate(2026, 10, 17);
+            int seed = DailySeed.ForDate(2026, 10, 17);
+            int glass = MutatorCatalog.Bit(MutatorCatalog.Glass);
+            int swarm = MutatorCatalog.Bit(MutatorCatalog.Swarm);
+            RunSaveData data = RunSaveCodec.Capture(
+                session,
+                worn,
+                1,
+                4,
+                "2026-10-17T00:00:00Z",
+                new BoonRun(),
+                3,
+                0,
+                seed,
+                date,
+                glass | swarm);
+            RunSaveData loaded;
+            if (!RunSaveCodec.TryParse(RunSaveCodec.ToJson(data), out loaded) || loaded == null)
+            {
+                throw new Exception("progressed daily with glass did not load");
+            }
+
+            if (loaded.UpgradeMask == 0 || (loaded.MutatorMask & glass) == 0)
+            {
+                throw new Exception("progressed daily was stripped");
+            }
+        }
+
+        static string Finger(LoadoutState state)
+        {
+            return RunSaveCodec.PackUpgrades(state).ToString()
+                + ":" + ((int)state.Doctrine).ToString()
+                + ":" + state.ShieldCharges.ToString()
+                + ":" + state.Mk2Mask.ToString()
+                + ":" + state.FirstDiscountPercent.ToString()
+                + ":" + (state.FirstDiscountUsed ? "1" : "0")
+                + ":" + state.LegacyHullBonus.ToString()
+                + ":" + ((int)state.PrimaryMode).ToString()
+                + ":" + ((int)state.UtilityMode).ToString()
+                + ":" + (state.HasUtility ? "1" : "0");
+        }
+
+        static void SetField(object target, string name, object value)
+        {
+            FieldInfo field = target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);
+            if (field == null)
+            {
+                throw new Exception("missing field " + name);
+            }
+
+            field.SetValue(target, value);
+        }
+
+        static void Call(object target, string name, params object[] args)
+        {
+            Type[] types = args == null ? Type.EmptyTypes : new Type[args.Length];
+            object[] values = args ?? new object[0];
+            for (int index = 0; index < values.Length; index++)
+            {
+                types[index] = values[index].GetType();
+            }
+
+            MethodInfo method = target.GetType().GetMethod(
+                name,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                null,
+                types,
+                null);
+            if (method == null)
+            {
+                throw new Exception("missing " + name);
+            }
+
+            method.Invoke(target, values);
+        }
+    }
+}
+"""
+    (work / "Program.cs").write_text(program, encoding="utf-8")
+    includes = [
+        '    <Compile Include="UnityStub.cs" />',
+        '    <Compile Include="UnityEditorStub.cs" />',
+        '    <Compile Include="Program.cs" />',
+    ]
+    shutil.copyfile(STUB, work / "UnityStub.cs")
+    shutil.copyfile(EDITOR_STUB, work / "UnityEditorStub.cs")
+    for path in compiled_sources():
+        includes.append(f'    <Compile Include="{path.as_posix()}" />')
+    (work / "carry.csproj").write_text(
+        "\n".join(
+            (
+                '<Project Sdk="Microsoft.NET.Sdk">',
+                "  <PropertyGroup>",
+                "    <OutputType>Exe</OutputType>",
+                "    <TargetFramework>net8.0</TargetFramework>",
+                "    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>",
+                "    <Nullable>disable</Nullable>",
+                "    <ImplicitUsings>disable</ImplicitUsings>",
+                "    <LangVersion>latest</LangVersion>",
+                "    <DefineConstants>TRACE;DEBUG;UNITY_EDITOR</DefineConstants>",
+                "  </PropertyGroup>",
+                "  <ItemGroup>",
+                *includes,
+                "  </ItemGroup>",
+                "</Project>",
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
+    env["DOTNET_NOLOGO"] = "1"
+    env["DOTNET_ROOT"] = str(Path(dotnet).resolve().parent)
+    env["PATH"] = str(Path(dotnet).resolve().parent) + os.pathsep + env.get("PATH", "")
+    result = subprocess.run(
+        [dotnet, "run", "--project", str(work / "carry.csproj"), "-v", "q"],
+        cwd=work,
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout
+    assert "daily-carry-ok" in result.stdout
+
+
 def test_daily_glass_off() -> None:
     """Glass Cannon cannot be carried into a daily seed. A normal seed keeps it.
 
@@ -1890,11 +2222,21 @@ def test_daily_glass_off() -> None:
     assert "mut.glass.daily" in loc and "Av i en daglig runda" in loc
     assert 'Loc.T("mut.glass.daily", "Off in a Daily run")' in copy
     assert "mut.factors" in copy
+    paint = ui.split("else if (RunSetupNav.IsMutator(paintIndex))")[1].split("if (_setupBlurb")[0]
+    assert "ChooserDailyMode()" in paint
+    assert paint.index("ChooserDailyMode") < paint.index("DailyBlockedLabel")
+    assert "Color.white" in paint
+    assert "ActiveDailySeed" in ui.split("private bool ChooserDailyMode()")[1].split("public void CaptureRunSetup")[0]
+    assert "RunSetupNav.DailySlot" in ui.split("private bool ChooserDailyMode()")[1].split("public void CaptureRunSetup")[0]
 
+    swedish = _loc_values(loc)
+    glass_sv = swedish["mut.glass"]
+    daily_sv = swedish["mut.glass.daily"]
     rows = {
         "en": "\u2022 Glass Cannon  ·  Off in a Daily run",
-        "sv": "\u2022 Glaskanone  ·  Av i en daglig runda",
+        "sv": "\u2022 " + glass_sv + "  \u00b7  " + daily_sv,
     }
+    assert rows["sv"] == "\u2022 " + glass_sv + "  \u00b7  " + daily_sv
     matrix = ((1280, 800), (1366, 768), (1440, 900), (1920, 1080), (1920, 1200), (2560, 1080), (2560, 1440), (3440, 1440))
     for width, height in matrix:
         scale = _canvas_scale(width, height)
@@ -9546,6 +9888,7 @@ def main() -> int:
     test_rc_047_fixes()
     test_daily_shield_and_remainder_047()
     test_daily_legacy_start_matches_rank0()
+    test_daily_carry_loadout_matches_fresh()
     test_daily_glass_off()
     test_game_feel_048()
     test_ui_transition_048()
@@ -15166,10 +15509,12 @@ def test_mutators_047f() -> None:
     ):
         assert key in loc and key in copy
 
+    glass_sv = _loc_values(loc)["mut.glass"]
     rows = {
         "en": "\u2022 Glass Cannon  ·  score ×1.50  ·  credits ×1.20",
-        "sv": "\u2022 Glaskanone  ·  poäng ×1.50  ·  krediter ×1.20",
+        "sv": "\u2022 " + glass_sv + "  \u00b7  poäng ×1.50  ·  krediter ×1.20",
     }
+    assert rows["sv"].startswith("\u2022 " + glass_sv)
     descs = {
         "en": "Asteroids are tougher and split once more.",
         "sv": "Asteroider är segare och delas en gång till.",

@@ -213,6 +213,52 @@ namespace AsteroidsGoneRogue
             return mask;
         }
 
+        /// <summary>
+        /// A daily file still at wave 1 with no score cannot keep hangar gear
+        /// bought before the daily stamp. Version stays 7 and the file loads.
+        /// A daily that has scored, or moved past wave 1, keeps its shop.
+        /// </summary>
+        public static void SanitizeDailyCarry(RunSaveData data)
+        {
+            if (data == null || data.DailySeed <= 0)
+            {
+                return;
+            }
+
+            if (data.WaveIndex > 1 || data.Score > 0)
+            {
+                return;
+            }
+
+            bool carried = data.UpgradeMask != 0
+                || data.Mk2Mask != 0
+                || data.Doctrine != 0
+                || data.Shield != 0
+                || data.HasUtility != 0
+                || data.LegacyHull != 0
+                || data.FirstDiscount != 0
+                || data.FirstDiscountUsed != 0
+                || data.Credits != 0;
+            if (!carried)
+            {
+                return;
+            }
+
+            data.UpgradeMask = 0;
+            data.Mk2Mask = 0;
+            data.Doctrine = 0;
+            data.Shield = 0;
+            data.PrimaryMode = 0;
+            data.UtilityMode = 0;
+            data.HasUtility = 0;
+            data.LegacyHull = 0;
+            data.FirstDiscount = 0;
+            data.FirstDiscountUsed = 0;
+            data.Credits = 0;
+            data.HullNow = -1;
+            data.ShieldNow = -1;
+        }
+
         public static bool IsValid(RunSaveData data)
         {
             if (data == null)
@@ -690,6 +736,8 @@ namespace AsteroidsGoneRogue
             {
                 parsed.MutatorMask = MutatorRules.Sanitize(parsed.MutatorMask);
             }
+
+            SanitizeDailyCarry(parsed);
 
             if (!IsValid(parsed))
             {

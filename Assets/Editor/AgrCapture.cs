@@ -25,7 +25,7 @@ namespace AsteroidsGoneRogue.EditorTools
     {
         const int Width = 1920;
         const int Height = 1080;
-        const int ShotCount = 6;
+        const int ShotCount = 7;
         const int SettleFrames = 60;
         const int CardFrames = 3;
         const double TimeoutSeconds = 300.0;
@@ -169,7 +169,7 @@ namespace AsteroidsGoneRogue.EditorTools
                     + " seed=" + seed.ToString()
                     + " res=" + Width.ToString() + "x" + Height.ToString()
                     + " backup=" + backup
-                    + " W1=wave 1, W3=world 3 wave 11, W4=world 4 wave 16, death=wave 1, waveclear=wave 1");
+                    + " W1=wave 1, W3=world 3 wave 11, W4=world 4 wave 16, death=wave 1, waveclear=wave 1, chooser=hangar");
                 LogPlayModeSettings();
                 HookLifecycle();
                 EnsureHook();
@@ -405,7 +405,7 @@ namespace AsteroidsGoneRogue.EditorTools
 
                 int shot = SessionState.GetInt(KeyShot, 0);
                 HoldForShot(shot);
-                if (shot != 0)
+                if (shot != 0 && shot != 6)
                 {
                     PinShip();
                     KeepShipAlive();
@@ -576,6 +576,27 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
+            if (shot == 6)
+            {
+                if (!InvokeZero(game, "EnterHangar"))
+                {
+                    Fail("EnterHangar missing");
+                    return;
+                }
+
+                SnapHangar();
+                HoldForShot(0);
+                Component chooserUi = FindComponent("GameUi");
+                if (!InvokeInts(chooserUi, "CaptureRunSetup", new int[] { 1 }))
+                {
+                    Fail("CaptureRunSetup missing");
+                    return;
+                }
+
+                IsolateChooserCanvas();
+                return;
+            }
+
             int wave = WaveFor(shot);
             if (!InvokeInts(session, "RestoreHangar", new int[] { wave, 0, 0, 3, 0, 0, 0, 0 }))
             {
@@ -675,7 +696,13 @@ namespace AsteroidsGoneRogue.EditorTools
             QuietBanners();
             ApplyReduceCache();
             int shot = SessionState.GetInt(KeyShot, 0);
-            if (shot != 0)
+            if (shot == 6)
+            {
+                HoldForShot(0);
+                IsolateChooserCanvas();
+                CheckChooserLanguages();
+            }
+            else if (shot != 0)
             {
                 HoldForShot(shot);
                 SeparateOpening(true);
@@ -805,9 +832,150 @@ namespace AsteroidsGoneRogue.EditorTools
             }
         }
 
+        static void IsolateChooserCanvas()
+        {
+            Canvas[] canvases = UnityEngine.Object.FindObjectsByType<Canvas>();
+            if (canvases == null)
+            {
+                return;
+            }
+
+            for (int canvasIndex = 0; canvasIndex < canvases.Length; canvasIndex++)
+            {
+                Canvas canvas = canvases[canvasIndex];
+                if (canvas == null || canvas.gameObject == null)
+                {
+                    continue;
+                }
+
+                if (canvas.gameObject.name == "RunSetupCanvas")
+                {
+                    canvas.gameObject.SetActive(true);
+                    continue;
+                }
+
+                canvas.gameObject.SetActive(false);
+            }
+        }
+
+        static void CheckChooserLanguages()
+        {
+            Component ui = FindComponent("GameUi");
+            if (ui == null)
+            {
+                Fail("GameUi missing for chooser");
+                return;
+            }
+
+            int prior = CaptureLanguage();
+            for (int language = 0; language < 2; language++)
+            {
+                SetCaptureLanguage(language);
+                if (!InvokeInts(ui, "CaptureRunSetup", new int[] { 1 }))
+                {
+                    Fail("CaptureRunSetup missing");
+                    return;
+                }
+
+                Canvas.ForceUpdateCanvases();
+                NoteChooserOverflow();
+                if (!InvokeInts(ui, "CaptureRunSetup", new int[] { 2 }))
+                {
+                    Fail("CaptureRunSetup missing");
+                    return;
+                }
+
+                Canvas.ForceUpdateCanvases();
+                NoteChooserOverflow();
+            }
+
+            SetCaptureLanguage(prior);
+            InvokeInts(ui, "CaptureRunSetup", new int[] { 1 });
+            Canvas.ForceUpdateCanvases();
+        }
+
+        static void NoteChooserOverflow()
+        {
+            Text[] texts = UnityEngine.Object.FindObjectsByType<Text>();
+            if (texts == null)
+            {
+                return;
+            }
+
+            for (int textIndex = 0; textIndex < texts.Length; textIndex++)
+            {
+                Text label = texts[textIndex];
+                if (label == null)
+                {
+                    continue;
+                }
+
+                Transform cursor = label.transform;
+                bool setup = false;
+                while (cursor != null)
+                {
+                    if (cursor.name == "RunSetupCanvas")
+                    {
+                        setup = true;
+                        break;
+                    }
+
+                    cursor = cursor.parent;
+                }
+
+                if (!setup)
+                {
+                    continue;
+                }
+
+                NoteTextOverflow(label);
+            }
+        }
+
+        static int CaptureLanguage()
+        {
+            System.Type loc = FindType("Loc");
+            if (loc == null)
+            {
+                return 0;
+            }
+
+            System.Reflection.PropertyInfo prop = loc.GetProperty("Language", Flags);
+            if (prop == null)
+            {
+                return 0;
+            }
+
+            object value = prop.GetValue(null, null);
+            if (value == null)
+            {
+                return 0;
+            }
+
+            return (int)value;
+        }
+
+        static void SetCaptureLanguage(int language)
+        {
+            System.Type loc = FindType("Loc");
+            System.Type lang = FindType("GameLanguage");
+            if (loc == null || lang == null)
+            {
+                return;
+            }
+
+            System.Reflection.MethodInfo set = loc.GetMethod("SetLanguage", new System.Type[] { lang });
+            if (set == null)
+            {
+                return;
+            }
+
+            set.Invoke(null, new object[] { System.Enum.ToObject(lang, language) });
+        }
+
         static void HoldForShot(int shot)
         {
-            if (shot == 0)
+            if (shot == 0 || shot == 6)
             {
                 HoldCamera(new Vector3(0f, 31f, -19f), new Vector3(0.25f, 0.4f, 0f), 54f);
                 return;
@@ -2257,6 +2425,10 @@ namespace AsteroidsGoneRogue.EditorTools
             else if (shot == 5)
             {
                 sceneName = "waveclear";
+            }
+            else if (shot == 6)
+            {
+                sceneName = "chooser";
             }
 
             string flag = "off";
@@ -4483,6 +4655,11 @@ namespace AsteroidsGoneRogue.EditorTools
             if (shot == 5)
             {
                 return "waveclear";
+            }
+
+            if (shot == 6)
+            {
+                return "hangar";
             }
 
             return "1";
