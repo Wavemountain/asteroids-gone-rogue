@@ -499,6 +499,7 @@ namespace AsteroidsGoneRogue
             { "mut.overclock", "Överklockning" },
             { "mut.long", "Långtur" },
             { "mut.glass.desc", "Du och fiender tar +50% skada. Poäng ×1.50, krediter ×1.20." },
+            { "mut.glass.daily", "Av i en daglig runda" },
             { "mut.swarm.desc", "Fler svärmare, färre tungviktare." },
             { "mut.heavy.desc", "Asteroider är segare och delas en gång till." },
             { "mut.quiet.desc", "Färre plock. Kreditbelöning stiger." },

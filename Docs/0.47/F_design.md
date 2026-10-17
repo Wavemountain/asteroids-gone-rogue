@@ -49,6 +49,8 @@ At New Run the player may toggle 0, 1, or 2 mutators, then confirm. The chooser 
 
 Swarm Season is incompatible with Heavy Rocks. Glass Cannon is incompatible with Quiet Space. Stacked score multipliers multiply, then clamp to 1.00–1.60. Credit multipliers clamp to 1.00–1.40. Zero mutators leaves every multiplier at 1.
 
+Glass Cannon stays available on a normal run. A daily seed cannot carry it: the chooser row says it is off in a daily run (EN and SV), and a saved Glass bit is dropped when that daily seed starts. The save still loads.
+
 0.48 P5 raises Glass Cannon from ×1.15 score and ×1.00 credits to ×1.50 and ×1.20. The ×1.5 damage still uses HitRemainder and still clears that remainder on every run and wave configure. A mask with any picks shows one combined line, for example `Risk ••• / Score x1.5 / Credits x1.2` (bullet U+2022). Pips add: Glass 3, Heavy 2, Overclock 2, Long Haul 2, Swarm 1, Quiet 1, capped at 5.
 
 A daily can start once per UTC date. After that start, the chooser and the death card show the time until the next UTC midnight, and the next daily opens on that midnight without an app restart. The check runs when the hangar opens and when the app gains focus. The daily seed is still stamped before RunBonusPolicy grants the legacy and sink shields, and a daily still skips both. Juice and UI do not draw from RunRng.

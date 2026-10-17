@@ -1835,6 +1835,74 @@ def test_daily_legacy_start_matches_rank0() -> None:
     assert "ApplyLegacyToNewRun" not in accept
 
 
+def test_daily_glass_off() -> None:
+    """Glass Cannon cannot be carried into a daily seed. A normal seed keeps it.
+
+    A saved Glass bit is ignored when that daily seed starts. The file still
+    loads. Easy toggle on a normal seed is unchanged. The chooser row stays
+    clickable and says why Daily refuses it, in EN and SV.
+    """
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    rules = (root / "Assets/Scripts/Core/MutatorRules.cs").read_text(encoding="utf-8")
+    copy = (root / "Assets/Scripts/Core/MutatorCopy.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+
+    glass = _mutator_bit(0)
+    swarm = _mutator_bit(1)
+    long_haul = _mutator_bit(5)
+
+    def for_daily(mask: int, daily_seed: int) -> int:
+        clean = _mutator_sanitize(mask)
+        if daily_seed <= 0 or (clean & glass) == 0:
+            return clean
+        return clean & ~glass
+
+    daily = 40621
+    assert for_daily(glass | long_haul, daily) == long_haul
+    assert for_daily(glass, daily) == 0
+    assert for_daily(swarm | long_haul, daily) == swarm | long_haul
+    assert for_daily(glass | long_haul, 0) == glass | long_haul
+    assert for_daily(glass | swarm | long_haul, daily) == 0
+    assert for_daily(0, daily) == 0
+    assert for_daily(glass | long_haul, -1) == glass | long_haul
+    assert _mutator_toggle(0, 0) == (True, glass)
+    assert _mutator_toggle(glass | long_haul, 0) == (True, long_haul)
+
+    assert "return id == MutatorCatalog.Glass;" in rules
+    assert "public static int ForDailySeed(int mask, int dailySeed)" in rules
+    plain = manager.split("public void ApplyMutators(int mask)")[1].split("public void ApplyMutators(int mask, bool dailyRun)")[0]
+    assert "ApplyMutators(mask, false)" in plain
+    assert "ForDailySeed" not in plain
+    daily_apply = manager.split("public void ApplyMutators(int mask, bool dailyRun)")[1].split("public void NotifyPlayerDestroyed")[0]
+    assert "MutatorRules.ForDailySeed(mask, 1)" in daily_apply
+    assert "MutatorRules.Sanitize(mask)" in daily_apply
+    begin = manager.split("public void BeginRetry(")[1].split("public void ApplyMutators")[0]
+    assert "ApplyMutators(mutatorMask, daily)" in begin
+    accept = manager.split("public void AcceptContinue()")[1].split("private void ConcludeAbandonedLastLife")[0]
+    assert "ApplyMutators(data.MutatorMask, ActiveDailySeed > 0)" in accept
+    assert ui.count("ApplyMutators(chosenMask, daily)") == 2
+    assert "DailyBlockedLabel" in ui and "BlockedOnDaily" in ui and "TryToggle" in ui
+    assert "UiTheme.DisabledRgb" in ui and "UiTheme.Primary" in ui
+    assert "mut.glass.daily" in loc and "Av i en daglig runda" in loc
+    assert 'Loc.T("mut.glass.daily", "Off in a Daily run")' in copy
+    assert "mut.factors" in copy
+
+    rows = {
+        "en": "\u2022 Glass Cannon  ·  Off in a Daily run",
+        "sv": "\u2022 Glaskanone  ·  Av i en daglig runda",
+    }
+    matrix = ((1280, 800), (1366, 768), (1440, 900), (1920, 1080), (1920, 1200), (2560, 1080), (2560, 1440), (3440, 1440))
+    for width, height in matrix:
+        scale = _canvas_scale(width, height)
+        row_w = (0.72 - 0.28) * (width / scale)
+        for lang in ("en", "sv"):
+            assert _shop_wrapped_lines(rows[lang], row_w, 18) <= 2
+
+
 def test_daily_shield_and_remainder_047() -> None:
     """Daily runs skip legacy and sink start shields. Remainders restart each configure."""
     import sys
@@ -9469,6 +9537,7 @@ def main() -> int:
     test_rc_047_fixes()
     test_daily_shield_and_remainder_047()
     test_daily_legacy_start_matches_rank0()
+    test_daily_glass_off()
     test_game_feel_048()
     test_ui_transition_048()
     test_p3_hangar_hero_preview()
