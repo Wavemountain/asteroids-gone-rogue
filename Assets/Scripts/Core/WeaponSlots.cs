@@ -16,7 +16,7 @@ namespace AsteroidsGoneRogue
         public const float SpreadCooldownMul = 1.35f;
         public const float TwinCooldownMul = 1.1f;
         public const float PierceCooldownMul = 1f;
-        public const float SeekerCooldownMul = 2.4f;
+        public const float SeekerCooldownMul = 2.0f;
         public const float RicochetCooldownMul = 1.5f;
         public const float RailCooldownMul = DoctrineRules.RailCooldownMul;
 

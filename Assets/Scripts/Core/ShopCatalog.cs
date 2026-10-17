@@ -95,7 +95,7 @@ namespace AsteroidsGoneRogue
             new ShopItem(
                 UpgradeId.Overcharger,
                 "Overcharger",
-                "Nose branch. +1 damage, slightly slower gun. Locks Afterburner.",
+                "Nose branch. +2 damage, slightly slower gun. Locks Afterburner.",
                 230,
                 ShopGroup.Hull),
             new ShopItem(
@@ -125,7 +125,7 @@ namespace AsteroidsGoneRogue
             new ShopItem(
                 UpgradeId.Seeker,
                 "Seeker",
-                "Utility slot: magenta missile. Hold {utility}. Own cooldown. Weaker homing, slower cadence, −1 damage.",
+                "Utility slot: magenta missile. Hold {utility}. Own cooldown. Weaker homing, slower cadence, full damage.",
                 125,
                 ShopGroup.Weapons),
             new ShopItem(
@@ -161,7 +161,7 @@ namespace AsteroidsGoneRogue
             new ShopItem(
                 UpgradeId.Storm,
                 "Storm",
-                "Barrage capstone. Spread fires 5 pellets. Cooldown ×1.8, at least 1.5s.",
+                "Barrage capstone. Spread fires 5 pellets. Cooldown ×1.3, at least 0.3s.",
                 240,
                 ShopGroup.Doctrine),
             new ShopItem(
