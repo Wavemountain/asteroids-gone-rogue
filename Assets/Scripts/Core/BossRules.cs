@@ -8,7 +8,7 @@ namespace AsteroidsGoneRogue
     public static class BossRules
     {
         public const int FirstWave = 5;
-        public const int HpFactor = 12;
+        public const int HpFactor = 18;
         public const float VisualScale = 1.8f;
         public const float SpeedScale = 0.62f;
         public const int BoltDamage = 1;
@@ -38,7 +38,7 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// 12 × base Brute HP × world HP percent, then Easy/Normal/Hard.
+        /// 18 × base Brute HP × world HP percent, then Easy/Normal/Hard.
         /// World 8 holds at the world-7 cap, so the sequence never drops.
         /// </summary>
         public static int HitPoints(int waveIndex, DifficultyGrade grade)

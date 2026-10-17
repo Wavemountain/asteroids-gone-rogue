@@ -179,7 +179,7 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// Steps of +15% enemy HP. Unwrapped world 8 stays at the world-7 cap.
+        /// Steps of +35% enemy HP. Unwrapped world 8 stays at the world-7 cap.
         /// </summary>
         public static int HpSteps(int worldNumber)
         {

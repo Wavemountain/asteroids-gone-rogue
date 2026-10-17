@@ -6276,13 +6276,15 @@ def _hp_percent_for_wave(wave: int) -> int:
     within = (shown - 1) % 5
     if steps >= 6 and world > 7:
         within = 4
-    percent = 100 + 15 * steps + 3 * within
-    peak = 100 + 15 * 6 + 3 * 4
+    # Package A: WorldHpPercent 15 -> 35, WithinWorldHpPercent 3 -> 6. Peak 202 -> 334.
+    percent = 100 + 35 * steps + 6 * within
+    peak = 100 + 35 * 6 + 6 * 4
     return min(percent, peak)
 
 
 def _damage_percent(world: int) -> int:
-    bonus = (max(world, 1) - 1) * 4
+    # DamageBonusPerWorld 4 -> 10. Cap stays +60.
+    bonus = (max(world, 1) - 1) * 10
     if bonus > 60:
         bonus = 60
     if bonus < 0:
@@ -6356,9 +6358,14 @@ def _apply_grade_hp(hp: int, grade: str) -> int:
 
 
 def _boss_hp(wave: int, grade: str) -> int:
+    """HpFactor * Brute HP * world HP percent / 100, then the grade.
+
+    World percent is 100 + WorldHpPercent * steps. The within-world bonus is
+    not part of this formula. Package A: HpFactor 12 -> 18, WorldHpPercent 15 -> 35.
+    """
     world = _curve_world(wave)
-    world_percent = 100 + 15 * _hp_steps(world)
-    raw = 12 * 10 * world_percent // 100
+    world_percent = 100 + 35 * _hp_steps(world)
+    raw = 18 * 10 * world_percent // 100
     if raw < 1:
         raw = 1
     return _apply_grade_hp(raw, grade)
@@ -6448,7 +6455,8 @@ def test_long_haul_difficulty_046() -> None:
     loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
     factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
 
-    assert "WithinWorldHpPercent = 3" in curve
+    assert "WithinWorldHpPercent = 6" in curve
+    assert "DamageBonusPerWorld = 10" in curve
     assert "MaxDamageBonus = 60" in curve
     assert "MaxExtraEnemies = 4" in curve
     assert "MaxFireBonus = 30" in curve
@@ -6465,7 +6473,7 @@ def test_long_haul_difficulty_046() -> None:
     assert "AnnounceEliteWave" in ui and "AnnounceEliteWave" in manager
     assert "MarkElite" in factory
     assert "ConfigureBoss" in seeker and "SpawnTelegraphRing" in seeker
-    assert "VisualScale = 1.8f" in boss and "HpFactor = 12" in boss
+    assert "VisualScale = 1.8f" in boss and "HpFactor = 18" in boss
     assert "FirstEliteWave = 10" in modifier
     assert "MaxCount = 8" in roster_src
     for key in (
@@ -6504,7 +6512,7 @@ def test_long_haul_difficulty_046() -> None:
         assert fire >= prev_fire
         assert rocks >= prev_rocks
         assert credit_pct >= prev_credit_pct
-        assert 100 <= hp <= 202
+        assert 100 <= hp <= 334
         assert 100 <= dmg <= 160
         assert 0 <= extra <= 4
         assert 100 <= fire <= 130
@@ -6522,17 +6530,17 @@ def test_long_haul_difficulty_046() -> None:
         prev_credit_pct = credit_pct
 
     assert _hp_percent_for_wave(1) == 100
-    assert _hp_percent_for_wave(5) == 112
-    assert _hp_percent_for_wave(6) == 115
-    assert _hp_percent_for_wave(10) == 127
-    assert _hp_percent_for_wave(20) == 157
-    assert _hp_percent_for_wave(35) == 202
-    assert _hp_percent_for_wave(36) == 202
-    assert _hp_percent_for_wave(200) == 202
+    assert _hp_percent_for_wave(5) == 124  # was 112
+    assert _hp_percent_for_wave(6) == 135  # was 115
+    assert _hp_percent_for_wave(10) == 159  # was 127
+    assert _hp_percent_for_wave(20) == 229  # was 157
+    assert _hp_percent_for_wave(35) == 334  # was 202
+    assert _hp_percent_for_wave(36) == 334  # was 202
+    assert _hp_percent_for_wave(200) == 334  # was 202
     assert _damage_percent(1) == 100
-    assert _damage_percent(_curve_world(10)) == 104
-    assert _damage_percent(_curve_world(20)) == 112
-    assert _damage_percent(_curve_world(35)) == 124
+    assert _damage_percent(_curve_world(10)) == 110  # was 104
+    assert _damage_percent(_curve_world(20)) == 130  # was 112
+    assert _damage_percent(_curve_world(35)) == 160  # was 124
     assert _damage_percent(16) == 160
     assert _damage_percent(40) == 160
     assert _extra_enemies(1) == 0
@@ -6545,11 +6553,17 @@ def test_long_haul_difficulty_046() -> None:
     assert _fire_percent(7) == 112
     assert _fire_percent(16) == 130
     assert _scale_hp(10, 1, "normal") == 10
-    assert _scale_hp(10, 6, "normal") == 11
+    assert _scale_hp(10, 6, "normal") == 13  # was 11
     assert _scale_hp(10, 1, "easy") == 8
     assert _outgoing_damage(1, 1) == 1
-    assert _outgoing_damage(1, 35) == 1
+    assert _outgoing_damage(1, 35) == 2  # was 1; world 7 is +60%
     assert _outgoing_damage(1, 70) == 2
+    # Half-up, not a HitRemainder. Worlds 1-5 deal 1, worlds 6-7 deal 2.
+    for world, damage in ((1, 1), (2, 1), (3, 1), (4, 1), (5, 1), (6, 2), (7, 2)):
+        opening = (world - 1) * 5 + 1
+        assert _outgoing_damage(1, opening) == damage
+        assert _outgoing_damage(1, opening + 4) == damage
+    assert _outgoing_damage(1, 36) == 2
 
     assert _scale_credits(165, 1) == 165
     assert _scale_credits(165, 5) == 165
@@ -6596,13 +6610,19 @@ def test_long_haul_difficulty_046() -> None:
         prev_easy = easy
         prev_normal = normal
         prev_hard = hard
-    assert _boss_hp(5, "normal") == 120
-    assert _boss_hp(5, "easy") == 96
-    assert _boss_hp(5, "hard") == 150
-    assert _boss_hp(10, "normal") == 138
-    assert _boss_hp(20, "normal") == 174
-    assert _boss_hp(35, "normal") == 228
-    assert _boss_hp(40, "normal") == 228
+    # Actuals from HpFactor * 10 * worldPercent / 100. Spec paper targets
+    # (223/286/349/412/475/538/601) include the boss wave's within-world +24%
+    # and are not what this formula returns.
+    assert _boss_hp(5, "normal") == 180  # was 120; spec 223
+    assert _boss_hp(5, "easy") == 144  # was 96
+    assert _boss_hp(5, "hard") == 225  # was 150
+    assert _boss_hp(10, "normal") == 243  # was 138; spec 286
+    assert _boss_hp(15, "normal") == 306  # spec 349
+    assert _boss_hp(20, "normal") == 369  # was 174; spec 412
+    assert _boss_hp(25, "normal") == 432  # spec 475
+    assert _boss_hp(30, "normal") == 495  # spec 538
+    assert _boss_hp(35, "normal") == 558  # was 228; spec 601
+    assert _boss_hp(40, "normal") == 558  # was 228
 
     seen = []
     for wave in range(1, 81):
@@ -6656,8 +6676,7 @@ def test_longhaul_balance_046e() -> None:
     assert report["credit_total"]["normal"] == 7464
     assert report["catalogue"] == report["shop"] + report["mk2"] + report["gates"]
     assert report["catalogue"] > 3875
-    assert report["easy_boss_hp"] == 96
-    assert report["easy_boss_hp"] <= 120
+    assert report["easy_boss_hp"] == 144  # was 96; old ceiling 120 lifted by package A
     assert report["aimed_shots"] == 3
     assert report["radial_shots"] == 8
     assert report["aimed_shots"] <= 4
@@ -8791,7 +8810,7 @@ def _hp_percent(world: int) -> int:
         steps = 0
     if steps > 6:
         steps = 6
-    return 100 + 15 * steps
+    return 100 + 35 * steps
 
 
 def _medal_on_wave(wave: int) -> str:
@@ -8880,7 +8899,7 @@ def test_worlds_intro_medals() -> None:
         assert loop >= 1
         assert 1 <= layout <= 7
         assert percent >= previous
-        assert percent <= 190
+        assert percent <= 310  # was 190
         previous = percent
         assert _world_name(number)
     assert _world_number(5) == 1 and _loop_number(5) == 1
@@ -8889,10 +8908,10 @@ def test_worlds_intro_medals() -> None:
     assert _world_number(36) == 8 and _loop_number(36) == 2 and _layout_world(36) == 1
     assert _world_number(40) == 8 and _loop_number(40) == 2 and _layout_world(40) == 1
     assert _hp_percent(1) == 100
-    assert _hp_percent(2) == 115
-    assert _hp_percent(7) == 190
-    assert _hp_percent(8) == 190
-    assert _hp_percent(40) == 190
+    assert _hp_percent(2) == 135  # was 115
+    assert _hp_percent(7) == 310  # was 190
+    assert _hp_percent(8) == 310  # was 190
+    assert _hp_percent(40) == 310  # was 190
     assert "return WorldCatalog.HpSteps" in diff
     assert "WorldCatalog.NumberForWave(waves.ActiveWave)" in seeker
     assert "ArenaLayout.WorldIndexForWave(waves.ActiveWave)" not in seeker
@@ -9049,7 +9068,7 @@ def _scale_enemy_hp(hp: int, grade: str, world: int) -> int:
         steps = 0
     if steps > 6:
         steps = 6
-    return max(1, graded * (100 + 15 * steps) // 100)
+    return max(1, graded * (100 + 35 * steps) // 100)
 
 
 def _primary_label(phase: str, world_cleared: int, next_world: int) -> str:
@@ -9119,7 +9138,7 @@ def test_world_continue_and_hangar_readability() -> None:
     assert "return phase == GamePhase.Failed" in session
     assert "CompleteCampaign" not in manager
     assert "ShouldUnlockHardClear" in ach and "IsFinalWave" in ach
-    assert "WorldHpPercent = 15" in diff and "MaxWorldHpSteps = 6" in diff
+    assert "WorldHpPercent = 35" in diff and "MaxWorldHpSteps = 6" in diff
     assert "Mathf.Clamp(waveIndex, 1, 10)" in waves
     assert "ArenaWorlds" in factory
 
@@ -9168,9 +9187,9 @@ def test_world_continue_and_hangar_readability() -> None:
     assert _arena_visual(31) == "Arena_Blockout"
     assert _layout_for_wave(31) == "SpokeRing"
     assert _scale_enemy_hp(10, "normal", 1) == 10
-    assert _scale_enemy_hp(10, "normal", 2) == 11
-    assert _scale_enemy_hp(10, "normal", 7) == 19
-    assert _scale_enemy_hp(10, "normal", 8) == 19
+    assert _scale_enemy_hp(10, "normal", 2) == 13  # was 11
+    assert _scale_enemy_hp(10, "normal", 7) == 31  # was 19
+    assert _scale_enemy_hp(10, "normal", 8) == 31  # was 19
     assert _scale_enemy_hp(10, "easy", 1) == 8
     assert "WavesPerLayout = 5" in layout and "LayoutCount = 7" in layout
     assert 'Loc.Tf("run.sector_world", "SECTOR CLEAR - World {0}"' in cap
