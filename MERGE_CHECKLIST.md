@@ -73,7 +73,7 @@ python3 Tools/test_week1_logic.py
 - Primitive fallbacks if an FBX is missing
 - `Ship_Complete_Upgrade01`, `Ship_Body_Upgrade02` FBX (imported only, not warmed; shop Hull Plate 02 reuses Upgrade01), extra pickup gameplay beyond Score/Shield/Health/RapidFire
 - `Ship_Complete` is hangar dressing only (not the playable part-slot ship)
-- World 2–7 are **mesh swaps + layout/hazard sets** (same wrap / roster rules; arena radius 30, visuals scaled from the 22-unit design; World 7 Spoke ring reuses the World 1 floor) — steam-slice **caps at World 1 / wave 5**
+- World 2–7 are **mesh swaps + layout/hazard sets** (same wrap / roster rules; arena radius 30, visuals scaled from the 22-unit design; World 7 Spoke ring reuses the World 1 floor) — campaign final is **World 7 / wave 35** (Hard Clear, Hard only); the run continues into the loop
 - Achievements are local (`agr.achievements.mask`) with a Steamworks reflection surface — **no Steamworks.NET package** (keeps Hub-open clean)
 - Store capture PNGs are placeholders / F12 dumps under `Docs/StoreCaptures/` until Atmos
 - No extra ships, no 30-wave campaign, no multiplayer, no Input System / URP / TMP (Kenney CC0 fonts via `Font`)

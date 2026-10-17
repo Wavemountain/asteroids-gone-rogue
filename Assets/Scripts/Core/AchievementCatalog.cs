@@ -184,9 +184,15 @@ namespace AsteroidsGoneRogue
             return !waveTookHit;
         }
 
+        /// <summary>
+        /// Hard Clear is the world 7, wave 35 clear on Hard. Easy and Normal
+        /// never unlock it. World 1 wave 5 is only a sector beat.
+        /// </summary>
         public static bool ShouldUnlockHardClear(int clearedWave, DifficultyGrade grade)
         {
-            return CampaignCap.IsFinalWave(clearedWave) && grade == DifficultyGrade.Hard;
+            return CampaignCap.IsFinalWave(clearedWave)
+                && WorldCatalog.NumberForWave(clearedWave) == CampaignCap.FinalWorld
+                && grade == DifficultyGrade.Hard;
         }
 
         /// <summary>
