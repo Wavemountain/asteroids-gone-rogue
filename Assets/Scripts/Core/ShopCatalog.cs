@@ -66,7 +66,7 @@ namespace AsteroidsGoneRogue
                 UpgradeId.NoseUpgrade02,
                 "Nose Upgrade 02",
                 "Requires Nose Hardpoint. Swaps to Ship_Nose_Upgrade02 (3 damage).",
-                150,
+                450,
                 ShopGroup.Hull),
             new ShopItem(
                 UpgradeId.NoseUpgrade03,
@@ -84,13 +84,13 @@ namespace AsteroidsGoneRogue
                 UpgradeId.EngineUpgrade02,
                 "Engine Upgrade 02",
                 "Requires Rapid Fire. Swaps to Ship_Engine_Upgrade02 (faster gun).",
-                340,
+                305,
                 ShopGroup.Hull),
             new ShopItem(
                 UpgradeId.EngineUpgrade03,
                 "Engine Upgrade 03",
                 "Requires Engine 02. Faster cannon. Reuses the Engine 02 mesh.",
-                1700,
+                1450,
                 ShopGroup.Hull),
             new ShopItem(
                 UpgradeId.Overcharger,
@@ -120,7 +120,7 @@ namespace AsteroidsGoneRogue
                 UpgradeId.TwinGuns,
                 "Twin Guns",
                 "Primary slot: two parallel full-damage bolts. Not a spread fan.",
-                190,
+                260,
                 ShopGroup.Weapons),
             new ShopItem(
                 UpgradeId.Seeker,

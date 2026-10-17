@@ -9,6 +9,7 @@ namespace AsteroidsGoneRogue
     {
         public const int FirstWave = 5;
         public const int HpFactor = 18;
+        public const int HardNormalHpWorlds = 1;
         public const float VisualScale = 1.8f;
         public const float SpeedScale = 0.62f;
         public const int BoltDamage = 1;
@@ -50,6 +51,11 @@ namespace AsteroidsGoneRogue
             if (raw < 1)
             {
                 raw = 1;
+            }
+
+            if (grade == DifficultyGrade.Hard && world <= HardNormalHpWorlds)
+            {
+                grade = DifficultyGrade.Normal;
             }
 
             return DifficultySettings.ApplyGradeHp(raw, grade);

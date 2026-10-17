@@ -31,7 +31,7 @@ namespace AsteroidsGoneRogue
         public const float ExtraLifeTimeoutSeconds = 9f;
         public const int EasyWaveClearCredits = 185;
         public const int NormalWaveClearCredits = 165;
-        public const int HardWaveClearCredits = 140;
+        public const int HardWaveClearCredits = 162;
         public const int EasyPlayerHullBonus = 1;
 
         private static bool _loaded;

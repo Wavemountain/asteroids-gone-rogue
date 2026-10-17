@@ -12,8 +12,8 @@ namespace AsteroidsGoneRogue
     /// 0.45 doctrine + Rail numbers. One doctrine per run. Mid purchase
     /// soft-locks the other paths. No Flak weapon, no mid-run swap.
     /// Barrage 55 + Spread 110 and Hunter 40 + Seeker 125 still land on a
-    /// Normal wave-1 clear (165) and still miss Hard (140). Twin is 190, so
-    /// Twin 190 + Lance 45 = 235 and misses that purse
+    /// Normal wave-1 clear (165) and still miss Hard (162). Twin is 260, so
+    /// Twin 260 + Lance 45 = 305 and misses that purse
     /// (Pierce + Lance is 200, still over). Off-path soft-lock stays ×1.35.
     /// </summary>
     public static class DoctrineRules
