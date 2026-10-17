@@ -3925,7 +3925,7 @@ def test_doctrine_rail_045() -> None:
     assert "FlakFeedHalfAngleBonus = 4f" in rules
     assert "StormPelletCount = 5" in rules
     assert "StormCooldownMul = 1.3f" in rules
-    assert "StormSeconds = 0.3f" in rules
+    assert "StormSeconds = 0.1f" in rules
     assert "RailHoldSeconds = 0.55f" in rules
     assert "RailDamageMul = 3f" in rules
     assert "RailSpeedMul = 1.2f" in rules
@@ -8734,6 +8734,8 @@ def test_balance_049_package_b() -> None:
     (valfritt), not as a recommendation.
     Spread DPS assumes one pellet hits one body. All-pellet DPS is the
     ceiling when every pellet hits a different swarm body.
+    Storm's live floor is 0.1s. The before column is still the pre-package-B
+    1.5s floor.
     """
     import struct
     import sys
@@ -8746,7 +8748,7 @@ def test_balance_049_package_b() -> None:
     catalog = (root / "Assets/Scripts/Core/ShopCatalog.cs").read_text(encoding="utf-8")
     loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
 
-    assert "StormSeconds = 0.3f" in rules
+    assert "StormSeconds = 0.1f" in rules
     assert "StormCooldownMul = 1.3f" in rules
     assert "LanceGateCost = 45" in rules
     assert "RailHoldSeconds = 0.55f" in rules
@@ -8755,8 +8757,8 @@ def test_balance_049_package_b() -> None:
     assert "OverchargerDamageBonus = 2" in loadout
     assert "(ProjectileDamage + 1) / 2" in loadout
     assert "ProjectileDamage / 3" not in loadout
-    assert "Cooldown ×1.3, at least 0.3s." in catalog
-    assert "Cooldown ×1.3, minst 0.3s." in loc
+    assert "Cooldown ×1.3, at least 0.1s." in catalog
+    assert "Cooldown ×1.3, minst 0.1s." in loc
     assert "+2 damage, slightly slower gun." in catalog
     assert "+2 skada, lite långsammare kanon." in loc
     assert "full damage." in catalog
@@ -8781,7 +8783,7 @@ def test_balance_049_package_b() -> None:
     rail_cd_mul = _cs_float(rules, "RailCooldownMul")
     rail_dmg_mul = _cs_float(rules, "RailDamageMul")
     twin_mul = _cs_float(slots, "TwinCooldownMul")
-    assert storm_floor == 0.3 and storm_mul == 1.3
+    assert storm_floor == 0.1 and storm_mul == 1.3
     assert seeker_mul == 2.0 and penalty == 0 and oc_bonus == 2
     assert rail_hold == 0.55
 
@@ -8807,10 +8809,10 @@ def test_balance_049_package_b() -> None:
         if flak:
             mul *= flak_mul
         if storm:
-            mul *= 1.3 if new else 1.8
+            mul *= storm_mul if new else 1.8
         interval = fire * mul
         if storm:
-            interval = max(interval, 0.3 if new else 1.5)
+            interval = max(interval, storm_floor if new else 1.5)
         return interval
 
     def spread_row(fire: float, proj: int, storm: bool, flak: bool, new: bool) -> dict:
@@ -8846,14 +8848,15 @@ def test_balance_049_package_b() -> None:
     storm_ab_before = spread_row(ab_cd, 4, True, True, False)
     storm_ab_after = spread_row(ab_cd, 4, True, True, True)
     assert abs(storm_ab_before["all"] - 3.333) < 0.01
-    assert abs(storm_ab_after["interval"] - 0.3) < 1e-9
-    assert abs(storm_ab_after["all"] - 33.333) < 0.01
+    # 0.075 × 1.35 × 0.85 × 1.3. The 0.1s floor stays under this product.
+    assert abs(storm_ab_after["interval"] - 0.11188125) < 1e-6
+    assert abs(storm_ab_after["all"] - 89.381) < 0.01
 
     storm_oc_before = spread_row(e3_cd + oc_penalty, 4 + 1, True, True, False)
     storm_oc_after = spread_row(e3_cd + oc_penalty, 4 + oc_bonus, True, True, True)
     assert storm_oc_before["pellet"] == 1 and storm_oc_after["pellet"] == 3
     assert abs(storm_oc_before["all"] - 3.333) < 0.01
-    assert abs(storm_oc_after["all"] - 50.0) < 0.01
+    assert abs(storm_oc_after["all"] - 83.794) < 0.01
 
     # Debris Islands is world 6. Wave 28 is mid-world. Swarm body / swarmling.
     swarm_hp = _scale_hp(6, 28, "normal")
@@ -8865,11 +8868,11 @@ def test_balance_049_package_b() -> None:
         return shots * row["interval"]
 
     assert abs(body_ttk(storm_ab_before, swarm_hp) - 25.5) < 0.01
-    assert abs(body_ttk(storm_ab_after, swarm_hp) - 2.7) < 0.01
+    assert abs(body_ttk(storm_ab_after, swarm_hp) - 1.007) < 0.01
     assert abs(body_ttk(storm_oc_before, swarm_hp) - 25.5) < 0.01
-    assert abs(body_ttk(storm_oc_after, swarm_hp) - 1.8) < 0.01
+    assert abs(body_ttk(storm_oc_after, swarm_hp) - 1.074) < 0.01
     assert abs(body_ttk(storm_ab_before, ling_hp) - 3.0) < 0.01
-    assert abs(body_ttk(storm_ab_after, ling_hp) - 0.3) < 0.01
+    assert abs(body_ttk(storm_ab_after, ling_hp) - 0.112) < 0.01
     assert abs(body_ttk(nose_before, swarm_hp) - 8.721) < 0.01
     assert abs(body_ttk(nose_after, swarm_hp) - 4.617) < 0.01
 
@@ -8958,6 +8961,96 @@ def test_balance_049_package_b() -> None:
     assert abs(report["ratio"]["easy"] - 0.8449) < 0.0002
     assert abs(report["ratio"]["normal"] - 0.7537) < 0.0002
     assert abs(report["ratio"]["hard"] - 0.6393) < 0.0002
+
+
+def test_storm_floor_049() -> None:
+    """Storm's 0.1s floor stays under every engine tier, so Barrage DPS rises.
+
+    The old 0.3s floor bound from Rapid Fire upward and cut Storm below Spread
+    on Engine 02 and faster. All-pellet DPS is 5/3 divided by the 1.3 cooldown,
+    about +28%, which stays above ×1.25 when the floor does not bind.
+    Spread here already owns Flak Feed. Storm requires that mid.
+    Nose 03 is the damage on every tier. Overcharger adds its bonus on Engine 03
+    and cannot be owned with Afterburner.
+    """
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    rules = (root / "Assets/Scripts/Core/DoctrineRules.cs").read_text(encoding="utf-8")
+    loadout = (root / "Assets/Scripts/Core/LoadoutState.cs").read_text(encoding="utf-8")
+    slots = (root / "Assets/Scripts/Core/WeaponSlots.cs").read_text(encoding="utf-8")
+    catalog = (root / "Assets/Scripts/Core/ShopCatalog.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+
+    floor = _cs_float(rules, "StormSeconds")
+    storm_mul = _cs_float(rules, "StormCooldownMul")
+    spread_mul = _cs_float(slots, "SpreadCooldownMul")
+    flak_mul = _cs_float(rules, "FlakFeedCooldownMul")
+    pellets = _cs_int(rules, "StormPelletCount")
+    assert floor == 0.1 and storm_mul == 1.3 and pellets == 5
+    assert "Cooldown ×1.3, at least 0.1s." in catalog
+    assert "Cooldown ×1.3, minst 0.1s." in loc
+    assert "at least 0.3s" not in catalog
+    assert "minst 0.3s" not in loc
+
+    nose = _cs_int(loadout, "NoseUpgrade03Damage")
+    oc_bonus = _cs_int(loadout, "OverchargerDamageBonus")
+    tiers = (
+        ("base", _cs_float(loadout, "BaseFireCooldown"), nose),
+        ("Engine01", _cs_float(loadout, "RapidFireCooldown"), nose),
+        ("Engine02", _cs_float(loadout, "EngineUpgrade02Cooldown"), nose),
+        ("Engine03", _cs_float(loadout, "EngineUpgrade03Cooldown"), nose),
+        ("Afterburner", _cs_float(loadout, "AfterburnerCooldown"), nose),
+        (
+            "Overcharger",
+            _cs_float(loadout, "EngineUpgrade03Cooldown") + _cs_float(loadout, "OverchargerCooldownPenalty"),
+            nose + oc_bonus,
+        ),
+    )
+    assert [name for name, _fire, _damage in tiers] == [
+        "base",
+        "Engine01",
+        "Engine02",
+        "Engine03",
+        "Afterburner",
+        "Overcharger",
+    ]
+
+    def interval(fire: float, storm: bool) -> float:
+        mul = spread_mul * flak_mul
+        if storm:
+            mul *= storm_mul
+        cycle = fire * mul
+        if storm:
+            cycle = max(cycle, floor)
+        return cycle
+
+    def barrage_dps(fire: float, damage: int, storm: bool) -> float:
+        pellet = max(1, (damage + 1) // 2)
+        count = pellets if storm else 3
+        return count * pellet / interval(fire, storm)
+
+    strongest_ttk = None
+    for name, fire, damage in tiers:
+        spread = barrage_dps(fire, damage, False)
+        storm = barrage_dps(fire, damage, True)
+        assert storm >= spread * 1.25, (name, storm, spread, storm / spread)
+        assert abs((storm / spread) - ((pellets / 3) / storm_mul)) < 1e-9, name
+        storm_cycle = interval(fire, True)
+        assert storm_cycle > floor, (name, storm_cycle, floor)
+        pellet = max(1, (damage + 1) // 2)
+        shots = (17 + pellet - 1) // pellet
+        ttk = shots * storm_cycle
+        if strongest_ttk is None or ttk < strongest_ttk:
+            strongest_ttk = ttk
+
+    afterburner = interval(0.075, True)
+    assert abs(afterburner - (0.075 * 1.35 * 0.85 * 1.3)) < 1e-9
+    assert abs(afterburner - 0.112) < 0.001
+    # Strongest of these tiers is Afterburner + Nose 03: 9 shots of 2 damage.
+    assert strongest_ttk is not None
+    assert abs(strongest_ttk - 1.00693125) < 1e-6
+    assert strongest_ttk >= 1.0
 
 
 def test_balance_049_package_c() -> None:
@@ -9137,6 +9230,7 @@ def main() -> int:
     test_doctrine_rail_045()
     test_doctrine_w1_affordability()
     test_balance_049_package_b()
+    test_storm_floor_049()
     test_hotfix_045_rail_cancel_and_duck_merge()
     test_hangar_next_wave_always_selectable()
     test_doctrine_rows_pad_reachable()

@@ -107,7 +107,7 @@ Upgrades persist into the next wave.
 | Ricochet | 170 | **Utility** only. Lime bolt, **2** rim bounces. Hold LT / E. Own CD `0.38×1.5` (~0.57s). Wildcard on every doctrine, no capstone |
 | Rail | 160 | **Lance mid / primary.** Hold RT 0.55s, release. Damage ×3, speed ×1.2, no pierce. CD ×1.6. Miss or cancel pays half. LB cycle |
 | Flak Feed | 150 | **Barrage mid.** Spread CD ×0.85, half-angle +4°. Soft-locks other paths |
-| Storm | 240 | **Barrage cap.** 5 pellets, CD ×1.3, at least 0.3s |
+| Storm | 240 | **Barrage cap.** 5 pellets, CD ×1.3, at least 0.1s |
 | Overcharge Lance | 235 | **Lance cap.** Pierce +1 target / Twin CD ×0.9 |
 | Seeker Cadence | 155 | **Hunter mid.** Utility CD ×0.75, seeker turn 165 |
 | Twin Seek | 225 | **Hunter cap.** Hold LT: 2 seekers at 70% damage, utility CD ×1.2 |

@@ -161,7 +161,7 @@ namespace AsteroidsGoneRogue
             new ShopItem(
                 UpgradeId.Storm,
                 "Storm",
-                "Barrage capstone. Spread fires 5 pellets. Cooldown ×1.3, at least 0.3s.",
+                "Barrage capstone. Spread fires 5 pellets. Cooldown ×1.3, at least 0.1s.",
                 240,
                 ShopGroup.Doctrine),
             new ShopItem(
