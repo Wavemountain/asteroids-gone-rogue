@@ -456,9 +456,28 @@ namespace AsteroidsGoneRogue
         /// <summary>
         /// A hint is soft when its edge score is under 0.9 of the wave-1 crop.
         /// The 048u smear sat near 0.35 of a hard stem. Wave clear has to match wave 1.
-        /// The score is the inverse 10–90% rise width, so a short crisp row matches a long one.
+        /// The score is the inverse 10–90% width of the sharp glyph quintile, so
+        /// a short crisp row matches a long one and the scrim behind the ink does not.
         /// </summary>
         public const float GlyphSharpRatio = 0.9f;
+
+        /// <summary>
+        /// Self-check floor for a crisp 048x crop against its own mode's wave-1
+        /// segment. The runtime gate stays at <see cref="GlyphSharpRatio"/>.
+        /// </summary>
+        public const float GlyphSharpMargin = 0.95f;
+
+        /// <summary>
+        /// A box-blurred copy of a crisp crop must land under this fraction of
+        /// the sharp reference. That is below the runtime fail line, with room.
+        /// </summary>
+        public const float GlyphBlurCeiling = 0.5f;
+
+        /// <summary>
+        /// Largest allowed gap between the two capture modes' ratios
+        /// (reduce off and reduce on) for one segment.
+        /// </summary>
+        public const float GlyphModeGap = 0.05f;
 
         /// <summary>
         /// Luma is 0–255. A crop whose range is under this has no glyph ink.
@@ -496,16 +515,26 @@ namespace AsteroidsGoneRogue
 
         const int RiseMinSamples = 4;
 
+        // A rise whose bright end stays below this fraction of the crop range
+        // is backing or scrim, not glyph ink. The stem reaches the ink.
+        const float RiseInkFraction = 0.55f;
+
+        // Sharp quintile of the ink rises. The median is pulled by the scrim
+        // tail on the same edge. Rank 20 is the glyph stem. A smeared glyph
+        // has no short rises, so this rank widens.
+        const int RiseGlyphRank = 20;
+
         // A one-pixel step is 0.8 wide, so a hard edge lands near 80. The ratio
         // against wave 1 is what the gate compares; the scale only clears the floor.
         const float RiseScale = 64f;
 
         /// <summary>
-        /// Sharpness of a luma crop, independent of how much text it holds.
-        /// Whole-crop Laplacian variance grows with the edge count, so the long
-        /// wave-1 row outscored a short crisp row. This is the inverse of the
-        /// median 10–90% rise width on glyph edges: each edge contributes one
-        /// width, and empty pixels contribute none. A hard edge scores high.
+        /// Sharpness of a luma crop, independent of how much text it holds and
+        /// of the plate behind it. Whole-crop Laplacian variance grows with the
+        /// edge count, and the median rise width grows with the scrim ramp
+        /// under the ink. This keeps rises whose bright end reaches the glyph
+        /// and scores the inverse 10–90% width at the sharp quintile. Empty
+        /// pixels and extra letters do not change it. A hard stem scores high.
         /// A bilinear-smeared block scores low.
         /// </summary>
         public static float LaplacianVariance(float[] luma, int width, int height)
@@ -545,15 +574,16 @@ namespace AsteroidsGoneRogue
                 minSpan = scaled;
             }
 
+            float inkFloor = min + (RiseInkFraction * contrast);
             System.Collections.Generic.List<float> rises = new System.Collections.Generic.List<float>();
             for (int y = 0; y < height; y++)
             {
-                CollectRises(luma, y * width, 1, width, minSpan, rises);
+                CollectRises(luma, y * width, 1, width, minSpan, inkFloor, rises);
             }
 
             for (int x = 0; x < width; x++)
             {
-                CollectRises(luma, x, width, height, minSpan, rises);
+                CollectRises(luma, x, width, height, minSpan, inkFloor, rises);
             }
 
             if (rises.Count < RiseMinSamples)
@@ -561,19 +591,20 @@ namespace AsteroidsGoneRogue
                 return 0f;
             }
 
-            float median = MedianRise(rises);
-            if (median <= 0f || float.IsNaN(median))
+            float widthRank = GlyphRiseWidth(rises);
+            if (widthRank <= 0f || float.IsNaN(widthRank))
             {
                 return 0f;
             }
 
-            return RiseScale / median;
+            return RiseScale / widthRank;
         }
 
         /// <summary>
         /// 10–90% widths of monotonic edges along one row or column.
+        /// A rise whose bright end is below <paramref name="inkFloor"/> is backing, not ink.
         /// </summary>
-        static void CollectRises(float[] data, int start, int stride, int count, float minSpan, System.Collections.Generic.List<float> rises)
+        static void CollectRises(float[] data, int start, int stride, int count, float minSpan, float inkFloor, System.Collections.Generic.List<float> rises)
         {
             int x = 0;
             while (x < count - 1)
@@ -625,6 +656,11 @@ namespace AsteroidsGoneRogue
 
                 float low = head < tail ? head : tail;
                 float high = head > tail ? head : tail;
+                if (high < inkFloor)
+                {
+                    x = end + 1;
+                    continue;
+                }
                 float level10 = low + (0.10f * (high - low));
                 float level90 = low + (0.90f * (high - low));
                 bool rising = tail >= head;
@@ -673,16 +709,25 @@ namespace AsteroidsGoneRogue
             }
         }
 
-        static float MedianRise(System.Collections.Generic.List<float> values)
+        /// <summary>
+        /// Width at the sharp quintile. The wider scrim ramps stay above this rank.
+        /// </summary>
+        static float GlyphRiseWidth(System.Collections.Generic.List<float> values)
         {
             values.Sort();
-            int n = values.Count;
-            if ((n & 1) == 1)
+            int last = values.Count - 1;
+            int index = (last * RiseGlyphRank) / 100;
+            if (index < 0)
             {
-                return values[n / 2];
+                index = 0;
             }
 
-            return 0.5f * (values[(n / 2) - 1] + values[n / 2]);
+            if (index > last)
+            {
+                index = last;
+            }
+
+            return values[index];
         }
 
         /// <summary>
@@ -1101,130 +1146,193 @@ namespace AsteroidsGoneRogue
             return RealCropSelfCheck();
         }
 
+        // One file per hint segment, left to right, from the crisp 048x captures.
+        // Mode 0 is reduce off. Mode 1 is reduce on. The capture gate scores
+        // each segment on its own and keeps the worst.
+        static readonly string[] GlyphSceneNames = new string[]
+        {
+            "w1", "w3", "w4", "death", "hangar", "waveclear"
+        };
+
+        static readonly int[] GlyphSceneSegments = new int[]
+        {
+            2, 6, 6, 2, 3, 1
+        };
+
         /// <summary>
-        /// Sharp, blurred, and flat crops cut from a real capture, plus a
-        /// short crisp row against the long wave-1 row. The test runner
-        /// copies Tools/fixtures/hint next to the executable.
+        /// Every hint segment from the crisp 048x captures, both modes.
+        /// Each segment passes against that mode's wave-1 best with margin.
+        /// A box blur of that same segment fails. A flat crop errors.
+        /// The test runner copies Tools/fixtures/hint next to the executable.
         /// </summary>
         static bool RealCropSelfCheck()
         {
-            int sharpW;
-            int sharpH;
-            float[] sharp = LoadHintCrop("hint_sharp.bmp", out sharpW, out sharpH);
-            int blurW;
-            int blurH;
-            float[] blur = LoadHintCrop("hint_blur.bmp", out blurW, out blurH);
             int flatW;
             int flatH;
             float[] flat = LoadHintCrop("hint_flat.bmp", out flatW, out flatH);
-            int w1W;
-            int w1H;
-            float[] w1 = LoadHintCrop("hint_w1.bmp", out w1W, out w1H);
-            int hangarW;
-            int hangarH;
-            float[] hangar = LoadHintCrop("hint_hangar.bmp", out hangarW, out hangarH);
-            int hangarBlurW;
-            int hangarBlurH;
-            float[] hangarBlur = LoadHintCrop("hint_hangar_blur.bmp", out hangarBlurW, out hangarBlurH);
-            if (sharp == null || blur == null || flat == null || w1 == null || hangar == null || hangarBlur == null)
+            if (flat == null || flatW != 48 || flatH != 24)
             {
                 return false;
             }
 
-            if (sharpW != 200 || sharpH != 32 || blurW != 200 || blurH != 32 || flatW != 48 || flatH != 24)
-            {
-                return false;
-            }
-
-            if (w1W != 109 || w1H != 32 || hangarW != 180 || hangarH != 32 || hangarBlurW != 180 || hangarBlurH != 32)
-            {
-                return false;
-            }
-
-            float sharpVar;
-            float blurVar;
             float flatVar;
-            if (!TryGlyphVariance(sharp, sharpW, sharpH, out sharpVar) || sharpVar <= GlyphReferenceFloor)
-            {
-                return false;
-            }
-
-            if (!TryGlyphVariance(blur, blurW, blurH, out blurVar))
-            {
-                return false;
-            }
-
             if (TryGlyphVariance(flat, flatW, flatH, out flatVar))
             {
                 return false;
             }
 
-            if (GlyphSharpnessHit(sharpVar, sharpVar) != null)
+            if (GlyphSceneNames.Length != GlyphSceneSegments.Length || GlyphSceneNames[0] != "w1")
             {
                 return false;
             }
 
-            string soft = GlyphSharpnessHit(blurVar, sharpVar);
-            if (soft == null || soft.IndexOf("hint-soft", System.StringComparison.Ordinal) < 0 || soft.IndexOf("error", System.StringComparison.Ordinal) >= 0)
+            int scenes = GlyphSceneNames.Length;
+            float[][][] sharp = new float[2][][];
+            float[][][] blurred = new float[2][][];
+            for (int mode = 0; mode < 2; mode++)
             {
-                return false;
+                sharp[mode] = new float[scenes][];
+                blurred[mode] = new float[scenes][];
+                for (int scene = 0; scene < scenes; scene++)
+                {
+                    int count = GlyphSceneSegments[scene];
+                    if (count < 1)
+                    {
+                        return false;
+                    }
+
+                    sharp[mode][scene] = new float[count];
+                    blurred[mode][scene] = new float[count];
+                    for (int index = 0; index < count; index++)
+                    {
+                        string name = GlyphCropName(GlyphSceneNames[scene], mode, index);
+                        int width;
+                        int height;
+                        float[] crop = LoadHintCrop(name, out width, out height);
+                        if (crop == null || width < 3 || height < 3)
+                        {
+                            return false;
+                        }
+
+                        float variance;
+                        if (!TryGlyphVariance(crop, width, height, out variance) || variance <= GlyphReferenceFloor)
+                        {
+                            System.Console.WriteLine("hint crisp low " + name);
+                            return false;
+                        }
+
+                        float[] smear = BoxBlur(BoxBlur(crop, width, height), width, height);
+                        float smearVar;
+                        if (!TryGlyphVariance(smear, width, height, out smearVar))
+                        {
+                            System.Console.WriteLine("hint blur flat " + name);
+                            return false;
+                        }
+
+                        sharp[mode][scene][index] = variance;
+                        blurred[mode][scene][index] = smearVar;
+                    }
+                }
             }
 
-            if (blurVar >= sharpVar * GlyphSharpRatio)
+            float[] reference = new float[2];
+            for (int mode = 0; mode < 2; mode++)
             {
-                return false;
+                reference[mode] = sharp[mode][0][0];
+                int w1Count = GlyphSceneSegments[0];
+                for (int index = 1; index < w1Count; index++)
+                {
+                    if (sharp[mode][0][index] > reference[mode])
+                    {
+                        reference[mode] = sharp[mode][0][index];
+                    }
+                }
+
+                if (reference[mode] <= GlyphReferenceFloor)
+                {
+                    return false;
+                }
+
+                string flatHit = GlyphSharpnessHit(-1f, reference[mode]);
+                if (flatHit == null || flatHit.IndexOf("error", System.StringComparison.Ordinal) < 0 || flatHit.IndexOf(" ref ", System.StringComparison.Ordinal) >= 0)
+                {
+                    return false;
+                }
+
+                for (int scene = 0; scene < scenes; scene++)
+                {
+                    int count = GlyphSceneSegments[scene];
+                    for (int index = 0; index < count; index++)
+                    {
+                        string name = GlyphCropName(GlyphSceneNames[scene], mode, index);
+                        float variance = sharp[mode][scene][index];
+                        if (variance < reference[mode] * GlyphSharpMargin)
+                        {
+                            System.Console.WriteLine(
+                                "hint margin " + name
+                                + " " + variance.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+                                + " ref " + reference[mode].ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
+                            return false;
+                        }
+
+                        if (GlyphSharpnessHit(variance, reference[mode]) != null)
+                        {
+                            return false;
+                        }
+
+                        float smearVar = blurred[mode][scene][index];
+                        if (smearVar >= reference[mode] * GlyphBlurCeiling || smearVar >= variance * GlyphSharpRatio)
+                        {
+                            System.Console.WriteLine(
+                                "hint blur high " + name
+                                + " " + smearVar.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
+                            return false;
+                        }
+
+                        string soft = GlyphSharpnessHit(smearVar, reference[mode]);
+                        if (soft == null || soft.IndexOf("hint-soft", System.StringComparison.Ordinal) < 0 || soft.IndexOf("error", System.StringComparison.Ordinal) >= 0)
+                        {
+                            return false;
+                        }
+                    }
+                }
             }
 
-            // hint_w1 is the long wave-1 glyph row. hint_hangar is a short
-            // crisp word in the wider slot a short line leaves. Whole-crop
-            // variance of that pair is about 0.47 and would false-fail.
-            // The rise score is about 0.99. The blurred short row is about 0.50.
-            float w1Var;
-            float hangarVar;
-            float hangarBlurVar;
-            if (!TryGlyphVariance(w1, w1W, w1H, out w1Var) || w1Var <= GlyphReferenceFloor)
+            for (int scene = 0; scene < scenes; scene++)
             {
-                return false;
-            }
+                int count = GlyphSceneSegments[scene];
+                for (int index = 0; index < count; index++)
+                {
+                    float ratio0 = sharp[0][scene][index] / reference[0];
+                    float ratio1 = sharp[1][scene][index] / reference[1];
+                    float gap = ratio0 - ratio1;
+                    if (gap < 0f)
+                    {
+                        gap = -gap;
+                    }
 
-            if (!TryGlyphVariance(hangar, hangarW, hangarH, out hangarVar))
-            {
-                return false;
-            }
-
-            if (!TryGlyphVariance(hangarBlur, hangarBlurW, hangarBlurH, out hangarBlurVar))
-            {
-                return false;
-            }
-
-            if (hangarVar < w1Var * GlyphSharpRatio || hangarVar > w1Var * 1.15f)
-            {
-                return false;
-            }
-
-            if (GlyphSharpnessHit(hangarVar, w1Var) != null)
-            {
-                return false;
-            }
-
-            string hangarSoft = GlyphSharpnessHit(hangarBlurVar, w1Var);
-            if (hangarSoft == null || hangarSoft.IndexOf("hint-soft", System.StringComparison.Ordinal) < 0 || hangarSoft.IndexOf("error", System.StringComparison.Ordinal) >= 0)
-            {
-                return false;
-            }
-
-            if (hangarBlurVar >= w1Var * GlyphSharpRatio)
-            {
-                return false;
-            }
-
-            string flatHit = GlyphSharpnessHit(-1f, w1Var);
-            if (flatHit == null || flatHit.IndexOf("error", System.StringComparison.Ordinal) < 0 || flatHit.IndexOf(" ref ", System.StringComparison.Ordinal) >= 0)
-            {
-                return false;
+                    if (gap > GlyphModeGap)
+                    {
+                        System.Console.WriteLine(
+                            "hint mode gap " + GlyphSceneNames[scene]
+                            + " " + index.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                        return false;
+                    }
+                }
             }
 
             return true;
+        }
+
+        static string GlyphCropName(string scene, int mode, int index)
+        {
+            return "hint_"
+                + scene
+                + "_r"
+                + mode.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + "_"
+                + index.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + ".bmp";
         }
 
         static float[] LoadHintCrop(string name, out int width, out int height)
