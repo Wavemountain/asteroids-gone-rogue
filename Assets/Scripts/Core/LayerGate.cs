@@ -454,11 +454,33 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// A smeared hint is under half the wave-1 Laplacian variance.
-        /// The 048u crop sat near 0.35 of the sharp wave-1 line. Soft but
-        /// still-edged text stays above the cut.
+        /// A hint is soft when its Laplacian is under 0.9 of the wave-1 crop.
+        /// The 048u smear sat near 0.35. Wave clear has to match wave 1.
         /// </summary>
-        public const float GlyphSharpRatio = 0.5f;
+        public const float GlyphSharpRatio = 0.9f;
+
+        /// <summary>
+        /// Luma is 0–255. A crop whose range is under this has no glyph ink.
+        /// </summary>
+        public const float GlyphFlatRange = 10f;
+
+        /// <summary>
+        /// <see cref="GlyphLuma"/> writes this scale. A reference under the
+        /// floor is the old 0–1 noise reading, not a measured glyph.
+        /// </summary>
+        public const float GlyphLumaScale = 255f;
+
+        public const float GlyphReferenceFloor = 1f;
+
+        public const string GlyphSharpError = "hint-soft error";
+
+        /// <summary>
+        /// Rec. 709 luma on the 0–255 scale the sharpness gate compares.
+        /// </summary>
+        public static float GlyphLuma(float r, float g, float b)
+        {
+            return ((0.2126f * r) + (0.7152f * g) + (0.0722f * b)) * GlyphLumaScale;
+        }
 
         /// <summary>
         /// Variance of a 3x3 Laplacian over the interior of a luma crop.
@@ -505,14 +527,59 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
+        /// False when the crop is flat, too small, or has no edge energy.
+        /// The capture reports that as a gate error, not as a soft hint.
+        /// </summary>
+        public static bool TryGlyphVariance(float[] luma, int width, int height, out float variance)
+        {
+            variance = -1f;
+            if (luma == null || width < 3 || height < 3 || luma.Length < width * height)
+            {
+                return false;
+            }
+
+            int count = width * height;
+            float min = luma[0];
+            float max = luma[0];
+            for (int i = 1; i < count; i++)
+            {
+                float sample = luma[i];
+                if (sample < min)
+                {
+                    min = sample;
+                }
+
+                if (sample > max)
+                {
+                    max = sample;
+                }
+            }
+
+            if (max - min < GlyphFlatRange)
+            {
+                return false;
+            }
+
+            float measured = LaplacianVariance(luma, width, height);
+            if (measured <= 0f || measured != measured)
+            {
+                return false;
+            }
+
+            variance = measured;
+            return true;
+        }
+
+        /// <summary>
         /// FAIL when this hint crop is smeared next to the wave-1 reference.
-        /// A missing reference does not fail; the capture records wave 1 first.
+        /// A zero or sub-floor reference, or a negative variance (flat crop),
+        /// is an error: the gate did not see glyphs, so it must not pass or fail.
         /// </summary>
         public static string GlyphSharpnessHit(float variance, float reference)
         {
-            if (reference < 0.0001f || variance < 0f)
+            if (reference < GlyphReferenceFloor || variance < 0f || variance != variance || reference != reference)
             {
-                return null;
+                return GlyphSharpError;
             }
 
             if (variance < reference * GlyphSharpRatio)
@@ -855,17 +922,147 @@ namespace AsteroidsGoneRogue
             }
 
             string hit = GlyphSharpnessHit(smearVar, sharpVar);
-            if (hit == null || hit.IndexOf("hint-soft", System.StringComparison.Ordinal) < 0)
+            if (hit == null || hit.IndexOf("hint-soft", System.StringComparison.Ordinal) < 0 || hit.IndexOf("error", System.StringComparison.Ordinal) >= 0)
             {
                 return false;
             }
 
-            if (GlyphSharpnessHit(smearVar, 0f) != null)
+            string missing = GlyphSharpnessHit(smearVar, 0f);
+            if (missing == null || missing.IndexOf("error", System.StringComparison.Ordinal) < 0)
+            {
+                return false;
+            }
+
+            string flatHit = GlyphSharpnessHit(-1f, sharpVar);
+            if (flatHit == null || flatHit.IndexOf("error", System.StringComparison.Ordinal) < 0 || flatHit.IndexOf(" ref ", System.StringComparison.Ordinal) >= 0)
+            {
+                return false;
+            }
+
+            return RealCropSelfCheck();
+        }
+
+        /// <summary>
+        /// Sharp, blurred, and flat crops cut from a real capture.
+        /// The test runner copies Tools/fixtures/hint next to the executable.
+        /// </summary>
+        static bool RealCropSelfCheck()
+        {
+            int sharpW;
+            int sharpH;
+            float[] sharp = LoadHintCrop("hint_sharp.bmp", out sharpW, out sharpH);
+            int blurW;
+            int blurH;
+            float[] blur = LoadHintCrop("hint_blur.bmp", out blurW, out blurH);
+            int flatW;
+            int flatH;
+            float[] flat = LoadHintCrop("hint_flat.bmp", out flatW, out flatH);
+            if (sharp == null || blur == null || flat == null)
+            {
+                return false;
+            }
+
+            if (sharpW != 200 || sharpH != 32 || blurW != 200 || blurH != 32 || flatW != 48 || flatH != 24)
+            {
+                return false;
+            }
+
+            float sharpVar;
+            float blurVar;
+            float flatVar;
+            if (!TryGlyphVariance(sharp, sharpW, sharpH, out sharpVar) || sharpVar < 100f)
+            {
+                return false;
+            }
+
+            if (!TryGlyphVariance(blur, blurW, blurH, out blurVar))
+            {
+                return false;
+            }
+
+            if (TryGlyphVariance(flat, flatW, flatH, out flatVar))
+            {
+                return false;
+            }
+
+            if (GlyphSharpnessHit(sharpVar, sharpVar) != null)
+            {
+                return false;
+            }
+
+            string soft = GlyphSharpnessHit(blurVar, sharpVar);
+            if (soft == null || soft.IndexOf("hint-soft", System.StringComparison.Ordinal) < 0 || soft.IndexOf("error", System.StringComparison.Ordinal) >= 0)
+            {
+                return false;
+            }
+
+            if (blurVar >= sharpVar * GlyphSharpRatio)
             {
                 return false;
             }
 
             return true;
+        }
+
+        static float[] LoadHintCrop(string name, out int width, out int height)
+        {
+            width = 0;
+            height = 0;
+            string path = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), name);
+            if (!System.IO.File.Exists(path))
+            {
+                System.Console.WriteLine("hint crop missing " + path);
+                return null;
+            }
+
+            byte[] file;
+            try
+            {
+                file = System.IO.File.ReadAllBytes(path);
+            }
+            catch (System.Exception)
+            {
+                return null;
+            }
+
+            if (file == null || file.Length < 54 || file[0] != (byte)'B' || file[1] != (byte)'M')
+            {
+                return null;
+            }
+
+            int offset = System.BitConverter.ToInt32(file, 10);
+            int cropW = System.BitConverter.ToInt32(file, 18);
+            int cropH = System.BitConverter.ToInt32(file, 22);
+            short bpp = System.BitConverter.ToInt16(file, 28);
+            int compression = System.BitConverter.ToInt32(file, 30);
+            if (bpp != 24 || compression != 0 || cropW < 3 || cropH < 3 || offset < 54)
+            {
+                return null;
+            }
+
+            int stride = ((cropW * 3) + 3) & ~3;
+            if (offset + (stride * cropH) > file.Length)
+            {
+                return null;
+            }
+
+            float[] luma = new float[cropW * cropH];
+            for (int y = 0; y < cropH; y++)
+            {
+                int row = offset + ((cropH - 1 - y) * stride);
+                for (int x = 0; x < cropW; x++)
+                {
+                    int pixel = row + (x * 3);
+                    float b = file[pixel] / 255f;
+                    float g = file[pixel + 1] / 255f;
+                    float r = file[pixel + 2] / 255f;
+                    luma[(y * cropW) + x] = GlyphLuma(r, g, b);
+                }
+            }
+
+            width = cropW;
+            height = cropH;
+            return luma;
         }
 
         static float[] BoxBlur(float[] source, int width, int height)

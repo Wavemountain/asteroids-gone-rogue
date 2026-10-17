@@ -154,6 +154,10 @@ namespace AsteroidsGoneRogue.EditorTools
                 SessionState.SetString(KeyError, string.Empty);
                 SessionState.SetString(KeyHud, string.Empty);
                 SessionState.SetString(KeyLayer, string.Empty);
+                SessionState.SetString(KeyHintSharp, string.Empty);
+                SessionState.SetString(KeyHintEarly, string.Empty);
+                SessionState.SetString(KeyHintPx, string.Empty);
+                SessionState.SetString(KeyHintBox, string.Empty);
                 SessionState.SetBool(KeyRestored, false);
                 SessionState.SetBool(KeySceneLogged, false);
                 string now = StampNow();
@@ -1816,6 +1820,11 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static void CompositeOverlay(RenderTexture target)
         {
+            if (_hintCrops != null)
+            {
+                _hintCrops.Clear();
+            }
+
             OverlayCameraReady = false;
             Canvas[] canvases = UnityEngine.Object.FindObjectsByType<Canvas>();
             int overlayCount = 0;
@@ -1872,6 +1881,7 @@ namespace AsteroidsGoneRogue.EditorTools
             uiCam.targetTexture = target;
             OverlayCameraMask = uiCam.cullingMask;
             OverlayCameraReady = true;
+            HintPose[] hintPoses = null;
             try
             {
                 for (int assignIndex = 0; assignIndex < overlays.Length; assignIndex++)
@@ -1883,10 +1893,15 @@ namespace AsteroidsGoneRogue.EditorTools
                 }
 
                 Canvas.ForceUpdateCanvases();
+                hintPoses = SaveHintPoses();
+                AlignHintCapture(uiCam);
+                Canvas.ForceUpdateCanvases();
+                RecordHintCrops(uiCam);
                 uiCam.Render();
             }
             finally
             {
+                RestoreHintPoses(hintPoses);
                 for (int backIndex = 0; backIndex < overlays.Length; backIndex++)
                 {
                     Canvas back = overlays[backIndex];
@@ -3254,9 +3269,29 @@ namespace AsteroidsGoneRogue.EditorTools
             return text.rectTransform.rect.height * scale;
         }
 
+        struct HintCrop
+        {
+            public int X0;
+            public int Y0;
+            public int X1;
+            public int Y1;
+            public bool Valid;
+        }
+
+        struct HintPose
+        {
+            public Text Text;
+            public Vector2 Anchored;
+            public Vector2 Size;
+            public Vector3 Scale;
+            public bool BestFit;
+        }
+
+        static System.Collections.Generic.List<HintCrop> _hintCrops = new System.Collections.Generic.List<HintCrop>();
+
         static void NoteHintGlyphs(Texture2D image)
         {
-            if (image == null)
+            if (image == null || _hintCrops == null || _hintCrops.Count == 0)
             {
                 return;
             }
@@ -3264,85 +3299,82 @@ namespace AsteroidsGoneRogue.EditorTools
             try
             {
                 string world = LayerWorld(SessionState.GetInt(KeyShot, 0));
-                Text[] texts = UnityEngine.Object.FindObjectsByType<Text>();
                 float worst = -1f;
                 float best = -1f;
-                if (texts != null)
+                bool saw = false;
+                for (int i = 0; i < _hintCrops.Count; i++)
                 {
-                    for (int i = 0; i < texts.Length; i++)
+                    HintCrop crop = _hintCrops[i];
+                    int width;
+                    int height;
+                    float[] luma = ReadHintLuma(image, crop, out width, out height);
+                    float variance;
+                    if (luma == null || !LayerGate.TryGlyphVariance(luma, width, height, out variance))
                     {
-                        Text part = texts[i];
-                        if (part == null || part.gameObject == null || part.gameObject.name != "PSegT" || !part.gameObject.activeInHierarchy)
-                        {
-                            continue;
-                        }
-
-                        Transform parent = part.transform.parent;
-                        if (parent == null || parent.name != "Hint")
-                        {
-                            continue;
-                        }
-
-                        float variance = HintGlyphVariance(image, part);
-                        if (variance < 0f)
-                        {
-                            continue;
-                        }
-
-                        if (worst < 0f || variance < worst)
-                        {
-                            worst = variance;
-                        }
-
-                        if (variance > best)
-                        {
-                            best = variance;
-                        }
+                        NoteLayerError(world + " " + LayerGate.GlyphSharpError);
+                        return;
                     }
+
+                    saw = true;
+                    if (worst < 0f || variance < worst)
+                    {
+                        worst = variance;
+                    }
+
+                    if (variance > best)
+                    {
+                        best = variance;
+                    }
+                }
+
+                if (!saw || best < LayerGate.GlyphReferenceFloor)
+                {
+                    NoteLayerError(world + " " + LayerGate.GlyphSharpError);
+                    return;
                 }
 
                 if (world == "1")
                 {
-                    if (best > 0f)
+                    SessionState.SetString(KeyHintSharp, best.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
+                    float earlyVar;
+                    string early = SessionState.GetString(KeyHintEarly, string.Empty);
+                    if (float.TryParse(early, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out earlyVar))
                     {
-                        SessionState.SetString(KeyHintSharp, best.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
-                        float earlyVar;
-                        string early = SessionState.GetString(KeyHintEarly, string.Empty);
-                        if (float.TryParse(early, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out earlyVar))
-                        {
-                            string hit = LayerGate.GlyphSharpnessHit(earlyVar, best);
-                            if (hit != null)
-                            {
-                                NoteLayerFail("hangar " + hit);
-                            }
-                        }
+                        NoteSharpness("hangar", LayerGate.GlyphSharpnessHit(earlyVar, best));
                     }
 
                     return;
                 }
 
-                if (worst < 0f)
-                {
-                    return;
-                }
-
                 float reference = HintSharpReference();
-                if (reference < 0.0001f)
+                if (reference < 0f)
                 {
                     SessionState.SetString(KeyHintEarly, worst.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
                     return;
                 }
 
-                string later = LayerGate.GlyphSharpnessHit(worst, reference);
-                if (later != null)
-                {
-                    NoteLayerFail(world + " " + later);
-                }
+                NoteSharpness(world, LayerGate.GlyphSharpnessHit(worst, reference));
             }
             catch (System.Exception sampleEx)
             {
                 Debug.Log("AgrCapture hint sharpness skipped " + sampleEx.Message);
             }
+        }
+
+        static void NoteSharpness(string world, string hit)
+        {
+            if (hit == null || hit.Length == 0)
+            {
+                return;
+            }
+
+            if (hit.IndexOf("error", System.StringComparison.Ordinal) >= 0)
+            {
+                NoteLayerError(world + " " + hit);
+                return;
+            }
+
+            NoteLayerFail(world + " " + hit);
         }
 
         static float HintSharpReference()
@@ -3357,81 +3389,219 @@ namespace AsteroidsGoneRogue.EditorTools
             return -1f;
         }
 
-        static float HintGlyphVariance(Texture2D image, Text part)
+        static HintPose[] SaveHintPoses()
         {
-            if (image == null || part == null || part.rectTransform == null)
+            Text[] texts = UnityEngine.Object.FindObjectsByType<Text>();
+            if (texts == null)
             {
-                return -1f;
+                return null;
             }
 
-            Vector3[] corners = new Vector3[4];
-            part.rectTransform.GetWorldCorners(corners);
-            float minX = corners[0].x;
-            float minY = corners[0].y;
-            float maxX = corners[0].x;
-            float maxY = corners[0].y;
-            for (int corner = 1; corner < corners.Length; corner++)
+            int count = 0;
+            for (int i = 0; i < texts.Length; i++)
             {
-                if (corners[corner].x < minX)
+                if (IsHintGlyph(texts[i]))
                 {
-                    minX = corners[corner].x;
-                }
-
-                if (corners[corner].y < minY)
-                {
-                    minY = corners[corner].y;
-                }
-
-                if (corners[corner].x > maxX)
-                {
-                    maxX = corners[corner].x;
-                }
-
-                if (corners[corner].y > maxY)
-                {
-                    maxY = corners[corner].y;
+                    count++;
                 }
             }
 
-            int x0 = Mathf.Clamp(Mathf.FloorToInt(minX), 0, image.width - 1);
-            int y0 = Mathf.Clamp(Mathf.FloorToInt(minY), 0, image.height - 1);
-            int x1 = Mathf.Clamp(Mathf.CeilToInt(maxX), 0, image.width);
-            int y1 = Mathf.Clamp(Mathf.CeilToInt(maxY), 0, image.height);
-            int width = x1 - x0;
-            int height = y1 - y0;
-            if (width < 8 || height < 8)
+            if (count == 0)
             {
-                return -1f;
+                return null;
+            }
+
+            HintPose[] poses = new HintPose[count];
+            int slot = 0;
+            for (int i = 0; i < texts.Length; i++)
+            {
+                Text part = texts[i];
+                if (!IsHintGlyph(part))
+                {
+                    continue;
+                }
+
+                HintPose pose = new HintPose();
+                pose.Text = part;
+                pose.Anchored = part.rectTransform.anchoredPosition;
+                pose.Size = part.rectTransform.sizeDelta;
+                pose.Scale = part.rectTransform.localScale;
+                pose.BestFit = part.resizeTextForBestFit;
+                poses[slot] = pose;
+                slot++;
+            }
+
+            return poses;
+        }
+
+        static void RestoreHintPoses(HintPose[] poses)
+        {
+            if (poses == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < poses.Length; i++)
+            {
+                Text part = poses[i].Text;
+                if (part == null || part.rectTransform == null)
+                {
+                    continue;
+                }
+
+                part.rectTransform.localScale = poses[i].Scale;
+                part.rectTransform.anchoredPosition = poses[i].Anchored;
+                part.rectTransform.sizeDelta = poses[i].Size;
+                part.resizeTextForBestFit = poses[i].BestFit;
+            }
+        }
+
+        static void AlignHintCapture(Camera cam)
+        {
+            Text[] texts = UnityEngine.Object.FindObjectsByType<Text>();
+            if (texts == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < texts.Length; i++)
+            {
+                Text part = texts[i];
+                if (!IsHintGlyph(part))
+                {
+                    continue;
+                }
+
+                PromptLineView.WarmGlyphs(part);
+                PromptLineView.SnapHintText(part, cam, Width, Height);
+            }
+        }
+
+        /// <summary>
+        /// Records hint glyphs in capture pixels. The UI camera is aimed at the
+        /// 1920x1080 target, so viewport (0,0) is the bottom-left of that image.
+        /// Overlay world corners are game-view pixels and do not match.
+        /// </summary>
+        static void RecordHintCrops(Camera cam)
+        {
+            if (_hintCrops == null)
+            {
+                _hintCrops = new System.Collections.Generic.List<HintCrop>();
+            }
+
+            _hintCrops.Clear();
+            if (cam == null)
+            {
+                return;
+            }
+
+            Text[] texts = UnityEngine.Object.FindObjectsByType<Text>();
+            if (texts == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < texts.Length; i++)
+            {
+                Text part = texts[i];
+                if (!IsHintGlyph(part) || string.IsNullOrWhiteSpace(part.text))
+                {
+                    continue;
+                }
+
+                HintCrop crop = new HintCrop();
+                Vector3[] corners = new Vector3[4];
+                part.rectTransform.GetWorldCorners(corners);
+                float minX = 1f;
+                float minY = 1f;
+                float maxX = 0f;
+                float maxY = 0f;
+                bool ok = true;
+                for (int corner = 0; corner < corners.Length; corner++)
+                {
+                    Vector3 vp = cam.WorldToViewportPoint(corners[corner]);
+                    if (vp.z <= 0.01f)
+                    {
+                        ok = false;
+                        break;
+                    }
+
+                    if (corner == 0 || vp.x < minX)
+                    {
+                        minX = vp.x;
+                    }
+
+                    if (corner == 0 || vp.y < minY)
+                    {
+                        minY = vp.y;
+                    }
+
+                    if (corner == 0 || vp.x > maxX)
+                    {
+                        maxX = vp.x;
+                    }
+
+                    if (corner == 0 || vp.y > maxY)
+                    {
+                        maxY = vp.y;
+                    }
+                }
+
+                int x0 = Mathf.FloorToInt(minX * Width);
+                int y0 = Mathf.FloorToInt(minY * Height);
+                int x1 = Mathf.CeilToInt(maxX * Width);
+                int y1 = Mathf.CeilToInt(maxY * Height);
+                crop.Valid = ok && x1 - x0 >= 3 && y1 - y0 >= 3;
+                crop.X0 = x0;
+                crop.Y0 = y0;
+                crop.X1 = x1;
+                crop.Y1 = y1;
+                _hintCrops.Add(crop);
+            }
+        }
+
+        static bool IsHintGlyph(Text part)
+        {
+            if (part == null || part.gameObject == null || part.gameObject.name != "PSegT" || !part.gameObject.activeInHierarchy)
+            {
+                return false;
+            }
+
+            Transform parent = part.transform.parent;
+            return parent != null && parent.name == "Hint";
+        }
+
+        static float[] ReadHintLuma(Texture2D image, HintCrop crop, out int width, out int height)
+        {
+            width = 0;
+            height = 0;
+            if (image == null || !crop.Valid)
+            {
+                return null;
+            }
+
+            int x0 = Mathf.Clamp(crop.X0, 0, image.width - 1);
+            int y0 = Mathf.Clamp(crop.Y0, 0, image.height - 1);
+            int x1 = Mathf.Clamp(crop.X1, 0, image.width);
+            int y1 = Mathf.Clamp(crop.Y1, 0, image.height);
+            width = x1 - x0;
+            height = y1 - y0;
+            if (width < 3 || height < 3)
+            {
+                return null;
             }
 
             float[] luma = new float[width * height];
-            float minL = 1f;
-            float maxL = 0f;
             for (int y = 0; y < height; y++)
             {
                 for (int x = 0; x < width; x++)
                 {
                     Color color = image.GetPixel(x0 + x, y0 + y);
-                    float sample = (0.2126f * color.r) + (0.7152f * color.g) + (0.0722f * color.b);
-                    luma[(y * width) + x] = sample;
-                    if (sample < minL)
-                    {
-                        minL = sample;
-                    }
-
-                    if (sample > maxL)
-                    {
-                        maxL = sample;
-                    }
+                    luma[(y * width) + x] = LayerGate.GlyphLuma(color.r, color.g, color.b);
                 }
             }
 
-            if (maxL - minL < 0.04f)
-            {
-                return -1f;
-            }
-
-            return LayerGate.LaplacianVariance(luma, width, height);
+            return luma;
         }
 
         static float HintLinePx(Text text)
@@ -5590,9 +5760,20 @@ namespace AsteroidsGoneRogue.EditorTools
             return spanX >= wide * 0.9f && spanY >= tall * 0.9f;
         }
 
+        static void NoteLayerError(string reason)
+        {
+            Debug.LogError("AgrCapture layer ERROR: " + reason);
+            RememberLayer(reason);
+        }
+
         static void NoteLayerFail(string reason)
         {
             Debug.LogError("AgrCapture layer FAIL: " + reason);
+            RememberLayer(reason);
+        }
+
+        static void RememberLayer(string reason)
+        {
             string prior = SessionState.GetString(KeyLayer, string.Empty);
             if (prior.Length == 0)
             {

@@ -126,7 +126,9 @@ namespace UnityEngine
         public void SetSiblingIndex(int index) { }
         public bool IsChildOf(Transform parent) { return false; }
         public Vector3 InverseTransformPoint(Vector3 position) { return position; }
+        public Vector3 InverseTransformVector(Vector3 vector) { return vector; }
         public Vector3 TransformPoint(Vector3 position) { return position; }
+        public Vector3 TransformVector(Vector3 vector) { return vector; }
     }
 
     public class RectTransform : Transform
@@ -262,6 +264,8 @@ namespace UnityEngine
         public void Render() { }
         public Ray ScreenPointToRay(Vector3 pos) { return new Ray(pos, Vector3.forward); }
         public Vector3 WorldToViewportPoint(Vector3 position) { return Vector3.zero; }
+        public Vector3 ViewportToWorldPoint(Vector3 position) { return position; }
+        public Vector3 WorldToScreenPoint(Vector3 position) { return position; }
     }
 
     public enum CameraClearFlags { Skybox, SolidColor, Depth, Nothing }
