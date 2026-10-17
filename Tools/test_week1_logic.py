@@ -2326,12 +2326,12 @@ def test_daily_shield_and_remainder_047() -> None:
     import sim_longhaul
 
     report = sim_longhaul.sweep(root)
-    # Economy package raises the world-1 catalogue 9903 -> 15766. Earnings stay
-    # put, so 84.5 / 75.4 / 63.9 move to 53.1 / 47.3 / 40.2.
-    assert report["catalogue"] == 15766
-    assert abs(report["ratio"]["easy"] - 0.531) <= 0.001
-    assert abs(report["ratio"]["normal"] - 0.473) <= 0.001
-    assert abs(report["ratio"]["hard"] - 0.402) <= 0.001
+    # Revision 2b catalogue is 15987. Easy and Normal earnings stay 8367 / 7464.
+    # Hard clear credits 162 raise wave-35 earnings to 7312.
+    assert report["catalogue"] == 15987
+    assert abs(report["ratio"]["easy"] - 0.523) <= 0.001
+    assert abs(report["ratio"]["normal"] - 0.467) <= 0.001
+    assert abs(report["ratio"]["hard"] - 0.457) <= 0.001
 
 
 def test_roslyn_stub_artefact_gate() -> None:
@@ -3359,7 +3359,7 @@ def test_difficulty_economy_043() -> None:
     assert "HardExtraLifeChance = 0.02f" in settings
     assert "EasyWaveClearCredits = 185" in settings
     assert "NormalWaveClearCredits = 165" in settings
-    assert "HardWaveClearCredits = 140" in settings
+    assert "HardWaveClearCredits = 162" in settings
     assert "EasyPlayerHullBonus = 1" in settings
     assert "ScaleEnemyHp" in settings
     assert "ScaleIncomingDamage" in settings
@@ -3434,14 +3434,14 @@ def test_difficulty_economy_043() -> None:
     assert costs["RapidFire"] == 60
     assert costs["SpreadBolt"] == 110
     assert costs["Seeker"] == 125
-    assert costs["TwinGuns"] == 190
-    assert costs["EngineUpgrade02"] == 340
+    assert costs["TwinGuns"] == 260
+    assert costs["EngineUpgrade02"] == 305
     assert costs["Pierce"] == 155
     assert costs["Ricochet"] == 170
     assert costs["BodyUpgrade02"] == 175
     assert costs["ShieldMatrix"] == 185
-    assert costs["NoseUpgrade02"] == 150
-    assert costs["EngineUpgrade03"] == 1700
+    assert costs["NoseUpgrade02"] == 450
+    assert costs["EngineUpgrade03"] == 1450
     assert costs["NoseUpgrade03"] == 775
     assert costs["Overcharger"] == 230
     assert costs["Afterburner"] == 230
@@ -4586,7 +4586,7 @@ def test_doctrine_rail_045() -> None:
     assert "ui.hint_rail" in loc and "ui.hint_dual" in loc
     assert "06_rail_charge" in poses
     assert "NormalWaveClearCredits = 165" in settings
-    assert "HardWaveClearCredits = 140" in settings
+    assert "HardWaveClearCredits = 162" in settings
     assert "SpreadCooldownMul = 1.35f" in slots
     assert "TwinCooldownMul = 1.1f" in slots
     assert 'UpgradeId.SpreadBolt' in catalog and "110," in catalog.split("UpgradeId.SpreadBolt")[1].split("new ShopItem")[0]
@@ -4719,8 +4719,8 @@ def test_doctrine_w1_affordability() -> None:
     """Barrage and Hunter still fit a Normal wave-1 clear. Lance does not.
 
     Credits are the flat wave-clear purse (kills do not pay credits). A doctrine
-    costs its gate weapon plus the entry pick. Twin is 190, so Twin + Lance 45
-    is 235. Pierce + Lance is 200 and is the cheaper miss of the Normal purse.
+    costs its gate weapon plus the entry pick. Twin is 260, so Twin + Lance 45
+    is 305. Pierce + Lance is 200 and is the cheaper miss of the Normal purse.
     """
     from pathlib import Path
 
@@ -4732,7 +4732,7 @@ def test_doctrine_w1_affordability() -> None:
     normal = _cs_int(settings, "NormalWaveClearCredits")
     hard = _cs_int(settings, "HardWaveClearCredits")
     assert normal == 165
-    assert hard == 140
+    assert hard == 162
     assert "OffPathMul = 1.35f" in rules
 
     spread = _shop_cost(catalog, "SpreadBolt")
@@ -4742,7 +4742,7 @@ def test_doctrine_w1_affordability() -> None:
     barrage_gate = _cs_int(rules, "BarrageGateCost")
     lance_gate = _cs_int(rules, "LanceGateCost")
     hunter_gate = _cs_int(rules, "HunterGateCost")
-    assert spread == 110 and seeker == 125 and twin == 190 and pierce == 155
+    assert spread == 110 and seeker == 125 and twin == 260 and pierce == 155
 
     barrage = spread + barrage_gate
     hunter = seeker + hunter_gate
@@ -4753,7 +4753,7 @@ def test_doctrine_w1_affordability() -> None:
     assert barrage == normal
     assert hunter == normal
     assert lance_gate == 45
-    assert lance_twin == 235
+    assert lance_twin == 305
     assert lance_pierce == 200
     assert lance_pierce < lance_twin
     assert lance_pierce > normal
@@ -4988,16 +4988,16 @@ _PAD_ITEMS = (
     ("BodyUpgrade01", "Hull", 90),
     ("BodyUpgrade02", "Hull", 175),
     ("NoseHardpoint", "Hull", 80),
-    ("NoseUpgrade02", "Hull", 150),
+    ("NoseUpgrade02", "Hull", 450),
     ("NoseUpgrade03", "Hull", 775),
     ("RapidFire", "Hull", 60),
-    ("EngineUpgrade02", "Hull", 340),
-    ("EngineUpgrade03", "Hull", 1700),
+    ("EngineUpgrade02", "Hull", 305),
+    ("EngineUpgrade03", "Hull", 1450),
     ("Overcharger", "Hull", 230),
     ("Afterburner", "Hull", 230),
     ("SpreadBolt", "Weapons", 110),
     ("Pierce", "Weapons", 155),
-    ("TwinGuns", "Weapons", 190),
+    ("TwinGuns", "Weapons", 260),
     ("Seeker", "Weapons", 125),
     ("Ricochet", "Weapons", 170),
     ("ShieldCell", "Defense", 80),
@@ -6995,12 +6995,15 @@ def _boss_hp(wave: int, grade: str) -> int:
 
     World percent is 100 + WorldHpPercent * steps. The within-world bonus is
     not part of this formula. Package A: HpFactor 12 -> 18, WorldHpPercent 15 -> 35.
+    Hard world 1 uses the Normal grade (HardNormalHpWorlds).
     """
     world = _curve_world(wave)
     world_percent = 100 + 35 * _hp_steps(world)
     raw = 18 * 10 * world_percent // 100
     if raw < 1:
         raw = 1
+    if grade == "hard" and world <= 1:
+        grade = "normal"
     return _apply_grade_hp(raw, grade)
 
 
@@ -7098,7 +7101,7 @@ def test_long_haul_difficulty_046() -> None:
     assert "ScaleCredits" in curve
     assert "EasyWaveClearCredits = 185" in settings
     assert "NormalWaveClearCredits = 165" in settings
-    assert "HardWaveClearCredits = 140" in settings
+    assert "HardWaveClearCredits = 162" in settings
     assert "ApplyGradeHp" in settings
     assert "DifficultyCurve.ScaleCredits(DifficultySettings.WaveClearCredits" in manager
     assert "Mathf.Clamp(waveIndex, 1, 10)" in waves
@@ -7107,6 +7110,9 @@ def test_long_haul_difficulty_046() -> None:
     assert "MarkElite" in factory
     assert "ConfigureBoss" in seeker and "SpawnTelegraphRing" in seeker
     assert "VisualScale = 1.8f" in boss and "HpFactor = 18" in boss
+    assert "HardNormalHpWorlds = 1" in boss
+    assert "grade == DifficultyGrade.Hard && world <= HardNormalHpWorlds" in boss
+    assert "grade = DifficultyGrade.Normal" in boss
     assert "FirstEliteWave = 8" in modifier
     assert "MaxCount = 8" in roster_src
     for key in (
@@ -7252,7 +7258,10 @@ def test_long_haul_difficulty_046() -> None:
     # and are not what this formula returns.
     assert _boss_hp(5, "normal") == 180  # was 120; spec 223
     assert _boss_hp(5, "easy") == 144  # was 96
-    assert _boss_hp(5, "hard") == 225  # was 150
+    assert _boss_hp(5, "hard") == 180  # Hard world 1 keeps Normal HP; was 225
+    assert _boss_hp(10, "hard") == 303  # world 2+ stays Hard 5/4
+    assert _boss_hp(15, "hard") == 382
+    assert _boss_hp(35, "hard") == 697
     assert _boss_hp(10, "normal") == 243  # was 138; spec 286
     assert _boss_hp(15, "normal") == 306  # spec 349
     assert _boss_hp(20, "normal") == 369  # was 174; spec 412
@@ -7658,12 +7667,12 @@ def test_fairness_047b() -> None:
     import sim_longhaul
 
     report = sim_longhaul.sweep(root)
-    # Economy package raises the world-1 catalogue 9903 -> 15766. Earnings stay
-    # put, so 84.5 / 75.4 / 63.9 move to 53.1 / 47.3 / 40.2.
-    assert report["catalogue"] == 15766
-    assert abs(report["ratio"]["easy"] - 0.531) <= 0.001
-    assert abs(report["ratio"]["normal"] - 0.473) <= 0.001
-    assert abs(report["ratio"]["hard"] - 0.402) <= 0.001
+    # Revision 2b catalogue is 15987. Easy and Normal earnings stay 8367 / 7464.
+    # Hard clear credits 162 raise wave-35 earnings to 7312.
+    assert report["catalogue"] == 15987
+    assert abs(report["ratio"]["easy"] - 0.523) <= 0.001
+    assert abs(report["ratio"]["normal"] - 0.467) <= 0.001
+    assert abs(report["ratio"]["hard"] - 0.457) <= 0.001
     assert report["credit_total"]["normal"] == 7464
 
 
@@ -9576,11 +9585,99 @@ def test_balance_049_package_b() -> None:
 
     report = sim_longhaul.sweep(root)
     assert report["gates"] == 140
-    assert report["catalogue"] == 15766
-    assert report["credit_total"] == {"easy": 8367, "normal": 7464, "hard": 6331}
-    assert abs(report["ratio"]["easy"] - 0.5307) < 0.0002
-    assert abs(report["ratio"]["normal"] - 0.4734) < 0.0002
-    assert abs(report["ratio"]["hard"] - 0.4016) < 0.0002
+    assert report["catalogue"] == 15987
+    assert report["credit_total"] == {"easy": 8367, "normal": 7464, "hard": 7312}
+    assert abs(report["ratio"]["easy"] - 0.5234) < 0.0002
+    assert abs(report["ratio"]["normal"] - 0.4669) < 0.0002
+    assert abs(report["ratio"]["hard"] - 0.4574) < 0.0002
+
+
+def test_fire_cadence_carries_frame_60fps() -> None:
+    """60 fps keeps the real cooldown. A stale stamp still fires once.
+
+    Continuous fire carries the unused slice of the frame, so a 0.085s
+    Afterburner stays near 1/0.085 instead of the 6-frame 0.1s bucket.
+    After a long gap the next stamp is a full cooldown ahead, so the
+    following poll does not fire a second shot.
+    """
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    shooter = (root / "Assets/Scripts/Player/ShipShooter.cs").read_text(encoding="utf-8")
+    controller = (root / "Assets/Scripts/Player/ShipController.cs").read_text(encoding="utf-8")
+    try_fire = shooter.split("public void TryFire()")[1].split("public void TryFireUtility()")[0]
+    assert "Mathf.Max(_nextFireTime + cooldown, Time.time)" in try_fire
+    assert "if (_nextFireTime <= Time.time)" in try_fire
+    assert "_nextFireTime = Time.time + cooldown;" in try_fire
+    cycle = shooter.split("public void CycleFireMode(int direction)")[1].split("public void TickRailCharge")[0]
+    assert "_nextFireTime" not in cycle
+    reset = controller.split("public void ResetForWave(LoadoutState loadout, bool refillHull, bool applyWaveShield)")[1].split("public void SetInputPaused")[0]
+    assert "_nextFireTime" not in reset
+    assert "_inputEnabled = !paused" in controller
+    assert "if (!_inputEnabled)" in controller.split("private void Update()")[1].split("Aim();")[0]
+    rail = shooter.split("public void TickRailCharge")[1].split("public void CancelCharge()")[0]
+    assert "_nextFireTime = Time.time + full;" in rail
+    assert "Mathf.Max(_nextFireTime + cooldown, Time.time)" not in rail
+
+    def arm(next_fire: float, now: float, cooldown: float) -> float:
+        scheduled = max(next_fire + cooldown, now)
+        if scheduled <= now:
+            return now + cooldown
+        return scheduled
+
+    def poll(next_fire: float, now: float, cooldown: float):
+        if now < next_fire:
+            return False, next_fire
+        return True, arm(next_fire, now, cooldown)
+
+    frame = 1.0 / 60.0
+    cooldown = 0.085
+    next_fire = 0.0
+    shots = []
+    now = 0.0
+    limit = 10.0
+    while now <= limit + 1e-12:
+        fired, next_fire = poll(next_fire, now, cooldown)
+        if fired:
+            shots.append(now)
+        now += frame
+    assert len(shots) >= 2
+    elapsed = shots[-1] - shots[0]
+    rate = (len(shots) - 1) / elapsed
+    ideal = 1.0 / cooldown
+    assert abs(rate - ideal) / ideal < 0.01, (rate, ideal)
+    gaps = [shots[i] - shots[i - 1] for i in range(1, len(shots))]
+    assert min(gaps) > 4 * frame
+
+    idle_now = 20.0
+    stale = 1.0
+    first, after = poll(stale, idle_now, cooldown)
+    second, after_same = poll(after, idle_now, cooldown)
+    third, after_frame = poll(after, idle_now + frame, cooldown)
+    later, _after_cd = poll(after, idle_now + cooldown, cooldown)
+    assert first is True and second is False and third is False and later is True
+    assert abs(after - (idle_now + cooldown)) < 1e-9
+
+    def effective_interval(cooldown_seconds: float) -> float:
+        nxt = 0.0
+        fired_at = []
+        clock = 0.0
+        while clock <= limit + 1e-12:
+            did, nxt = poll(nxt, clock, cooldown_seconds)
+            if did:
+                fired_at.append(clock)
+            clock += frame
+        return (fired_at[-1] - fired_at[0]) / (len(fired_at) - 1)
+
+    ab = effective_interval(0.085)
+    oc = effective_interval(0.12)
+    # Same nose-03 base. Overcharger adds 2 damage; both guns share the twin mul.
+    ratio = (6 / oc) / (4 / ab)
+    assert abs(ratio - 1.0625) < 0.005, ratio
+    ceil_ab = 6 / 60.0
+    ceil_oc = 8 / 60.0
+    ceil_ratio = (6 / ceil_oc) / (4 / ceil_ab)
+    assert abs(ceil_ratio - 1.125) < 1e-9
 
 
 def test_storm_floor_049() -> None:
@@ -9852,6 +9949,7 @@ def main() -> int:
     test_doctrine_rail_045()
     test_doctrine_w1_affordability()
     test_balance_049_package_b()
+    test_fire_cadence_carries_frame_60fps()
     test_storm_floor_049()
     test_hotfix_045_rail_cancel_and_duck_merge()
     test_hangar_next_wave_always_selectable()

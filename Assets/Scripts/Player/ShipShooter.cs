@@ -286,7 +286,17 @@ namespace AsteroidsGoneRogue
                 cooldown = Mathf.Min(cooldown, LoadoutState.RapidFireCooldown);
             }
 
-            _nextFireTime = Time.time + cooldown;
+            // Carry the unused slice of the previous frame so 60 fps does not
+            // round the cooldown up to a whole frame. When the stamp is already
+            // due (pause, weapon switch, resume, respawn), Max lands on
+            // Time.time and the strict < gate would allow a second shot on the
+            // next poll. A full cooldown from now keeps that first shot single.
+            _nextFireTime = Mathf.Max(_nextFireTime + cooldown, Time.time);
+            if (_nextFireTime <= Time.time)
+            {
+                _nextFireTime = Time.time + cooldown;
+            }
+
             FireModeShot(mode, loadout);
         }
 

@@ -94,6 +94,7 @@ def _load(root: Path) -> dict:
         "elite_credit": _const(modifier, "EliteCreditPercent"),
         "boss_first": _const(boss, "FirstWave"),
         "boss_factor": _const(boss, "HpFactor"),
+        "hard_normal_hp_worlds": _const(boss, "HardNormalHpWorlds"),
         "aimed": _const(boss, "AimedBurstCount"),
         "radial": _const(boss, "RadialCount"),
         "roster_max": _const(roster, "MaxCount"),
@@ -243,10 +244,13 @@ def _scale_hp(spec: dict, hp: int, wave: int, grade: str) -> int:
 
 
 def _boss_hp(spec: dict, wave: int, grade: str) -> int:
-    percent = 100 + spec["world_hp"] * _hp_steps(spec, _world(spec, wave))
+    world = _world(spec, wave)
+    percent = 100 + spec["world_hp"] * _hp_steps(spec, world)
     raw = spec["boss_factor"] * spec["hp"]["Brute"] * percent // 100
     if raw < 1:
         raw = 1
+    if grade == "hard" and world <= spec["hard_normal_hp_worlds"]:
+        grade = "normal"
     return _grade_hp(raw, grade)
 
 
