@@ -454,8 +454,9 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// A hint is soft when its Laplacian is under 0.9 of the wave-1 crop.
-        /// The 048u smear sat near 0.35. Wave clear has to match wave 1.
+        /// A hint is soft when its edge score is under 0.9 of the wave-1 crop.
+        /// The 048u smear sat near 0.35 of a hard stem. Wave clear has to match wave 1.
+        /// The score is the inverse 10–90% rise width, so a short crisp row matches a long one.
         /// </summary>
         public const float GlyphSharpRatio = 0.9f;
 
@@ -482,9 +483,30 @@ namespace AsteroidsGoneRogue
             return ((0.2126f * r) + (0.7152f * g) + (0.0722f * b)) * GlyphLumaScale;
         }
 
+        // A step smaller than this is flat, not the side of a glyph.
+        const float RiseFlatStep = 1.5f;
+
+        // A reversal this large ends the edge. Smaller dips stay inside the rise.
+        const float RiseReverse = 2.5f;
+
+        // Ignore weak ramps. A real stem covers this fraction of the crop contrast.
+        const float RiseSpanFraction = 0.45f;
+
+        const float RiseMinWidth = 0.05f;
+
+        const int RiseMinSamples = 4;
+
+        // A one-pixel step is 0.8 wide, so a hard edge lands near 80. The ratio
+        // against wave 1 is what the gate compares; the scale only clears the floor.
+        const float RiseScale = 64f;
+
         /// <summary>
-        /// Variance of a 3x3 Laplacian over the interior of a luma crop.
-        /// A hard glyph edge scores high. A bilinear-smeared block scores low.
+        /// Sharpness of a luma crop, independent of how much text it holds.
+        /// Whole-crop Laplacian variance grows with the edge count, so the long
+        /// wave-1 row outscored a short crisp row. This is the inverse of the
+        /// median 10–90% rise width on glyph edges: each edge contributes one
+        /// width, and empty pixels contribute none. A hard edge scores high.
+        /// A bilinear-smeared block scores low.
         /// </summary>
         public static float LaplacianVariance(float[] luma, int width, int height)
         {
@@ -493,37 +515,174 @@ namespace AsteroidsGoneRogue
                 return 0f;
             }
 
-            int count = (width - 2) * (height - 2);
-            double sum = 0.0;
-            double sumSq = 0.0;
-            for (int y = 1; y < height - 1; y++)
+            int count = width * height;
+            float min = luma[0];
+            float max = luma[0];
+            for (int i = 1; i < count; i++)
             {
-                int row = y * width;
-                for (int x = 1; x < width - 1; x++)
+                float sample = luma[i];
+                if (sample < min)
                 {
-                    int i = row + x;
-                    double value = (8.0 * luma[i])
-                        - luma[i - width - 1]
-                        - luma[i - width]
-                        - luma[i - width + 1]
-                        - luma[i - 1]
-                        - luma[i + 1]
-                        - luma[i + width - 1]
-                        - luma[i + width]
-                        - luma[i + width + 1];
-                    sum += value;
-                    sumSq += value * value;
+                    min = sample;
+                }
+
+                if (sample > max)
+                {
+                    max = sample;
                 }
             }
 
-            double mean = sum / count;
-            double variance = (sumSq / count) - (mean * mean);
-            if (variance < 0.0)
+            float contrast = max - min;
+            if (contrast < GlyphFlatRange || float.IsNaN(contrast))
             {
-                variance = 0.0;
+                return 0f;
             }
 
-            return (float)variance;
+            float minSpan = GlyphFlatRange;
+            float scaled = RiseSpanFraction * contrast;
+            if (scaled > minSpan)
+            {
+                minSpan = scaled;
+            }
+
+            System.Collections.Generic.List<float> rises = new System.Collections.Generic.List<float>();
+            for (int y = 0; y < height; y++)
+            {
+                CollectRises(luma, y * width, 1, width, minSpan, rises);
+            }
+
+            for (int x = 0; x < width; x++)
+            {
+                CollectRises(luma, x, width, height, minSpan, rises);
+            }
+
+            if (rises.Count < RiseMinSamples)
+            {
+                return 0f;
+            }
+
+            float median = MedianRise(rises);
+            if (median <= 0f || float.IsNaN(median))
+            {
+                return 0f;
+            }
+
+            return RiseScale / median;
+        }
+
+        /// <summary>
+        /// 10–90% widths of monotonic edges along one row or column.
+        /// </summary>
+        static void CollectRises(float[] data, int start, int stride, int count, float minSpan, System.Collections.Generic.List<float> rises)
+        {
+            int x = 0;
+            while (x < count - 1)
+            {
+                float delta = data[start + ((x + 1) * stride)] - data[start + (x * stride)];
+                if (delta < RiseFlatStep && delta > -RiseFlatStep)
+                {
+                    x++;
+                    continue;
+                }
+
+                float sign = delta > 0f ? 1f : -1f;
+                int origin = x;
+                int end = x + 1;
+                while (end < count - 1)
+                {
+                    float step = data[start + ((end + 1) * stride)] - data[start + (end * stride)];
+                    if (step * sign < -RiseReverse)
+                    {
+                        break;
+                    }
+
+                    end++;
+                    float traveled = data[start + (end * stride)] - data[start + (origin * stride)];
+                    if (traveled < 0f)
+                    {
+                        traveled = -traveled;
+                    }
+
+                    if (traveled >= minSpan && step < RiseFlatStep && step > -RiseFlatStep)
+                    {
+                        break;
+                    }
+                }
+
+                float head = data[start + (origin * stride)];
+                float tail = data[start + (end * stride)];
+                float span = tail - head;
+                if (span < 0f)
+                {
+                    span = -span;
+                }
+
+                if (span < minSpan)
+                {
+                    x = end > x ? end : x + 1;
+                    continue;
+                }
+
+                float low = head < tail ? head : tail;
+                float high = head > tail ? head : tail;
+                float level10 = low + (0.10f * (high - low));
+                float level90 = low + (0.90f * (high - low));
+                bool rising = tail >= head;
+                float pos10 = -1f;
+                float pos90 = -1f;
+                int steps = end - origin;
+                for (int i = 1; i <= steps; i++)
+                {
+                    int leftIndex = rising ? origin + (i - 1) : end - (i - 1);
+                    int rightIndex = rising ? origin + i : end - i;
+                    float left = data[start + (leftIndex * stride)];
+                    float right = data[start + (rightIndex * stride)];
+                    if (left > right)
+                    {
+                        continue;
+                    }
+
+                    if (pos10 < 0f && right >= level10)
+                    {
+                        float den = right - left;
+                        float frac = den > 1e-6f ? (level10 - left) / den : 1f;
+                        pos10 = (i - 1) + frac;
+                    }
+
+                    if (right >= level90)
+                    {
+                        float den = right - left;
+                        float frac = den > 1e-6f ? (level90 - left) / den : 1f;
+                        pos90 = (i - 1) + frac;
+                        break;
+                    }
+                }
+
+                if (pos10 >= 0f && pos90 >= pos10)
+                {
+                    float width = pos90 - pos10;
+                    if (width < RiseMinWidth)
+                    {
+                        width = RiseMinWidth;
+                    }
+
+                    rises.Add(width);
+                }
+
+                x = end + 1;
+            }
+        }
+
+        static float MedianRise(System.Collections.Generic.List<float> values)
+        {
+            values.Sort();
+            int n = values.Count;
+            if ((n & 1) == 1)
+            {
+                return values[n / 2];
+            }
+
+            return 0.5f * (values[(n / 2) - 1] + values[n / 2]);
         }
 
         /// <summary>
@@ -561,7 +720,7 @@ namespace AsteroidsGoneRogue
             }
 
             float measured = LaplacianVariance(luma, width, height);
-            if (measured <= 0f || measured != measured)
+            if (measured <= 0f || float.IsNaN(measured))
             {
                 return false;
             }
@@ -577,7 +736,7 @@ namespace AsteroidsGoneRogue
         /// </summary>
         public static string GlyphSharpnessHit(float variance, float reference)
         {
-            if (reference < GlyphReferenceFloor || variance < 0f || variance != variance || reference != reference)
+            if (reference < GlyphReferenceFloor || variance < 0f || float.IsNaN(variance) || float.IsNaN(reference))
             {
                 return GlyphSharpError;
             }
@@ -943,8 +1102,9 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// Sharp, blurred, and flat crops cut from a real capture.
-        /// The test runner copies Tools/fixtures/hint next to the executable.
+        /// Sharp, blurred, and flat crops cut from a real capture, plus a
+        /// short crisp row against the long wave-1 row. The test runner
+        /// copies Tools/fixtures/hint next to the executable.
         /// </summary>
         static bool RealCropSelfCheck()
         {
@@ -957,7 +1117,16 @@ namespace AsteroidsGoneRogue
             int flatW;
             int flatH;
             float[] flat = LoadHintCrop("hint_flat.bmp", out flatW, out flatH);
-            if (sharp == null || blur == null || flat == null)
+            int w1W;
+            int w1H;
+            float[] w1 = LoadHintCrop("hint_w1.bmp", out w1W, out w1H);
+            int hangarW;
+            int hangarH;
+            float[] hangar = LoadHintCrop("hint_hangar.bmp", out hangarW, out hangarH);
+            int hangarBlurW;
+            int hangarBlurH;
+            float[] hangarBlur = LoadHintCrop("hint_hangar_blur.bmp", out hangarBlurW, out hangarBlurH);
+            if (sharp == null || blur == null || flat == null || w1 == null || hangar == null || hangarBlur == null)
             {
                 return false;
             }
@@ -967,10 +1136,15 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            if (w1W != 109 || w1H != 32 || hangarW != 180 || hangarH != 32 || hangarBlurW != 180 || hangarBlurH != 32)
+            {
+                return false;
+            }
+
             float sharpVar;
             float blurVar;
             float flatVar;
-            if (!TryGlyphVariance(sharp, sharpW, sharpH, out sharpVar) || sharpVar < 100f)
+            if (!TryGlyphVariance(sharp, sharpW, sharpH, out sharpVar) || sharpVar <= GlyphReferenceFloor)
             {
                 return false;
             }
@@ -997,6 +1171,55 @@ namespace AsteroidsGoneRogue
             }
 
             if (blurVar >= sharpVar * GlyphSharpRatio)
+            {
+                return false;
+            }
+
+            // hint_w1 is the long wave-1 glyph row. hint_hangar is a short
+            // crisp word in the wider slot a short line leaves. Whole-crop
+            // variance of that pair is about 0.47 and would false-fail.
+            // The rise score is about 0.99. The blurred short row is about 0.50.
+            float w1Var;
+            float hangarVar;
+            float hangarBlurVar;
+            if (!TryGlyphVariance(w1, w1W, w1H, out w1Var) || w1Var <= GlyphReferenceFloor)
+            {
+                return false;
+            }
+
+            if (!TryGlyphVariance(hangar, hangarW, hangarH, out hangarVar))
+            {
+                return false;
+            }
+
+            if (!TryGlyphVariance(hangarBlur, hangarBlurW, hangarBlurH, out hangarBlurVar))
+            {
+                return false;
+            }
+
+            if (hangarVar < w1Var * GlyphSharpRatio || hangarVar > w1Var * 1.15f)
+            {
+                return false;
+            }
+
+            if (GlyphSharpnessHit(hangarVar, w1Var) != null)
+            {
+                return false;
+            }
+
+            string hangarSoft = GlyphSharpnessHit(hangarBlurVar, w1Var);
+            if (hangarSoft == null || hangarSoft.IndexOf("hint-soft", System.StringComparison.Ordinal) < 0 || hangarSoft.IndexOf("error", System.StringComparison.Ordinal) >= 0)
+            {
+                return false;
+            }
+
+            if (hangarBlurVar >= w1Var * GlyphSharpRatio)
+            {
+                return false;
+            }
+
+            string flatHit = GlyphSharpnessHit(-1f, w1Var);
+            if (flatHit == null || flatHit.IndexOf("error", System.StringComparison.Ordinal) < 0 || flatHit.IndexOf(" ref ", System.StringComparison.Ordinal) >= 0)
             {
                 return false;
             }

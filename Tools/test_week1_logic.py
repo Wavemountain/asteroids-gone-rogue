@@ -16113,6 +16113,8 @@ def test_capture_048_clearance_hud() -> None:
     assert "GlyphSharpnessHit" in layer_gate and "LaplacianVariance" in layer_gate and "hint-soft" in layer_gate
     assert "GlyphSharpRatio = 0.9f" in layer_gate and "hint-soft error" in layer_gate
     assert "TryGlyphVariance" in layer_gate and "hint_sharp.bmp" in layer_gate and "hint_flat.bmp" in layer_gate
+    assert "hint_w1.bmp" in layer_gate and "hint_hangar.bmp" in layer_gate and "hint_hangar_blur.bmp" in layer_gate
+    assert "float.IsNaN" in layer_gate and "!= measured" not in layer_gate and "variance != variance" not in layer_gate
     assert "NoteHintGlyphs" in capture and "waveclear hint material" in capture
     assert "WorldToViewportPoint" in capture and "AgrCapture layer ERROR:" in capture
     assert "SnapHintText" in prompt_view and "SnapHintText" in capture
@@ -16153,7 +16155,7 @@ def test_capture_048_clearance_hud() -> None:
     shutil.copyfile(root / "Assets/Scripts/Core/CaptureContinue.cs", work / "CaptureContinue.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/LayerGate.cs", work / "LayerGate.cs")
     hint_fixtures = root / "Tools" / "fixtures" / "hint"
-    for hint_name in ("hint_sharp.bmp", "hint_blur.bmp", "hint_flat.bmp"):
+    for hint_name in ("hint_sharp.bmp", "hint_blur.bmp", "hint_flat.bmp", "hint_w1.bmp", "hint_hangar.bmp", "hint_hangar_blur.bmp"):
         shutil.copyfile(hint_fixtures / hint_name, work / hint_name)
     shutil.copyfile(root / "Assets/Scripts/Core/DecorDepthRules.cs", work / "DecorDepthRules.cs")
     program = """
