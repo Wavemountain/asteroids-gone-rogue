@@ -1404,7 +1404,15 @@ namespace AsteroidsGoneRogue
                     {
                         int paintId = RunSetupNav.MutatorId(paintIndex);
                         bool paintOn = MutatorRules.Has(_setupMask, paintId);
-                        paintLabel.text = MutatorCopy.Row(paintId, paintOn);
+                        if (MutatorRules.BlockedOnDaily(paintId))
+                        {
+                            paintLabel.text = MutatorCopy.DailyBlockedLabel(paintOn);
+                            paintLabel.color = paintOn ? UiTheme.Primary : UiTheme.DisabledRgb;
+                        }
+                        else
+                        {
+                            paintLabel.text = MutatorCopy.Row(paintId, paintOn);
+                        }
                     }
                 }
             }
@@ -1500,7 +1508,7 @@ namespace AsteroidsGoneRogue
                     _game.AbandonSavedRun();
                 }
 
-                _game.ApplyMutators(chosenMask);
+                _game.ApplyMutators(chosenMask, daily);
                 _game.RefreshHud();
                 return;
             }
@@ -1511,7 +1519,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            _game.ApplyMutators(chosenMask);
+            _game.ApplyMutators(chosenMask, daily);
             if (daily)
             {
                 _game.ApplyDailyClock(setupYear, setupMonth, setupDay);

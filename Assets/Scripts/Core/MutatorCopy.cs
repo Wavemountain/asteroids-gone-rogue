@@ -54,6 +54,16 @@ namespace AsteroidsGoneRogue
             return mark + Name(id) + "  ·  " + factors;
         }
 
+        /// <summary>
+        /// Glass stays on the chooser so a normal run can still toggle it.
+        /// The row says it will not ride a daily seed.
+        /// </summary>
+        public static string DailyBlockedLabel(bool selected)
+        {
+            string mark = selected ? "\u2022 " : string.Empty;
+            return mark + Name(MutatorCatalog.Glass) + "  ·  " + Loc.T("mut.glass.daily", "Off in a Daily run");
+        }
+
         public static string Rejected()
         {
             return Loc.T("mut.rejected", "\u2022 At most two. Some pairs cannot combine.");

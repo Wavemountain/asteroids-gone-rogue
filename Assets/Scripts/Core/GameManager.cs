@@ -775,7 +775,7 @@ namespace AsteroidsGoneRogue
             }
 
             ResetFullRun();
-            ApplyMutators(mutatorMask);
+            ApplyMutators(mutatorMask, daily);
 
             if (DifficultySettings.Current != keptGrade)
             {
@@ -791,7 +791,18 @@ namespace AsteroidsGoneRogue
 
         public void ApplyMutators(int mask)
         {
-            ActiveMutatorMask = MutatorRules.Sanitize(mask);
+            ApplyMutators(mask, false);
+        }
+
+        /// <summary>
+        /// A daily start drops Glass Cannon. A normal start keeps Sanitize only.
+        /// </summary>
+        public void ApplyMutators(int mask, bool dailyRun)
+        {
+            int clean = dailyRun
+                ? MutatorRules.ForDailySeed(mask, 1)
+                : MutatorRules.Sanitize(mask);
+            ActiveMutatorMask = clean;
             MutatorRuntime.Set(ActiveMutatorMask);
         }
 
@@ -1416,7 +1427,7 @@ namespace AsteroidsGoneRogue
             _grantedStartShield = 0;
             _grantedStartCredits = 0;
 
-            ApplyMutators(data.MutatorMask);
+            ApplyMutators(data.MutatorMask, ActiveDailySeed > 0);
             _runLaunched = true;
             _legacyApplied = true;
             DifficultyGrade grade = DifficultyGrade.Normal;

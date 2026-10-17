@@ -126,6 +126,30 @@ namespace AsteroidsGoneRogue
             return mask;
         }
 
+        /// <summary>
+        /// Glass Cannon is the only mutator a daily seed refuses.
+        /// </summary>
+        public static bool BlockedOnDaily(int id)
+        {
+            return id == MutatorCatalog.Glass;
+        }
+
+        /// <summary>
+        /// A normal seed (0 or less) keeps the sanitized mask, Glass included.
+        /// A positive daily seed drops only the Glass bit. The rest of a legal
+        /// mask stays, so a saved Glass flag does not reject the file.
+        /// </summary>
+        public static int ForDailySeed(int mask, int dailySeed)
+        {
+            int clean = Sanitize(mask);
+            if (dailySeed <= 0 || !Has(clean, MutatorCatalog.Glass))
+            {
+                return clean;
+            }
+
+            return clean & ~MutatorCatalog.Bit(MutatorCatalog.Glass);
+        }
+
         public static bool TryToggle(int mask, int id, out int next)
         {
             next = Sanitize(mask);
