@@ -226,7 +226,7 @@ namespace AsteroidsGoneRogue
             { "shop.title.FlakFeed", "Flakmatning" },
             { "shop.desc.FlakFeed", "Salva-mitt. Spread-cooldown ×0.85 och halvvinkel +4°. Mjuklåser andra vägar." },
             { "shop.title.Storm", "Storm" },
-            { "shop.desc.Storm", "Salva-topp. Spread skjuter 5 hagel. Cooldown ×1.3, minst 0.3s." },
+            { "shop.desc.Storm", "Salva-topp. Spread skjuter 5 hagel. Cooldown ×1.3, minst 0.1s." },
             { "shop.title.OverchargeLance", "Överladdad lans" },
             { "shop.desc.OverchargeLance", "Lans-topp. Pierce träffar +1 mål. Tvilling-cooldown ×0.9." },
             { "shop.title.SeekerCadence", "Sökartakt" },

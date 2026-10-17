@@ -30,7 +30,7 @@ namespace AsteroidsGoneRogue
 
         public const int StormPelletCount = 5;
         public const float StormCooldownMul = 1.3f;
-        public const float StormSeconds = 0.3f;
+        public const float StormSeconds = 0.1f;
         public const int StormCost = 240;
 
         public const float RailHoldSeconds = 0.55f;
