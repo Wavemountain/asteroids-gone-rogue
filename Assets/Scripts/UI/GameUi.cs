@@ -1404,7 +1404,8 @@ namespace AsteroidsGoneRogue
                     {
                         int paintId = RunSetupNav.MutatorId(paintIndex);
                         bool paintOn = MutatorRules.Has(_setupMask, paintId);
-                        if (MutatorRules.BlockedOnDaily(paintId))
+                        bool dailyGlass = MutatorRules.BlockedOnDaily(paintId) && ChooserDailyMode();
+                        if (dailyGlass)
                         {
                             paintLabel.text = MutatorCopy.DailyBlockedLabel(paintOn);
                             paintLabel.color = paintOn ? UiTheme.Primary : UiTheme.DisabledRgb;
@@ -1412,6 +1413,7 @@ namespace AsteroidsGoneRogue
                         else
                         {
                             paintLabel.text = MutatorCopy.Row(paintId, paintOn);
+                            paintLabel.color = Color.white;
                         }
                     }
                 }
@@ -1457,6 +1459,49 @@ namespace AsteroidsGoneRogue
             }
 
             _setupBlurb.text = DailyCopy.Hint() + "\n" + paintSecond;
+        }
+
+        /// <summary>
+        /// The daily-off glass line is only for a Daily start. Easy, Normal,
+        /// and Hard keep the factor row and the same white label as the others.
+        /// </summary>
+        private bool ChooserDailyMode()
+        {
+            if (_setupFocus == RunSetupNav.DailySlot)
+            {
+                return true;
+            }
+
+            return _game != null && _game.ActiveDailySeed > 0;
+        }
+
+        /// <summary>
+        /// Capture pose. 0 closes the chooser. 1 opens it on Normal. 2 opens it on Daily.
+        /// </summary>
+        public void CaptureRunSetup(int mode)
+        {
+            if (mode <= 0)
+            {
+                if (_setupOpen)
+                {
+                    CloseRunSetup(false);
+                }
+
+                return;
+            }
+
+            if (!_setupOpen)
+            {
+                OpenRunSetup(RunSetupKind.Hangar);
+            }
+
+            if (!_setupOpen)
+            {
+                return;
+            }
+
+            _setupFocus = mode == 2 ? RunSetupNav.DailySlot : RunSetupNav.NormalSlot;
+            FocusRunSetup(_setupFocus);
         }
 
         private void ApplyRunSetup(int slot)

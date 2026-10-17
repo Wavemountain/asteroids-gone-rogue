@@ -2343,9 +2343,50 @@ namespace AsteroidsGoneRogue
             return shieldIndex;
         }
 
+        /// <summary>
+        /// Daily is a brand-new player: default loadout, no purchases, no
+        /// doctrine, no discount, no credits, no legacy rank bonuses.
+        /// Mutators chosen for this start stay; Glass was already dropped.
+        /// </summary>
+        private void ApplyCleanDailyRun()
+        {
+            _runLaunched = false;
+            _legacyApplied = false;
+            _grantedStartShield = 0;
+            _grantedStartCredits = 0;
+            if (_loadout != null && _loadout.State != null)
+            {
+                _loadout.State.Reset();
+            }
+
+            if (_session != null)
+            {
+                int keptLives = _session.Lives;
+                _session.ResetRun();
+                _session.ResetLives(keptLives);
+            }
+
+            ApplyLegacyToNewRun();
+            RefreshPendingShip();
+        }
+
         private void ResyncStartShield()
         {
-            if (_runLaunched || _loadout == null || _loadout.State == null || _session == null)
+            if (_loadout == null || _loadout.State == null || _session == null)
+            {
+                return;
+            }
+
+            if (ActiveDailySeed > 0
+                && _session.Phase != GamePhase.Playing
+                && _session.WaveIndex <= 1
+                && _session.Score <= 0)
+            {
+                ApplyCleanDailyRun();
+                return;
+            }
+
+            if (_runLaunched)
             {
                 return;
             }
