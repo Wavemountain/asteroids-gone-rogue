@@ -24,6 +24,7 @@ namespace AsteroidsGoneRogue
         private EnemyKind _pendingDeathKind = EnemyKind.Mid01;
         private bool _keepDailyOnReset;
         private int _grantedStartShield;
+        private int _grantedStartCredits;
 
         public static GameManager Live { get; private set; }
 
@@ -1411,8 +1412,9 @@ namespace AsteroidsGoneRogue
                 ActiveDailyDate = 0;
             }
 
-            // The save already holds this run's shields. Do not grant start bonuses again.
+            // The save already holds this run's shields and credits. Do not grant start bonuses again.
             _grantedStartShield = 0;
+            _grantedStartCredits = 0;
 
             ApplyMutators(data.MutatorMask);
             _runLaunched = true;
@@ -2279,15 +2281,30 @@ namespace AsteroidsGoneRogue
             }
 
             _legacyApplied = true;
-            int bonusCredits = LegacyProgress.StartingCredits(Meta);
+            bool legacy = RunBonusPolicy.AppliesLegacy(ActiveDailySeed);
+            int bonusCredits = 0;
+            if (legacy)
+            {
+                bonusCredits = LegacyProgress.StartingCredits(Meta);
+            }
+
             if (bonusCredits > 0)
             {
                 _session.GrantCredits(bonusCredits);
             }
 
+            _grantedStartCredits = bonusCredits;
             LoadoutState state = _loadout.State;
             _grantedStartShield = GrantStartShield(state);
-            state.SetLegacyBonuses(LegacyProgress.HullBonus(Meta), LegacyProgress.DiscountPercent(Meta));
+            int hullBonus = 0;
+            int discountPercent = 0;
+            if (legacy)
+            {
+                hullBonus = LegacyProgress.HullBonus(Meta);
+                discountPercent = LegacyProgress.DiscountPercent(Meta);
+            }
+
+            state.SetLegacyBonuses(hullBonus, discountPercent);
         }
 
         private int GrantStartShield(LoadoutState state)
@@ -2317,7 +2334,7 @@ namespace AsteroidsGoneRogue
 
         private void ResyncStartShield()
         {
-            if (_runLaunched || _loadout == null || _loadout.State == null)
+            if (_runLaunched || _loadout == null || _loadout.State == null || _session == null)
             {
                 return;
             }
@@ -2330,14 +2347,55 @@ namespace AsteroidsGoneRogue
             }
 
             LoadoutState state = _loadout.State;
-            int kept = state.ShieldCharges - _grantedStartShield;
-            if (kept < 0)
+            int keptShield = state.ShieldCharges - _grantedStartShield;
+            if (keptShield < 0)
             {
-                kept = 0;
+                keptShield = 0;
             }
 
-            state.SetShieldCharges(kept);
+            state.SetShieldCharges(keptShield);
             _grantedStartShield = GrantStartShield(state);
+
+            int keptCredits = _session.Credits - _grantedStartCredits;
+            if (keptCredits < 0)
+            {
+                keptCredits = 0;
+            }
+
+            int removeCredits = _session.Credits - keptCredits;
+            if (removeCredits > 0)
+            {
+                _session.TrySpend(removeCredits);
+            }
+
+            _grantedStartCredits = 0;
+            bool legacy = Meta != null && RunBonusPolicy.AppliesLegacy(ActiveDailySeed);
+            if (legacy)
+            {
+                int bonusCredits = LegacyProgress.StartingCredits(Meta);
+                if (bonusCredits > 0)
+                {
+                    _session.GrantCredits(bonusCredits);
+                }
+
+                _grantedStartCredits = bonusCredits;
+            }
+
+            bool discountUsed = state.FirstDiscountUsed;
+            int hullBonus = 0;
+            int discountPercent = 0;
+            if (legacy)
+            {
+                hullBonus = LegacyProgress.HullBonus(Meta);
+                discountPercent = LegacyProgress.DiscountPercent(Meta);
+            }
+
+            state.SetLegacyBonuses(hullBonus, discountPercent);
+            if (discountUsed && state.FirstDiscountPercent > 0)
+            {
+                state.ConsumeFirstDiscount();
+            }
+
             RefreshPendingShip();
         }
 

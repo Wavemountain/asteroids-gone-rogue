@@ -1769,6 +1769,72 @@ def test_horizontal_wrap_truncate_fails_gate() -> None:
     assert int(count_line[0].rsplit(":", 1)[-1].strip()) > 0
 
 
+def test_daily_legacy_start_matches_rank0() -> None:
+    """A daily seed ignores max Legacy credits, hull, discount, and start shield.
+
+    Rank 0 on that same daily seed matches. A normal seed still grants the
+    max-rank package. AppliesLegacy is false only when the daily seed is positive.
+    """
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    policy = (root / "Assets/Scripts/Core/RunBonusPolicy.cs").read_text(encoding="utf-8")
+
+    def applies_legacy(daily_seed: int) -> bool:
+        return daily_seed <= 0
+
+    def package(levels: tuple[int, int, int, int], daily_seed: int) -> tuple[int, int, int, int]:
+        if not applies_legacy(daily_seed):
+            return (0, 0, 0, 0)
+        credits, discount, shield, hull = levels
+        return (
+            _legacy_credits(credits),
+            _legacy_hull(hull),
+            _legacy_discount(discount),
+            _legacy_shield(shield),
+        )
+
+    def resync_credits(current: int, granted: int, levels: tuple[int, int, int, int], daily_seed: int) -> int:
+        kept = current - granted
+        if kept < 0:
+            kept = 0
+        bonus = package(levels, daily_seed)[0]
+        return kept + bonus
+
+    max_ranks = (3, 3, 3, 3)
+    rank0 = (0, 0, 0, 0)
+    daily = 40621
+    assert applies_legacy(0) is True
+    assert applies_legacy(daily) is False
+    assert package(max_ranks, daily) == package(rank0, daily)
+    assert package(max_ranks, daily) == (0, 0, 0, 0)
+    assert package(max_ranks, 0) == (180, 2, 40, 2)
+    assert package(rank0, 0) == (0, 0, 0, 0)
+    # Base hull is 3. Daily max matches rank 0; a normal max rank adds 2.
+    assert 3 + package(max_ranks, daily)[1] == 3 + package(rank0, daily)[1]
+    assert 3 + package(max_ranks, 0)[1] == 5
+    assert resync_credits(180, 180, max_ranks, daily) == 0
+    assert resync_credits(180, 180, max_ranks, 0) == 180
+    assert resync_credits(90, 180, max_ranks, daily) == 0
+
+    apply = manager.split("private void ApplyLegacyToNewRun()")[1].split("private int GrantStartShield")[0]
+    assert "RunBonusPolicy.AppliesLegacy(ActiveDailySeed)" in apply
+    assert apply.index("AppliesLegacy") < apply.index("StartingCredits")
+    assert apply.index("AppliesLegacy") < apply.index("HullBonus")
+    assert apply.index("AppliesLegacy") < apply.index("DiscountPercent")
+    shield = manager.split("private int GrantStartShield")[1].split("private void ResyncStartShield")[0]
+    assert "RunBonusPolicy.AppliesLegacy(ActiveDailySeed)" in shield
+    assert "StartingShield" in shield
+    resync = manager.split("private void ResyncStartShield()")[1].split("private void RefreshPendingShip")[0]
+    assert "_grantedStartCredits" in resync
+    assert "SetLegacyBonuses" in resync
+    assert "return dailySeed <= 0;" in policy
+    accept = manager.split("public void AcceptContinue()")[1].split("private void ConcludeAbandonedLastLife")[0]
+    assert "_grantedStartCredits = 0" in accept
+    assert "ApplyLegacyToNewRun" not in accept
+
+
 def test_daily_shield_and_remainder_047() -> None:
     """Daily runs skip legacy and sink start shields. Remainders restart each configure."""
     import sys
@@ -9402,6 +9468,7 @@ def main() -> int:
     test_mutators_047f()
     test_rc_047_fixes()
     test_daily_shield_and_remainder_047()
+    test_daily_legacy_start_matches_rank0()
     test_game_feel_048()
     test_ui_transition_048()
     test_p3_hangar_hero_preview()
