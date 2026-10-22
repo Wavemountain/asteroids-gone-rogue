@@ -617,7 +617,7 @@ namespace AsteroidsGoneRogue
             float reach = ArenaShapeCatalog.FloorReach(shape);
             if (_distTex == null || _distWorld != ArenaShapeCatalog.ActiveWorld)
             {
-                const int size = 128;
+                const int size = 256;
                 float[] pixels = new float[size * size];
                 shape.WriteDistance(pixels, size, reach);
                 _distTex = new Texture2D(size, size, TextureFormat.RGBA32, false);
