@@ -36,6 +36,9 @@ namespace AsteroidsGoneRogue
         public const int HullFont = 14;
         public const int NameFont = 18;
         public const float LineSpacing = 1.1f;
+        public const float PriceBandMinY = 0.02f;
+        public const float PriceBandMaxY = 0.50f;
+        public const float TitleBandMinY = 0.52f;
 
         public static void PreviewScreen(out float minX, out float minY, out float maxX, out float maxY)
         {

@@ -1734,13 +1734,25 @@ namespace AsteroidsGoneRogue
 
         public void GrantBankedLegacy()
         {
+            if (_session == null)
+            {
+                return;
+            }
+
             if (Meta == null)
             {
                 Meta = MetaData.Fresh();
             }
 
-            Meta.LegacyPoints += 1;
-            RunSaveStore.TrySaveMeta(Meta);
+            EnsureRunId();
+            int recorded = LegacyProgress.BankedCount(Meta, ActiveRunId);
+            int gained = LegacyProgress.BankGrant(recorded, _session.BankedLegacy);
+            if (gained <= 0)
+            {
+                return;
+            }
+
+            Meta.LegacyPoints += gained;
         }
 
         public bool TryBuyHullRepair()
@@ -1838,8 +1850,9 @@ namespace AsteroidsGoneRogue
             }
 
             EnsureRunId();
-            LegacyProgress.RememberBanked(Meta, ActiveRunId, _session.BankedLegacy);
             GrantBankedLegacy();
+            LegacyProgress.RememberBanked(Meta, ActiveRunId, _session.BankedLegacy);
+            RunSaveStore.TrySaveMeta(Meta);
             PlayServicePurchase();
             NotifyLoadoutChanged();
             return true;
@@ -2408,23 +2421,29 @@ namespace AsteroidsGoneRogue
             state.SetShieldCharges(keptShield);
             _grantedStartShield = GrantStartShield(state);
 
-            int keptCredits = _session.Credits - _grantedStartCredits;
-            if (keptCredits < 0)
-            {
-                keptCredits = 0;
-            }
-
-            int removeCredits = _session.Credits - keptCredits;
-            if (removeCredits > 0)
-            {
-                _session.TrySpend(removeCredits);
-            }
-
-            _grantedStartCredits = 0;
             bool legacy = Meta != null && RunBonusPolicy.AppliesLegacy(ActiveDailySeed);
+            int bonusCredits = 0;
             if (legacy)
             {
-                int bonusCredits = LegacyProgress.StartingCredits(Meta);
+                bonusCredits = LegacyProgress.StartingCredits(Meta);
+            }
+
+            // Same bonus already on the ledger: leave spent credits spent.
+            // A changed bonus strips only the unspent remainder of the old grant.
+            if (bonusCredits != _grantedStartCredits)
+            {
+                int keptCredits = _session.Credits - _grantedStartCredits;
+                if (keptCredits < 0)
+                {
+                    keptCredits = 0;
+                }
+
+                int removeCredits = _session.Credits - keptCredits;
+                if (removeCredits > 0)
+                {
+                    _session.TrySpend(removeCredits);
+                }
+
                 if (bonusCredits > 0)
                 {
                     _session.GrantCredits(bonusCredits);

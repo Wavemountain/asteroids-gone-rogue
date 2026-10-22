@@ -7306,7 +7306,10 @@ def test_longhaul_balance_046e() -> None:
 
     root = tools.parent
     report = sim_longhaul.sweep(root)
-    print(sim_longhaul.format_report(report))
+    shown = sim_longhaul.format_report(report)
+    print(shown)
+    assert "catalogue coverage" in shown
+    assert "ratio" not in shown
     assert report["jumps"] == []
     assert report["roster_empty"] == []
     assert report["over_cap"] == []
@@ -10118,6 +10121,13 @@ def main() -> int:
     test_loc_tf_formats_every_key()
     test_capture_048_clearance_hud()
     test_balance_049_package_c()
+    test_legacy_grant_once()
+    test_daily_reset_warning()
+    test_glass_follows_focus()
+    test_glaskanon_spelling()
+    test_capture_fixed_seed()
+    test_shop_price_fits()
+    test_catalogue_coverage_label()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -17591,6 +17601,291 @@ class Program
     )
     assert result.returncode == 0, result.stdout
     assert "clearance-ok" in result.stdout
+
+
+def test_legacy_grant_once() -> None:
+    """Banking the same count twice pays nothing. An unchanged start bonus is not re-granted."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    legacy = (root / "Assets/Scripts/Core/LegacyProgress.cs").read_text(encoding="utf-8")
+
+    def bank_grant(recorded: int, next_count: int) -> int:
+        previous = 0 if recorded < 0 else recorded
+        nxt = 0 if next_count < 0 else next_count
+        if nxt <= previous:
+            return 0
+        gained = nxt - previous
+        if gained > 3:
+            gained = 3
+        return gained
+
+    assert bank_grant(0, 1) == 1
+    assert bank_grant(1, 1) == 0
+    assert bank_grant(1, 3) == 2
+    assert bank_grant(3, 1) == 0
+    assert "public static int BankGrant" in legacy
+    grant = manager.split("public void GrantBankedLegacy()")[1].split("public bool TryBuyHullRepair")[0]
+    assert "BankGrant" in grant
+    assert "BankedCount" in grant
+    assert "LegacyPoints += gained" in grant
+    assert "LegacyPoints += 1" not in manager
+    bank = manager.split("public bool TryBankCredits()")[1].split("private bool ServiceShopOpen")[0]
+    assert bank.index("GrantBankedLegacy()") < bank.index("RememberBanked")
+
+    def resync_credits(credits: int, granted: int, bonus: int) -> int:
+        if bonus == granted:
+            return credits
+        kept = credits - granted
+        if kept < 0:
+            kept = 0
+        return kept + bonus
+
+    assert resync_credits(90, 180, 180) == 90
+    assert resync_credits(180, 180, 180) == 180
+    assert resync_credits(90, 180, 0) == 0
+    assert resync_credits(0, 0, 180) == 180
+    resync = manager.split("private void ResyncStartShield()")[1].split("private void RefreshPendingShip")[0]
+    assert "bonusCredits != _grantedStartCredits" in resync
+    assert "_grantedStartCredits" in resync
+    assert "SetLegacyBonuses" in resync
+
+
+def test_daily_reset_warning() -> None:
+    """Switching into Daily shows one EN/SV line when the loadout will be wiped."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    copy = (root / "Assets/Scripts/Core/DailyCopy.cs").read_text(encoding="utf-8")
+    swedish = _loc_values(loc)
+    assert swedish["daily.reset_loadout"] == "Daglig nollställer utrustningen."
+    assert 'Loc.T("daily.reset_loadout", "Daily resets this loadout.")' in copy
+
+    def needed(continue_offer, leaving, wave, score, credits, purchased, shield, doctrine) -> bool:
+        return bool(
+            continue_offer
+            or leaving
+            or wave > 1
+            or score > 0
+            or credits > 0
+            or purchased
+            or shield > 0
+            or doctrine != 0
+        )
+
+    assert needed(False, False, 1, 0, 0, False, 0, 0) is False
+    assert needed(False, False, 1, 0, 60, False, 0, 0) is True
+    assert needed(False, False, 2, 0, 0, False, 0, 0) is True
+    assert needed(True, False, 1, 0, 0, False, 0, 0) is True
+    assert needed(False, False, 1, 0, 0, True, 0, 0) is True
+    assert needed(False, False, 1, 0, 0, False, 1, 0) is True
+    assert needed(False, False, 1, 0, 0, False, 0, 1) is True
+    assert needed(False, True, 1, 0, 0, False, 0, 0) is True
+    warning = copy.split("public static bool Needed(")[1].split("return false;")[0]
+    for token in ("continueOffer", "leavingRun", "wave > 1", "score > 0", "credits > 0", "purchased", "shield > 0", "doctrine != 0"):
+        assert token in warning
+    paint = ui.split("string paintSecond;")[1].split("_setupBlurb.text")[0]
+    assert "DailyCopy.ResetLoadout()" in paint
+    assert 'DailyCopy.Hint() + "\\n" + paintSecond' in ui
+    assert "DailySlot].interactable = false" not in ui
+    lines = ("Daily resets this loadout.", "Daglig nollställer utrustningen.")
+    for width, height in ((1280, 720), (1920, 1080)):
+        scale = _canvas_scale(width, height)
+        box = (0.72 - 0.28) * (width / scale)
+        for line in lines:
+            assert "\n" not in line
+            assert _kenney_narrow_width(line, 18) <= box
+
+
+def test_glass_follows_focus() -> None:
+    """The Glass row follows the focused Normal/Daily option, including mouse hover."""
+    from pathlib import Path
+
+    ui = (Path(__file__).resolve().parents[1] / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    setup = ui.split("void BuildRunSetup")[1].split("void OpenRunSetup")[0]
+    assert "HoverRunSetup(capturedSlot)" in setup
+    assert "PointerEnter" in setup
+    assert "FocusRunSetup(slot)" in ui.split("void HoverRunSetup")[1].split("void FocusRunSetup")[0]
+    chooser = ui.split("private bool ChooserDailyMode()")[1].split("private bool DailyResetNeeded")[0]
+    assert chooser.index("RunSetupNav.NormalSlot") < chooser.index("ActiveDailySeed")
+    assert "RunSetupNav.DailySlot" in chooser
+    focus = ui.split("void FocusRunSetup(int slot)")[1].split("void PaintRunSetup")[0]
+    assert "_setupModeSlot = slot" in focus
+    assert "_setupFocus = slot" in focus
+
+
+def test_glaskanon_spelling() -> None:
+    """Swedish Glass Cannon is Glaskanon. The English fallback stays Glass Cannon."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    copy = (root / "Assets/Scripts/Core/MutatorCopy.cs").read_text(encoding="utf-8")
+    assert _loc_values(loc)["mut.glass"] == "Glaskanon"
+    assert "Glaskanone" not in loc
+    assert 'Loc.T("mut.glass", "Glass Cannon")' in copy
+
+
+def test_capture_fixed_seed() -> None:
+    """Every combat shot is pinned to W4PinSeed immediately before StartWave."""
+    from pathlib import Path
+
+    capture = (Path(__file__).resolve().parents[1] / "Assets/Editor/AgrCapture.cs").read_text(encoding="utf-8")
+    assert "W4PinSeed" in capture
+    run = capture.split("public static void Run()")[1].split("static void ")[0]
+    assert "seed = W4PinSeed" in run
+    assert run.index("seed = W4PinSeed") < run.index("SetInt(KeySeed, seed)")
+    stage = capture.split("static void StageCurrent()")[1].split("static void FireDeath")[0]
+    seed_at = stage.rfind("ApplySeedValue(game, W4PinSeed);")
+    start_at = stage.find('InvokeZero(game, "StartWave")')
+    assert seed_at >= 0 and start_at > seed_at
+    between = stage[seed_at + len("ApplySeedValue(game, W4PinSeed);") : start_at]
+    assert between.strip() == "if (!"
+    assert "ApplySeed(game)" not in stage
+
+
+def test_shop_price_fits() -> None:
+    """4-digit shop prices fit their rect at max world scale, Full and Reduce, EN and SV."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    catalog = (root / "Assets/Scripts/Core/ShopCatalog.cs").read_text(encoding="utf-8")
+    layout_src = (root / "Assets/Scripts/UI/ShopGridLayout.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    layout = _shop_layout_consts(layout_src)
+    assert layout["TitleBandMinY"] > layout["PriceBandMaxY"]
+    fit = ui.split("void FitShopPriceWidth")[1].split("void ShopButtonRect")[0]
+    assert "preferredWidth > width" in fit
+    assert "rect.rect.width" in fit
+    assert "resizeTextForBestFit = false" in fit
+    assert "ReduceEffects" not in fit
+    items = re.findall(
+        r"new ShopItem\(\s*UpgradeId\.(\w+),\s*\"([^\"]+)\",\s*\"(?:\\.|[^\"\\])*\",\s*(\d+),\s*ShopGroup\.(\w+)\)",
+        catalog,
+    )
+    assert len(items) >= 20
+
+    def world_price(cost: int) -> int:
+        bonus = (8 - 2) * 9
+        if bonus > 54:
+            bonus = 54
+        scaled = cost * (100 + bonus) // 100
+        return scaled if scaled >= 1 else 1
+
+    def mk2_cost(base: int) -> int:
+        cost = base * 160 // 100
+        return cost if cost >= 1 else 1
+
+    def penalized(cost: int, off: bool) -> int:
+        if not off or cost <= 0:
+            return cost
+        return (cost * 135 + 50) // 100
+
+    def cell_width(group: str, canvas_w: float) -> float:
+        panel = (layout["HangarMaxX"] - layout["HangarMinX"]) * canvas_w
+        if group == "Hull":
+            return layout["HullCellW"] * panel
+        if group == "Weapons":
+            return (layout["WeaponsMaxX"] - layout["WeaponsMinX"]) * panel
+        if group == "Defense":
+            return (layout["DefenseMaxX"] - layout["DefenseMinX"]) * panel
+        return 0.44 * (0.988 - 0.012) * (0.986 - 0.562) * canvas_w
+
+    def band_height(group: str, canvas_h: float) -> float:
+        fraction = layout["PriceBandMaxY"] - layout["PriceBandMinY"]
+        if group == "Doctrine":
+            panel_h = (0.898 - 0.608) * canvas_h
+            row_h = (0.397 - 0.190) * panel_h
+            button_h = (0.92 - 0.08) * row_h
+            return fraction * button_h
+        panel_h = (layout["HangarMaxY"] - layout["HangarMinY"]) * canvas_h
+        return fraction * layout["CellHeight"] * panel_h
+
+    line_px = 1152 / 1024 * layout["LineSpacing"]
+    resolutions = ((1280, 720), (1920, 1080))
+    modes = {}
+    for mode in ("full", "reduce"):
+        fitted = []
+        for _name, _title, base_text, group in items:
+            base = int(base_text)
+            design = 14 if group == "Hull" else 18
+            for width, height in resolutions:
+                scale = _canvas_scale(width, height)
+                canvas_w = width / scale
+                canvas_h = height / scale
+                box = cell_width(group, canvas_w)
+                band = band_height(group, canvas_h)
+                for swedish in (False, True):
+                    unit = "kr" if swedish else "cr"
+                    for off in (False, True):
+                        mk1 = world_price(penalized(base, off))
+                        mk2 = world_price(penalized(mk2_cost(base), off))
+                        if swedish:
+                            strings = (
+                                f"{mk1} kr",
+                                f"behöver {mk1} kr",
+                                f"Mk II  {mk2} kr",
+                                f"behöver {mk2} kr",
+                            )
+                        else:
+                            strings = (
+                                f"{mk1} cr",
+                                f"need {mk1} cr",
+                                f"Mk II  {mk2} cr",
+                                f"need {mk2} cr",
+                            )
+                        for text in strings:
+                            size = design
+                            while size > 10 and _kenney_narrow_width(text, size) > box:
+                                size -= 1
+                            width_px = _kenney_narrow_width(text, size)
+                            assert size >= 10, (text, group, box, width_px)
+                            assert width_px <= box + 0.01, (text, group, mode, width, height, width_px, box)
+                            assert size * line_px <= band + 0.01, (text, group, size, band)
+                            fitted.append((text, group, width, height, swedish, off, size))
+        modes[mode] = fitted
+    assert modes["full"] == modes["reduce"]
+
+
+def test_catalogue_coverage_label() -> None:
+    """The printed long-haul metric is catalogue coverage. The dict key stays ratio."""
+    import sys
+    from pathlib import Path
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    import sim_longhaul
+
+    report = {
+        "ratio": {"easy": 0.5, "normal": 0.4, "hard": 0.3},
+        "credit_total": {"easy": 100, "normal": 80, "hard": 60},
+        "catalogue": 200,
+        "floor_ratio": {"normal": 0.2},
+        "floor_total": 40,
+        "credit_bonus_per_world": 8,
+        "easy_boss_hp": 144,
+        "aimed_shots": 3,
+        "radial_shots": 8,
+        "wave5_easy_count": 1,
+        "wave10_hard_count": 1,
+        "wave45_hard_count": 1,
+        "wave45_hard_dropped": 0,
+        "jumps": [],
+        "over_cap": [],
+        "roster_empty": [],
+    }
+    text = sim_longhaul.format_report(report)
+    assert "catalogue coverage 50.0%" in text
+    assert "catalogue coverage 40.0%" in text
+    assert "catalogue coverage 30.0%" in text
+    assert "ratio" not in text
+    assert report["ratio"]["normal"] == 0.4
+    assert report["floor_ratio"]["normal"] == 0.2
 
 
 if __name__ == "__main__":

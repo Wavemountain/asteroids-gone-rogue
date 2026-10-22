@@ -538,7 +538,7 @@ def format_report(report: dict) -> str:
         percent = report["ratio"][grade] * 100.0
         lines.append(
             f"  {grade}: credits through wave 35 = {report['credit_total'][grade]}"
-            f"  shop+doctrine {report['catalogue']}  ratio {percent:.1f}%"
+            f"  shop+doctrine {report['catalogue']}  catalogue coverage {percent:.1f}%"
         )
     floor = report["floor_ratio"]["normal"] * 100.0
     lines.append(
