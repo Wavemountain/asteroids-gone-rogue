@@ -268,7 +268,8 @@ namespace AsteroidsGoneRogue
                 }
 
                 islands[i].Drop = LayerGate.IsSpawnClutter(islands[i].MinX, islands[i].MaxX, islands[i].MinZ, islands[i].MaxZ)
-                    || LayerGate.IsRingCorner(islands[i].MinX, islands[i].MaxX, islands[i].MinZ, islands[i].MaxZ, ring);
+                    || LayerGate.IsRingCorner(islands[i].MinX, islands[i].MaxX, islands[i].MinZ, islands[i].MaxZ, ring)
+                    || LayerGate.IsRingCorner(islands[i].MinX, islands[i].MaxX, islands[i].MinZ, islands[i].MaxZ, ArenaShapeCatalog.Active);
             }
 
             return islands;

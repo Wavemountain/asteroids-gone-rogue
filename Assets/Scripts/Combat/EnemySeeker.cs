@@ -42,10 +42,22 @@ namespace AsteroidsGoneRogue
         private Vector3 _boltAim;
         private bool _nestTold;
         private float _harmAt;
+        private bool _entering;
+        private float _entryFromX;
+        private float _entryFromZ;
+        private float _entryToX;
+        private float _entryToZ;
+        private float _entrySeconds;
+        private float _entryAge;
 
         public bool CanHarm
         {
-            get { return Time.time >= _harmAt; }
+            get { return !_entering && Time.time >= _harmAt; }
+        }
+
+        public bool IsEntering
+        {
+            get { return _entering; }
         }
 
         public EnemyKind Kind
@@ -55,7 +67,7 @@ namespace AsteroidsGoneRogue
 
         public bool IsBoss
         {
-            get { return _boss && !_dead; }
+            get { return _boss && !_dead && !_entering; }
         }
 
         public bool IsElite
@@ -146,6 +158,7 @@ namespace AsteroidsGoneRogue
             _boltWindupUntil = 0f;
             _nestTold = false;
             _harmAt = 0f;
+            _entering = false;
         }
 
         public void BeginSpawnGrace()
@@ -156,6 +169,56 @@ namespace AsteroidsGoneRogue
                 Color warn = new Color(LookPolish.EnemyRimR, LookPolish.EnemyRimG, LookPolish.EnemyRimB, 1f);
                 _factory.SpawnTelegraphRing(
                     transform.position,
+                    warn,
+                    LookPolish.SpawnWarningSeconds,
+                    TelegraphShape.Ring,
+                    transform.forward);
+            }
+        }
+
+        public void BeginEntry(float angle, float seconds, float playerX, float playerZ)
+        {
+            ArenaShape shape = ArenaShapeCatalog.Active;
+            float body = EnemyCatalog.ColliderRadius(_kind);
+            float outsideX;
+            float outsideZ;
+            float insideX;
+            float insideZ;
+            float crossX;
+            float crossZ;
+            EntryFlight.Resolve(shape, angle, body, playerX, playerZ, out outsideX, out outsideZ, out insideX, out insideZ, out crossX, out crossZ);
+            _entryFromX = outsideX;
+            _entryFromZ = outsideZ;
+            _entryToX = insideX;
+            _entryToZ = insideZ;
+            _entrySeconds = seconds;
+            if (_entrySeconds < 0.05f)
+            {
+                _entrySeconds = 0.05f;
+            }
+
+            _entryAge = 0f;
+            _entering = true;
+            _harmAt = float.PositiveInfinity;
+            transform.position = new Vector3(outsideX, transform.position.y, outsideZ);
+            if (_body != null)
+            {
+                _body.position = transform.position;
+                _body.linearVelocity = Vector3.zero;
+            }
+
+            SetEntryColliders(false);
+            Vector3 inward = new Vector3(insideX - outsideX, 0f, insideZ - outsideZ);
+            if (inward.sqrMagnitude > 0.01f)
+            {
+                transform.rotation = Quaternion.LookRotation(inward.normalized, Vector3.up);
+            }
+
+            if (_factory != null)
+            {
+                Color warn = new Color(LookPolish.EnemyRimR, LookPolish.EnemyRimG, LookPolish.EnemyRimB, 1f);
+                _factory.SpawnTelegraphRing(
+                    new Vector3(crossX, transform.position.y, crossZ),
                     warn,
                     LookPolish.SpawnWarningSeconds,
                     TelegraphShape.Ring,
@@ -225,7 +288,7 @@ namespace AsteroidsGoneRogue
 
         public void ApplyDamage(int amount)
         {
-            if (_dead || amount <= 0)
+            if (_dead || amount <= 0 || _entering)
             {
                 return;
             }
@@ -301,6 +364,12 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (_entering)
+            {
+                TickEntry();
+                return;
+            }
+
             Vector3 toPlayer = _target.position - transform.position;
             toPlayer.y = 0f;
             if (toPlayer.sqrMagnitude < 0.01f)
@@ -331,6 +400,17 @@ namespace AsteroidsGoneRogue
                 TuneBrute(toPlayer.magnitude, ref speed, ref turn);
             }
 
+            Vector3 pos = transform.position;
+            float edge = ArenaShapeCatalog.Active.DistanceToEdge(pos.x, pos.z);
+            if (edge < ArenaEdge.WarningBand)
+            {
+                float nx;
+                float nz;
+                ArenaShapeCatalog.Active.EdgeNormal(pos.x, pos.z, out nx, out nz);
+                Vector3 inward = new Vector3(-nx, 0f, -nz);
+                dir = (dir + (inward * 1.5f)).normalized;
+            }
+
             Quaternion look = Quaternion.LookRotation(dir, Vector3.up);
             transform.rotation = Quaternion.RotateTowards(
                 transform.rotation,
@@ -347,13 +427,90 @@ namespace AsteroidsGoneRogue
                 TryFireBolt(dir);
             }
 
-            Vector3 pos = transform.position;
-            pos.y = 0f;
-            float limit = WaveManager.ArenaRadius - 1.2f;
-            if (pos.sqrMagnitude > limit * limit)
+            float ox;
+            float oz;
+            float ovx;
+            float ovz;
+            Vector3 vel = _body.linearVelocity;
+            ArenaEdge.Push(
+                ArenaShapeCatalog.Active,
+                transform.position.x,
+                transform.position.z,
+                vel.x,
+                vel.z,
+                ArenaEdge.EnemyAccel,
+                Time.fixedDeltaTime,
+                out ox,
+                out oz,
+                out ovx,
+                out ovz);
+            transform.position = new Vector3(ox, transform.position.y, oz);
+            _body.position = transform.position;
+            vel.x = ovx;
+            vel.y = 0f;
+            vel.z = ovz;
+            _body.linearVelocity = vel;
+        }
+
+        private void TickEntry()
+        {
+            _entryAge += Time.fixedDeltaTime;
+            float along = _entryAge / _entrySeconds;
+            if (along >= 1f)
             {
-                pos = pos.normalized * limit;
-                transform.position = pos;
+                transform.position = new Vector3(_entryToX, transform.position.y, _entryToZ);
+                if (_body != null)
+                {
+                    _body.position = transform.position;
+                    _body.linearVelocity = Vector3.zero;
+                }
+
+                EndEntry();
+                return;
+            }
+
+            if (along < 0f)
+            {
+                along = 0f;
+            }
+
+            float x = _entryFromX + ((_entryToX - _entryFromX) * along);
+            float z = _entryFromZ + ((_entryToZ - _entryFromZ) * along);
+            transform.position = new Vector3(x, transform.position.y, z);
+            if (_body != null)
+            {
+                _body.position = transform.position;
+                _body.linearVelocity = Vector3.zero;
+            }
+        }
+
+        private void EndEntry()
+        {
+            _entering = false;
+            SetEntryColliders(true);
+            float ready = Time.time + EntryFlight.GraceSeconds;
+            _harmAt = ready;
+            if (!_training)
+            {
+                _nextShot = ready;
+                _nextSpawn = ready;
+            }
+
+            if (_boss)
+            {
+                _bossNext = ready;
+            }
+        }
+
+        private void SetEntryColliders(bool enabled)
+        {
+            Collider[] colliders = GetComponentsInChildren<Collider>(true);
+            for (int i = 0; i < colliders.Length; i++)
+            {
+                if (colliders[i] != null)
+                {
+                    colliders[i].enabled = enabled;
+                }
             }
         }
 
@@ -486,9 +643,22 @@ namespace AsteroidsGoneRogue
             float angle = Random.Range(0f, Mathf.PI * 2f);
             Vector3 pos = transform.position + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * 1.6f;
             pos.y = 0f;
+            ArenaShape nestShape = ArenaShapeCatalog.Active;
+            if (nestShape.DistanceToEdge(pos.x, pos.z) < 1.5f)
+            {
+                float nestX;
+                float nestZ;
+                nestShape.ClosestPoint(pos.x, pos.z, out nestX, out nestZ);
+                float nestNx;
+                float nestNz;
+                nestShape.EdgeNormal(pos.x, pos.z, out nestNx, out nestNz);
+                pos.x = nestX - (nestNx * 1.5f);
+                pos.z = nestZ - (nestNz * 1.5f);
+            }
+
             if (_target != null)
             {
-                pos = SpawnClearance.Place(pos, _target.position, WaveManager.ArenaRadius - 1.5f);
+                pos = SpawnClearance.Place(pos, _target.position, 0f);
             }
 
             if (_presence != null)

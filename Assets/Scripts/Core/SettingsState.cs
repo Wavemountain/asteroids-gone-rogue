@@ -151,6 +151,7 @@ namespace AsteroidsGoneRogue
         /// </summary>
         public const string TutorialCardsKey = "agr.settings.tutorialCards";
         public const string FilmGrainKey = "agr.settings.filmGrain";
+        public const string TurnSpeedKey = "agr.settings.turnSpeed";
 
         public bool ScreenShake;
         public bool AssistMode;
@@ -169,6 +170,7 @@ namespace AsteroidsGoneRogue
         public string Bindings;
         public int TutorialCards;
         public bool FilmGrain;
+        public float TurnSpeed = 1f;
 
         public static SettingsState CreateDefault()
         {
@@ -190,6 +192,7 @@ namespace AsteroidsGoneRogue
             state.Bindings = BindingStore.Serialize(BindingMap.CreateDefault());
             state.TutorialCards = 0;
             state.FilmGrain = false;
+            state.TurnSpeed = 1f;
             return state;
         }
 
@@ -224,6 +227,8 @@ namespace AsteroidsGoneRogue
         /// </summary>
         private static bool _grainCached;
         private static bool _grainReady;
+        private static float _turnCached = 1f;
+        private static bool _turnReady;
 
         public static bool FilmGrainEnabled
         {
@@ -236,6 +241,24 @@ namespace AsteroidsGoneRogue
                 }
 
                 return _grainCached;
+            }
+        }
+
+        /// <summary>
+        /// Ship turn multiplier, 0.70–1.30. Stored outside the versioned blob
+        /// so a v7 save still loads. Missing key stays at 100%.
+        /// </summary>
+        public static float TurnSpeedScale
+        {
+            get
+            {
+                if (!_turnReady)
+                {
+                    _turnCached = SettingsRows.ClampTurn(UnityEngine.PlayerPrefs.GetFloat(TurnSpeedKey, 1f));
+                    _turnReady = true;
+                }
+
+                return _turnCached;
             }
         }
 
@@ -310,6 +333,8 @@ namespace AsteroidsGoneRogue
             _reduceCached = source.ReduceEffects;
             _grainCached = source.FilmGrain;
             _grainReady = true;
+            _turnCached = SettingsRows.ClampTurn(source.TurnSpeed);
+            _turnReady = true;
             _reduceReady = true;
             _promptSchemeCached = source.PromptScheme;
             _promptSchemeReady = true;
@@ -667,6 +692,7 @@ namespace AsteroidsGoneRogue
             WindowMode = DisplaySettings.NormalizeWindow(WindowMode);
             FpsCap = DisplaySettings.NormalizeFps(FpsCap);
             PromptScheme = (int)InputSchemeRules.Normalize(PromptScheme);
+            TurnSpeed = SettingsRows.ClampTurn(TurnSpeed);
             ResolutionWidth = DisplaySettings.ClampDimension(
                 ResolutionWidth,
                 DisplaySettings.MinWidth,
@@ -878,6 +904,7 @@ namespace AsteroidsGoneRogue
             int storedCards = UnityEngine.PlayerPrefs.GetInt(TutorialCardsKey, 0);
             state.TutorialCards = TutorialPrompt.Migrate(version, cardsPresent, storedCards);
             state.FilmGrain = UnityEngine.PlayerPrefs.GetInt(FilmGrainKey, LookPolish.FilmGrainDefault) != 0;
+            state.TurnSpeed = SettingsRows.ClampTurn(UnityEngine.PlayerPrefs.GetFloat(TurnSpeedKey, 1f));
             Publish(state);
             if (version != CurrentVersion)
             {
@@ -908,6 +935,7 @@ namespace AsteroidsGoneRogue
             UnityEngine.PlayerPrefs.SetString(BindingsKey, Bindings);
             UnityEngine.PlayerPrefs.SetInt(TutorialCardsKey, TutorialPrompt.Normalize(TutorialCards));
             UnityEngine.PlayerPrefs.SetInt(FilmGrainKey, FilmGrain ? 1 : 0);
+            UnityEngine.PlayerPrefs.SetFloat(TurnSpeedKey, SettingsRows.ClampTurn(TurnSpeed));
             UnityEngine.PlayerPrefs.Save();
             Publish(this);
         }

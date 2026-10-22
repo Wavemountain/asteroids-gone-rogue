@@ -127,6 +127,7 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             SessionState.SetInt(KeyLook, LookRequested() ? 1 : 0);
+            SessionState.SetInt(KeyArenaEdge, ArenaEdgeRequested() ? 1 : 0);
             int requestedSeed = seed;
             seed = W4PinSeed;
             Debug.Log(
@@ -399,6 +400,17 @@ namespace AsteroidsGoneRogue.EditorTools
                 if (SessionState.GetInt(KeyLook, 0) != 0)
                 {
                     CaptureLookPolish();
+                    if (!HasError())
+                    {
+                        SessionState.SetInt(KeyPhase, PhaseStop);
+                    }
+
+                    return;
+                }
+
+                if (SessionState.GetInt(KeyArenaEdge, 0) != 0)
+                {
+                    CaptureArenaEdge();
                     if (!HasError())
                     {
                         SessionState.SetInt(KeyPhase, PhaseStop);

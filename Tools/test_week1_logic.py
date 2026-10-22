@@ -408,11 +408,11 @@ def test_tighter_loop_wrap_abort_weapons() -> None:
 
     assert "private void FixedUpdate()" in asteroid
     assert "WrapIfOutsideArena" in asteroid
-    assert "ArenaWrap.WrapXz" in asteroid
+    assert "ArenaEdge.TryReflect" in asteroid
     assert "SoftLockSeconds = 3f" in wrap
     assert "SoftLockSlack = 2f" in wrap
     assert "RescueStrandedThreats" in waves
-    assert "ForceWrapOrDespawn" in waves
+    assert "ForceRecoverOrDespawn" in waves
     assert "AbortToHangar" in session
     assert "AbortWave" in manager
     assert "DespawnAll()" in manager.split("public void AbortWave()")[1].split("public void")[0]
@@ -1207,7 +1207,7 @@ def test_ui_fonts_039() -> None:
     assert "ArenaRadius = 30f" in waves
     assert "ArenaDesignRadius = 22f" in waves
     assert "ScaledRing" in waves
-    assert "WaveManager.ArenaRadius / WaveManager.ArenaDesignRadius" in factory
+    assert "ArenaShapeCatalog.FloorReach" in factory and "/ WaveManager.ArenaDesignRadius" in factory
     assert "new Vector3(0f, 35f, -22f)" in camera
     assert "fieldOfView = 54f" in bootstrap
     assert "farClipPlane = 280f" in bootstrap
@@ -3047,14 +3047,14 @@ def test_astro_env_040() -> None:
     assert "class ArenaEnv" in env
     assert "NebulaRadiusScale = 3.8f" in env
     assert "NebulaInnerOpacity = 0.18f" in env
-    assert "BeltRadiusScale = 1.58f" in env
+    assert "BeltRadiusScale = 1.6f" in env
     assert "Starfield_A" in env and "Starfield_B" in env
     assert "Nebula_Blue" in env
     assert "CreateBelt" in env and "AstroGrid" in env
     assert "NebulaInner" in env
     assert "DustRing" not in env
     assert "CreateDustRing" not in env
-    assert "BeltOuterRadiusScale = 1.68f" in env
+    assert "BeltOuterRadiusScale = 1.6f" in env
     assert "BeltSpinDegrees = 6f" in env
     assert "BeltCount = 22" in env
     assert "StarFarTint = 0.45f" in env
@@ -5835,13 +5835,14 @@ def _settings_roles() -> tuple[str, ...]:
         "section",
         "action",
         "value",
+        "value",
     )
 
 
 def _row_bands() -> list[tuple[float, float]]:
-    # Film grain is the last scroll row. It takes no packed share and no gap:
-    # one more gap drops the language line under 14px at 3440x1440.
-    order = _settings_roles()[:-1]
+    # Film grain and turn speed are trailing scroll rows. They take no packed
+    # share and no gap: one more gap drops the language line under 14px at 3440x1440.
+    order = _settings_roles()[:-2]
     weights = {"value": 1.0, "section": 7.2, "action": 1.0}
     top, bottom, gap = 0.86, 0.05, 0.0113
 
@@ -6925,9 +6926,11 @@ def _damage_percent(world: int) -> int:
 
 
 def _extra_enemies(world: int) -> int:
-    extra = (max(world, 1) - 1) // 2
-    if extra > 4:
-        extra = 4
+    table = (1, 1, 3, 3, 4, 4, 6)
+    shown = max(world, 1)
+    extra = 6 if shown >= 7 else table[shown - 1]
+    if extra > 6:
+        extra = 6
     if extra < 0:
         extra = 0
     return extra
@@ -7097,7 +7100,7 @@ def test_long_haul_difficulty_046() -> None:
     assert "WithinWorldHpPercent = 6" in curve
     assert "DamageBonusPerWorld = 10" in curve
     assert "MaxDamageBonus = 60" in curve
-    assert "MaxExtraEnemies = 4" in curve
+    assert "MaxExtraEnemies = 6" in curve
     assert "MaxFireBonus = 30" in curve
     assert "MaxCreditBonus = 50" in curve
     assert "CreditBonusPerWorld = 8" in curve
@@ -7156,7 +7159,7 @@ def test_long_haul_difficulty_046() -> None:
         assert credit_pct >= prev_credit_pct
         assert 100 <= hp <= 474
         assert 100 <= dmg <= 160
-        assert 0 <= extra <= 4
+        assert 0 <= extra <= 6
         assert 100 <= fire <= 130
         assert 5 <= rocks <= 10
         assert 100 <= credit_pct <= 150
@@ -7185,12 +7188,12 @@ def test_long_haul_difficulty_046() -> None:
     assert _damage_percent(_curve_world(35)) == 160  # was 124
     assert _damage_percent(16) == 160
     assert _damage_percent(40) == 160
-    assert _extra_enemies(1) == 0
-    assert _extra_enemies(2) == 0
-    assert _extra_enemies(4) == 1
-    assert _extra_enemies(7) == 3
-    assert _extra_enemies(9) == 4
-    assert _extra_enemies(20) == 4
+    assert _extra_enemies(1) == 1
+    assert _extra_enemies(2) == 1
+    assert _extra_enemies(4) == 3
+    assert _extra_enemies(7) == 6
+    assert _extra_enemies(9) == 6
+    assert _extra_enemies(20) == 6
     assert _fire_percent(1) == 100
     assert _fire_percent(7) == 112
     assert _fire_percent(16) == 130
@@ -7333,7 +7336,7 @@ def test_longhaul_balance_046e() -> None:
     assert report["radial_shots"] == 8
     assert report["aimed_shots"] <= 4
     assert report["radial_shots"] <= 8
-    assert report["wave45_hard_count"] == 14
+    assert report["wave45_hard_count"] == 16
     assert report["wave45_hard_dropped"] == 0
     assert report["wave5_easy_count"] <= 6
     assert report["wave10_hard_count"] <= 14
@@ -7453,11 +7456,9 @@ def _planar_distance(ax, az, bx, bz):
 
 def _clearance_distance(sx, sz, px, pz, arena):
     direct = _planar_distance(sx, sz, px, pz)
-    if arena <= 0:
+    if arena < 0:
         return direct
-    wx, wz = wrap_xz(sx, sz, arena)
-    wrapped = _planar_distance(wx, wz, px, pz)
-    return wrapped if wrapped < direct else direct
+    return direct
 
 
 def _step_toward_center(px, pz, minimum):
@@ -7475,12 +7476,6 @@ def _spawn_push(sx, sz, px, pz, minimum, max_radius):
     if _clearance_distance(sx, sz, px, pz, arena) + 0.0001 >= minimum:
         return sx, sz
     src_x, src_z = sx, sz
-    if arena > 0:
-        wx, wz = wrap_xz(sx, sz, arena)
-        direct = _planar_distance(sx, sz, px, pz)
-        wrapped = _planar_distance(wx, wz, px, pz)
-        if wrapped + 0.00001 < minimum and wrapped <= direct + 0.00001:
-            src_x, src_z = wx, wz
     dx = src_x - px
     dz = src_z - pz
     dist_sq = dx * dx + dz * dz
@@ -10125,6 +10120,7 @@ def main() -> int:
     test_capture_048_clearance_hud()
     test_balance_049_package_c()
     test_legacy_grant_once()
+    test_arena_shape_050()
     test_daily_reset_warning()
     test_glass_follows_focus()
     test_glaskanon_spelling()
@@ -17529,6 +17525,9 @@ def test_capture_048_clearance_hud() -> None:
     shutil.copyfile(root / "Assets/Scripts/Core/PromptLayout.cs", work / "PromptLayout.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/CaptureContinue.cs", work / "CaptureContinue.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/LayerGate.cs", work / "LayerGate.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/ArenaShape.cs", work / "ArenaShape.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/ArenaShapeCatalog.cs", work / "ArenaShapeCatalog.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/ArenaEdge.cs", work / "ArenaEdge.cs")
     hint_fixtures = root / "Tools" / "fixtures" / "hint"
     hint_names = ["hint_flat.bmp"]
     for hint_scene, hint_count in (("w1", 2), ("w3", 6), ("w4", 6), ("death", 2), ("hangar", 3), ("waveclear", 1)):
@@ -17585,6 +17584,9 @@ class Program
                 '    <Compile Include="PromptLayout.cs" />',
                 '    <Compile Include="CaptureContinue.cs" />',
                 '    <Compile Include="LayerGate.cs" />',
+                '    <Compile Include="ArenaShape.cs" />',
+                '    <Compile Include="ArenaShapeCatalog.cs" />',
+                '    <Compile Include="ArenaEdge.cs" />',
                 '    <Compile Include="DecorDepthRules.cs" />',
                 '    <Compile Include="Program.cs" />',
                 "  </ItemGroup>",
@@ -18440,6 +18442,71 @@ def test_hud_gate_measures_shown_panel() -> None:
     assert "_doctrineIntroDismissed = true" in pose
     restore = capture.split("back.planeDistance = planes[backIndex];")[1].split("DestroyImmediate")[0]
     assert "Canvas.ForceUpdateCanvases()" in restore
+
+
+def test_arena_shape_050() -> None:
+    """Star contour, fly-in, density table, turn speed, and the dotted lip."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    shape = (root / "Assets/Scripts/Core/ArenaShape.cs").read_text(encoding="utf-8")
+    catalog = (root / "Assets/Scripts/Core/ArenaShapeCatalog.cs").read_text(encoding="utf-8")
+    edge = (root / "Assets/Scripts/Core/ArenaEdge.cs").read_text(encoding="utf-8")
+    flight = (root / "Assets/Scripts/Core/EntryFlight.cs").read_text(encoding="utf-8")
+    shots = (root / "Assets/Scripts/Core/ArenaEdgeShots.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+    seeker = (root / "Assets/Scripts/Combat/EnemySeeker.cs").read_text(encoding="utf-8")
+    ship = (root / "Assets/Scripts/Player/ShipController.cs").read_text(encoding="utf-8")
+    projectile = (root / "Assets/Scripts/Player/Projectile.cs").read_text(encoding="utf-8")
+    settings = (root / "Assets/Scripts/Core/SettingsState.cs").read_text(encoding="utf-8")
+    rows = (root / "Assets/Scripts/Core/SettingsRows.cs").read_text(encoding="utf-8")
+    curve = (root / "Assets/Scripts/Core/DifficultyCurve.cs").read_text(encoding="utf-8")
+    grade = (root / "Assets/Scripts/Core/DifficultySettings.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    look = (root / "Assets/Scripts/UI/GameUi.Look.cs").read_text(encoding="utf-8")
+    shader = (root / "Assets/Resources/Shaders/AgrFloorFade.shader").read_text(encoding="utf-8")
+    capture = (root / "Assets/Editor/AgrCapture.ArenaEdge.cs").read_text(encoding="utf-8")
+
+    assert "SampleCount = 48" in shape
+    assert "DistanceToEdge" in shape and "EdgeNormal" in shape and "IsConvex" in shape
+    assert "1.30f, 1.35f, 1.40f, 1.45f, 1.45f, 1.35f, 1.50f" in catalog
+    assert "Bulge = 0.08f" in catalog and "bulgeScale = 0.55f" in catalog
+    assert "ArenaShapeCatalog.SelfCheck" in (root / "Assets/Scripts/Core/LayerGate.cs").read_text(encoding="utf-8")
+    assert "SoftBand = 2f" in edge and "MaxAccel = 32f" in edge and "HardInside = 0.3f" in edge
+    assert "AsteroidDamping = 0.8f" in edge and "NoTrap" in edge
+    assert "ReduceAlpha = 0.45f" in edge and "RestAlpha = 0.12f" in edge and "NearAlpha = 0.75f" in edge
+    assert "return 1.5f" in flight and "return 0.8f" in flight and "return 0.6f" in flight and "return 0.5f" in flight
+    assert "EntryMinSafeMetres" in flight and "NudgeRadians = 0.78539816f" in flight
+    assert "RunRng" not in shape and "RunRng" not in catalog and "RunRng" not in flight
+    assert "ArenaWrap.WrapXz" not in (root / "Assets/Scripts/Combat/Asteroid.cs").read_text(encoding="utf-8")
+    assert "ArenaWrap.WrapXz" not in ship and "ArenaWrap.WrapXz" not in projectile
+    assert "IsEntering" in seeker and "BeginEntry" in seeker and "SetEntryColliders" in seeker
+    assert "keepOutside" in (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    assert "Lifetime = 2.7f" in projectile and "SeekerLifetime = 3.6f" in projectile
+    assert "RicochetLifetime = 3.9f" in projectile
+    assert "ExtraLifeTimeoutSeconds = 10.5f" in grade
+    assert "MaxExtraEnemies = 6" in curve and "MaxSpawnedEnemies = 16" in curve
+    assert "ExtraEnemyTable = { 1, 1, 3, 3, 4, 4, 6 }" in curve
+    assert "CurrentVersion = 7" in settings
+    assert 'TurnSpeedKey = "agr.settings.turnSpeed"' in settings
+    assert "TurnMin = 0.70f" in rows and "TurnMax = 1.30f" in rows and "TurnStep = 0.05f" in rows
+    assert "TurnAllowedInDaily = true" in rows
+    assert "SettingsState.TurnSpeedScale" in ship
+    assert 'Loc.T("ui.settings.turn", "Turn speed")' in look
+    assert "Svänghastighet" in loc
+    assert "_UseContour" in shader and "signedDistance" in shader
+    assert "-arenaEdge" in capture
+    names = []
+    # Mirror ArenaEdgeShots.FileName without the editor.
+    for world in range(1, 8):
+        for mode in ("full", "reduce"):
+            names.append(f"arena_w{world}_{mode}_edge.png")
+            for frame in range(4):
+                names.append(f"arena_w{world}_{mode}_flyin_{frame}.png")
+    assert len(names) == 70
+    assert "arena_w" in shots and "_edge.png" in shots and "_flyin_" in shots
+    assert "ArenaRadius = 30f" in waves
+    assert "BeginOutside" in waves and "CreateOutside" in waves
 
 
 if __name__ == "__main__":

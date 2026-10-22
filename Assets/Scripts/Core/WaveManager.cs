@@ -120,8 +120,9 @@ namespace AsteroidsGoneRogue
                     + (Mathf.PI * 2f * spawned) / Mathf.Max(1, roster.Length)
                     + 1.1f
                     + ringPhase;
-                Vector3 rosterPos = ClearSpawn(RingPoint(rosterAngle, ScaledRing(16.5f - (spawned % 2) * 1.4f)));
-                Register(_factory.CreateEnemy(rosterPos, _player, this, EnemyCatalog.VisualName(roster[rosterIndex])));
+                EnemySeeker rosterEnemy = CreateOutside(roster[rosterIndex]);
+                BeginOutside(rosterEnemy, roster[rosterIndex], rosterAngle, false, false);
+                Register(rosterEnemy);
                 spawned++;
             }
 
@@ -132,9 +133,16 @@ namespace AsteroidsGoneRogue
                     break;
                 }
 
+                EnemyKind extraKind = EnemyKind.Mid01;
+                if (roster.Length > 0)
+                {
+                    extraKind = roster[extraIndex % roster.Length];
+                }
+
                 float extraAngle = waveIndex * 0.31f + 2.4f + extraIndex * 0.9f + ringPhase;
-                Vector3 extraPos = ClearSpawn(RingPoint(extraAngle, ScaledRing(15.2f)));
-                Register(_factory.CreateEnemy(extraPos, _player, this, EnemyCatalog.VisualName(EnemyKind.Mid01)));
+                EnemySeeker extraEnemy = CreateOutside(extraKind);
+                BeginOutside(extraEnemy, extraKind, extraAngle, false, false);
+                Register(extraEnemy);
                 spawned++;
             }
 
@@ -180,15 +188,11 @@ namespace AsteroidsGoneRogue
                 Register(_factory.CreateSmallAsteroid(tutorPos, tutorDrift, this));
             }
 
-            Vector3 tutorEnemyPos = RingPoint(2.2f, ScaledRing(18f));
-            EnemySeeker tutorEnemy = _factory.CreateEnemy(
-                tutorEnemyPos,
-                _player,
-                this,
-                EnemyCatalog.VisualName(FirstRunRules.WeakEnemy));
+            EnemySeeker tutorEnemy = CreateOutside(FirstRunRules.WeakEnemy);
             if (tutorEnemy != null)
             {
                 tutorEnemy.ConfigureTraining(FirstRunRules.WeakEnemyHp, FirstRunRules.WeakEnemySpeedScale);
+                BeginOutside(tutorEnemy, FirstRunRules.WeakEnemy, 2.2f, false, false);
                 Register(tutorEnemy);
             }
 
@@ -200,12 +204,7 @@ namespace AsteroidsGoneRogue
         private void SpawnEliteBrute(int waveIndex)
         {
             float eliteAngle = waveIndex * 0.2f + Mathf.PI + (float)SpawnLayout.PhaseRadians(RunRng.ActiveDailySeed, waveIndex);
-            Vector3 elitePos = ClearSpawn(RingPoint(eliteAngle, ScaledRing(18f)));
-            EnemySeeker elite = _factory.CreateEnemy(
-                elitePos,
-                _player,
-                this,
-                EnemyCatalog.VisualName(EnemyKind.Brute));
+            EnemySeeker elite = CreateOutside(EnemyKind.Brute);
             if (elite == null)
             {
                 return;
@@ -223,18 +222,14 @@ namespace AsteroidsGoneRogue
 
             elite.ConfigureElite(eliteHp);
             _factory.MarkElite(elite.transform);
+            BeginOutside(elite, EnemyKind.Brute, eliteAngle, true, false);
             Register(elite);
         }
 
         private void SpawnBoss(int waveIndex)
         {
             float bossAngle = waveIndex * 0.2f + 0.4f + (float)SpawnLayout.PhaseRadians(RunRng.ActiveDailySeed, waveIndex);
-            Vector3 bossPos = ClearSpawn(RingPoint(bossAngle, ScaledRing(12f)));
-            EnemySeeker boss = _factory.CreateEnemy(
-                bossPos,
-                _player,
-                this,
-                EnemyCatalog.VisualName(EnemyKind.Brute));
+            EnemySeeker boss = CreateOutside(EnemyKind.Brute);
             if (boss == null)
             {
                 return;
@@ -242,8 +237,8 @@ namespace AsteroidsGoneRogue
 
             boss.gameObject.name = "WorldGuardian";
             boss.transform.localScale = Vector3.one * BossRules.VisualScale;
-            OpeningClearance.ScreenPlace(boss.transform);
             boss.ConfigureBoss(BossRules.HitPoints(waveIndex, DifficultySettings.Current));
+            BeginOutside(boss, EnemyKind.Brute, bossAngle, false, true);
             _boss = boss;
             Register(boss);
         }
@@ -461,6 +456,13 @@ namespace AsteroidsGoneRogue
                 }
 
                 live++;
+                EnemySeeker entering = component.GetComponent<EnemySeeker>();
+                if (entering != null && entering.IsEntering)
+                {
+                    _outsideSeconds.Remove(threat);
+                    continue;
+                }
+
                 Vector3 pos = component.transform.position;
                 if (ArenaWrap.IsInvalid(pos.x, pos.y, pos.z))
                 {
@@ -471,13 +473,13 @@ namespace AsteroidsGoneRogue
                     continue;
                 }
 
-                if (ArenaWrap.IsOutOfPlayY(pos.y) || ArenaWrap.IsBeyondSoftLock(pos.x, pos.z, ArenaRadius))
+                if (ArenaWrap.IsOutOfPlayY(pos.y) || ArenaWrap.IsBeyondSoftLock(pos.x, pos.z))
                 {
-                    ForceWrapOrDespawn(threat, component);
+                    ForceRecoverOrDespawn(threat, component);
                     pos = component.transform.position;
                 }
 
-                bool outOfPlay = ArenaWrap.IsOutOfPlay(pos.x, pos.y, pos.z, ArenaRadius);
+                bool outOfPlay = ArenaWrap.IsOutOfPlay(pos.x, pos.y, pos.z);
                 if (!outOfPlay)
                 {
                     _outsideSeconds.Remove(threat);
@@ -495,9 +497,9 @@ namespace AsteroidsGoneRogue
                     continue;
                 }
 
-                ForceWrapOrDespawn(threat, component);
+                ForceRecoverOrDespawn(threat, component);
                 pos = component.transform.position;
-                if (!ArenaWrap.IsOutOfPlay(pos.x, pos.y, pos.z, ArenaRadius))
+                if (!ArenaWrap.IsOutOfPlay(pos.x, pos.y, pos.z))
                 {
                     _outsideSeconds.Remove(threat);
                     continue;
@@ -538,12 +540,18 @@ namespace AsteroidsGoneRogue
             }
         }
 
-        private void ForceWrapOrDespawn(IThreat threat, Component component)
+        private void ForceRecoverOrDespawn(IThreat threat, Component component)
         {
             Vector3 pos = component.transform.position;
-            float ox;
-            float oz;
-            ArenaWrap.WrapXz(pos.x, pos.z, ArenaRadius, out ox, out oz);
+            ArenaShape shape = ArenaShapeCatalog.Active;
+            float cx;
+            float cz;
+            shape.ClosestPoint(pos.x, pos.z, out cx, out cz);
+            float nx;
+            float nz;
+            shape.EdgeNormal(pos.x, pos.z, out nx, out nz);
+            float ox = cx - (nx * 0.5f);
+            float oz = cz - (nz * 0.5f);
             Vector3 wrapped = new Vector3(ox, ArenaWrap.PlayY, oz);
 
             Asteroid asteroid = component.GetComponent<Asteroid>();
@@ -551,7 +559,7 @@ namespace AsteroidsGoneRogue
             {
                 asteroid.KeepInPlay();
                 pos = component.transform.position;
-                if (!ArenaWrap.IsOutOfPlay(pos.x, pos.y, pos.z, ArenaRadius))
+                if (!ArenaWrap.IsOutOfPlay(pos.x, pos.y, pos.z))
                 {
                     return;
                 }
@@ -593,6 +601,35 @@ namespace AsteroidsGoneRogue
         public static Vector3 RingPoint(float angle, float radius)
         {
             return new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
+        }
+
+        private EnemySeeker CreateOutside(EnemyKind kind)
+        {
+            if (_factory == null)
+            {
+                return null;
+            }
+
+            _factory.SetSpawnOutside(true);
+            return _factory.CreateEnemy(Vector3.zero, _player, this, EnemyCatalog.VisualName(kind));
+        }
+
+        private void BeginOutside(EnemySeeker seeker, EnemyKind kind, float angle, bool elite, bool boss)
+        {
+            if (seeker == null)
+            {
+                return;
+            }
+
+            float px = 0f;
+            float pz = 0f;
+            if (_player != null)
+            {
+                px = _player.position.x;
+                pz = _player.position.z;
+            }
+
+            seeker.BeginEntry(angle, EntryFlight.Seconds(kind, elite, boss), px, pz);
         }
     }
 }

@@ -184,11 +184,22 @@ namespace AsteroidsGoneRogue
                 aimX,
                 aimZ,
                 speed,
-                WaveManager.ArenaRadius,
+                100000f,
                 CameraFeel.FairHalfExtent,
                 reduce,
                 out leadX,
                 out leadZ);
+            ArenaShape viewShape = ArenaShapeCatalog.Active;
+            float focusX = _target.position.x + leadX;
+            float focusZ = _target.position.z + leadZ;
+            if (viewShape.DistanceToEdge(focusX, focusZ) < 0f)
+            {
+                float edgeX;
+                float edgeZ;
+                viewShape.ClosestPoint(focusX, focusZ, out edgeX, out edgeZ);
+                leadX = edgeX - _target.position.x;
+                leadZ = edgeZ - _target.position.z;
+            }
             Vector3 look = _target.position + new Vector3(leadX, 0f, leadZ);
             Vector3 desired = look + Offset;
             float step = Time.deltaTime;
@@ -232,8 +243,15 @@ namespace AsteroidsGoneRogue
             Camera playCam = GetComponent<Camera>();
             if (playCam != null)
             {
-                float shipRadius = Mathf.Sqrt((_target.position.x * _target.position.x) + (_target.position.z * _target.position.z));
-                float zoom = CameraFeel.ZoomAdd(speed, ReadPressure(), shipRadius, WaveManager.ArenaRadius, reduce);
+                ArenaShape zoomShape = ArenaShapeCatalog.Active;
+                float edge = zoomShape.DistanceToEdge(_target.position.x, _target.position.z);
+                float bound = zoomShape.BoundingRadius;
+                if (bound < 1f)
+                {
+                    bound = 1f;
+                }
+
+                float zoom = CameraFeel.ZoomAdd(speed, ReadPressure(), bound - edge, bound, reduce);
                 playCam.fieldOfView = ArenaFraming.BaseFov + zoom;
             }
 

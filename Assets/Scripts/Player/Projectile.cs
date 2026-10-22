@@ -5,9 +5,9 @@ namespace AsteroidsGoneRogue
 {
     public sealed class Projectile : MonoBehaviour
     {
-        public const float Lifetime = 2.4f;
-        public const float SeekerLifetime = 3.1f;
-        public const float RicochetLifetime = 3.4f;
+        public const float Lifetime = 2.7f;
+        public const float SeekerLifetime = 3.6f;
+        public const float RicochetLifetime = 3.9f;
         public const float SeekerTurnDegrees = 165f;
 
         private Vector3 _velocity;
@@ -270,6 +270,12 @@ namespace AsteroidsGoneRogue
                     continue;
                 }
 
+                EnemySeeker entering = go.GetComponent<EnemySeeker>();
+                if (entering != null && entering.IsEntering)
+                {
+                    continue;
+                }
+
                 Vector3 delta = go.transform.position - here;
                 delta.y = 0f;
                 float sqr = delta.sqrMagnitude;
@@ -285,18 +291,28 @@ namespace AsteroidsGoneRogue
 
         private void BounceOnRim()
         {
+            ArenaShape shape = ArenaShapeCatalog.Active;
             Vector3 pos = transform.position;
-            pos.y = 0f;
-            float limit = WaveManager.ArenaRadius - 0.65f;
-            if (pos.sqrMagnitude <= limit * limit)
+            float distance = shape.DistanceToEdge(pos.x, pos.z);
+            if (distance >= ArenaEdge.BounceBand)
             {
                 return;
             }
 
-            Vector3 normal = pos.normalized;
+            float nx;
+            float nz;
+            shape.EdgeNormal(pos.x, pos.z, out nx, out nz);
+            Vector3 normal = new Vector3(nx, 0f, nz);
             _velocity = Vector3.Reflect(_velocity, normal);
-            transform.position = normal * (limit - 0.15f);
-            transform.rotation = Quaternion.LookRotation(_velocity.normalized, Vector3.up);
+            float cx;
+            float cz;
+            shape.ClosestPoint(pos.x, pos.z, out cx, out cz);
+            transform.position = new Vector3(cx - (nx * ArenaEdge.BounceInside), pos.y, cz - (nz * ArenaEdge.BounceInside));
+            if (_velocity.sqrMagnitude > 0.01f)
+            {
+                transform.rotation = Quaternion.LookRotation(_velocity.normalized, Vector3.up);
+            }
+
             _bounces--;
         }
 
@@ -371,6 +387,12 @@ namespace AsteroidsGoneRogue
 
                 IDamageable damageable = hit.GetComponentInParent<IDamageable>();
                 if (damageable == null)
+                {
+                    continue;
+                }
+
+                EnemySeeker entering = hit.GetComponentInParent<EnemySeeker>();
+                if (entering != null && entering.IsEntering)
                 {
                     continue;
                 }

@@ -261,6 +261,19 @@ namespace AsteroidsGoneRogue
             return near <= arenaRadius - RingBlockInner && far >= arenaRadius + RingBlockOuter;
         }
 
+        public static bool IsRingCorner(float minX, float maxX, float minZ, float maxZ, ArenaShape shape)
+        {
+            if (shape == null)
+            {
+                return false;
+            }
+
+            float cx = (minX + maxX) * 0.5f;
+            float cz = (minZ + maxZ) * 0.5f;
+            float angle = (float)System.Math.Atan2(cz, cx);
+            return IsRingCorner(minX, maxX, minZ, maxZ, shape.RadiusAt(angle));
+        }
+
         public static float ClosestRadius(float minX, float maxX, float minZ, float maxZ)
         {
             float x = 0f;
@@ -1074,6 +1087,11 @@ namespace AsteroidsGoneRogue
             }
 
             if (!GlyphSharpnessSelfCheck())
+            {
+                return false;
+            }
+
+            if (!ArenaShapeCatalog.SelfCheck())
             {
                 return false;
             }
