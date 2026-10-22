@@ -84,7 +84,7 @@ namespace AsteroidsGoneRogue
                 UpgradeId.EngineUpgrade02,
                 "Engine Upgrade 02",
                 "Requires Rapid Fire. Swaps to Ship_Engine_Upgrade02 (faster gun).",
-                305,
+                260,
                 ShopGroup.Hull),
             new ShopItem(
                 UpgradeId.EngineUpgrade03,
@@ -120,7 +120,7 @@ namespace AsteroidsGoneRogue
                 UpgradeId.TwinGuns,
                 "Twin Guns",
                 "Primary slot: two parallel full-damage bolts. Not a spread fan.",
-                260,
+                295,
                 ShopGroup.Weapons),
             new ShopItem(
                 UpgradeId.Seeker,

@@ -12,9 +12,12 @@ namespace AsteroidsGoneRogue
     /// 0.45 doctrine + Rail numbers. One doctrine per run. Mid purchase
     /// soft-locks the other paths. No Flak weapon, no mid-run swap.
     /// Barrage 55 + Spread 110 and Hunter 40 + Seeker 125 still land on a
-    /// Normal wave-1 clear (165) and still miss Hard (162). Twin is 260, so
-    /// Twin 260 + Lance 45 = 305 and misses that purse
+    /// Normal wave-1 clear (165) and still miss Hard (162). Twin is 295, so
+    /// the Twin + Lance combo price is 340 (295 + 45) and misses that purse
     /// (Pierce + Lance is 200, still over). Off-path soft-lock stays ×1.35.
+    /// Overcharger (OC) Mk II is not +1 damage. It is a fire-cooldown
+    /// multiplier of ×0.92 folded into Mk2EngineMul with the engine Mk II
+    /// branches, so an engine Mk II and OC Mk II do not stack into ×0.92 twice.
     /// </summary>
     public static class DoctrineRules
     {

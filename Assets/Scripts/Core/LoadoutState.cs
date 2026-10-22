@@ -520,14 +520,13 @@ namespace AsteroidsGoneRogue
                 return 1;
             }
 
-            if (Overcharger && OwnsMk2(UpgradeId.Overcharger))
-            {
-                return 1;
-            }
-
             return 0;
         }
 
+        /// <summary>
+        /// One fire-cooldown scale. Engine Mk II and Overcharger Mk II each
+        /// return ×0.92. They do not multiply, so owning both is still ×0.92.
+        /// </summary>
         private float Mk2EngineMul()
         {
             if (Afterburner && OwnsMk2(UpgradeId.Afterburner))
@@ -546,6 +545,11 @@ namespace AsteroidsGoneRogue
             }
 
             if (RapidFire && OwnsMk2(UpgradeId.RapidFire))
+            {
+                return ShopPrices.Mk2CooldownMul;
+            }
+
+            if (Overcharger && OwnsMk2(UpgradeId.Overcharger))
             {
                 return ShopPrices.Mk2CooldownMul;
             }

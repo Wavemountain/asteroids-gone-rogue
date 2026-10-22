@@ -1805,8 +1805,8 @@ def check_economy_049() -> None:
         "RapidFire": 60,
         "NoseHardpoint": 80,
         "NoseUpgrade02": 450,
-        "TwinGuns": 260,
-        "EngineUpgrade02": 305,
+        "TwinGuns": 295,
+        "EngineUpgrade02": 260,
         "EngineUpgrade03": 1450,
         "NoseUpgrade03": 775,
         "Afterburner": 230,
@@ -1826,8 +1826,8 @@ def check_economy_049() -> None:
     mk2 = sum(cost * 160 // 100 for cost in shop)
     gates = 55 + 45 + 40
     catalogue = sum(shop) + mk2 + gates
-    if catalogue != 15987:
-        err(f"world-1 catalogue is {catalogue}, expected 15987")
+    if catalogue != 15961:
+        err(f"world-1 catalogue is {catalogue}, expected 15961")
 
 
 def main() -> int:
