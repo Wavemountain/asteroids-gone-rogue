@@ -23,6 +23,7 @@ namespace AsteroidsGoneRogue
         PromptScheme = 18,
         ChangeControls = 19,
         ResetTutorial = 20,
+        FilmGrain = 21,
     }
 
     public enum SettingsRowRole
@@ -68,6 +69,7 @@ namespace AsteroidsGoneRogue
             SettingsRowId.ResetTutorial,
             SettingsRowId.Controls,
             SettingsRowId.Close,
+            SettingsRowId.FilmGrain,
         };
 
         public static int Count
@@ -159,7 +161,14 @@ namespace AsteroidsGoneRogue
             // The visible list uses SettingsScroll's fixed row height. This share
             // only feeds RowBand. A full extra row drops the language band under
             // the 14px line floor on 3440x1440, so rebind and tutorial reset stay
-            // short shares. RowGap is 0.0113 so those two short rows still clear it.
+            // short shares. Film grain is a scroll row and takes no packed share:
+            // one more gap is enough to miss that floor. RowGap is 0.0113 so the
+            // two short rows still clear it.
+            if (id == SettingsRowId.FilmGrain)
+            {
+                return 0f;
+            }
+
             if (id == SettingsRowId.ChangeControls || id == SettingsRowId.ResetTutorial)
             {
                 return 0.2f;
@@ -218,12 +227,19 @@ namespace AsteroidsGoneRogue
 
             int clamped = ClampIndex(index);
             float weightSum = 0f;
+            int packed = 0;
             for (int band = 0; band < count; band++)
             {
+                if (Weight(Order[band]) <= 0f)
+                {
+                    continue;
+                }
+
                 weightSum += Weight(Order[band]);
+                packed++;
             }
 
-            int gaps = count - 1;
+            int gaps = packed > 0 ? packed - 1 : 0;
             float span = ContentTop - ContentBottom - (RowGap * gaps);
             if (span < 0f)
             {
@@ -233,7 +249,13 @@ namespace AsteroidsGoneRogue
             float cursor = ContentTop;
             for (int row = 0; row < count; row++)
             {
-                float share = weightSum <= 0f ? 0f : Weight(Order[row]) / weightSum;
+                float rowWeight = Weight(Order[row]);
+                if (rowWeight <= 0f)
+                {
+                    continue;
+                }
+
+                float share = weightSum <= 0f ? 0f : rowWeight / weightSum;
                 float height = span * share;
                 float rowTop = cursor;
                 float rowBottom = cursor - height;

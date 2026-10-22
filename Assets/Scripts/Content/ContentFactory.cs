@@ -19,6 +19,9 @@ namespace AsteroidsGoneRogue
         private readonly List<Projectile> _projectiles = new List<Projectile>();
         private Transform _threatRoot;
         private Transform _projectileRoot;
+        private readonly List<Projectile> _playerFree = new List<Projectile>();
+        private readonly List<Projectile> _enemyFree = new List<Projectile>();
+        private bool _prewarming;
         private Transform _pickupRoot;
         private GameObject _hangarDressing;
         private ArenaEnv _arenaEnv;
@@ -341,6 +344,8 @@ namespace AsteroidsGoneRogue
             _pickupRoot = new GameObject("Pickups").transform;
             BuildHangarDressing();
             ProjectileLightPool.Ensure(transform);
+            PrewarmProjectiles();
+            ShaderWarmup.WarmShots();
         }
 
         // Six meshes. World 7 reuses Arena_Blockout (index % 6) and gets its own
@@ -1069,7 +1074,9 @@ namespace AsteroidsGoneRogue
             Vector3 cleared = position;
             if (player != null)
             {
-                cleared = SpawnClearance.Place(position, player.position, WaveManager.ArenaRadius - 1.5f);
+                int wave = waves != null ? waves.ActiveWave : 1;
+                float safe = LookPolish.SafeMetres(wave);
+                cleared = SpawnClearance.Place(position, player.position, WaveManager.ArenaRadius - 1.5f, 0f, safe);
             }
 
             root.transform.position = cleared;
@@ -1278,7 +1285,18 @@ namespace AsteroidsGoneRogue
             int damage,
             EnemyKind kind)
         {
-            return SpawnBolt(origin, direction, speed, damage, false, false, true, kind, FireMode.Bolt);
+            return SpawnEnemyProjectile(origin, direction, speed, damage, kind, false);
+        }
+
+        public Projectile SpawnEnemyProjectile(
+            Vector3 origin,
+            Vector3 direction,
+            float speed,
+            int damage,
+            EnemyKind kind,
+            bool boss)
+        {
+            return SpawnBolt(origin, direction, speed, damage, false, false, true, kind, FireMode.Bolt, boss);
         }
 
         private Projectile SpawnBolt(
@@ -1290,8 +1308,18 @@ namespace AsteroidsGoneRogue
             bool spread,
             bool hostile,
             EnemyKind kind,
-            FireMode style)
+            FireMode style,
+            bool boss = false)
         {
+            if (!_prewarming)
+            {
+                Projectile pooled = TakePooled(hostile);
+                if (pooled != null)
+                {
+                    return Relaunch(pooled, origin, direction, speed, damage, pierce, hostile, kind, style, boss);
+                }
+            }
+
             if (hostile)
             {
                 GameObject playerGo = GameObject.FindGameObjectWithTag(GameTags.Player);
@@ -1458,6 +1486,9 @@ namespace AsteroidsGoneRogue
             }
 
             Projectile projectile = root.AddComponent<Projectile>();
+            projectile.BindPool(this);
+            StyleShot(root, hostile, pierce, spread, style, kind, boss);
+            projectile.PrepareReuse(origin);
             int bounces = ricochet ? LoadoutState.RicochetBounces : 0;
             projectile.Launch(direction, speed, damage, pierce, hostile, kind, seeker, bounces);
             if (!hostile && rail)
@@ -1476,15 +1507,15 @@ namespace AsteroidsGoneRogue
 
         public void ClearProjectiles()
         {
-            for (int i = 0; i < _projectiles.Count; i++)
+            Projectile[] live = _projectiles.ToArray();
+            _projectiles.Clear();
+            for (int i = 0; i < live.Length; i++)
             {
-                if (_projectiles[i] != null)
+                if (live[i] != null)
                 {
-                    Destroy(_projectiles[i].gameObject);
+                    live[i].Retire();
                 }
             }
-
-            _projectiles.Clear();
         }
 
         private Asteroid CreateAsteroid(AsteroidSize size, Vector3 position, Vector3 drift, WaveManager waves)
@@ -3541,6 +3572,356 @@ namespace AsteroidsGoneRogue
             material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
             material.renderQueue = 3000;
             return material;
+        }
+
+        private void PrewarmProjectiles()
+        {
+            if (_projectileRoot == null)
+            {
+                return;
+            }
+
+            _prewarming = true;
+            Vector3 park = new Vector3(0f, -80f, 0f);
+            int player = 0;
+            while (player < LookPolish.PlayerPool)
+            {
+                Projectile shot = SpawnBolt(park, Vector3.forward, 1f, 1, false, false, false, EnemyKind.Mid01, FireMode.Bolt, false);
+                if (shot != null)
+                {
+                    shot.Retire();
+                }
+
+                player++;
+            }
+
+            int enemy = 0;
+            while (enemy < LookPolish.EnemyPool)
+            {
+                Projectile shot = SpawnBolt(park, Vector3.forward, 1f, 1, false, false, true, EnemyKind.Mid01, FireMode.Bolt, false);
+                if (shot != null)
+                {
+                    shot.Retire();
+                }
+
+                enemy++;
+            }
+
+            _prewarming = false;
+        }
+
+        private Projectile TakePooled(bool hostile)
+        {
+            List<Projectile> pool = hostile ? _enemyFree : _playerFree;
+            int index = pool.Count - 1;
+            while (index >= 0)
+            {
+                Projectile shot = pool[index];
+                pool.RemoveAt(index);
+                if (shot != null)
+                {
+                    return shot;
+                }
+
+                index--;
+            }
+
+            return null;
+        }
+
+        public void Reclaim(Projectile shot)
+        {
+            if (shot == null)
+            {
+                return;
+            }
+
+            _projectiles.Remove(shot);
+            shot.transform.position = new Vector3(0f, -80f, 0f);
+            List<Projectile> pool = shot.Hostile ? _enemyFree : _playerFree;
+            if (!pool.Contains(shot))
+            {
+                pool.Add(shot);
+            }
+        }
+
+        private Projectile Relaunch(
+            Projectile shot,
+            Vector3 origin,
+            Vector3 direction,
+            float speed,
+            int damage,
+            bool pierce,
+            bool hostile,
+            EnemyKind kind,
+            FireMode style,
+            bool boss)
+        {
+            GameObject root = shot.gameObject;
+            root.SetActive(true);
+            root.transform.position = origin;
+            bool spread = !hostile && style == FireMode.Spread;
+            bool seeker = !hostile && style == FireMode.Seeker;
+            bool ricochet = !hostile && style == FireMode.Ricochet;
+            StyleShot(root, hostile, pierce, spread, style, kind, boss);
+            shot.PrepareReuse(origin);
+            int bounces = ricochet ? LoadoutState.RicochetBounces : 0;
+            shot.Launch(direction, speed, damage, pierce, hostile, kind, seeker, bounces);
+            if (!hostile && style == FireMode.Rail)
+            {
+                ProjectileLightPool.Pulse(root.transform.position, ProjectileLightBudget.KindRail, EmissionTargets.Primary, root.transform);
+            }
+            else if (!hostile && pierce)
+            {
+                ProjectileLightPool.Pulse(root.transform.position, ProjectileLightBudget.KindPierce, EmissionTargets.Primary, root.transform);
+            }
+
+            if (!_projectiles.Contains(shot))
+            {
+                _projectiles.Add(shot);
+            }
+
+            return shot;
+        }
+
+        private void StyleShot(
+            GameObject root,
+            bool hostile,
+            bool pierce,
+            bool spread,
+            FireMode style,
+            EnemyKind kind,
+            bool boss)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            bool reduce = SettingsState.ReduceEffectsEnabled;
+            bool seeker = !hostile && style == FireMode.Seeker;
+            bool ricochet = !hostile && style == FireMode.Ricochet;
+            bool twin = !hostile && style == FireMode.Twin;
+            bool rail = !hostile && style == FireMode.Rail;
+            float length = LookPolish.BoltLength;
+            float width = LookPolish.BoltWidth;
+            float haloLength = LookPolish.BoltHaloLength;
+            float haloWidth = LookPolish.BoltHaloWidth;
+            float emission = LookPolish.BoltEmission;
+            float trailTime = LookPolish.BoltTrail;
+            float trailWidth = LookPolish.BoltTrailWidth;
+            Color core = new Color(LookPolish.CoreR, LookPolish.CoreG, LookPolish.CoreB, 1f);
+            Color halo = new Color(LookPolish.HaloR, LookPolish.HaloG, LookPolish.HaloB, LookPolish.HaloAlpha(reduce));
+            if (pierce)
+            {
+                length = LookPolish.PierceLength;
+                width = LookPolish.PierceWidth;
+                haloLength = LookPolish.PierceHaloLength;
+                haloWidth = LookPolish.PierceHaloWidth;
+                emission = LookPolish.PierceEmission;
+                trailTime = LookPolish.PierceTrail;
+                trailWidth = 0.04f;
+                halo = new Color(LookPolish.SteelR, LookPolish.SteelG, LookPolish.SteelB, LookPolish.HaloAlpha(reduce));
+            }
+            else if (spread)
+            {
+                length = LookPolish.SpreadLength;
+                width = LookPolish.SpreadWidth;
+                haloLength = LookPolish.SpreadLength + 0.12f;
+                haloWidth = LookPolish.SpreadWidth + 0.08f;
+                emission = LookPolish.SpreadEmission;
+                trailTime = LookPolish.SpreadTrail;
+                trailWidth = 0.06f;
+            }
+            else if (twin)
+            {
+                length = LookPolish.TwinLength;
+                width = LookPolish.TwinWidth;
+                haloLength = LookPolish.TwinLength + 0.10f;
+                haloWidth = LookPolish.TwinWidth + 0.06f;
+                emission = LookPolish.TwinEmission;
+                trailTime = LookPolish.TwinTrail;
+                trailWidth = 0.05f;
+            }
+            else if (seeker)
+            {
+                length = LookPolish.SeekerLength;
+                width = LookPolish.SeekerWidth;
+                haloLength = LookPolish.SeekerLength + 0.12f;
+                haloWidth = LookPolish.SeekerWidth + 0.08f;
+                emission = LookPolish.SeekerEmission;
+                trailTime = LookPolish.SeekerTrail;
+                trailWidth = 0.06f;
+                halo = new Color(LookPolish.SteelR, LookPolish.SteelG, LookPolish.SteelB, LookPolish.HaloAlpha(reduce));
+            }
+            else if (ricochet)
+            {
+                length = LookPolish.RicochetLength;
+                width = LookPolish.RicochetWidth;
+                haloLength = LookPolish.RicochetLength + 0.10f;
+                haloWidth = LookPolish.RicochetWidth + 0.08f;
+                emission = LookPolish.RicochetEmission;
+                trailTime = LookPolish.RicochetTrail;
+                trailWidth = 0.06f;
+            }
+            else if (rail)
+            {
+                length = LookPolish.RailLength;
+                width = LookPolish.RailWidth;
+                haloLength = LookPolish.RailLength;
+                haloWidth = LookPolish.RailWidth + 0.04f;
+                emission = LookPolish.RailEmission;
+                trailTime = LookPolish.RailBeamFade;
+                trailWidth = 0.04f;
+                core = Color.white;
+            }
+
+            Material bodyMat = hostile ? _projectileEnemy : (rail ? _projectileRail : _projectile);
+            Material haloMat = pierce ? _projectilePierce : _projectileHalo;
+            bool diamond = hostile && LookPolish.EnemyIsDiamond((int)kind, boss);
+            float diameter = LookPolish.EnemySize(boss);
+            PrimitiveType bodyType = PrimitiveType.Capsule;
+            if (hostile)
+            {
+                bodyType = PrimitiveType.Sphere;
+            }
+
+            GameObject body = EnsurePiece(root.transform, "ShotBody", bodyType, bodyMat);
+            GameObject haloPiece = EnsurePiece(root.transform, "ShotHalo", PrimitiveType.Capsule, haloMat);
+            GameObject gem = EnsurePiece(root.transform, "ShotDiamond", PrimitiveType.Cube, bodyMat);
+            GameObject rim = EnsurePiece(root.transform, "ShotRim", PrimitiveType.Sphere, _projectileEnemy);
+            GameObject rimGem = EnsurePiece(root.transform, "ShotRimDiamond", PrimitiveType.Cube, _projectileEnemy);
+            if (rim.GetComponent<ShotRim>() == null)
+            {
+                rim.AddComponent<ShotRim>();
+            }
+
+            if (rimGem.GetComponent<ShotRim>() == null)
+            {
+                rimGem.AddComponent<ShotRim>();
+            }
+
+            Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+            for (int rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
+            {
+                Renderer renderer = renderers[rendererIndex];
+                if (renderer == null)
+                {
+                    continue;
+                }
+
+                renderer.enabled = false;
+            }
+
+            if (hostile)
+            {
+                float rimSize = diameter + (LookPolish.EnemyRimThickness * 2f);
+                GameObject shown = diamond ? gem : body;
+                GameObject rimShown = diamond ? rimGem : rim;
+                shown.SetActive(true);
+                body.SetActive(!diamond);
+                gem.SetActive(diamond);
+                rim.SetActive(!diamond);
+                rimGem.SetActive(diamond);
+                if (diamond)
+                {
+                    shown.transform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+                    shown.transform.localScale = new Vector3(diameter, diameter, diameter * 0.35f);
+                    rimShown.transform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+                    rimShown.transform.localScale = new Vector3(rimSize, rimSize, rimSize * 0.35f);
+                }
+                else
+                {
+                    shown.transform.localRotation = Quaternion.identity;
+                    shown.transform.localScale = new Vector3(diameter, diameter, diameter);
+                    rimShown.transform.localRotation = Quaternion.identity;
+                    rimShown.transform.localScale = new Vector3(rimSize, rimSize, rimSize);
+                }
+
+                haloPiece.SetActive(false);
+                TintPiece(shown, new Color(LookPolish.EnemyCoreR, LookPolish.EnemyCoreG, LookPolish.EnemyCoreB, 1f), LookPolish.EnemyCoreEmission);
+                TintPiece(rimShown, new Color(LookPolish.EnemyRimR, LookPolish.EnemyRimG, LookPolish.EnemyRimB, 1f), LookPolish.EnemyRimEmission);
+            }
+            else
+            {
+                gem.SetActive(false);
+                rim.SetActive(false);
+                rimGem.SetActive(false);
+                body.SetActive(true);
+                haloPiece.SetActive(true);
+                Quaternion along = Quaternion.Euler(90f, 0f, 0f);
+                body.transform.localRotation = along;
+                body.transform.localScale = new Vector3(width, length * 0.5f, width);
+                haloPiece.transform.localRotation = along;
+                haloPiece.transform.localScale = new Vector3(haloWidth, haloLength * 0.5f, haloWidth);
+                TintPiece(body, core, emission);
+                TintPiece(haloPiece, halo, emission * 0.35f);
+            }
+
+            TrailRenderer trail = root.GetComponent<TrailRenderer>();
+            if (trail == null)
+            {
+                return;
+            }
+
+            float specWidth = LookPolish.ShotTrailWidth(reduce, trailWidth);
+            float legacyWidth = EffectScale.TrailWidth(reduce, trailWidth);
+            trail.time = LookPolish.ShotTrailTime(reduce, hostile, trailTime);
+            trail.startWidth = specWidth;
+            if (legacyWidth < 0f)
+            {
+                trail.startWidth = legacyWidth;
+            }
+
+            trail.endWidth = 0f;
+            trail.minVertexDistance = seeker ? LookPolish.SeekerMinVertex : 0.08f;
+            trail.emitting = !hostile && trail.time > 0.001f;
+            if (!hostile)
+            {
+                trail.startColor = new Color(halo.r, halo.g, halo.b, 0.9f);
+                trail.endColor = new Color(halo.r * 0.55f, halo.g * 0.55f, halo.b * 0.55f, 0f);
+                float trailRed;
+                float trailGreen;
+                float trailBlue;
+                if (ShipPaint.TryTrail(out trailRed, out trailGreen, out trailBlue))
+                {
+                    trail.startColor = new Color(trailRed, trailGreen, trailBlue, 0.9f);
+                    trail.endColor = new Color(trailRed * 0.55f, trailGreen * 0.55f, trailBlue * 0.55f, 0f);
+                }
+            }
+        }
+
+        private GameObject EnsurePiece(Transform parent, string pieceName, PrimitiveType type, Material material)
+        {
+            Transform found = parent.Find(pieceName);
+            if (found != null)
+            {
+                return found.gameObject;
+            }
+
+            Material paint = material != null ? material : _projectile;
+            return CreatePrimitive(type, pieceName, parent, paint, Vector3.zero, Vector3.one, Quaternion.identity);
+        }
+
+        private static void TintPiece(GameObject piece, Color color, float emission)
+        {
+            if (piece == null)
+            {
+                return;
+            }
+
+            Renderer renderer = piece.GetComponent<Renderer>();
+            if (renderer == null)
+            {
+                return;
+            }
+
+            renderer.enabled = true;
+            MaterialPropertyBlock block = new MaterialPropertyBlock();
+            renderer.GetPropertyBlock(block);
+            block.SetColor("_Color", color);
+            block.SetColor("_EmissionColor", color * emission);
+            renderer.SetPropertyBlock(block);
         }
     }
 

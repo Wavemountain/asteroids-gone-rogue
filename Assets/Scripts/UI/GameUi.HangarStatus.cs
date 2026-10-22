@@ -691,7 +691,7 @@ namespace AsteroidsGoneRogue
                 }
             }
 
-            if (_hudCreditsReady && _hangarHudRoot != null && _hangarHudRoot.activeSelf)
+            if (_hudCreditsReady && _hangarHudRoot != null && _hangarHudRoot.activeSelf && !HangarCreditsHeld())
             {
                 _hudCredits.Advance(Time.unscaledDeltaTime, false);
             }

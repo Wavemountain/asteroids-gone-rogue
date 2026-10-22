@@ -5,7 +5,7 @@ namespace AsteroidsGoneRogue
     public sealed class ShipShooter : MonoBehaviour
     {
         public const int SpreadPelletCount = 3;
-        public const float SpreadHalfAngleDegrees = 14f;
+        public const float SpreadHalfAngleDegrees = 8f;
 
         private static readonly FireMode[] CycleOrder = WeaponSlots.PrimaryCycle;
 
@@ -399,6 +399,10 @@ namespace AsteroidsGoneRogue
             Vector3 forward = transform.forward;
             int count = loadout.Storm ? DoctrineRules.StormPelletCount : SpreadPelletCount;
             float half = SpreadHalfAngleDegrees;
+            if (count > SpreadPelletCount)
+            {
+                half = LookPolish.SpreadGapDegrees * (count - 1) * 0.5f;
+            }
             if (loadout.FlakFeed)
             {
                 half += DoctrineRules.FlakFeedHalfAngleBonus;
@@ -414,7 +418,7 @@ namespace AsteroidsGoneRogue
 
         private void FireTwin(Vector3 origin, LoadoutState loadout)
         {
-            Vector3 right = transform.right * LoadoutState.TwinOffsetMeters;
+            Vector3 right = transform.right * LookPolish.TwinGap(LoadoutState.TwinOffsetMeters);
             Vector3 forward = transform.forward;
             float speed = loadout.ProjectileSpeed;
             int damage = loadout.ProjectileDamage;

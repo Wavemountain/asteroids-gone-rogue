@@ -69,6 +69,7 @@ namespace AsteroidsGoneRogue
             DespawnAll();
             _allStrandedSeconds = 0f;
             _factory.ApplyArenaForWave(waveIndex);
+            PostStack.SnapWorld(ContentFactory.WorldIndexForWave(_activeWave), SettingsState.ReduceEffectsEnabled);
             RunRng.BindWave(RunRng.ActiveDailySeed, _activeWave);
             float ringPhase = (float)SpawnLayout.PhaseRadians(RunRng.ActiveDailySeed, _activeWave);
 
@@ -165,11 +166,12 @@ namespace AsteroidsGoneRogue
             DespawnAll();
             _allStrandedSeconds = 0f;
             _factory.ApplyArenaForWave(1);
+            PostStack.SnapWorld(ContentFactory.WorldIndexForWave(1), SettingsState.ReduceEffectsEnabled);
             int tutorCount = FirstRunRules.AsteroidCount;
             for (int tutorRock = 0; tutorRock < tutorCount; tutorRock++)
             {
                 float tutorAngle = (Mathf.PI * 2f * tutorRock) / tutorCount + 0.4f;
-                Vector3 tutorPos = RingPoint(tutorAngle, ScaledRing(16f));
+                Vector3 tutorPos = ClearSpawn(RingPoint(tutorAngle, ScaledRing(16f)));
                 Vector3 tutorDrift = new Vector3(
                     Mathf.Cos(tutorAngle + 1.2f),
                     0f,
@@ -579,7 +581,8 @@ namespace AsteroidsGoneRogue
                 return spawn;
             }
 
-            return SpawnClearance.Place(spawn, _player.position, ArenaRadius - 1.5f, bodyRadius);
+            float safe = LookPolish.SafeMetres(_activeWave);
+            return SpawnClearance.Place(spawn, _player.position, ArenaRadius - 1.5f, bodyRadius, safe);
         }
 
         public static float ScaledRing(float designRadius)

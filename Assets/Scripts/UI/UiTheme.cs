@@ -93,7 +93,14 @@ namespace AsteroidsGoneRogue
 
         public static Color HudPlate
         {
-            get { return WithAlpha(Surface, SurfaceAlpha); }
+            get
+            {
+                return new Color(
+                    LookPolish.FadeR,
+                    LookPolish.FadeG,
+                    LookPolish.FadeB,
+                    LookPolish.HudPanelAlpha);
+            }
         }
 
         public static Color PanelPlate

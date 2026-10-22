@@ -133,10 +133,10 @@ namespace AsteroidsGoneRogue
             _body = GetComponent<Rigidbody>();
             _factory = Object.FindAnyObjectByType<ContentFactory>();
             _presence = GetComponent<MonsterPresence>();
-            _nextShot = Time.time + 0.85f;
+            _nextShot = Time.time + LookPolish.SpawnQuietSeconds;
             if (kind == EnemyKind.Sniper || kind == EnemyKind.Gunner)
             {
-                _nextShot = Time.time + 0.85f - EnemyCatalog.BoltWindupSeconds;
+                _nextShot = Time.time + LookPolish.SpawnQuietSeconds - EnemyCatalog.BoltWindupSeconds;
             }
 
             _nextSpawn = Time.time + 1.6f;
@@ -153,11 +153,12 @@ namespace AsteroidsGoneRogue
             _harmAt = Time.time + SpawnClearance.SpawnGraceSeconds;
             if (_factory != null)
             {
+                Color warn = new Color(LookPolish.EnemyRimR, LookPolish.EnemyRimG, LookPolish.EnemyRimB, 1f);
                 _factory.SpawnTelegraphRing(
                     transform.position,
-                    UiTheme.Secondary,
-                    SpawnClearance.SpawnGraceSeconds,
-                    TelegraphShape.DoubleRing,
+                    warn,
+                    LookPolish.SpawnWarningSeconds,
+                    TelegraphShape.Ring,
                     transform.forward);
             }
         }
@@ -595,7 +596,7 @@ namespace AsteroidsGoneRogue
 
             Vector3 aim = direction.sqrMagnitude > 0.01f ? direction.normalized : transform.forward;
             Vector3 origin = transform.position + aim * 1.15f;
-            Projectile shot = _factory.SpawnEnemyProjectile(origin, aim, EnemyCatalog.BoltSpeed(_kind), boltDamage, _kind);
+            Projectile shot = _factory.SpawnEnemyProjectile(origin, aim, EnemyCatalog.BoltSpeed(_kind), boltDamage, _kind, _boss);
             NoteShot(shot);
             if (AudioCues.Instance != null)
             {
@@ -730,7 +731,7 @@ namespace AsteroidsGoneRogue
                 }
 
                 Vector3 burstOrigin = transform.position + shotDir.normalized * 1.8f;
-                Projectile burstShot = _factory.SpawnEnemyProjectile(burstOrigin, shotDir.normalized, burstSpeed, burstDamage, _kind);
+                Projectile burstShot = _factory.SpawnEnemyProjectile(burstOrigin, shotDir.normalized, burstSpeed, burstDamage, _kind, _boss);
                 NoteShot(burstShot);
             }
 
@@ -750,7 +751,7 @@ namespace AsteroidsGoneRogue
                 float spokeAngle = (Mathf.PI * 2f * spoke) / ringCount;
                 Vector3 spokeDir = new Vector3(Mathf.Cos(spokeAngle), 0f, Mathf.Sin(spokeAngle));
                 Vector3 ringOrigin = transform.position + spokeDir * 2.2f;
-                Projectile ringShot = _factory.SpawnEnemyProjectile(ringOrigin, spokeDir, ringSpeed, ringDamage, _kind);
+                Projectile ringShot = _factory.SpawnEnemyProjectile(ringOrigin, spokeDir, ringSpeed, ringDamage, _kind, _boss);
                 NoteShot(ringShot);
             }
 

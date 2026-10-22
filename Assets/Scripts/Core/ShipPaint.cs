@@ -23,6 +23,14 @@ namespace AsteroidsGoneRogue
             }
 
             ShopSinkCatalog.TrailRgb(trailId, out red, out green, out blue);
+            if (!LookPolish.TrailHueAllowed(red, green, blue))
+            {
+                red = 0f;
+                green = 0f;
+                blue = 0f;
+                return false;
+            }
+
             return true;
         }
 

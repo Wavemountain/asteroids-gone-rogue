@@ -238,6 +238,8 @@ namespace AsteroidsGoneRogue
         private bool _creditsMusic;
         private float _lastSwarmPodSpawn;
         private bool _crossfading;
+        private bool _armHangarReturn;
+        private bool _hangarReturnClock;
         private float _fadeElapsed;
         private float _fadeSeconds;
         private AudioClip _incomingClip;
@@ -1062,6 +1064,11 @@ namespace AsteroidsGoneRogue
             DuckMusic(SwarmPodDuckSeconds, SwarmPodDuckScale);
         }
 
+        public void ArmHangarReturn()
+        {
+            _armHangarReturn = true;
+        }
+
         public void SyncMusicToPhase(GamePhase phase)
         {
             SyncMusicToPhase(phase, 1);
@@ -1552,7 +1559,18 @@ namespace AsteroidsGoneRogue
             _inHangar = plan.InHangar;
             _fadeStartAngle = plan.StartAngle;
             _fadeElapsed = 0f;
-            _fadeSeconds = MusicPlan.MusicCrossfadeSeconds;
+            if (_armHangarReturn)
+            {
+                _fadeSeconds = LookPolish.HangarMusicSeconds;
+                _hangarReturnClock = true;
+                _armHangarReturn = false;
+            }
+            else
+            {
+                _fadeSeconds = MusicPlan.MusicCrossfadeSeconds;
+                _hangarReturnClock = false;
+            }
+
             _crossfading = true;
             if (plan.ReplaceIncoming != 0)
             {
@@ -1867,6 +1885,12 @@ namespace AsteroidsGoneRogue
             {
                 outWeight = 1f;
                 inWeight = 0f;
+                return;
+            }
+
+            if (_hangarReturnClock)
+            {
+                LookPolish.HangarReturnWeights(_fadeElapsed, out outWeight, out inWeight);
                 return;
             }
 

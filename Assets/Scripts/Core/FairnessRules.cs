@@ -251,7 +251,17 @@ namespace AsteroidsGoneRogue
         /// </summary>
         public static Vector3 Place(Vector3 spawn, Vector3 player, float maxRadius, float bodyRadius)
         {
-            float min = MinSafeMetres;
+            return Place(spawn, player, maxRadius, bodyRadius, MinSafeMetres);
+        }
+
+        public static Vector3 Place(Vector3 spawn, Vector3 player, float maxRadius, float bodyRadius, float minDistance)
+        {
+            float min = minDistance;
+            if (min < 0f)
+            {
+                min = MinSafeMetres;
+            }
+
             if (bodyRadius > 0f)
             {
                 min += bodyRadius;

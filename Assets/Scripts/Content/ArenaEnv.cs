@@ -53,6 +53,7 @@ namespace AsteroidsGoneRogue
         private Color _gridQuiet = new Color(1f, 1f, 1f, 0f);
         private int _world = 1;
         private float _nebulaBaseA = NebulaOpacity;
+        private float _gridBeat = 1f;
         private float _innerBaseA = NebulaInnerOpacity;
         private ParticleSystem _dust;
         private ParticleSystem.Particle[] _dustBuf;
@@ -339,6 +340,7 @@ namespace AsteroidsGoneRogue
             }
 
             float gridMul = ArenaDepth.GridAlphaMul(MusicPlan.TrackBpm(_world), phase, reduce);
+            _gridBeat = LookPolish.SmoothGridPulse(_gridBeat, gridMul, Time.unscaledDeltaTime, reduce);
             float resting = PremiumLook.GridVisibleAlpha;
             float quiet = 0f;
             if (_world == 3)
@@ -347,7 +349,7 @@ namespace AsteroidsGoneRogue
                 quiet = PremiumLook.W3GridQuietRadius;
             }
 
-            ApplyGrid(_grid, resting, gridMul, quiet);
+            ApplyGrid(_grid, resting, _gridBeat, quiet);
             if (_voidField != null)
             {
                 float motion = 1f;
@@ -1105,9 +1107,10 @@ namespace AsteroidsGoneRogue
         private static Texture2D MakeGridTexture()
         {
             const int Size = 64;
-            Texture2D tex = new Texture2D(Size, Size, TextureFormat.ARGB32, false);
+            Texture2D tex = new Texture2D(Size, Size, TextureFormat.ARGB32, true);
             tex.wrapMode = TextureWrapMode.Repeat;
-            tex.filterMode = FilterMode.Bilinear;
+            tex.filterMode = FilterMode.Trilinear;
+            tex.anisoLevel = 8;
             Color clear = new Color(EmissionTargets.SteelR, EmissionTargets.SteelG, EmissionTargets.SteelB, 0f);
             Color line = new Color(
                 EmissionTargets.SteelR + ((1f - EmissionTargets.SteelR) * 0.12f),
@@ -1144,7 +1147,7 @@ namespace AsteroidsGoneRogue
                 }
             }
 
-            tex.Apply();
+            tex.Apply(true, false);
             tex.name = "AstroGridFade";
             return tex;
         }

@@ -301,6 +301,22 @@ namespace UnityEngine
         public static int FloorToInt(float v) { return (int)Math.Floor(v); }
         public static int CeilToInt(float v) { return (int)Math.Ceiling(v); }
         public static float Tan(float v) { return (float)Math.Tan(v); }
+        public static float Atan2(float y, float x) { return (float)Math.Atan2(y, x); }
+        public static float DeltaAngle(float current, float target)
+        {
+            float delta = target - current;
+            while (delta > 180f)
+            {
+                delta -= 360f;
+            }
+
+            while (delta < -180f)
+            {
+                delta += 360f;
+            }
+
+            return delta;
+        }
         public const float Deg2Rad = 0.0174532924f;
         public const float Rad2Deg = 57.29578f;
     }
@@ -463,7 +479,25 @@ namespace UnityEngine
     {
         public static int PropertyToID(string name) { return 0; }
         public static Shader Find(string name) { return null; }
+        public static void WarmupAllShaders() { }
         public bool isSupported { get { return true; } }
+    }
+
+    public class ShaderVariantCollection : Object
+    {
+        public struct ShaderVariant
+        {
+            public Shader shader;
+            public Rendering.PassType passType;
+            public ShaderVariant(Shader shader, Rendering.PassType passType)
+            {
+                this.shader = shader;
+                this.passType = passType;
+            }
+        }
+
+        public void Add(ShaderVariant variant) { }
+        public void WarmUp() { }
     }
 
     public class Material : Object
@@ -665,6 +699,7 @@ namespace UnityEngine
     {
         public FilterMode filterMode { get; set; }
         public TextureWrapMode wrapMode { get; set; }
+        public int anisoLevel { get; set; }
         public int width { get; set; }
         public int height { get; set; }
     }
@@ -872,8 +907,10 @@ namespace UnityEngine
         public float startWidth { get; set; }
         public float endWidth { get; set; }
         public float minVertexDistance { get; set; }
+        public bool emitting { get; set; }
         public Color startColor { get; set; }
         public Color endColor { get; set; }
+        public void Clear() { }
     }
 
     public class YieldInstruction { }
@@ -1031,6 +1068,21 @@ namespace UnityEngine
 
 namespace UnityEngine.Rendering
 {
+    public enum PassType
+    {
+        Normal = 0,
+        Vertex = 1,
+        VertexLM = 2,
+        ForwardBase = 4,
+        ForwardAdd = 5,
+        ShadowCaster = 8,
+        Deferred = 10,
+        Meta = 11,
+        MotionVectors = 12,
+        ScriptableRenderPipeline = 13,
+        ScriptableRenderPipelineDefaultUnlit = 14,
+    }
+
     public enum ShadowCastingMode { Off, On, TwoSided, ShadowsOnly }
     public enum AmbientMode { Skybox, Trilight, Flat, Custom }
     public enum BlendMode

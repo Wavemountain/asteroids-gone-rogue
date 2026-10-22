@@ -5834,11 +5834,14 @@ def _settings_roles() -> tuple[str, ...]:
         "action",
         "section",
         "action",
+        "value",
     )
 
 
 def _row_bands() -> list[tuple[float, float]]:
-    order = _settings_roles()
+    # Film grain is the last scroll row. It takes no packed share and no gap:
+    # one more gap drops the language line under 14px at 3440x1440.
+    order = _settings_roles()[:-1]
     weights = {"value": 1.0, "section": 7.2, "action": 1.0}
     top, bottom, gap = 0.86, 0.05, 0.0113
 
@@ -10129,6 +10132,7 @@ def main() -> int:
     test_shop_price_fits()
     test_catalogue_coverage_label()
     test_wave_summary_and_hangar_hud()
+    test_premium_050_look()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -18140,6 +18144,129 @@ def test_wave_summary_and_hangar_hud() -> None:
     assert kills_width <= 122, kills_width
     badge_width = _kenney_narrow_width("NYTT REKORD", 16)
     assert badge_width <= 135, badge_width
+
+
+def test_premium_050_look() -> None:
+    """0.50 look polish: grain off, mipmapped grid, no wave bloom, safe spawn, pooled shots."""
+    import os
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    look = (root / "Assets/Scripts/Core/LookPolish.cs").read_text(encoding="utf-8")
+    arena = (root / "Assets/Scripts/Content/ArenaEnv.cs").read_text(encoding="utf-8")
+    stack = (root / "Assets/Scripts/Content/PostStack.cs").read_text(encoding="utf-8")
+    settings = (root / "Assets/Scripts/Core/SettingsState.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+    fairness = (root / "Assets/Scripts/Core/FairnessRules.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.Look.cs").read_text(encoding="utf-8")
+    capture = (root / "Assets/Editor/AgrCapture.cs").read_text(encoding="utf-8")
+    capture_look = (root / "Assets/Editor/AgrCapture.Look.cs").read_text(encoding="utf-8")
+    shader = (root / "Assets/Resources/Shaders/AgrPost.shader").read_text(encoding="utf-8")
+    grid = (root / "Assets/Resources/Shaders/AgrGrid.shader").read_text(encoding="utf-8")
+
+    assert "FilmGrainDefault = 0" in look
+    assert "state.FilmGrain = false" in settings
+    assert 'FilmGrainKey = "agr.settings.filmGrain"' in settings
+    assert "GetInt(FilmGrainKey, LookPolish.FilmGrainDefault)" in settings
+    assert "CurrentVersion = 7" in settings
+    assert '"ui.settings.grain", "Filmkorn"' in loc
+    assert 'Loc.T("ui.settings.grain", "Film grain")' in ui
+    assert "TextureFormat.ARGB32, true" in arena
+    assert "FilterMode.Trilinear" in arena
+    assert "anisoLevel = 8" in arena
+    assert "tex.Apply(true, false)" in arena
+    assert "fwidth" in grid
+    assert "SmoothGridPulse" in arena
+    assert "_Grain * 0.25h" in shader
+    assert "GrainFrame" in stack
+    assert "PresentedGrain" in stack
+    assert "WaveStartBloomAdd" in stack
+    assert "_waveBloomUntil = 0f" in stack
+    assert "MinSafeMetres = 6f" in fairness
+    assert "SafeMetres" in waves
+    assert "Wave1SafeMetres = 10f" in look
+    assert "PlayerPool = 64" in look
+    assert "EnemyPool = 48" in look
+    assert "Reclaim(" in factory
+    assert "trail.Clear()" in (root / "Assets/Scripts/Player/Projectile.cs").read_text(encoding="utf-8")
+    assert "PrewarmProjectiles" in factory
+    assert "-lookPolish" in capture
+    assert "CaptureLookPolish" in capture_look
+    assert "look_before_full_grid.png" in look
+    assert "public static bool SelfCheck()" in look
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    from roslyn_core_check import find_dotnet
+
+    dotnet = find_dotnet()
+    assert dotnet, "look polish tests need dotnet"
+    work = Path(os.environ.get("TMPDIR", "/tmp")) / "agr-look-050"
+    if work.exists():
+        shutil.rmtree(work)
+    work.mkdir(parents=True)
+    shutil.copyfile(root / "Assets/Scripts/Core/LookPolish.cs", work / "LookPolish.cs")
+    program = """
+using System;
+class Program
+{
+    static void Main()
+    {
+        if (!AsteroidsGoneRogue.LookPolish.SelfCheck()) throw new Exception("look");
+        int[] busy = new int[4];
+        int first = AsteroidsGoneRogue.LookPolish.TakePoolSlot(busy);
+        AsteroidsGoneRogue.LookPolish.ReleasePoolSlot(busy, first);
+        int again = AsteroidsGoneRogue.LookPolish.TakePoolSlot(busy);
+        if (again != first) throw new Exception("pool");
+        if (AsteroidsGoneRogue.LookPolish.SafeMetres(1) < 10f) throw new Exception("safe");
+        if (AsteroidsGoneRogue.LookPolish.WaveStartBloomAdd != 0f) throw new Exception("bloom");
+        if (AsteroidsGoneRogue.LookPolish.FilmGrainDefault != 0) throw new Exception("grain");
+        if (AsteroidsGoneRogue.LookPolish.CaptureFile(0) != "look_before_full_grid.png") throw new Exception("capture");
+        Console.WriteLine("look-ok");
+    }
+}
+"""
+    (work / "Program.cs").write_text(program, encoding="utf-8")
+    (work / "look.csproj").write_text(
+        "\n".join(
+            (
+                '<Project Sdk="Microsoft.NET.Sdk">',
+                "  <PropertyGroup>",
+                "    <OutputType>Exe</OutputType>",
+                "    <TargetFramework>net8.0</TargetFramework>",
+                "    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>",
+                "    <Nullable>disable</Nullable>",
+                "    <ImplicitUsings>disable</ImplicitUsings>",
+                "  </PropertyGroup>",
+                "  <ItemGroup>",
+                '    <Compile Include="LookPolish.cs" />',
+                '    <Compile Include="Program.cs" />',
+                "  </ItemGroup>",
+                "</Project>",
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
+    env["DOTNET_NOLOGO"] = "1"
+    env["DOTNET_ROOT"] = str(Path(dotnet).resolve().parent)
+    result = subprocess.run(
+        [dotnet, "run", "--project", str(work / "look.csproj"), "-v", "q"],
+        cwd=work,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise AssertionError(result.stdout + "\n" + result.stderr)
+    assert "look-ok" in result.stdout
 
 
 if __name__ == "__main__":
