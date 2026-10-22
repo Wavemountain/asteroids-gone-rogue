@@ -49,7 +49,13 @@ Shader "AGR/Grid"
             }
             fixed4 frag(v2f i) : SV_Target
             {
-                fixed4 tex = tex2D(_MainTex, i.uv);
+                float2 uv = i.uv;
+                float2 fw = fwidth(uv);
+                fixed4 tex = tex2D(_MainTex, uv);
+                tex += tex2D(_MainTex, uv + fw);
+                tex += tex2D(_MainTex, uv + float2(fw.x, 0));
+                tex += tex2D(_MainTex, uv + float2(0, fw.y));
+                tex *= 0.25;
                 float pulse = _Pulse;
                 if (_QuietRadius > 0.001)
                 {
@@ -63,6 +69,10 @@ Shader "AGR/Grid"
                     }
                 }
                 float alpha = tex.a * _Color.a * pulse;
+                if (alpha > 0.35)
+                {
+                    alpha = 0.35;
+                }
                 return fixed4(tex.rgb * _Color.rgb, saturate(alpha));
             }
             ENDCG

@@ -472,6 +472,11 @@ namespace AsteroidsGoneRogue
                 TryUnlockAchievement(AchievementId.DeepOrbit);
             }
 
+            if (_factory != null)
+            {
+                _factory.SetHangarDressingVisible(false);
+            }
+
             _waves.SpawnWave(_session.WaveIndex);
             bool eliteWave = WaveModifier.IsElite(_session.WaveIndex);
             if (eliteWave && _ui != null)
@@ -952,6 +957,11 @@ namespace AsteroidsGoneRogue
                 }
 
                 _ship.SetInputEnabled(true);
+            }
+
+            if (_factory != null)
+            {
+                _factory.SetHangarDressingVisible(false);
             }
 
             _waves.SpawnTutorial();
@@ -2709,8 +2719,20 @@ namespace AsteroidsGoneRogue
             shieldNow = _ship.Health.Shield < 0 ? 0 : _ship.Health.Shield;
         }
 
+        private GamePhase _raisedPhase = GamePhase.Hangar;
+
         private void RaiseStateChanged()
         {
+            GamePhase previous = _raisedPhase;
+            _raisedPhase = _session != null ? _session.Phase : GamePhase.Hangar;
+            bool hangarReturn = _session != null
+                && _session.Phase == GamePhase.Hangar
+                && previous != GamePhase.Hangar;
+            if (hangarReturn && AudioCues.Instance != null)
+            {
+                AudioCues.Instance.ArmHangarReturn();
+            }
+
             if (StateChanged != null)
             {
                 StateChanged();
@@ -2718,6 +2740,11 @@ namespace AsteroidsGoneRogue
 
             if (_ui != null)
             {
+                if (hangarReturn)
+                {
+                    _ui.BeginHangarReturn();
+                }
+
                 _ui.Refresh();
             }
 

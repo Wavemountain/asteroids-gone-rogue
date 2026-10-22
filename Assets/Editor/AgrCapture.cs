@@ -12,6 +12,8 @@ namespace AsteroidsGoneRogue.EditorTools
     /// and skipped. Do not pass -nographics; the post stack needs a GPU.
     ///
     /// "C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe" -batchmode -projectPath . -executeMethod AsteroidsGoneRogue.EditorTools.AgrCapture.Run -logFile - -captureOut Captures\compare -reduce 0 -seed 48048
+    /// Look polish before/after (grid, player shots, each enemy shot, hit vignette, explosions S/M/L, Full and Reduce):
+    /// -executeMethod AsteroidsGoneRogue.EditorTools.AgrCapture.Run -lookPolish 1 -captureOut Captures\look -reduce 0 -seed 48048
     ///
     /// -seed stays required. The picture seed is always W4PinSeed so a second
     /// capture of the same shot matches the first. The requested value is logged.
@@ -124,6 +126,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
+            SessionState.SetInt(KeyLook, LookRequested() ? 1 : 0);
             int requestedSeed = seed;
             seed = W4PinSeed;
             Debug.Log(
@@ -393,6 +396,17 @@ namespace AsteroidsGoneRogue.EditorTools
 
             if (phase == PhaseStage)
             {
+                if (SessionState.GetInt(KeyLook, 0) != 0)
+                {
+                    CaptureLookPolish();
+                    if (!HasError())
+                    {
+                        SessionState.SetInt(KeyPhase, PhaseStop);
+                    }
+
+                    return;
+                }
+
                 StageCurrent();
                 if (HasError())
                 {

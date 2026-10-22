@@ -41,19 +41,31 @@ namespace AsteroidsGoneRogue
         public static void PlayerHullHit()
         {
             Vector3 direction = ConsumeHitDirection();
-            Shake(PlayerHitShake, direction);
+            if (!SettingsState.ReduceEffectsEnabled)
+            {
+                Shake(PlayerHitShake, direction);
+            }
+
             RequestStop(HitstopBudget.HullSeconds);
-            FlashScreen(PlayerHitFlash, UiTheme.Danger, HitFlashLimiter.DefaultDecay, false);
             if (GameUi.Instance != null)
             {
+                GameUi.Instance.ShowHitVignette(direction, false);
                 GameUi.Instance.PulseHullEdge();
             }
         }
 
         public static void PlayerShieldHit(Transform ship)
         {
-            _hitDir = Vector3.zero;
-            Shake(ShieldHitShake);
+            Vector3 direction = ConsumeHitDirection();
+            if (!SettingsState.ReduceEffectsEnabled)
+            {
+                Shake(ShieldHitShake, direction);
+            }
+
+            if (GameUi.Instance != null)
+            {
+                GameUi.Instance.ShowHitVignette(direction, true);
+            }
             if (ship != null)
             {
                 MeshHitFlash.Play(ship, UiTheme.Secondary, 0.09f);
@@ -165,27 +177,48 @@ namespace AsteroidsGoneRogue
                 }
 
                 JuiceBurst.HitSpark(target.position);
-                VfxKit.Sparks(target.position, 4, UiTheme.Danger, reduce);
+                VfxKit.Sparks(
+                    target.position,
+                    4,
+                    new Color(LookPolish.CoreR, LookPolish.CoreG, LookPolish.CoreB, 1f),
+                    reduce);
             }
 
+            int tier = ExplosionSize(target);
             if (target != null && exploded)
             {
                 JuiceBurst.KillBloom(target.position, heavy);
-                VfxKit.Explode(target.position, ExplosionSize(target), reduce);
+                VfxKit.Explode(target.position, tier, reduce);
             }
 
-            if (target != null)
+            if (target != null && !(exploded && reduce))
             {
-                ShakeWorld(exploded ? ExplosionShake : ThreatHitShake, target.position);
+                float amp = exploded ? ExplosionShake : ThreatHitShake;
+                if (exploded && tier == LookPolish.TierLarge)
+                {
+                    amp = LookPolish.LargeShake;
+                }
+
+                ShakeWorld(amp, target.position);
             }
-            else
+            else if (!(exploded && reduce))
             {
                 Shake(exploded ? ExplosionShake : ThreatHitShake);
             }
 
-            if (exploded && heavy)
+            if (exploded && tier == LookPolish.TierLarge)
             {
-                RequestStop(HitstopBudget.HeavySeconds);
+                if (EffectScale.AllowsHitstop(reduce))
+                {
+                    RequestStop(LookPolish.LargeHitstop);
+                }
+            }
+            else if (exploded && heavy)
+            {
+                if (EffectScale.AllowsHitstop(reduce))
+                {
+                    RequestStop(HitstopBudget.HeavySeconds);
+                }
             }
 
             if (exploded && monster)
@@ -221,8 +254,7 @@ namespace AsteroidsGoneRogue
             EnemySeeker seeker = target.GetComponent<EnemySeeker>();
             if (seeker != null)
             {
-                int boss = seeker.IsBoss ? 1 : 0;
-                return VfxBudget.SizeForEnemy((int)seeker.Kind, boss);
+                return LookPolish.TierFor((int)seeker.Kind, seeker.IsBoss);
             }
 
             Asteroid asteroid = target.GetComponent<Asteroid>();

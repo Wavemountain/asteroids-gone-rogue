@@ -150,6 +150,7 @@ namespace AsteroidsGoneRogue
         /// all-seen. A first launch stays unseen. Reset writes zero.
         /// </summary>
         public const string TutorialCardsKey = "agr.settings.tutorialCards";
+        public const string FilmGrainKey = "agr.settings.filmGrain";
 
         public bool ScreenShake;
         public bool AssistMode;
@@ -167,6 +168,7 @@ namespace AsteroidsGoneRogue
         public int PromptScheme;
         public string Bindings;
         public int TutorialCards;
+        public bool FilmGrain;
 
         public static SettingsState CreateDefault()
         {
@@ -187,6 +189,7 @@ namespace AsteroidsGoneRogue
             state.PromptScheme = (int)InputSchemePreference.Auto;
             state.Bindings = BindingStore.Serialize(BindingMap.CreateDefault());
             state.TutorialCards = 0;
+            state.FilmGrain = false;
             return state;
         }
 
@@ -219,6 +222,28 @@ namespace AsteroidsGoneRogue
         /// Cached copy of <see cref="ReduceEffects"/>. Juice reads this and does
         /// not touch PlayerPrefs. Missing or pre-v4 saves stay off.
         /// </summary>
+        private static bool _grainCached;
+        private static bool _grainReady;
+
+        public static bool FilmGrainEnabled
+        {
+            get
+            {
+                if (!_grainReady)
+                {
+                    _grainCached = UnityEngine.PlayerPrefs.GetInt(FilmGrainKey, FilmGrainDefault()) != 0;
+                    _grainReady = true;
+                }
+
+                return _grainCached;
+            }
+        }
+
+        private static int FilmGrainDefault()
+        {
+            return LookPolish.FilmGrainDefault;
+        }
+
         public static bool ReduceEffectsEnabled
         {
             get
@@ -283,6 +308,8 @@ namespace AsteroidsGoneRogue
             _assistCached = source.AssistMode;
             _assistReady = true;
             _reduceCached = source.ReduceEffects;
+            _grainCached = source.FilmGrain;
+            _grainReady = true;
             _reduceReady = true;
             _promptSchemeCached = source.PromptScheme;
             _promptSchemeReady = true;
@@ -850,6 +877,7 @@ namespace AsteroidsGoneRogue
             bool cardsPresent = UnityEngine.PlayerPrefs.HasKey(TutorialCardsKey);
             int storedCards = UnityEngine.PlayerPrefs.GetInt(TutorialCardsKey, 0);
             state.TutorialCards = TutorialPrompt.Migrate(version, cardsPresent, storedCards);
+            state.FilmGrain = UnityEngine.PlayerPrefs.GetInt(FilmGrainKey, LookPolish.FilmGrainDefault) != 0;
             Publish(state);
             if (version != CurrentVersion)
             {
@@ -879,6 +907,7 @@ namespace AsteroidsGoneRogue
             UnityEngine.PlayerPrefs.SetInt(PromptSchemeKey, prefs.PromptScheme);
             UnityEngine.PlayerPrefs.SetString(BindingsKey, Bindings);
             UnityEngine.PlayerPrefs.SetInt(TutorialCardsKey, TutorialPrompt.Normalize(TutorialCards));
+            UnityEngine.PlayerPrefs.SetInt(FilmGrainKey, FilmGrain ? 1 : 0);
             UnityEngine.PlayerPrefs.Save();
             Publish(this);
         }

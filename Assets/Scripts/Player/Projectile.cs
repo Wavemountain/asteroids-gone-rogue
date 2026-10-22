@@ -26,6 +26,72 @@ namespace AsteroidsGoneRogue
         private bool _struck;
         private ShipShooter _railShooter;
         private readonly HashSet<EntityId> _hitIds = new HashSet<EntityId>();
+        private ContentFactory _pool;
+        private TrailRenderer _trail;
+        private int _trailMute;
+        private bool _retired;
+
+        public bool Hostile
+        {
+            get { return _hostile; }
+        }
+
+        public void BindPool(ContentFactory pool)
+        {
+            _pool = pool;
+            _trail = GetComponent<TrailRenderer>();
+        }
+
+        public void PrepareReuse(Vector3 origin)
+        {
+            _retired = false;
+            transform.position = origin;
+            if (_trail == null)
+            {
+                _trail = GetComponent<TrailRenderer>();
+            }
+
+            if (_trail != null)
+            {
+                _trail.Clear();
+                _trail.emitting = false;
+                _trailMute = 1;
+            }
+
+            gameObject.SetActive(true);
+        }
+
+        public void Retire()
+        {
+            if (_retired)
+            {
+                return;
+            }
+
+            _retired = true;
+            if (_railShooter != null && !_struck)
+            {
+                ShipShooter shooter = _railShooter;
+                _railShooter = null;
+                if (shooter != null)
+                {
+                    shooter.NotifyRailMiss();
+                }
+            }
+            else
+            {
+                _railShooter = null;
+            }
+
+            if (_pool != null)
+            {
+                _pool.Reclaim(this);
+                gameObject.SetActive(false);
+                return;
+            }
+
+            Destroy(gameObject);
+        }
 
         public void Launch(Vector3 direction, float speed, int damage)
         {
@@ -133,6 +199,15 @@ namespace AsteroidsGoneRogue
 
         private void Update()
         {
+            if (_trailMute > 0)
+            {
+                _trailMute--;
+                if (_trailMute == 0 && _trail != null && _trail.time > 0.001f)
+                {
+                    _trail.emitting = true;
+                }
+            }
+
             if (_seeker)
             {
                 SteerTowardThreat();
@@ -146,7 +221,7 @@ namespace AsteroidsGoneRogue
 
             if (Time.time >= _dieAt)
             {
-                Destroy(gameObject);
+                Retire();
             }
         }
 

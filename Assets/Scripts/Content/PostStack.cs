@@ -27,6 +27,10 @@ namespace AsteroidsGoneRogue
 
         private float _waveBloomUntil;
         private float _waveBloomAdd;
+        private int _grainFrame;
+        private float _grainHold;
+        private Vector3 _grainCam;
+        private int _grainCamSet;
         private float _deathEdge;
 
         private Camera _camera;
@@ -105,14 +109,8 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            float add = PremiumLook.WaveBloomAdd;
-            if (SettingsState.ReduceEffectsEnabled)
-            {
-                add *= EffectScale.PostBloomMul;
-            }
-
-            _active._waveBloomAdd = add;
-            _active._waveBloomUntil = Time.unscaledTime + PremiumLook.WaveBloomSeconds;
+            _active._waveBloomAdd = LookPolish.WaveStartBloomAdd;
+            _active._waveBloomUntil = 0f;
         }
 
         public static void PinWaveBloom()
@@ -186,6 +184,12 @@ namespace AsteroidsGoneRogue
 
             shown.Saturation = PremiumLook.DeathSaturation(shown.Saturation, deathU, reduce);
             shown.Vignette = PremiumLook.PresentedVignette(shown.Vignette, deathU, reduce);
+            bool hangarGrade = _state.FromWorld == PostGrade.Hangar && _state.ToWorld == PostGrade.Hangar;
+            shown.Grain = LookPolish.PresentedGrain(
+                shown.Grain,
+                SettingsState.FilmGrainEnabled,
+                reduce,
+                hangarGrade);
             _deathEdge = PremiumLook.DeathEdge(deathU, reduce);
             vignette = shown.Vignette;
             if (Time.unscaledTime < _waveBloomUntil)
@@ -245,6 +249,11 @@ namespace AsteroidsGoneRogue
         {
             int folded = PostGrade.Fold(world);
             if (folded == _state.ToWorld)
+            {
+                return;
+            }
+
+            if (_state.FromWorld == PostGrade.Hangar && _state.ToWorld == PostGrade.Hangar)
             {
                 return;
             }
@@ -387,6 +396,37 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        private float GrainClock()
+        {
+            bool moving = false;
+            if (_camera != null)
+            {
+                Vector3 pos = _camera.transform.position;
+                if (_grainCamSet != 0)
+                {
+                    Vector3 delta = pos - _grainCam;
+                    if (delta.sqrMagnitude > 0.000001f)
+                    {
+                        moving = true;
+                    }
+                }
+
+                _grainCam = pos;
+                _grainCamSet = 1;
+            }
+
+            float now = Time.unscaledTime;
+            float since = now - _grainHold;
+            int next = LookPolish.GrainFrame(_grainFrame, since, moving, LookPolish.GrainStepSeconds);
+            if (next != _grainFrame)
+            {
+                _grainFrame = next;
+                _grainHold = now;
+            }
+
+            return _grainFrame;
+        }
+
         private void PushUniforms(PostGradeRow shown, RenderTexture source)
         {
             _material.SetFloat("_Threshold", shown.Threshold);
@@ -402,7 +442,7 @@ namespace AsteroidsGoneRogue
             _material.SetFloat("_DeathEdge", _deathEdge);
             _material.SetFloat("_Grain", shown.Grain);
             _material.SetFloat("_GrainLum", 0.85f);
-            _material.SetFloat("_GrainTime", Time.unscaledTime);
+            _material.SetFloat("_GrainTime", GrainClock());
             float aspect = 1.6f;
             if (source != null && source.height > 0)
             {

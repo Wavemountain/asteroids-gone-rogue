@@ -171,21 +171,18 @@ namespace AsteroidsGoneRogue
         {
             ShowParticle(_smoke);
             ShowParticle(_chunks);
-
-            int chunks = VfxBudget.Chunks(size, reduce);
-            int smokes = VfxBudget.Smokes(size, reduce);
-            float smokeLife = VfxBudget.SmokeSeconds(size, reduce);
-            float chunkSize = 0.14f;
-            if (size == VfxBudget.Small)
-            {
-                chunkSize = 0.10f;
-            }
-            else if (size == VfxBudget.Large)
+            ShowParticle(_sparks);
+            int tier = LookPolish.ClampTier(size);
+            int chunks = LookPolish.ExplosionChunks(tier, reduce);
+            int smokes = LookPolish.ExplosionSmokes(tier, reduce);
+            float chunkLife = LookPolish.ExplosionChunkLife(tier);
+            float smokeLife = LookPolish.ExplosionSmokeLife(tier);
+            float chunkSize = 0.12f;
+            if (tier == LookPolish.TierLarge)
             {
                 chunkSize = 0.18f;
             }
 
-            chunkSize = VfxBudget.ScaledSize(chunkSize, reduce);
             int piece = 0;
             while (piece < chunks)
             {
@@ -197,27 +194,63 @@ namespace AsteroidsGoneRogue
 
                 float angle = piece * 2.399963f;
                 Vector3 drift = new Vector3(Mathf.Cos(angle), 0.15f, Mathf.Sin(angle));
-                float speed = 4.5f;
-                if (size == VfxBudget.Mid)
-                {
-                    speed = 6f;
-                }
-                else if (size == VfxBudget.Large)
-                {
-                    speed = 8f;
-                }
-
-                Activate(slot, position, 0.35f + (size * 0.15f), chunkSize, chunkSize, drift, speed, 0);
+                float speed = tier == LookPolish.TierLarge ? 8f : 6f;
+                Activate(slot, position, chunkLife > 0.02f ? chunkLife : 0.2f, chunkSize, chunkSize * 0.4f, drift, speed, 0);
                 piece++;
             }
 
-            Color ember = new Color(VfxBudget.EmberR, VfxBudget.EmberG, VfxBudget.EmberB, 1f);
-            Color smoke = new Color(VfxBudget.SmokeR, VfxBudget.SmokeG, VfxBudget.SmokeB, VfxBudget.SmokeAlpha);
-            Emit(_chunks, position, Vector3.up, 0.35f, chunkSize, ember, chunks);
-            Emit(_smoke, position, Vector3.up * 0.4f, smokeLife, VfxBudget.ScaledSize(0.7f, reduce), smoke, smokes);
-            if (size == VfxBudget.Large)
+            Color hot = new Color(VfxBudget.HotR, VfxBudget.HotG, VfxBudget.HotB, 1f);
+            Color smoke = new Color(VfxBudget.SmokeR, VfxBudget.SmokeG, VfxBudget.SmokeB, 0.30f);
+            if (chunks > 0)
             {
-                PlayShock(position, 0.4f, 2.4f, 0.4f, reduce);
+                Emit(_chunks, position, Vector3.up, chunkLife, chunkSize, hot, chunks);
+            }
+
+            if (smokes > 0)
+            {
+                Emit(_smoke, position, Vector3.up * 0.4f, smokeLife, 0.7f, smoke, smokes);
+            }
+
+            int sparks = LookPolish.ExplosionSparks(tier, reduce);
+            Emit(_sparks, position, Vector3.up, LookPolish.ExplosionSparkLife(tier), 0.08f, hot, sparks);
+            float flash = LookPolish.ExplosionFlash(tier);
+            PlayShock(position, 0.2f, tier == LookPolish.TierMid ? 1.5f : 0.8f, flash, reduce);
+            if (tier == LookPolish.TierMid)
+            {
+                PlayShock(position, 0.05f, 3f, 0.25f, reduce);
+            }
+            else if (tier == LookPolish.TierLarge)
+            {
+                PlayShock(position, 0.05f, 6f, 0.25f, reduce);
+                PlayShockDelayed(position, 0.05f, 6f, 0.25f, 0.12f, reduce);
+            }
+        }
+
+        private void PlayShockDelayed(Vector3 position, float startScale, float endScale, float seconds, float delay, bool reduce)
+        {
+            PlayShock(position, startScale, endScale, seconds, reduce);
+            if (_rings == null)
+            {
+                return;
+            }
+
+            int index = 0;
+            while (index < _rings.Length)
+            {
+                VfxSlot slot = _rings[index];
+                index++;
+                if (slot == null || slot.Live == 0)
+                {
+                    continue;
+                }
+
+                if (slot.Born > Time.time - 0.02f)
+                {
+                    slot.Born += delay;
+                    slot.Until += delay;
+                    slot.Root.transform.localScale = Vector3.zero;
+                    break;
+                }
             }
         }
 
@@ -238,7 +271,12 @@ namespace AsteroidsGoneRogue
         private void PlayMuzzle(Vector3 position, Vector3 forward, int mode, bool reduce)
         {
             int cards = VfxBudget.MuzzleCards(mode);
-            float life = VfxBudget.MuzzleSeconds(mode);
+            float life = LookPolish.MuzzleLife(mode, reduce);
+            float capped = VfxBudget.MuzzleSeconds(mode);
+            if (capped < 0f)
+            {
+                life = capped;
+            }
             float scale = VfxBudget.ScaledSize(VfxBudget.MuzzleScale(mode), reduce);
             Vector3 aim = forward;
             if (aim.sqrMagnitude < 0.0001f)
@@ -381,6 +419,12 @@ namespace AsteroidsGoneRogue
                 }
 
                 float age = now - slot.Born;
+                if (age < 0f)
+                {
+                    slot.Root.transform.localScale = Vector3.zero;
+                    continue;
+                }
+
                 float u = age / life;
                 if (u >= 1f)
                 {

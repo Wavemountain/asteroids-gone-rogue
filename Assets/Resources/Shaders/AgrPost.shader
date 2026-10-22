@@ -198,7 +198,9 @@ Shader "AGR/Post"
                 color = half3(NeutralChannel(color.r), NeutralChannel(color.g), NeutralChannel(color.b));
                 color = color * _Gain.rgb + _Lift.rgb * (1.0h - color);
                 float2 pixel = i.uv * _ScreenParams.xy;
-                float n = frac(sin(dot(pixel + _GrainTime, float2(12.9898, 78.233))) * 43758.5453);
+                float grainFrame = floor(_GrainTime + 0.5);
+                float2 grainSeed = pixel + float2(grainFrame * 0.37, grainFrame);
+                float n = frac(sin(dot(grainSeed, float2(12.9898, 78.233))) * 43758.5453);
                 n = n * 2.0 - 1.0;
                 half ly = dot(color, half3(0.2126h, 0.7152h, 0.0722h));
                 color += n * _Grain * 0.25h * (1.0h - _GrainLum * saturate(ly));

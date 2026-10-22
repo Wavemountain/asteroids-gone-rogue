@@ -789,6 +789,7 @@ namespace AsteroidsGoneRogue
             _hitFlash = CreateFill("ScreenFlash", transform, new Color(1f, 0.96f, 0.92f, 0f),
                 new Vector2(0f, 0f), new Vector2(1f, 1f)).GetComponent<Image>();
             RaiseCanvas(_hitFlash.gameObject, CanvasOrder.Toast);
+            EnsureHitArc();
             GameObject veilGo = CreateFill(
                 "ScreenVeil",
                 transform,
@@ -3691,8 +3692,17 @@ namespace AsteroidsGoneRogue
 
             bool reduce = SettingsState.ReduceEffectsEnabled;
             float alpha = _screenMotion.Active ? _screenMotion.Veil(reduce) : 0f;
+            float hangarAlpha = HangarReturnAlpha();
             Color veil = UiTheme.Void;
-            veil.a = alpha;
+            if (hangarAlpha > alpha)
+            {
+                alpha = hangarAlpha;
+                veil = new Color(LookPolish.FadeR, LookPolish.FadeG, LookPolish.FadeB, alpha);
+            }
+            else
+            {
+                veil.a = alpha;
+            }
             _screenVeil.color = veil;
             bool blocking = _screenMotion.BlocksInput(reduce);
             _screenVeil.raycastTarget = blocking;
@@ -4226,7 +4236,7 @@ namespace AsteroidsGoneRogue
         {
             bool reduce = SettingsState.ReduceEffectsEnabled;
             _hullEdgeAlpha = EffectScale.HullEdge(reduce);
-            float seconds = reduce ? 0.08f : 0.16f;
+            float seconds = 1f / 60f;
             _hullEdgeUntil = Time.unscaledTime + seconds;
             ApplyHullEdge();
         }
@@ -4926,6 +4936,7 @@ namespace AsteroidsGoneRogue
             RefreshSettingsAudio();
             RefreshSettingsShake();
             RefreshSettingsReduce();
+            RefreshSettingsGrain();
             RefreshSettingsAssist();
             RefreshSettingsHint();
             RefreshSettingsConfirm();
@@ -5603,6 +5614,7 @@ namespace AsteroidsGoneRogue
             PulseRecommendedUpgrade();
             PulseAbortIfUrgent();
             ApplyHitFlash();
+            ApplyHitArc();
             ApplyHullEdge();
             PulseAchievementToast();
 
@@ -7376,7 +7388,7 @@ namespace AsteroidsGoneRogue
             float barMin;
             float barMax;
             PremiumLook.BarSpan(width, out barMin, out barMax);
-            PlacePlayPlate(_hudPlate, 0.905f, 0.985f, corner);
+            PlacePlayPlate(_hudPlate, PlayHudLayout.CaptionMinY, PlayHudLayout.ScoreMaxY, corner);
             PlaceAnchored(_utilityHud, PlayHudLayout.UtilityMinX, PlayHudLayout.UtilityMinY, PlayHudLayout.UtilityMaxX, PlayHudLayout.UtilityMaxY);
             PlaceAnchored(_bossRoot, barMin, PlayHudLayout.BossMinY, barMax, PlayHudLayout.BossMaxY);
             bool failed = _session != null && _session.Phase == GamePhase.Failed;
@@ -7484,13 +7496,17 @@ namespace AsteroidsGoneRogue
 
         private static void PaintBottomPlate(GameObject plate)
         {
-            float alpha = UiTheme.PanelAlpha;
-            if (alpha < 0.85f)
+            float alpha = LookPolish.HudPanelAlpha;
+            if (plate == null)
             {
-                alpha = 0.85f;
+                return;
             }
 
-            PaintPlate(plate, alpha);
+            Image image = plate.GetComponent<Image>();
+            if (image != null)
+            {
+                image.color = new Color(LookPolish.FadeR, LookPolish.FadeG, LookPolish.FadeB, alpha);
+            }
         }
 
         private static void PaintPlate(GameObject plate, float alpha)
@@ -8320,6 +8336,12 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.ReduceEffects)
             {
                 BuildSettingsReduceRow(rowIndex, body, y0, y1);
+                return;
+            }
+
+            if (rowId == SettingsRowId.FilmGrain)
+            {
+                BuildSettingsGrainRow(rowIndex, body, y0, y1);
                 return;
             }
 
@@ -10741,6 +10763,12 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (rowId == SettingsRowId.FilmGrain)
+            {
+                ToggleFilmGrain();
+                return;
+            }
+
             if (rowId == SettingsRowId.AssistMode)
             {
                 ToggleAssistMode();
@@ -10837,6 +10865,12 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.ReduceEffects)
             {
                 ToggleReduceEffects();
+                return;
+            }
+
+            if (rowId == SettingsRowId.FilmGrain)
+            {
+                ToggleFilmGrain();
                 return;
             }
 

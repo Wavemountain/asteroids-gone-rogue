@@ -44,10 +44,10 @@ namespace AsteroidsGoneRogue
         public const float AbortMaxY = 0.072f;
         // Hud is the amber score. HudCaption is the wave line under it.
         // 0.012 of height is 9.6 px at 800, 13.0 px at 1080, 17.3 px at 1440.
-        public const float CaptionMinY = 0.908f;
-        public const float CaptionMaxY = 0.933f;
-        public const float ScoreMinY = 0.945f;
-        public const float ScoreMaxY = 0.982f;
+        public const float CaptionMinY = 0.946f;
+        public const float CaptionMaxY = 0.964f;
+        public const float ScoreMinY = 0.970f;
+        public const float ScoreMaxY = 0.998f;
 
         public static float ColumnMaxX(float screenWidth)
         {

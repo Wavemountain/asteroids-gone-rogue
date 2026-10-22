@@ -18,6 +18,7 @@ namespace AsteroidsGoneRogue
 
         public static void Touch()
         {
+            WarmShots();
             Material rimMaterial = Resources.Load<Material>(RimMaterialResource);
             Shader rimShader = null;
             if (rimMaterial != null)
@@ -56,6 +57,39 @@ namespace AsteroidsGoneRogue
             {
                 return;
             }
+        }
+
+        public static void WarmShots()
+        {
+            Shader.WarmupAllShaders();
+            ShaderVariantCollection variants = new ShaderVariantCollection();
+            string[] names =
+            {
+                "AGR/Post",
+                "AGR/Grid",
+                "AGR/RimLit",
+                PostShaderName,
+                RimShaderName,
+                "Standard",
+                "Particles/Standard Unlit",
+                "Unlit/Transparent",
+            };
+            int index = 0;
+            while (index < names.Length)
+            {
+                Shader shader = Shader.Find(names[index]);
+                if (shader != null)
+                {
+                    ShaderVariantCollection.ShaderVariant variant = new ShaderVariantCollection.ShaderVariant(
+                        shader,
+                        UnityEngine.Rendering.PassType.Normal);
+                    variants.Add(variant);
+                }
+
+                index++;
+            }
+
+            variants.WarmUp();
         }
     }
 }
