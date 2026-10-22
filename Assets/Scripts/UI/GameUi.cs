@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 namespace AsteroidsGoneRogue
 {
-    public sealed class GameUi : MonoBehaviour
+    public sealed partial class GameUi : MonoBehaviour
     {
         private enum PanelClose
         {
@@ -390,6 +390,9 @@ namespace AsteroidsGoneRogue
         public const float FailedPreviewMaxY = 0.468f;
         public static readonly Vector2 FailedHealthMin = new Vector2(0.562f, 0.480f);
         public static readonly Vector2 FailedHealthMax = new Vector2(0.986f, 0.596f);
+        // One rect for the hangar ship-status panel. Move this pair to relocate it.
+        public static readonly Vector2 HangarHudRectMin = FailedHealthMin;
+        public static readonly Vector2 HangarHudRectMax = FailedHealthMax;
         public static readonly Vector2 ToastMin = new Vector2(0.500f, 0.912f);
         public static readonly Vector2 ToastMax = new Vector2(0.735f, 0.988f);
         public static readonly Vector2 SettingsPanelMin = new Vector2(0.30f, 0.12f);
@@ -581,6 +584,7 @@ namespace AsteroidsGoneRogue
             }
 
             EnsureShipPreviewFrame();
+            ApplyShipPreviewAnchors();
             ForcePreviewChrome();
 
             ApplyLocalizedStaticLabels();
@@ -610,6 +614,7 @@ namespace AsteroidsGoneRogue
                 _failFocusPhase = GamePhase.Playing;
                 RefreshFirstStart();
                 RefreshTutorialChrome();
+                RefreshHangarHud();
                 return;
             }
 
@@ -643,6 +648,7 @@ namespace AsteroidsGoneRogue
             }
 
             RefreshRunSummary(playing);
+            RefreshHangarHud();
             ApplyStatusText();
             RefreshDoctrinePicks();
             RefreshDoctrineIntro();
@@ -858,6 +864,7 @@ namespace AsteroidsGoneRogue
             _waveClearScore.gameObject.SetActive(false);
             AddReadability(_waveClearScore, true);
             BuildHealthRack(display, body);
+            BuildHangarHud(display, body);
             BuildUtilityHud(display, body);
             BuildBossBar(display, body);
             ApplyPlayHudLayout();
@@ -1020,7 +1027,7 @@ namespace AsteroidsGoneRogue
             }
 
             _boonRow = CreateText("BoonRow", _menuRoot.transform, body, 12, TextAnchor.MiddleLeft, FontStyle.Bold);
-            Stretch(_boonRow.rectTransform, new Vector2(0.03f, 0.801f), new Vector2(0.97f, 0.819f));
+            Stretch(_boonRow.rectTransform, new Vector2(0.03f, 0.801f), new Vector2(0.97f, HangarHudLayout.BoonMaxY));
             _boonRow.color = UiTheme.Secondary;
             _boonRow.horizontalOverflow = HorizontalWrapMode.Wrap;
             _boonRow.verticalOverflow = VerticalWrapMode.Truncate;
@@ -1832,8 +1839,8 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            bool failed = _session != null && _session.Phase == GamePhase.Failed;
-            Vector2 max = failed
+            bool hud = _session != null && HangarHudLayout.Shows(_session.Phase);
+            Vector2 max = hud
                 ? new Vector2(ShipPreviewMax.x, FailedPreviewMaxY)
                 : ShipPreviewMax;
             Stretch(_previewRoot.GetComponent<RectTransform>(), ShipPreviewMin, max);
@@ -2854,6 +2861,10 @@ namespace AsteroidsGoneRogue
                     NotePromptEquip();
                 }
             }
+            else
+            {
+                NoteShopDeny(id);
+            }
         }
 
         private void OnHullRepair()
@@ -2861,6 +2872,10 @@ namespace AsteroidsGoneRogue
             if (_shop != null && _shop.TryRepairHull())
             {
                 NotePromptBuy();
+            }
+            else
+            {
+                NoteServiceDeny(ShopPrices.HullRepairCost);
             }
         }
 
@@ -2870,6 +2885,10 @@ namespace AsteroidsGoneRogue
             {
                 NotePromptBuy();
             }
+            else
+            {
+                NoteServiceDeny(ShopPrices.ExtraLifeCost);
+            }
         }
 
         private void OnShieldRefill()
@@ -2877,6 +2896,10 @@ namespace AsteroidsGoneRogue
             if (_shop != null && _shop.TryRefillShield())
             {
                 NotePromptBuy();
+            }
+            else
+            {
+                NoteServiceDeny(ShopPrices.ShieldRefillCost);
             }
         }
 
@@ -2957,6 +2980,7 @@ namespace AsteroidsGoneRogue
             _summaryRecord.horizontalOverflow = HorizontalWrapMode.Wrap;
             _summaryRecord.verticalOverflow = VerticalWrapMode.Truncate;
             _summaryRoot.SetActive(false);
+            BuildWaveStrip(display, body);
         }
 
         private void RefreshRunSummary(bool playing)
@@ -4161,6 +4185,7 @@ namespace AsteroidsGoneRogue
             FitInside(_waveMedal, 14, 10);
             FitInside(_continueHint, UiTheme.ShopHeaderSize, 10);
             FitInside(_summaryRecord, UiTheme.ShopHeaderSize, 10);
+            FinishWaveStrip();
         }
 
         private static void FitInside(Text text, int preferred, int floor)
@@ -5402,6 +5427,7 @@ namespace AsteroidsGoneRogue
 
         private void Update()
         {
+            TickHangarStatus();
             NotePlayHudLayout();
             TickFeelClock();
             TickPremiumChrome();
@@ -7210,7 +7236,8 @@ namespace AsteroidsGoneRogue
 
             bool playing = _session != null && _session.Phase == GamePhase.Playing;
             bool failed = _session != null && _session.Phase == GamePhase.Failed;
-            bool show = playing || failed;
+            bool hud = _session != null && HangarHudLayout.Shows(_session.Phase);
+            bool show = (playing || failed) && !hud;
             _healthRoot.SetActive(show);
             LayoutHealthRack(failed);
             if (!show)

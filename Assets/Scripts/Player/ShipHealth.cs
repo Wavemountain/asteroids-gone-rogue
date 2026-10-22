@@ -352,8 +352,15 @@ namespace AsteroidsGoneRogue
             }
 
             _hits.Record(cause, enemyKind, amount, hullLost, waveNumber, worldNumber, shieldOnly, elite, modifier);
+            int shieldLost = shieldBefore - _shield;
+            if (shieldLost < 0)
+            {
+                shieldLost = 0;
+            }
+
             if (_game != null)
             {
+                _game.NoteWaveDamage(shieldLost, hullLost);
                 _game.NotifyPlayerHit();
             }
 

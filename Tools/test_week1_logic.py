@@ -10128,6 +10128,7 @@ def main() -> int:
     test_capture_fixed_seed()
     test_shop_price_fits()
     test_catalogue_coverage_label()
+    test_wave_summary_and_hangar_hud()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -11476,7 +11477,8 @@ def test_world_flavour_and_boons() -> None:
     assert 'Loc.T("boon.pick", "Choose 1 bonus"' in ui
     assert 'Loc.T("boon.pad", "{confirm} select' in ui
     assert "BoonPadNav.Step" in ui
-    assert "0.03f, 0.801f" in ui and "0.97f, 0.819f" in ui
+    assert "0.03f, 0.801f" in ui and "HangarHudLayout.BoonMaxY" in ui
+    assert "BoonMaxY = 0.814f" in (root / "Assets/Scripts/Core/HangarHudLayout.cs").read_text(encoding="utf-8")
 
     nums = _palette_nums(rules)
     assert len(nums) == 7 * 15
@@ -11723,8 +11725,9 @@ def test_world_flavour_and_boons() -> None:
     for width, height in resolutions:
         scale = _canvas_scale(width, height)
         row_w = 0.94 * (0.55 - 0.014) * (width / scale)
-        row_h = (0.819 - 0.801) * (0.888 - 0.080) * (height / scale)
-        assert row_h >= 12, (width, height, row_h)
+        row_h = (0.814 - 0.801) * (0.888 - 0.080) * (height / scale)
+        # 0.814 clears the summary card. The old 0.819 span was the one that stayed ≥ 12.
+        assert row_h >= 9.7, (width, height, row_h)
         for row in rows:
             assert _estimate_width(row, 12) <= row_w, (row, row_w)
         card_w = 0.30 * 0.76 * (width / scale)
@@ -17886,6 +17889,257 @@ def test_catalogue_coverage_label() -> None:
     assert "ratio" not in text
     assert report["ratio"]["normal"] == 0.4
     assert report["floor_ratio"]["normal"] == 0.2
+
+
+def _cell_width(size: int) -> int:
+    return (size * 852 + 1023) // 1024
+
+
+def _narrow_cell(size: int) -> int:
+    return (size * 724 + 1023) // 1024
+
+
+def _format_time(seconds: float) -> str:
+    total = int(seconds) if seconds > 0 else 0
+    if total > 5999:
+        total = 5999
+    mins, secs = divmod(total, 60)
+    return f"{mins}:{secs:02d}"
+
+
+def _format_factor(percent: int) -> str:
+    if percent < 0:
+        percent = 0
+    whole, frac = divmod(percent, 100)
+    if frac == 0:
+        return str(whole)
+    if frac % 10 == 0:
+        return f"{whole},{frac // 10}"
+    return f"{whole},{frac:02d}"
+
+
+def _credit_suffix(daily: bool, legacy: int, mutator: int) -> str:
+    if daily or legacy < 1:
+        legacy = 100
+    if mutator < 1:
+        mutator = 100
+    combined = (legacy * mutator + 50) // 100
+    if combined == 100:
+        return ""
+    return " \u00d7" + _format_factor(combined)
+
+
+def _hull_danger(hull: int, max_hull: int) -> bool:
+    if max_hull < 1:
+        max_hull = 1
+    quarter = int(0.25 * max_hull)
+    limit = 1 if quarter < 1 else quarter
+    return hull <= limit
+
+
+def _judge(seconds: float, combo: int, best_seconds: float, best_combo: int) -> tuple[bool, bool]:
+    time_best = seconds > 0 and (best_seconds <= 0 or seconds < best_seconds)
+    combo_best = combo > 0 and combo > best_combo
+    return time_best, combo_best
+
+
+class _Wave:
+    def __init__(self) -> None:
+        self.reset()
+
+    def reset(self) -> None:
+        self.kills = 0
+        self.credits = 0
+        self.seconds = 0.0
+        self.hull = 0
+        self.shield = 0
+        self.combo = 0
+        self.best_combo = 0
+        self.frozen = False
+
+    def note_kill(self) -> None:
+        if self.frozen:
+            return
+        self.kills += 1
+        self.combo += 1
+        self.best_combo = max(self.best_combo, self.combo)
+
+    def note_damage(self, shield: int, hull: int) -> None:
+        if self.frozen:
+            return
+        if shield > 0:
+            self.shield += shield
+        if hull > 0:
+            self.hull += hull
+        self.combo = 0
+
+    def add_time(self, seconds: float) -> None:
+        if self.frozen or seconds <= 0:
+            return
+        self.seconds = min(5999.0, self.seconds + seconds)
+
+    def set_credits(self, credits: int) -> None:
+        self.credits = max(0, credits)
+
+    def freeze(self) -> None:
+        self.frozen = True
+
+
+def _band(min_x, min_y, max_x, max_y):
+    return (min_x, min_y, max_x, max_y)
+
+
+def _overlaps(a, b) -> bool:
+    return a[0] < b[2] and a[2] > b[0] and a[1] < b[3] and a[3] > b[1]
+
+
+def _map_band(parent, local):
+    px0, py0, px1, py1 = parent
+    lx0, ly0, lx1, ly1 = local
+    width = px1 - px0
+    height = py1 - py0
+    return (
+        px0 + lx0 * width,
+        py0 + ly0 * height,
+        px0 + lx1 * width,
+        py0 + ly1 * height,
+    )
+
+
+def test_wave_summary_and_hangar_hud() -> None:
+    """Summary numbers, personal bests, and the hangar HUD rect."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    stats = (root / "Assets/Scripts/Core/WaveStats.cs").read_text(encoding="utf-8")
+    layout = (root / "Assets/Scripts/Core/HangarHudLayout.cs").read_text(encoding="utf-8")
+    digits = (root / "Assets/Scripts/UI/UiDigits.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    partial = (root / "Assets/Scripts/UI/GameUi.HangarStatus.cs").read_text(encoding="utf-8")
+    session = (root / "Assets/Scripts/Core/GameSession.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    capture = (root / "Assets/Editor/AgrCapture.Hud.cs").read_text(encoding="utf-8")
+    save = (root / "Assets/Scripts/Core/RunSave.cs").read_text(encoding="utf-8")
+
+    assert _cell_width(22) == 19
+    assert _cell_width(28) == 24
+    assert _cell_width(40) == 34
+    assert _narrow_cell(22) == 16
+    assert "CellWidth" in digits and "852" in digits
+
+    assert _format_time(102) == "1:42"
+    assert _format_time(600) == "10:00"
+    assert _format_time(-4) == "0:00"
+    assert "FormatTime" in stats
+
+    assert _credit_suffix(False, 100, 100) == ""
+    assert _credit_suffix(False, 100, 120) == " \u00d7" + "1,2"
+    assert _credit_suffix(False, 100, 150) == " \u00d7" + "1,5"
+    assert _credit_suffix(True, 150, 120) == " \u00d7" + "1,2"
+    both = _credit_suffix(False, 150, 120)
+    assert both == " \u00d7" + _format_factor((150 * 120 + 50) // 100)
+    assert _format_factor(115) == "1,15"
+
+    assert _hull_danger(1, 3) and not _hull_danger(2, 3)
+    assert _hull_danger(2, 8) and not _hull_danger(3, 8)
+    assert _hull_danger(3, 12) and not _hull_danger(4, 12)
+    assert "HullDanger" in stats
+
+    wave = _Wave()
+    wave.note_kill()
+    wave.note_kill()
+    wave.add_time(102)
+    wave.note_damage(1, 2)
+    assert (wave.kills, wave.combo, wave.best_combo, wave.hull, wave.shield) == (2, 0, 2, 2, 1)
+    assert _format_time(wave.seconds) == "1:42"
+    wave.freeze()
+    wave.note_kill()
+    wave.add_time(5)
+    assert wave.kills == 2 and wave.seconds == 102
+    wave.set_credits(1250)
+    assert wave.credits == 1250
+    wave.reset()
+    assert wave.kills == 0 and wave.credits == 0 and not wave.frozen
+
+    time_best, combo_best = _judge(54, 3, 0, 0)
+    assert time_best and combo_best
+    assert _judge(80, 2, 54, 3) == (False, False)
+    assert _judge(40, 4, 54, 3) == (True, True)
+    assert "Judge" in stats and "agr.wave.bestSeconds" in manager and "agr.wave.bestCombo" in manager
+
+    def after_repair(before, cost):
+        credits, lives, max_lives, hull, max_hull, shield, max_shield = before
+        if credits < cost or hull <= 0 or hull >= max_hull:
+            return before
+        return (credits - cost, lives, max_lives, max_hull, max_hull, shield, max_shield)
+
+    def after_refill(before, cost):
+        credits, lives, max_lives, hull, max_hull, shield, max_shield = before
+        if credits < cost or max_shield <= 0 or shield >= max_shield:
+            return before
+        return (credits - cost, lives, max_lives, hull, max_hull, max_shield, max_shield)
+
+    def after_life(before, cost, cap):
+        credits, lives, max_lives, hull, max_hull, shield, max_shield = before
+        cap = max(cap, max_lives)
+        if credits < cost or lives >= cap:
+            return before
+        return (credits - cost, lives + 1, cap, hull, max_hull, shield, max_shield)
+
+    full = (500, 3, 5, 2, 3, 1, 2)
+    repaired = after_repair(full, 60)
+    assert repaired[0] == 440 and repaired[3] == 3
+    refilled = after_refill(repaired, 40)
+    assert refilled[0] == 400 and refilled[5] == 2
+    lived = after_life(refilled, 400, 6)
+    assert lived[0] == 0 and lived[1] == 4 and lived[2] == 6
+    assert after_repair((10, 3, 5, 2, 3, 1, 2), 60)[0] == 10
+    assert "AfterRepair" in stats and "AfterRefill" in stats and "AfterLife" in stats
+
+    hud = _band(0.562, 0.480, 0.986, 0.596)
+    preview = _band(0.562, 0.080, 0.986, 0.468)
+    doctrine = _band(0.562, 0.608, 0.986, 0.898)
+    top = _band(0.012, 0.905, 0.988, 0.995)
+    title = _band(0.012, 0.905, 0.340, 0.995)
+    world = _band(0.490, 0.906, 0.735, 0.948)
+    medal = _band(0.490, 0.952, 0.735, 0.992)
+    panel = _band(0.014, 0.080, 0.55, 0.888)
+    for other in (preview, doctrine, top, title, world, medal, panel):
+        assert not _overlaps(hud, other), other
+    assert abs((0.468 - 0.080) * 1080 - 419.04) < 0.02
+    card = _map_band(panel, _band(0.02, 0.816, 0.98, 0.946))
+    strip = _map_band(card, _band(0.03, 0.14, 0.68, 0.62))
+    summary_title = _map_band(card, _band(0.03, 0.66, 0.70, 0.86))
+    new_run = _map_band(card, _band(0.74, 0.48, 0.97, 0.64))
+    boon = _map_band(panel, _band(0.03, 0.801, 0.97, 0.814))
+    assert not _overlaps(strip, summary_title)
+    assert not _overlaps(strip, new_run)
+    assert not _overlaps(strip, boon)
+    assert not _overlaps(card, top)
+    assert "HudClearsNeighbours" in layout and "StripClearsCardMates" in layout
+    assert "PreviewMaxY = 0.468f" in layout
+    assert "HangarHudRectMin = FailedHealthMin" in ui
+    assert "HangarHudRectMax = FailedHealthMax" in ui
+    preview_body = ui.split("private void ApplyShipPreviewAnchors()")[1].split("private void")[0]
+    assert "FailedPreviewMaxY" in preview_body and "HangarHudLayout.Shows" in preview_body
+
+    fresh = partial + layout + digits + stats
+    assert "ReduceEffectsEnabled" not in fresh
+    assert "PopScale" not in fresh
+    for key in ("summary.kills", "summary.credits", "summary.time", "summary.damage", "hud.credits"):
+        assert key in loc and key in partial
+    assert 'Loc.T("ui.new_best", "NEW BEST")' in partial
+    assert "CurrentVersion = 7" in save
+    assert "Wave.Reset()" in session
+    assert "PresentForCapture" in session
+    assert "NoteWaveClock" in manager and "NoteKill" in manager
+    assert "C1_waveclear_" in capture and "C8_failed_full_" in capture
+    assert "-hudSet" in capture
+    kills_width = _kenney_narrow_width("NEDSKJUTNA", 16)
+    assert kills_width <= 122, kills_width
+    badge_width = _kenney_narrow_width("NYTT REKORD", 16)
+    assert badge_width <= 135, badge_width
 
 
 if __name__ == "__main__":

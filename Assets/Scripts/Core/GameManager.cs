@@ -59,6 +59,15 @@ namespace AsteroidsGoneRogue
 
         public int ActiveMutatorMask { get; private set; }
 
+        public bool WaveTimeBest { get; private set; }
+
+        public bool WaveComboBest { get; private set; }
+
+        private const string WaveBestSecondsKey = "agr.wave.bestSeconds";
+        private const string WaveBestComboKey = "agr.wave.bestCombo";
+        private float _waveBestSeconds;
+        private int _waveBestCombo;
+
         public DailyBoardData Daily { get; private set; }
 
         public ShipHealth PlayerHealth
@@ -177,6 +186,14 @@ namespace AsteroidsGoneRogue
             }
 
             LastRunWasNewBest = false;
+            _waveBestSeconds = PlayerPrefs.GetFloat(WaveBestSecondsKey, 0f);
+            _waveBestCombo = PlayerPrefs.GetInt(WaveBestComboKey, 0);
+        }
+
+        public void PresentDailyForCapture(int packed, int seed)
+        {
+            ActiveDailyDate = packed;
+            ActiveDailySeed = seed;
         }
 
         public void EnterHangar()
@@ -342,8 +359,23 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (_session.Wave != null && !TutorialActive)
+            {
+                _session.Wave.BreakCombo();
+            }
+
             _session.MarkWaveHit();
             PersistWaveVitals();
+        }
+
+        public void NoteWaveDamage(int shieldLost, int hullLost)
+        {
+            if (TutorialActive || _session == null || _session.Phase != GamePhase.Playing || _session.Wave == null)
+            {
+                return;
+            }
+
+            _session.Wave.NoteDamage(shieldLost, hullLost);
         }
 
         /// <summary>
@@ -571,6 +603,10 @@ namespace AsteroidsGoneRogue
             {
                 int scaledThreat = MutatorRules.ScaleScore(scoreValue, ActiveMutatorMask);
                 _session.AddScore(scaledThreat);
+                if (_session.Wave != null)
+                {
+                    _session.Wave.NoteKill();
+                }
             }
 
             if (_waves.RemainingThreats <= 0)
@@ -1082,8 +1118,29 @@ namespace AsteroidsGoneRogue
             _ship.SetInputPaused(true);
         }
 
+        private void NoteWaveClock(float unscaledDelta, bool paused)
+        {
+            if (paused || TutorialActive || _session == null || _session.Phase != GamePhase.Playing)
+            {
+                return;
+            }
+
+            if (_session.Wave == null || _session.Wave.Frozen)
+            {
+                return;
+            }
+
+            if (unscaledDelta <= 0f)
+            {
+                return;
+            }
+
+            _session.Wave.AddTime(unscaledDelta);
+        }
+
         public void TickFeel(float unscaledDelta, bool held, bool paused)
         {
+            NoteWaveClock(unscaledDelta, paused);
             if (_deathArming != 0)
             {
                 if (paused)
@@ -1299,6 +1356,11 @@ namespace AsteroidsGoneRogue
             if (_ship != null)
             {
                 _ship.SetInputPaused(true);
+            }
+
+            if (_session != null && _session.Wave != null)
+            {
+                _session.Wave.Freeze();
             }
 
             _feel.Begin(TransitionKind.WaveClear);
@@ -2046,6 +2108,30 @@ namespace AsteroidsGoneRogue
             clearCredits = MutatorRules.ScaleCredits(clearCredits, ActiveMutatorMask);
             int clearBonus = MutatorRules.ScaleScore(ScoreValues.WaveClearBonus, ActiveMutatorMask);
             _session.CompleteWave(clearBonus, clearCredits);
+            if (_session.Wave != null)
+            {
+                _session.Wave.SetCredits(clearCredits);
+                _session.Wave.Freeze();
+                WaveMark mark = WaveStats.Judge(
+                    _session.Wave.Seconds,
+                    _session.Wave.BestCombo,
+                    _waveBestSeconds,
+                    _waveBestCombo);
+                WaveTimeBest = mark.TimeBest;
+                WaveComboBest = mark.ComboBest;
+                if (mark.TimeBest)
+                {
+                    _waveBestSeconds = _session.Wave.Seconds;
+                    PlayerPrefs.SetFloat(WaveBestSecondsKey, _waveBestSeconds);
+                }
+
+                if (mark.ComboBest)
+                {
+                    _waveBestCombo = _session.Wave.BestCombo;
+                    PlayerPrefs.SetInt(WaveBestComboKey, _waveBestCombo);
+                }
+            }
+
             OfferBoonChoice(clearedWave);
 
             RecordBest(clearedWave);
