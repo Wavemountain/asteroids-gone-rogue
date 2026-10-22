@@ -109,28 +109,43 @@ namespace AsteroidsGoneRogue
         public void WrapIfOutsideArena()
         {
             Vector3 pos = _body != null ? _body.position : transform.position;
-            if (!ArenaWrap.ShouldWrap(pos.x, pos.z, WaveManager.ArenaRadius)
-                && !ArenaWrap.IsInvalidXz(pos.x, pos.z))
+            if (ArenaWrap.IsInvalidXz(pos.x, pos.z))
             {
                 ClampToPlayPlane();
                 return;
             }
 
+            Vector3 vel = _body != null ? _body.linearVelocity : Vector3.zero;
             float ox;
             float oz;
-            ArenaWrap.WrapXz(pos.x, pos.z, WaveManager.ArenaRadius, out ox, out oz);
+            float ovx;
+            float ovz;
+            if (!ArenaEdge.TryReflect(
+                ArenaShapeCatalog.Active,
+                pos.x,
+                pos.z,
+                vel.x,
+                vel.z,
+                out ox,
+                out oz,
+                out ovx,
+                out ovz))
+            {
+                ClampToPlayPlane();
+                return;
+            }
+
             Vector3 wrapped = new Vector3(ox, ArenaWrap.PlayY, oz);
             if (_body != null)
             {
                 _body.position = wrapped;
-                Vector3 vel = _body.linearVelocity;
+                vel.x = ovx;
                 vel.y = 0f;
+                vel.z = ovz;
                 _body.linearVelocity = vel;
             }
-            else
-            {
-                transform.position = wrapped;
-            }
+
+            transform.position = wrapped;
         }
 
         public void ApplyDamage(int amount)

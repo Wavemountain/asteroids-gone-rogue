@@ -186,5 +186,96 @@ namespace AsteroidsGoneRogue
                 ? Loc.T("ui.settings.on", "On")
                 : Loc.T("ui.settings.off", "Off");
         }
+
+        private Text _settingsTurnLabel;
+        private Text _settingsTurnValue;
+        private Slider _settingsTurnSlider;
+
+        private void BuildSettingsTurnRow(int rowIndex, Font body, float y0, float y1)
+        {
+            Button row = CreateButton(
+                "SettingsTurn",
+                _settingsRows,
+                body,
+                new Vector2(SettingsMeasure.RowMinX, y0),
+                new Vector2(SettingsMeasure.RowMaxX, y1));
+            _settingsRowButtons[rowIndex] = row;
+            UiTheme.ApplyButton(row, false, false, false);
+
+            _settingsTurnLabel = row.GetComponentInChildren<Text>();
+            _settingsTurnLabel.fontSize = UiTheme.BodyMin;
+            _settingsTurnLabel.alignment = TextAnchor.MiddleLeft;
+            _settingsTurnLabel.fontStyle = FontStyle.Bold;
+            _settingsTurnLabel.color = UiTheme.Accent;
+            _settingsTurnLabel.raycastTarget = false;
+            Stretch(_settingsTurnLabel.rectTransform, new Vector2(0.04f, 0.08f), new Vector2(0.36f, 0.92f));
+
+            EnsureSettings();
+            float initial = _settings != null ? _settings.TurnSpeed : 1f;
+            _settingsTurnSlider = CreateSlider(
+                "SettingsTurnSlider",
+                row.transform,
+                new Vector2(SettingsMeasure.SliderMinX, 0.18f),
+                new Vector2(SettingsMeasure.SliderMaxX, 0.82f),
+                0.5f,
+                OnSettingsTurn);
+            _settingsTurnSlider.minValue = SettingsRows.TurnMin;
+            _settingsTurnSlider.maxValue = SettingsRows.TurnMax;
+            _settingsTurnSlider.value = SettingsRows.ClampTurn(initial);
+
+            _settingsTurnValue = CreateText(
+                "SettingsTurnValue",
+                row.transform,
+                body,
+                UiTheme.BodyMin,
+                TextAnchor.MiddleRight,
+                FontStyle.Bold);
+            Stretch(_settingsTurnValue.rectTransform, new Vector2(0.84f, 0.12f), new Vector2(0.98f, 0.88f));
+            _settingsTurnValue.color = UiTheme.Primary;
+            _settingsTurnValue.raycastTarget = false;
+            RefreshSettingsTurn();
+        }
+
+        private void OnSettingsTurn(float value)
+        {
+            EnsureSettings();
+            _settings.TurnSpeed = SettingsRows.ClampTurn(value);
+            _settings.Save();
+            RefreshSettingsTurn();
+        }
+
+        private void StepSettingsTurn(int direction)
+        {
+            EnsureSettings();
+            _settings.TurnSpeed = SettingsRows.StepTurn(_settings.TurnSpeed, direction);
+            _settings.Save();
+            if (_settingsTurnSlider != null)
+            {
+                _settingsTurnSlider.value = _settings.TurnSpeed;
+            }
+
+            RefreshSettingsTurn();
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayUiClick();
+            }
+        }
+
+        private void RefreshSettingsTurn()
+        {
+            if (_settingsTurnLabel != null)
+            {
+                _settingsTurnLabel.text = Loc.T("ui.settings.turn", "Turn speed");
+            }
+
+            if (_settingsTurnValue == null)
+            {
+                return;
+            }
+
+            float scale = _settings != null ? _settings.TurnSpeed : 1f;
+            int percent = (int)System.Math.Round(scale * 100.0);
+            _settingsTurnValue.text = percent.ToString() + "%";
+        }
     }
 }

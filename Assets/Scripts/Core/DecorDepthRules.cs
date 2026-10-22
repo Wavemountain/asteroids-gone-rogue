@@ -37,7 +37,7 @@ namespace AsteroidsGoneRogue
         public const float SpokeTop = 1.6f;
         public const float SpokeSouthZ = -16.75f;
         public const float SpokeSpikeScale = 0.85f;
-        public const float BeltOuterScale = 1.68f;
+        public const float BeltOuterScale = 1.6f;
         public const float BeltTop = 3.2f;
         public const float MeshYWorld2 = 4.80f;
         public const float MeshZWorld2 = 24f;

@@ -24,7 +24,7 @@ namespace AsteroidsGoneRogue
         public const int DamageBonusPerWorld = 10;
         public const int MaxDamageBonus = 60;
         public const int ExtraEnemyWorldSpan = 2;
-        public const int MaxExtraEnemies = 4;
+        public const int MaxExtraEnemies = 6;
         public const int FireBonusPerWorld = 2;
         public const int MaxFireBonus = 30;
         public const int CreditBonusPerWorld = 8;
@@ -33,7 +33,7 @@ namespace AsteroidsGoneRogue
         public const int EarlyAsteroidCap = 7;
         public const int PlateauWave = 10;
         public const int PlateauAsteroidCap = 10;
-        public const int MaxSpawnedEnemies = 15;
+        public const int MaxSpawnedEnemies = 16;
 
         public static WaveDifficulty ForWave(int waveIndex)
         {
@@ -104,10 +104,21 @@ namespace AsteroidsGoneRogue
             return 100 + bonus;
         }
 
+        public static readonly int[] ExtraEnemyTable = { 1, 1, 3, 3, 4, 4, 6 };
+
         public static int ExtraEnemiesForWorld(int worldNumber)
         {
             int world = worldNumber < 1 ? 1 : worldNumber;
-            int extra = (world - 1) / ExtraEnemyWorldSpan;
+            int extra;
+            if (world >= 7)
+            {
+                extra = 6;
+            }
+            else
+            {
+                extra = ExtraEnemyTable[world - 1];
+            }
+
             if (extra < 0)
             {
                 extra = 0;

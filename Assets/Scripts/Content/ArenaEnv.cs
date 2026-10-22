@@ -13,8 +13,8 @@ namespace AsteroidsGoneRogue
         public const float RetintChroma = 0.55f;
         public const float NebulaRadiusScale = 3.8f;
         public const float NebulaInnerRadiusScale = 2.4f;
-        public const float BeltRadiusScale = 1.58f;
-        public const float BeltOuterRadiusScale = 1.68f;
+        public const float BeltRadiusScale = 1.6f;
+        public const float BeltOuterRadiusScale = 1.6f;
         public const float BeltSpinDegrees = 6f;
         public const int BeltCount = 22;
         public const float StarFarTint = 0.45f;
@@ -60,6 +60,10 @@ namespace AsteroidsGoneRogue
         private Vector3 _dustCam;
         private int _dustReady;
         private Transform _player;
+        private MeshRenderer _lipRenderer;
+        private float _lipAlpha = ArenaEdge.RestAlpha;
+        private Texture2D _distTex;
+        private int _distWorld = -1;
 
         public static ArenaEnv Ensure(Transform arenaRoot)
         {
@@ -148,6 +152,8 @@ namespace AsteroidsGoneRogue
             TintNamedLight("ArenaUnderGlow", star);
             ApplyWorldLight(world);
             PostStack.SetWorld(world, SettingsState.ReduceEffectsEnabled);
+            PlaceBelt(ArenaShapeCatalog.Active.BoundingRadius * BeltRadiusScale);
+            RebuildLip();
         }
 
         public void RestoreHangarKey()
@@ -276,6 +282,7 @@ namespace AsteroidsGoneRogue
                     float dome = WaveManager.ArenaRadius;
                     paintedMat.SetFloat("_FadeStart", dome * 0.82f);
                     paintedMat.SetFloat("_FadeEnd", dome);
+                    ApplyContourFade(paintedMat);
                 }
 
                 paintedMat.color = new Color(floorR, floorG, floorB, 1f);
@@ -377,11 +384,17 @@ namespace AsteroidsGoneRogue
                     }
                 }
             }
+
+            TickLip(reduce);
         }
 
         private void Build()
         {
-            float radius = WaveManager.ArenaRadius;
+            float radius = ArenaShapeCatalog.Active.BoundingRadius;
+            if (radius < 1f)
+            {
+                radius = WaveManager.ArenaRadius;
+            }
             Texture2D starA = Resources.Load<Texture2D>(StarAKey);
             Texture2D starB = Resources.Load<Texture2D>(StarBKey);
             _nebulaBlue = Resources.Load<Texture2D>(NebulaBlueKey);
@@ -417,6 +430,7 @@ namespace AsteroidsGoneRogue
             CreateGrid(radius);
             CreatePlatformLip(radius);
             CreateBelt(radius * BeltRadiusScale);
+            RebuildLip();
             CreateRimLight();
             CreateUnderGlow(radius);
             CreateNearDust();
@@ -476,6 +490,180 @@ namespace AsteroidsGoneRogue
             renderer.sharedMaterial = DomeRingMaterial();
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
+            _lipRenderer = renderer;
+            RebuildLip();
+        }
+
+        private void RebuildLip()
+        {
+            Transform lip = transform.Find("ArenaLip");
+            if (lip == null)
+            {
+                return;
+            }
+
+            MeshFilter filter = lip.GetComponent<MeshFilter>();
+            if (filter == null)
+            {
+                return;
+            }
+
+            _lipRenderer = lip.GetComponent<MeshRenderer>();
+            filter.sharedMesh = DottedContourMesh(ArenaShapeCatalog.Active);
+            if (_lipRenderer != null && _lipRenderer.sharedMaterial != null)
+            {
+                Color steel = new Color(LookPolish.SteelR, LookPolish.SteelG, LookPolish.SteelB, _lipAlpha);
+                _lipRenderer.sharedMaterial.color = steel;
+            }
+        }
+
+        private static Mesh DottedContourMesh(ArenaShape shape)
+        {
+            int count = ArenaShape.SampleCount;
+            Vector3[] vertices = new Vector3[count * 4];
+            int[] triangles = new int[count * 6];
+            Vector2[] uv = new Vector2[count * 4];
+            for (int i = 0; i < count; i++)
+            {
+                float angle = (i / (float)count) * Mathf.PI * 2f;
+                float nextAngle = ((i + 1) / (float)count) * Mathf.PI * 2f;
+                float ax;
+                float az;
+                float bx;
+                float bz;
+                shape.SpawnRing(angle, 0f, out ax, out az);
+                shape.SpawnRing(nextAngle, 0f, out bx, out bz);
+                float dx = bx - ax;
+                float dz = bz - az;
+                float len = Mathf.Sqrt((dx * dx) + (dz * dz));
+                if (len < 0.001f)
+                {
+                    len = 0.001f;
+                }
+
+                float tx = dx / len;
+                float tz = dz / len;
+                float px = -tz;
+                float pz = tx;
+                float dash = len * 0.38f;
+                float half = 0.09f;
+                int v = i * 4;
+                vertices[v] = new Vector3(ax - (tx * 0.02f) + (px * half), 0.09f, az - (tz * 0.02f) + (pz * half));
+                vertices[v + 1] = new Vector3(ax + (tx * dash) + (px * half), 0.09f, az + (tz * dash) + (pz * half));
+                vertices[v + 2] = new Vector3(ax + (tx * dash) - (px * half), 0.09f, az + (tz * dash) - (pz * half));
+                vertices[v + 3] = new Vector3(ax - (tx * 0.02f) - (px * half), 0.09f, az - (tz * 0.02f) - (pz * half));
+                uv[v] = new Vector2(0f, 0f);
+                uv[v + 1] = new Vector2(1f, 0f);
+                uv[v + 2] = new Vector2(1f, 1f);
+                uv[v + 3] = new Vector2(0f, 1f);
+                int tri = i * 6;
+                triangles[tri] = v;
+                triangles[tri + 1] = v + 1;
+                triangles[tri + 2] = v + 2;
+                triangles[tri + 3] = v;
+                triangles[tri + 4] = v + 2;
+                triangles[tri + 5] = v + 3;
+            }
+
+            Mesh mesh = new Mesh();
+            mesh.name = "ArenaLipDots";
+            mesh.vertices = vertices;
+            mesh.uv = uv;
+            mesh.triangles = triangles;
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        private void TickLip(bool reduce)
+        {
+            if (_lipRenderer == null)
+            {
+                return;
+            }
+
+            float distance = ArenaEdge.NearMetres;
+            if (_player == null)
+            {
+                GameObject player = GameObject.FindGameObjectWithTag(GameTags.Player);
+                if (player != null)
+                {
+                    _player = player.transform;
+                }
+            }
+
+            if (_player != null)
+            {
+                distance = ArenaShapeCatalog.Active.DistanceToEdge(_player.position.x, _player.position.z);
+            }
+
+            _lipAlpha = ArenaEdge.LineAlpha(distance, _lipAlpha, Time.unscaledDeltaTime, reduce);
+            if (_lipRenderer.sharedMaterial == null)
+            {
+                return;
+            }
+
+            Color steel = new Color(LookPolish.SteelR, LookPolish.SteelG, LookPolish.SteelB, _lipAlpha);
+            _lipRenderer.sharedMaterial.color = steel;
+        }
+
+        private void ApplyContourFade(Material paintedMat)
+        {
+            if (paintedMat == null)
+            {
+                return;
+            }
+
+            ArenaShape shape = ArenaShapeCatalog.Active;
+            float reach = ArenaShapeCatalog.FloorReach(shape);
+            if (_distTex == null || _distWorld != ArenaShapeCatalog.ActiveWorld)
+            {
+                const int size = 128;
+                float[] pixels = new float[size * size];
+                shape.WriteDistance(pixels, size, reach);
+                _distTex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+                _distTex.name = "ArenaContour";
+                _distTex.wrapMode = TextureWrapMode.Clamp;
+                _distTex.filterMode = FilterMode.Bilinear;
+                for (int y = 0; y < size; y++)
+                {
+                    int row = y * size;
+                    for (int x = 0; x < size; x++)
+                    {
+                        float encoded = pixels[row + x];
+                        _distTex.SetPixel(x, y, new Color(encoded, encoded, encoded, 1f));
+                    }
+                }
+
+                _distTex.Apply();
+                _distWorld = ArenaShapeCatalog.ActiveWorld;
+            }
+
+            paintedMat.SetFloat("_UseContour", 1f);
+            paintedMat.SetTexture("_DistTex", _distTex);
+            paintedMat.SetFloat("_DistReach", reach);
+            paintedMat.SetFloat("_ClipReach", reach);
+        }
+
+        private void PlaceBelt(float radius)
+        {
+            if (_beltSlots == null)
+            {
+                return;
+            }
+
+            int count = _beltSlots.Length;
+            for (int i = 0; i < count; i++)
+            {
+                if (_beltSlots[i] == null)
+                {
+                    continue;
+                }
+
+                float ring = (i % 2 == 0) ? radius : radius * (BeltOuterRadiusScale / BeltRadiusScale);
+                float angle = (Mathf.PI * 2f * i) / count + (i % 2) * 0.18f;
+                float y = _beltSlots[i].position.y;
+                _beltSlots[i].position = new Vector3(Mathf.Cos(angle) * ring, y, Mathf.Sin(angle) * ring);
+            }
         }
 
         private static Mesh DomeRingMesh(float radius, float halfWidth, float height, int segments)

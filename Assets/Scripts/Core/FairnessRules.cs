@@ -4,11 +4,12 @@ namespace AsteroidsGoneRogue
 {
     /// <summary>
     /// Spawn clearance for 0.47 Part B. Enemies, hazards, and bolts must not
-    /// appear inside <see cref="MinSafeMetres"/> of the player, including after
-    /// circular wrap. A candidate that is already clear stays put, even when it
-    /// sits past the clamp radius. Only a point that is too close is pushed
-    /// out. If that push falls outside the clamp radius, it is flipped to the
-    /// other side of the player and clamped, then checked again.
+    /// appear inside <see cref="MinSafeMetres"/> of the player. Distance is
+    /// planar: the arena no longer wraps a spawn onto the far edge. A candidate
+    /// that is already clear stays put, even when it sits past the clamp radius.
+    /// Only a point that is too close is pushed out. If that push falls outside
+    /// the clamp radius, it is flipped to the other side of the player and
+    /// clamped, then checked again.
     /// </summary>
     public static class SpawnClearance
     {
@@ -17,6 +18,8 @@ namespace AsteroidsGoneRogue
         public const float WaveImmunitySeconds = 1f;
         /// <summary>Callers pass ArenaRadius - this. Wrap uses the full arena.</summary>
         public const float ArenaClampSlack = 1.5f;
+        /// <summary>Fly-in entry stays at least this far from the ship.</summary>
+        public const float EntryMinSafeMetres = 8f;
 
         public static bool IsSafe(float sx, float sz, float px, float pz, float minDistance)
         {
@@ -36,25 +39,15 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// Straight-line distance, or the distance after <see cref="ArenaWrap.WrapXz"/>
-        /// when that appearance is closer. A bolt born past the rim shows up on the
-        /// opposite inner edge.
+        /// Planar distance. The live arena does not wrap, so a point past the
+        /// contour is not treated as appearing on the opposite edge.
         /// </summary>
         public static float ClearanceDistance(float sx, float sz, float px, float pz, float arenaRadius)
         {
             float direct = PlanarDistance(sx, sz, px, pz);
-            if (arenaRadius <= 0f)
+            if (arenaRadius < 0f)
             {
                 return direct;
-            }
-
-            float wrappedX;
-            float wrappedZ;
-            ArenaWrap.WrapXz(sx, sz, arenaRadius, out wrappedX, out wrappedZ);
-            float wrapped = PlanarDistance(wrappedX, wrappedZ, px, pz);
-            if (wrapped < direct)
-            {
-                return wrapped;
             }
 
             return direct;
@@ -111,20 +104,6 @@ namespace AsteroidsGoneRogue
 
             float srcX = sx;
             float srcZ = sz;
-            if (arenaRadius > 0f)
-            {
-                float wrappedX;
-                float wrappedZ;
-                ArenaWrap.WrapXz(sx, sz, arenaRadius, out wrappedX, out wrappedZ);
-                float direct = PlanarDistance(sx, sz, px, pz);
-                float wrapped = PlanarDistance(wrappedX, wrappedZ, px, pz);
-                if (wrapped + 0.00001f < minDistance && wrapped <= direct + 0.00001f)
-                {
-                    srcX = wrappedX;
-                    srcZ = wrappedZ;
-                }
-            }
-
             float dx = srcX - px;
             float dz = srcZ - pz;
             float distSq = dx * dx + dz * dz;

@@ -198,10 +198,11 @@ namespace AsteroidsGoneRogue
             }
 
             Quaternion target = Quaternion.LookRotation(dir.normalized, Vector3.up);
+            float turnScale = SettingsState.TurnSpeedScale;
             transform.rotation = Quaternion.RotateTowards(
                 transform.rotation,
                 target,
-                TurnDegreesPerSecond * Time.deltaTime);
+                TurnDegreesPerSecond * turnScale * Time.deltaTime);
         }
 
         private void AimAtMouse()
@@ -228,33 +229,42 @@ namespace AsteroidsGoneRogue
             }
 
             Quaternion target = Quaternion.LookRotation(dir.normalized, Vector3.up);
+            float turnScale = SettingsState.TurnSpeedScale;
             transform.rotation = Quaternion.RotateTowards(
                 transform.rotation,
                 target,
-                TurnDegreesPerSecond * Time.deltaTime);
+                TurnDegreesPerSecond * turnScale * Time.deltaTime);
         }
 
         private void ClampToArena()
         {
             Vector3 pos = transform.position;
             pos.y = PlayHeight;
-            Vector3 planar = new Vector3(pos.x, 0f, pos.z);
-            float limit = WaveManager.ArenaRadius - 1.4f;
-            if (planar.sqrMagnitude > limit * limit)
-            {
-                planar = planar.normalized * limit;
-                pos.x = planar.x;
-                pos.z = planar.z;
-                transform.position = pos;
-                Vector3 vel = _body.linearVelocity;
-                vel += -planar.normalized * 2f;
-                vel.y = 0f;
-                _body.linearVelocity = vel;
-            }
-            else if (Mathf.Abs(transform.position.y - PlayHeight) > 0.01f)
-            {
-                transform.position = pos;
-            }
+            Vector3 vel = _body.linearVelocity;
+            float ox;
+            float oz;
+            float ovx;
+            float ovz;
+            ArenaEdge.Push(
+                ArenaShapeCatalog.Active,
+                pos.x,
+                pos.z,
+                vel.x,
+                vel.z,
+                ArenaEdge.MaxAccel,
+                Time.fixedDeltaTime,
+                out ox,
+                out oz,
+                out ovx,
+                out ovz);
+            pos.x = ox;
+            pos.z = oz;
+            transform.position = pos;
+            _body.position = pos;
+            vel.x = ovx;
+            vel.z = ovz;
+            vel.y = 0f;
+            _body.linearVelocity = vel;
         }
     }
 }

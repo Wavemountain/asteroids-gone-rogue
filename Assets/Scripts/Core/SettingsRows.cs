@@ -24,6 +24,7 @@ namespace AsteroidsGoneRogue
         ChangeControls = 19,
         ResetTutorial = 20,
         FilmGrain = 21,
+        TurnSpeed = 22,
     }
 
     public enum SettingsRowRole
@@ -70,6 +71,7 @@ namespace AsteroidsGoneRogue
             SettingsRowId.Controls,
             SettingsRowId.Close,
             SettingsRowId.FilmGrain,
+            SettingsRowId.TurnSpeed,
         };
 
         public static int Count
@@ -106,7 +108,7 @@ namespace AsteroidsGoneRogue
 
         public static bool IsSlider(SettingsRowId id)
         {
-            return id == SettingsRowId.Music || id == SettingsRowId.Sfx;
+            return id == SettingsRowId.Music || id == SettingsRowId.Sfx || id == SettingsRowId.TurnSpeed;
         }
 
         public static int ClampIndex(int index)
@@ -164,7 +166,7 @@ namespace AsteroidsGoneRogue
             // short shares. Film grain is a scroll row and takes no packed share:
             // one more gap is enough to miss that floor. RowGap is 0.0113 so the
             // two short rows still clear it.
-            if (id == SettingsRowId.FilmGrain)
+            if (id == SettingsRowId.FilmGrain || id == SettingsRowId.TurnSpeed)
             {
                 return 0f;
             }
@@ -209,6 +211,54 @@ namespace AsteroidsGoneRogue
 
             float next = ClampVolume(current + delta);
             return UnityEngine.Mathf.Round(next * 1000f) / 1000f;
+        }
+
+        public const float TurnMin = 0.70f;
+        public const float TurnMax = 1.30f;
+        public const float TurnStep = 0.05f;
+        public const bool TurnAllowedInDaily = true;
+
+        public static float ClampTurn(float scale)
+        {
+            float value = scale;
+            if (value < TurnMin)
+            {
+                value = TurnMin;
+            }
+
+            if (value > TurnMax)
+            {
+                value = TurnMax;
+            }
+
+            float steps = UnityEngine.Mathf.Round((value - TurnMin) / TurnStep);
+            float snapped = TurnMin + (steps * TurnStep);
+            if (snapped < TurnMin)
+            {
+                snapped = TurnMin;
+            }
+
+            if (snapped > TurnMax)
+            {
+                snapped = TurnMax;
+            }
+
+            return snapped;
+        }
+
+        public static float StepTurn(float current, int direction)
+        {
+            float delta = 0f;
+            if (direction > 0)
+            {
+                delta = TurnStep;
+            }
+            else if (direction < 0)
+            {
+                delta = -TurnStep;
+            }
+
+            return ClampTurn(current + delta);
         }
 
         /// <summary>

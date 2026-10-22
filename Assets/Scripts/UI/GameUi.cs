@@ -4937,6 +4937,7 @@ namespace AsteroidsGoneRogue
             RefreshSettingsShake();
             RefreshSettingsReduce();
             RefreshSettingsGrain();
+            RefreshSettingsTurn();
             RefreshSettingsAssist();
             RefreshSettingsHint();
             RefreshSettingsConfirm();
@@ -8345,6 +8346,12 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (rowId == SettingsRowId.TurnSpeed)
+            {
+                BuildSettingsTurnRow(rowIndex, body, y0, y1);
+                return;
+            }
+
             if (rowId == SettingsRowId.AssistMode)
             {
                 BuildSettingsAssistRow(rowIndex, body, y0, y1);
@@ -10769,6 +10776,12 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (rowId == SettingsRowId.TurnSpeed)
+            {
+                StepSettingsTurn(direction);
+                return;
+            }
+
             if (rowId == SettingsRowId.AssistMode)
             {
                 ToggleAssistMode();
@@ -10871,6 +10884,12 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.FilmGrain)
             {
                 ToggleFilmGrain();
+                return;
+            }
+
+            if (rowId == SettingsRowId.TurnSpeed)
+            {
+                StepSettingsTurn(1);
                 return;
             }
 

@@ -31,6 +31,7 @@ namespace AsteroidsGoneRogue
         private bool _arenaApplied;
         private ArenaLayoutId _arenaLayout;
         private int _arenaWorldNumber;
+        private bool _spawnOutside;
         private Material _hull;
         private Material _previewAccent;
         private Material _previewCyan;
@@ -383,8 +384,14 @@ namespace AsteroidsGoneRogue
             return ArenaWorlds[index];
         }
 
+        public void SetSpawnOutside(bool outside)
+        {
+            _spawnOutside = outside;
+        }
+
         public void ApplyArenaForWave(int waveIndex)
         {
+            ArenaShapeCatalog.SetActive(WorldIndexForWave(waveIndex));
             if (_arenaRoot == null)
             {
                 return;
@@ -416,7 +423,8 @@ namespace AsteroidsGoneRogue
             GameObject floorVisual = null;
             if (TryVisual(visualName, _arenaRoot.transform, _arena, out visual))
             {
-                float scale = WaveManager.ArenaRadius / WaveManager.ArenaDesignRadius;
+                float reach = ArenaShapeCatalog.FloorReach(ArenaShapeCatalog.Active);
+                float scale = reach / WaveManager.ArenaDesignRadius;
                 if (IsAstroPlayFloor(visualName))
                 {
                     scale *= AstroFloorVisualScale;
@@ -442,7 +450,8 @@ namespace AsteroidsGoneRogue
             else
             {
                 GameObject floor = CreatePrimitive(PrimitiveType.Cylinder, "Arena_Floor", _arenaRoot.transform, _arena);
-                floor.transform.localScale = new Vector3(WaveManager.ArenaRadius * 2f, 0.04f, WaveManager.ArenaRadius * 2f);
+                float fallbackReach = ArenaShapeCatalog.FloorReach(ArenaShapeCatalog.Active);
+                floor.transform.localScale = new Vector3(fallbackReach * 2f, 0.04f, fallbackReach * 2f);
                 floor.transform.position = new Vector3(0f, ArenaPlaySurfaceY, 0f);
                 floorVisual = floor;
             }
@@ -1078,8 +1087,10 @@ namespace AsteroidsGoneRogue
             GameObject root = new GameObject(visualName);
             root.tag = GameTags.Enemy;
             root.transform.SetParent(_threatRoot, false);
+            bool keepOutside = _spawnOutside;
+            _spawnOutside = false;
             Vector3 cleared = position;
-            if (player != null)
+            if (!keepOutside && player != null)
             {
                 int wave = waves != null ? waves.ActiveWave : 1;
                 float safe = LookPolish.SafeMetres(wave);
@@ -1183,8 +1194,11 @@ namespace AsteroidsGoneRogue
 
             EnemySeeker seeker = root.AddComponent<EnemySeeker>();
             seeker.Initialize(player, waves, kind);
-            OpeningClearance.ScreenPlace(root.transform);
-            seeker.BeginSpawnGrace();
+            if (!keepOutside)
+            {
+                OpeningClearance.ScreenPlace(root.transform);
+                seeker.BeginSpawnGrace();
+            }
             DecorDepthClamp.KeepGameplay(root);
             CastFormShadow(root.transform);
             if (AudioCues.Instance != null)
@@ -2403,9 +2417,10 @@ namespace AsteroidsGoneRogue
             Transform root = new GameObject("Arena_Layout").transform;
             root.SetParent(_arenaRoot.transform, false);
             Material wash = LayoutWash(layout);
+            float washReach = ArenaShapeCatalog.Active.BoundingRadius * 1.92f;
             CreatePrimitive(PrimitiveType.Cylinder, "LayoutWash", root, wash,
                 new Vector3(0f, -0.02f, 0f),
-                new Vector3(WaveManager.ArenaRadius * 1.92f, 0.03f, WaveManager.ArenaRadius * 1.92f),
+                new Vector3(washReach, 0.03f, washReach),
                 Quaternion.identity);
 
             switch (layout)
@@ -2462,8 +2477,11 @@ namespace AsteroidsGoneRogue
                     for (int i = 0; i < 8; i++)
                     {
                         float angle = (Mathf.PI * 2f * i) / 8f;
+                        float rimX;
+                        float rimZ;
+                        ArenaShapeCatalog.Active.SpawnRing(angle, -0.8f, out rimX, out rimZ);
                         CreatePrimitive(PrimitiveType.Cylinder, "RimLight", root, _layoutCyan,
-                            Ring(WaveManager.ArenaRadius - 0.8f, angle) + new Vector3(0f, 0.35f, 0f),
+                            new Vector3(rimX, 0.35f, rimZ),
                             new Vector3(0.22f, 0.35f, 0.22f), Quaternion.identity);
                     }
 

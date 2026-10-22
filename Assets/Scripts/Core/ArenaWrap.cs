@@ -29,6 +29,19 @@ namespace AsteroidsGoneRogue
             return (x * x + z * z) > limit * limit;
         }
 
+        /// <summary>
+        /// Past the live contour by the soft-lock slack. Positive distance is inside.
+        /// </summary>
+        public static bool IsBeyondSoftLock(float x, float z)
+        {
+            return ArenaShapeCatalog.Active.DistanceToEdge(x, z) < -SoftLockSlack;
+        }
+
+        public static bool IsOutOfPlay(float x, float y, float z)
+        {
+            return IsInvalid(x, y, z) || IsOutOfPlayY(y) || IsBeyondSoftLock(x, z);
+        }
+
         public static bool IsInvalidXz(float x, float z)
         {
             return float.IsNaN(x) || float.IsNaN(z) || float.IsInfinity(x) || float.IsInfinity(z);

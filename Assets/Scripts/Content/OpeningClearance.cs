@@ -94,6 +94,12 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            EnemySeeker entering = body.GetComponent<EnemySeeker>();
+            if (entering != null && entering.IsEntering)
+            {
+                return;
+            }
+
             Vector3 ship;
             ShotCam view;
             float minU;
@@ -207,6 +213,12 @@ namespace AsteroidsGoneRogue
 
             GameObject host = renderer.gameObject;
             if (host == null)
+            {
+                return;
+            }
+
+            EnemySeeker entering = host.transform.GetComponentInParent<EnemySeeker>();
+            if (entering != null && entering.IsEntering)
             {
                 return;
             }
