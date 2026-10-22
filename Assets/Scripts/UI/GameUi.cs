@@ -39,6 +39,7 @@ namespace AsteroidsGoneRogue
         private Text[] _legacyLabels;
         private Button[] _buyButtons;
         private Text[] _buyLabels;
+        private Text[] _buyPriceLabels;
         private Button _hullRepairButton;
         private Button _extraLifeButton;
         private Button _shieldRefillButton;
@@ -67,6 +68,7 @@ namespace AsteroidsGoneRogue
         private Text _setupBlurb;
         private bool _setupOpen;
         private int _setupFocus;
+        private int _setupModeSlot = -1;
         private int _setupOpenedFrame = -1;
         private bool _setupHeld;
         private float _setupRepeatAt;
@@ -1164,6 +1166,16 @@ namespace AsteroidsGoneRogue
                 choiceLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
                 choiceLabel.verticalOverflow = VerticalWrapMode.Truncate;
                 choice.onClick.AddListener(() => ApplyRunSetup(capturedSlot));
+                EventTrigger setupTrigger = choice.gameObject.GetComponent<EventTrigger>();
+                if (setupTrigger == null)
+                {
+                    setupTrigger = choice.gameObject.AddComponent<EventTrigger>();
+                }
+
+                EventTrigger.Entry setupEnter = new EventTrigger.Entry();
+                setupEnter.eventID = EventTriggerType.PointerEnter;
+                setupEnter.callback.AddListener(_ => HoverRunSetup(capturedSlot));
+                setupTrigger.triggers.Add(setupEnter);
                 LockButtonNavigation(choice);
                 UiTheme.ApplyButton(choice, false, false, false);
                 _setupButtons[setupIndex] = choice;
@@ -1335,8 +1347,24 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        private void HoverRunSetup(int slot)
+        {
+            if (!_setupOpen)
+            {
+                return;
+            }
+
+            FocusRunSetup(slot);
+        }
+
         private void FocusRunSetup(int slot)
         {
+            _setupFocus = slot;
+            if (slot == RunSetupNav.NormalSlot || slot == RunSetupNav.DailySlot)
+            {
+                _setupModeSlot = slot;
+            }
+
             if (_setupButtons == null)
             {
                 return;
@@ -1441,6 +1469,10 @@ namespace AsteroidsGoneRogue
             {
                 paintSecond = MutatorCopy.Rejected();
             }
+            else if (slot == RunSetupNav.DailySlot && !dailyLocked && DailyResetNeeded())
+            {
+                paintSecond = DailyCopy.ResetLoadout();
+            }
             else if (RunSetupNav.IsMutator(slot) && MutatorRules.CountBits(_setupMask) < 2)
             {
                 paintSecond = MutatorCopy.Description(RunSetupNav.MutatorId(slot));
@@ -1467,12 +1499,51 @@ namespace AsteroidsGoneRogue
         /// </summary>
         private bool ChooserDailyMode()
         {
-            if (_setupFocus == RunSetupNav.DailySlot)
+            int modeSlot = _setupModeSlot;
+            if (_setupFocus == RunSetupNav.NormalSlot || _setupFocus == RunSetupNav.DailySlot)
+            {
+                modeSlot = _setupFocus;
+            }
+
+            if (modeSlot == RunSetupNav.NormalSlot)
+            {
+                return false;
+            }
+
+            if (modeSlot == RunSetupNav.DailySlot)
             {
                 return true;
             }
 
             return _game != null && _game.ActiveDailySeed > 0;
+        }
+
+        private bool DailyResetNeeded()
+        {
+            if (_game == null || _session == null)
+            {
+                return false;
+            }
+
+            bool leavingRun = _setupKind == RunSetupKind.Abandon || _setupKind == RunSetupKind.Retry;
+            bool purchased = _loadout != null && _loadout.State != null && _loadout.State.HasPurchase();
+            int shield = 0;
+            int doctrine = 0;
+            if (_loadout != null && _loadout.State != null)
+            {
+                shield = _loadout.State.ShieldCharges;
+                doctrine = (int)_loadout.State.Doctrine;
+            }
+
+            return DailyResetWarning.Needed(
+                _game.HasContinueOffer,
+                leavingRun,
+                _session.WaveIndex,
+                _session.Score,
+                _session.Credits,
+                purchased,
+                shield,
+                doctrine);
         }
 
         /// <summary>
@@ -2005,6 +2076,7 @@ namespace AsteroidsGoneRogue
             int shopCount = ShopCatalog.Items.Length;
             _buyButtons = new Button[shopCount];
             _buyLabels = new Text[shopCount];
+            _buyPriceLabels = new Text[shopCount];
             int hullIndex = 0;
             int weaponIndex = 0;
             int defenseIndex = 0;
@@ -2025,6 +2097,11 @@ namespace AsteroidsGoneRogue
                 _buyButtons[i] = button;
                 _buyLabels[i] = button.GetComponentInChildren<Text>();
                 FitShopLabel(_buyLabels[i], item.Group);
+                Stretch(
+                    _buyLabels[i].rectTransform,
+                    new Vector2(0f, ShopGridLayout.TitleBandMinY),
+                    new Vector2(1f, 1f));
+                _buyPriceLabels[i] = CreateShopPriceLabel(button, body, item.Group);
                 UiTheme.ApplyButton(button, false, false, true);
                 button.transform.SetAsLastSibling();
             }
@@ -2503,6 +2580,68 @@ namespace AsteroidsGoneRogue
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             label.verticalOverflow = VerticalWrapMode.Truncate;
             label.color = UiTheme.Accent;
+        }
+
+        private static Text CreateShopPriceLabel(Button button, Font body, ShopGroup group)
+        {
+            if (button == null)
+            {
+                return null;
+            }
+
+            int size = group == ShopGroup.Hull ? UiTheme.ShopHullSize : UiTheme.ShopNameSize;
+            Text price = CreateText("Price", button.transform, body, size, TextAnchor.MiddleCenter, FontStyle.Normal);
+            Stretch(
+                price.rectTransform,
+                new Vector2(0f, ShopGridLayout.PriceBandMinY),
+                new Vector2(1f, ShopGridLayout.PriceBandMaxY));
+            price.raycastTarget = false;
+            FitShopPriceWidth(price, group);
+            return price;
+        }
+
+        /// <summary>
+        /// Best-fit plus wrap reports a fit while the second line is cut off.
+        /// The price sits on its own rect and shrinks until preferredWidth fits.
+        /// An unlaid-out rect (width &lt;= 1) keeps the design size.
+        /// </summary>
+        private static void FitShopPriceWidth(Text price, ShopGroup group)
+        {
+            if (price == null)
+            {
+                return;
+            }
+
+            int size = group == ShopGroup.Hull ? UiTheme.ShopHullSize : UiTheme.ShopNameSize;
+            price.font = UiFonts.Body();
+            price.fontSize = size;
+            price.resizeTextForBestFit = false;
+            price.resizeTextMinSize = 10;
+            price.resizeTextMaxSize = size;
+            price.fontStyle = FontStyle.Normal;
+            price.lineSpacing = UiTheme.ShopLineSpacing;
+            price.alignment = TextAnchor.MiddleCenter;
+            price.horizontalOverflow = HorizontalWrapMode.Overflow;
+            price.verticalOverflow = VerticalWrapMode.Truncate;
+            RectTransform rect = price.rectTransform;
+            if (rect == null)
+            {
+                return;
+            }
+
+            float width = rect.rect.width;
+            if (width <= 1f)
+            {
+                return;
+            }
+
+            int floor = 10;
+            float height = rect.rect.height;
+            while (size > floor && (price.preferredWidth > width || price.preferredHeight > height))
+            {
+                size -= 1;
+                price.fontSize = size;
+            }
         }
 
         private static void ShopButtonRect(
@@ -6530,8 +6669,26 @@ namespace AsteroidsGoneRogue
             UiTheme.ApplyShopHex(plate, _buyLabels[index], tileModel.FillHex, tileModel.TextHex);
             _buyButtons[index].interactable = tileModel.Interactable;
             _buyLabels[index].enabled = true;
-            _buyLabels[index].text = tileModel.Label;
+            string titleText = tileModel.Name;
+            if (offPath && !runOver)
+            {
+                titleText = titleText + "\n" + Loc.T("ui.off_path", "off-path");
+            }
+
+            _buyLabels[index].text = tileModel.Label.Length > 0 ? titleText : tileModel.Label;
+            if (_buyPriceLabels != null && _buyPriceLabels[index] != null)
+            {
+                Text priceLabel = _buyPriceLabels[index];
+                priceLabel.text = tileModel.Label.Length > 0 ? tileModel.Price : string.Empty;
+                FitShopPriceWidth(priceLabel, item.Group);
+                UiTheme.ApplyShopHex(null, priceLabel, tileModel.FillHex, tileModel.TextHex);
+            }
+
             UiTheme.PlaceShopFocus(_buyButtons[index].gameObject, _buyLabels[index], tileModel.Focused);
+            if (_buyPriceLabels != null && _buyPriceLabels[index] != null)
+            {
+                _buyPriceLabels[index].transform.SetAsLastSibling();
+            }
         }
 
         private void RefreshServiceButtons()

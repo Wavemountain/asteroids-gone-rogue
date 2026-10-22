@@ -75,9 +75,11 @@ namespace AsteroidsGoneRogue
                 price);
 
             string status = StatusLine(owned, mk2Owned, mk2Offer, canApply, offPath, runOver, swedish, price, credits);
+            string priceLine = PriceLine(owned, mk2Owned, mk2Offer, canApply, runOver, swedish, price, credits);
             ShopTileModel model = new ShopTileModel();
             model.Name = title;
             model.Status = status;
+            model.Price = priceLine;
             model.Label = title + "\n" + status;
             model.Stage = stage;
             model.FillHex = FillHex(stage);
@@ -151,12 +153,11 @@ namespace AsteroidsGoneRogue
             return ShopUpgradeStage.Unbought;
         }
 
-        public static string StatusLine(
+        public static string PriceLine(
             bool owned,
             bool mk2Owned,
             bool mk2Offer,
             bool canApply,
-            bool offPath,
             bool runOver,
             bool swedish,
             int price,
@@ -192,6 +193,21 @@ namespace AsteroidsGoneRogue
                 status = CostText(price, swedish);
             }
 
+            return status;
+        }
+
+        public static string StatusLine(
+            bool owned,
+            bool mk2Owned,
+            bool mk2Offer,
+            bool canApply,
+            bool offPath,
+            bool runOver,
+            bool swedish,
+            int price,
+            int credits)
+        {
+            string status = PriceLine(owned, mk2Owned, mk2Offer, canApply, runOver, swedish, price, credits);
             if (!runOver && offPath)
             {
                 string prefix = swedish ? "av vägen" : "off-path";
@@ -435,6 +451,7 @@ namespace AsteroidsGoneRogue
     {
         public string Name;
         public string Status;
+        public string Price;
         public string Label;
         public string FillHex;
         public string TextHex;

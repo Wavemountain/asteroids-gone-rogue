@@ -683,6 +683,28 @@ namespace AsteroidsGoneRogue
             return ClampBank(high);
         }
 
+        /// <summary>
+        /// Legacy points still owed for a bank. Repeating the same count pays 0.
+        /// A higher count pays only the new steps, and never more than one run's cap.
+        /// </summary>
+        public static int BankGrant(int recorded, int nextCount)
+        {
+            int previous = recorded < 0 ? 0 : recorded;
+            int next = nextCount < 0 ? 0 : nextCount;
+            if (next <= previous)
+            {
+                return 0;
+            }
+
+            int gained = next - previous;
+            if (gained > ShopPrices.BankMaxPerRun)
+            {
+                gained = ShopPrices.BankMaxPerRun;
+            }
+
+            return gained;
+        }
+
         public static void RememberBanked(MetaData meta, int runId, int count)
         {
             if (meta == null || runId < 1)

@@ -13,6 +13,9 @@ namespace AsteroidsGoneRogue.EditorTools
     ///
     /// "C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe" -batchmode -projectPath . -executeMethod AsteroidsGoneRogue.EditorTools.AgrCapture.Run -logFile - -captureOut Captures\compare -reduce 0 -seed 48048
     ///
+    /// -seed stays required. The picture seed is always W4PinSeed so a second
+    /// capture of the same shot matches the first. The requested value is logged.
+    ///
     /// Play mode is entered with EditorApplication.EnterPlaymode. 6000.6 keeps
     /// the scripting domain by default (scene reload only) unless Enter Play
     /// Mode Options say otherwise; SessionState plus playModeStateChanged cover
@@ -120,6 +123,12 @@ namespace AsteroidsGoneRogue.EditorTools
                 Quit(1);
                 return;
             }
+
+            int requestedSeed = seed;
+            seed = W4PinSeed;
+            Debug.Log(
+                "AgrCapture seed requested=" + requestedSeed.ToString()
+                + " fixed=" + W4PinSeed.ToString());
 
             if (SessionState.GetBool(KeyRunning, false))
             {
@@ -608,14 +617,10 @@ namespace AsteroidsGoneRogue.EditorTools
             if (shot == 3)
             {
                 _w4Pinned = false;
-                ApplySeedValue(game, W4PinSeed);
-            }
-            else
-            {
-                ApplySeed(game);
             }
 
             ApplyReduceCache();
+            ApplySeedValue(game, W4PinSeed);
             if (!InvokeZero(game, "StartWave"))
             {
                 Fail("StartWave missing");

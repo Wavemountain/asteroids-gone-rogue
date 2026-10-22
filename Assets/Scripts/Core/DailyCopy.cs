@@ -68,5 +68,70 @@ namespace AsteroidsGoneRogue
         {
             return Loc.Tf("daily.wait.button", "Daily · {0}", remaining);
         }
+
+        public static string ResetLoadout()
+        {
+            return Loc.T("daily.reset_loadout", "Daily resets this loadout.");
+        }
+    }
+
+    /// <summary>
+    /// Daily wipes the hangar loadout. Warn when that wipe would drop
+    /// something the player already has. A fresh rank-0 hangar does not.
+    /// </summary>
+    public static class DailyResetWarning
+    {
+        public static bool Needed(
+            bool continueOffer,
+            bool leavingRun,
+            int wave,
+            int score,
+            int credits,
+            bool purchased,
+            int shield,
+            int doctrine)
+        {
+            if (continueOffer)
+            {
+                return true;
+            }
+
+            if (leavingRun)
+            {
+                return true;
+            }
+
+            if (wave > 1)
+            {
+                return true;
+            }
+
+            if (score > 0)
+            {
+                return true;
+            }
+
+            if (credits > 0)
+            {
+                return true;
+            }
+
+            if (purchased)
+            {
+                return true;
+            }
+
+            if (shield > 0)
+            {
+                return true;
+            }
+
+            if (doctrine != 0)
+            {
+                return true;
+            }
+
+            return false;
+        }
     }
 }
