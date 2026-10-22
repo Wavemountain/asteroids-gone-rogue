@@ -1830,6 +1830,79 @@ def check_economy_049() -> None:
         err(f"world-1 catalogue is {catalogue}, expected 15961")
 
 
+def _warmup_call_guarded(source: str, call: str) -> bool:
+    """True when every `call` sits in a try whose catch logs and does not return."""
+    start = 0
+    found = False
+    while True:
+        at = source.find(call, start)
+        if at < 0:
+            break
+        found = True
+        try_at = source.rfind("try", 0, at)
+        catch_at = source.find("catch", at)
+        if try_at < 0 or catch_at < 0:
+            return False
+        between = source[try_at:at]
+        if between.count("{") <= between.count("}"):
+            return False
+        if "LogWarning" not in source[catch_at:catch_at + 240]:
+            return False
+        if "return" in source[catch_at:catch_at + 80]:
+            return False
+        start = at + len(call)
+    return found
+
+
+def check_shader_warmup_guard(scripts: list[Path]) -> None:
+    """AGR/RimLit has no pass 0. Boot must not build ShaderVariants or stop on warm-up."""
+    seen = list(scripts)
+    editor = ROOT / "Assets/Editor"
+    if editor.exists():
+        seen.extend(editor.rglob("*.cs"))
+    for path in seen:
+        text = read(path)
+        if "new ShaderVariant" in text:
+            err(f"{path.relative_to(ROOT)} constructs ShaderVariant; AGR/RimLit has no pass type 0")
+
+    warmup_path = ROOT / "Assets/Scripts/Content/ShaderWarmup.cs"
+    boot_path = ROOT / "Assets/Scripts/Content/GameBootstrap.cs"
+    factory_path = ROOT / "Assets/Scripts/Content/ContentFactory.cs"
+    if not warmup_path.exists() or not boot_path.exists() or not factory_path.exists():
+        err("shader warm-up guard is missing ShaderWarmup, GameBootstrap, or ContentFactory")
+        return
+    warmup = read(warmup_path)
+    bootstrap = read(boot_path)
+    factory = read(factory_path)
+    if "ShaderVariant" in warmup or "PassType" in warmup:
+        err("ShaderWarmup must not build ShaderVariant / PassType lists")
+    if "WarmupAllShaders()" not in warmup:
+        err("ShaderWarmup.WarmShots must call Shader.WarmupAllShaders()")
+    if not _warmup_call_guarded(warmup, "WarmShots();"):
+        err("ShaderWarmup.Touch must call WarmShots inside try/catch LogWarning")
+    if not _warmup_call_guarded(warmup, "Shader.WarmupAllShaders()"):
+        err("Shader.WarmupAllShaders must sit in try/catch LogWarning")
+    if "private void Boot()" not in bootstrap:
+        err("GameBootstrap.Boot missing")
+    else:
+        boot = bootstrap.split("private void Boot()")[1].split("private static void EnsureEventSystem")[0]
+        if not _warmup_call_guarded(boot, "ShaderWarmup.Touch()"):
+            err("GameBootstrap.Boot must guard ShaderWarmup.Touch")
+        touch_at = boot.find("ShaderWarmup.Touch()")
+        catch_at = boot.find("catch", touch_at if touch_at >= 0 else 0)
+        session_at = boot.find("new GameSession()")
+        if not (0 <= touch_at < catch_at < session_at):
+            err("GameBootstrap.Boot must catch warm-up before new GameSession")
+        elif "return" in boot[catch_at:session_at]:
+            err("GameBootstrap.Boot must not return after a warm-up failure")
+    if "public void BuildArena()" not in factory:
+        err("ContentFactory.BuildArena missing")
+    else:
+        arena = factory.split("public void BuildArena()")[1].split("public static readonly string[] ArenaWorlds")[0]
+        if not _warmup_call_guarded(arena, "ShaderWarmup.WarmShots()"):
+            err("ContentFactory.BuildArena must guard ShaderWarmup.WarmShots")
+
+
 def main() -> int:
     require(ROOT / "Packages/manifest.json")
     require(ROOT / "ProjectSettings/ProjectVersion.txt")
@@ -2180,6 +2253,7 @@ def main() -> int:
 
     for hit in core_roslyn_errors():
         err(hit)
+    check_shader_warmup_guard(scripts)
 
     if "FindObjectOfType" in blob or "FindObjectsOfType" in blob:
         err("scripts still call obsolete FindObjectOfType / FindObjectsOfType")

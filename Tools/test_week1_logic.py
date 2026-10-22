@@ -10133,6 +10133,8 @@ def main() -> int:
     test_catalogue_coverage_label()
     test_wave_summary_and_hangar_hud()
     test_premium_050_look()
+    test_shader_warmup_cannot_block_boot()
+    test_hud_gate_measures_shown_panel()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -18267,6 +18269,177 @@ class Program
     if result.returncode != 0:
         raise AssertionError(result.stdout + "\n" + result.stderr)
     assert "look-ok" in result.stdout
+
+
+def _call_is_guarded(source: str, call: str) -> bool:
+    """True when every `call` sits in a try whose catch is still open."""
+    start = 0
+    found = False
+    while True:
+        at = source.find(call, start)
+        if at < 0:
+            break
+        found = True
+        try_at = source.rfind("try", 0, at)
+        catch_at = source.find("catch", at)
+        if try_at < 0 or catch_at < 0:
+            return False
+        between = source[try_at:at]
+        if between.count("{") <= between.count("}"):
+            return False
+        starter = source[catch_at:catch_at + 80]
+        if "LogWarning" not in source[catch_at:catch_at + 240]:
+            return False
+        if "return" in starter:
+            return False
+        start = at + len(call)
+    return found
+
+
+def test_shader_warmup_cannot_block_boot() -> None:
+    """AGR/RimLit has no pass 0. Warm-up must not build ShaderVariants or stop boot."""
+    import os
+    import subprocess
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    for path in (root / "Assets").rglob("*.cs"):
+        text = path.read_text(encoding="utf-8")
+        assert "new ShaderVariant" not in text, path
+
+    warmup = (root / "Assets/Scripts/Content/ShaderWarmup.cs").read_text(encoding="utf-8")
+    bootstrap = (root / "Assets/Scripts/Content/GameBootstrap.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    assert "ShaderVariant" not in warmup
+    assert "PassType" not in warmup
+    assert "WarmupAllShaders()" in warmup
+    assert _call_is_guarded(warmup, "WarmShots();")
+    assert _call_is_guarded(warmup, "Shader.WarmupAllShaders()")
+    boot = bootstrap.split("private void Boot()")[1].split("private static void EnsureEventSystem")[0]
+    assert _call_is_guarded(boot, "ShaderWarmup.Touch()")
+    touch_at = boot.find("ShaderWarmup.Touch()")
+    catch_at = boot.find("catch", touch_at)
+    session_at = boot.find("new GameSession()")
+    assert 0 <= touch_at < catch_at < session_at
+    assert "return" not in boot[catch_at:session_at]
+    arena = factory.split("public void BuildArena()")[1].split("public static readonly string[] ArenaWorlds")[0]
+    assert _call_is_guarded(arena, "ShaderWarmup.WarmShots()")
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    from roslyn_core_check import find_dotnet
+
+    dotnet = find_dotnet()
+    assert dotnet, "warmup boot stub needs dotnet"
+    work = Path(os.environ.get("TMPDIR", "/tmp")) / "agr-warmup-boot"
+    if work.exists():
+        import shutil
+
+        shutil.rmtree(work)
+    work.mkdir(parents=True)
+    program = """
+using System;
+class Session {}
+class Warm
+{
+    public static void Touch()
+    {
+        throw new ArgumentException("shader AGR/RimLit does not have pass type 0");
+    }
+}
+class Boot
+{
+    public static Session Run()
+    {
+        try
+        {
+            Warm.Touch();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("warn " + ex.Message);
+        }
+        return new Session();
+    }
+}
+class Program
+{
+    static void Main()
+    {
+        bool threw = false;
+        try
+        {
+            Warm.Touch();
+        }
+        catch (ArgumentException ex)
+        {
+            threw = ex.Message.IndexOf("pass type 0", StringComparison.Ordinal) >= 0;
+        }
+        if (!threw) throw new Exception("warmup did not throw");
+        Session session = Boot.Run();
+        if (session == null) throw new Exception("GameSession missing");
+        Console.WriteLine("boot-session-ok");
+    }
+}
+"""
+    (work / "Program.cs").write_text(program, encoding="utf-8")
+    (work / "boot.csproj").write_text(
+        "\n".join(
+            (
+                '<Project Sdk="Microsoft.NET.Sdk">',
+                "  <PropertyGroup>",
+                "    <OutputType>Exe</OutputType>",
+                "    <TargetFramework>net8.0</TargetFramework>",
+                "    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>",
+                "    <Nullable>disable</Nullable>",
+                "    <ImplicitUsings>disable</ImplicitUsings>",
+                "  </PropertyGroup>",
+                "  <ItemGroup>",
+                '    <Compile Include="Program.cs" />',
+                "  </ItemGroup>",
+                "</Project>",
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
+    env["DOTNET_NOLOGO"] = "1"
+    env["DOTNET_ROOT"] = str(Path(dotnet).resolve().parent)
+    result = subprocess.run(
+        [dotnet, "run", "--project", str(work / "boot.csproj"), "-v", "q"],
+        cwd=work,
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout
+    assert "boot-session-ok" in result.stdout
+    assert "pass type 0" in result.stdout
+
+
+def test_hud_gate_measures_shown_panel() -> None:
+    """The HUD gate lays the shown panel out and skips modals that are not that pose."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    capture = (root / "Assets/Editor/AgrCapture.cs").read_text(encoding="utf-8")
+    pose = (root / "Assets/Scripts/UI/GameUi.HangarStatus.cs").read_text(encoding="utf-8")
+    measure = capture.split("static void MeasureHud")[1].split("static void NoteGlyphOverlaps")[0]
+    assert "Canvas.ForceUpdateCanvases()" in measure
+    assert "HudUnderModal" in measure or "HudUnderModal" in capture
+    assert "TryMapHud" in capture
+    assert "rootCanvas" in capture
+    assert '"FirstStart"' in capture
+    assert "RequestCharactersInTexture" in capture
+    assert "SkipFirstStart" in pose
+    assert "_doctrineIntroDismissed = true" in pose
+    restore = capture.split("back.planeDistance = planes[backIndex];")[1].split("DestroyImmediate")[0]
+    assert "Canvas.ForceUpdateCanvases()" in restore
 
 
 if __name__ == "__main__":

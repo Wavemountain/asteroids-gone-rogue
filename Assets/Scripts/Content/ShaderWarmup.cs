@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace AsteroidsGoneRogue
@@ -6,6 +7,8 @@ namespace AsteroidsGoneRogue
     /// Keeps Shader.Find shaders in the player build. The .shader files live
     /// under Resources, and a material there references AGR/RimLit so the
     /// shader is not stripped. Missing shaders fall back to Standard.
+    /// AGR/RimLit is a surface shader: it has ForwardBase, not pass type 0.
+    /// Building a variant for that missing pass throws and used to abort boot.
     /// </summary>
     public static class ShaderWarmup
     {
@@ -18,78 +21,69 @@ namespace AsteroidsGoneRogue
 
         public static void Touch()
         {
-            WarmShots();
-            Material rimMaterial = Resources.Load<Material>(RimMaterialResource);
-            Shader rimShader = null;
-            if (rimMaterial != null)
+            try
             {
-                rimShader = rimMaterial.shader;
-            }
+                WarmShots();
+                Material rimMaterial = Resources.Load<Material>(RimMaterialResource);
+                Shader rimShader = null;
+                if (rimMaterial != null)
+                {
+                    rimShader = rimMaterial.shader;
+                }
 
-            if (rimShader == null)
-            {
-                rimShader = Resources.Load<Shader>(RimResource);
-            }
+                if (rimShader == null)
+                {
+                    rimShader = Resources.Load<Shader>(RimResource);
+                }
 
-            if (rimShader == null)
-            {
-                rimShader = Shader.Find(RimShaderName);
-            }
+                if (rimShader == null)
+                {
+                    rimShader = Shader.Find(RimShaderName);
+                }
 
-            Material postMaterial = Resources.Load<Material>(PostMaterialResource);
-            Shader postShader = null;
-            if (postMaterial != null)
-            {
-                postShader = postMaterial.shader;
-            }
+                Material postMaterial = Resources.Load<Material>(PostMaterialResource);
+                Shader postShader = null;
+                if (postMaterial != null)
+                {
+                    postShader = postMaterial.shader;
+                }
 
-            if (postShader == null)
-            {
-                postShader = Resources.Load<Shader>(PostResource);
-            }
+                if (postShader == null)
+                {
+                    postShader = Resources.Load<Shader>(PostResource);
+                }
 
-            if (postShader == null)
-            {
-                postShader = Shader.Find(PostShaderName);
-            }
+                if (postShader == null)
+                {
+                    postShader = Shader.Find(PostShaderName);
+                }
 
-            if (rimShader == null && postShader == null)
+                if (rimShader == null && postShader == null)
+                {
+                    return;
+                }
+            }
+            catch (Exception ex)
             {
-                return;
+                Debug.LogWarning("ShaderWarmup.Touch failed: " + ex.Message);
             }
         }
 
+        /// <summary>
+        /// WarmupAllShaders only. Pooled shots are instantiated once off-screen
+        /// by ContentFactory.PrewarmProjectiles. A pass-typed variant list is not
+        /// safe here: AGR/RimLit does not have pass type 0.
+        /// </summary>
         public static void WarmShots()
         {
-            Shader.WarmupAllShaders();
-            ShaderVariantCollection variants = new ShaderVariantCollection();
-            string[] names =
+            try
             {
-                "AGR/Post",
-                "AGR/Grid",
-                "AGR/RimLit",
-                PostShaderName,
-                RimShaderName,
-                "Standard",
-                "Particles/Standard Unlit",
-                "Unlit/Transparent",
-            };
-            int index = 0;
-            while (index < names.Length)
-            {
-                Shader shader = Shader.Find(names[index]);
-                if (shader != null)
-                {
-                    ShaderVariantCollection.ShaderVariant variant = new ShaderVariantCollection.ShaderVariant(
-                        shader,
-                        UnityEngine.Rendering.PassType.Normal);
-                    variants.Add(variant);
-                }
-
-                index++;
+                Shader.WarmupAllShaders();
             }
-
-            variants.WarmUp();
+            catch (Exception ex)
+            {
+                Debug.LogWarning("ShaderWarmup.WarmShots failed: " + ex.Message);
+            }
         }
     }
 }

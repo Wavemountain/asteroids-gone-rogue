@@ -834,6 +834,7 @@ namespace UnityEngine
         public Camera worldCamera { get; set; }
         public float planeDistance { get; set; }
         public float scaleFactor { get; set; }
+        public Canvas rootCanvas { get { return this; } }
         public static void ForceUpdateCanvases() { }
         public static Material GetDefaultCanvasMaterial() { return null; }
     }

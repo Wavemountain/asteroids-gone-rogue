@@ -100,6 +100,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 Width = width;
                 Height = height;
                 Screen.SetResolution(width, height, FullScreenMode.Windowed);
+                Canvas.ForceUpdateCanvases();
                 ui.CaptureHangarPose(pose);
                 Canvas.ForceUpdateCanvases();
                 string fileName = HudFile(shot, reduce, width, height);

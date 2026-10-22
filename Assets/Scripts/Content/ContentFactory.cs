@@ -345,7 +345,14 @@ namespace AsteroidsGoneRogue
             BuildHangarDressing();
             ProjectileLightPool.Ensure(transform);
             PrewarmProjectiles();
-            ShaderWarmup.WarmShots();
+            try
+            {
+                ShaderWarmup.WarmShots();
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning("Shot warm-up skipped: " + ex.Message);
+            }
         }
 
         // Six meshes. World 7 reuses Arena_Blockout (index % 6) and gets its own

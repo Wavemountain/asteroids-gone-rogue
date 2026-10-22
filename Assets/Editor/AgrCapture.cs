@@ -2115,6 +2115,7 @@ namespace AsteroidsGoneRogue.EditorTools
                     back.planeDistance = planes[backIndex];
                 }
 
+                Canvas.ForceUpdateCanvases();
                 uiCam.targetTexture = null;
                 UnityEngine.Object.DestroyImmediate(uiObject);
             }
@@ -5241,6 +5242,7 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static void MeasureHud(int width, int height)
         {
+            Canvas.ForceUpdateCanvases();
             Graphic[] graphics = UnityEngine.Object.FindObjectsByType<Graphic>();
             System.Collections.Generic.List<HudMark> marks = new System.Collections.Generic.List<HudMark>();
             if (graphics != null)
@@ -5454,9 +5456,14 @@ namespace AsteroidsGoneRogue.EditorTools
         static bool TryGlyphMark(Text label, int targetW, int targetH, out HudMark mark)
         {
             mark = null;
-            if (label == null || label.font == null || !HudShown(label))
+            if (label == null || label.font == null || !HudShown(label) || HudUnderModal(label.transform) || !HudLaidOut(label))
             {
                 return false;
+            }
+
+            if (label.fontSize > 0 && !string.IsNullOrEmpty(label.text))
+            {
+                label.font.RequestCharactersInTexture(label.text, label.fontSize, label.fontStyle);
             }
 
             if (label.preferredWidth < 1f || label.preferredHeight < 1f)
@@ -5535,38 +5542,23 @@ namespace AsteroidsGoneRogue.EditorTools
                 return false;
             }
 
-            float scaleX = 1f;
-            float scaleY = 1f;
-            float screenW = Screen.width;
-            float screenH = Screen.height;
-            if (screenW < 1f)
+            float mappedMinX;
+            float mappedMinY;
+            float mappedMaxX;
+            float mappedMaxY;
+            if (!TryMapHud(label, minX, minY, maxX, maxY, targetW, targetH, out mappedMinX, out mappedMinY, out mappedMaxX, out mappedMaxY))
             {
-                screenW = 1f;
-            }
-
-            if (screenH < 1f)
-            {
-                screenH = 1f;
-            }
-
-            if (targetW > 1)
-            {
-                scaleX = targetW / screenW;
-            }
-
-            if (targetH > 1)
-            {
-                scaleY = targetH / screenH;
+                return false;
             }
 
             mark = new HudMark();
             mark.Name = label.gameObject.name;
             mark.Block = HudBlock(label.transform);
             mark.Card = HudCard(label.transform);
-            mark.MinX = minX * scaleX;
-            mark.MinY = minY * scaleY;
-            mark.MaxX = maxX * scaleX;
-            mark.MaxY = maxY * scaleY;
+            mark.MinX = mappedMinX;
+            mark.MinY = mappedMinY;
+            mark.MaxX = mappedMaxX;
+            mark.MaxY = mappedMaxY;
             return true;
         }
 
@@ -5583,8 +5575,19 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
-            Canvas canvas = graphic.GetComponentInParent<Canvas>();
-            if (canvas == null || canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+            if (HudUnderModal(label.transform) || !HudLaidOut(label))
+            {
+                return;
+            }
+
+            if (label.fontSize > 0 && !string.IsNullOrEmpty(label.text))
+            {
+                label.font.RequestCharactersInTexture(label.text, label.fontSize, label.fontStyle);
+            }
+
+            Canvas canvas = label.canvas != null ? label.canvas : graphic.GetComponentInParent<Canvas>();
+            Canvas root = canvas != null && canvas.rootCanvas != null ? canvas.rootCanvas : canvas;
+            if (root == null || !root.isActiveAndEnabled || root.renderMode != RenderMode.ScreenSpaceOverlay)
             {
                 return;
             }
@@ -5619,13 +5622,14 @@ namespace AsteroidsGoneRogue.EditorTools
         static bool TryHudMark(Graphic graphic, int targetW, int targetH, out HudMark mark)
         {
             mark = null;
-            if (!HudShown(graphic))
+            if (!HudShown(graphic) || HudUnderModal(graphic.transform) || !HudLaidOut(graphic))
             {
                 return false;
             }
 
-            Canvas canvas = graphic.GetComponentInParent<Canvas>();
-            if (canvas == null || canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+            Canvas canvas = graphic.canvas != null ? graphic.canvas : graphic.GetComponentInParent<Canvas>();
+            Canvas root = canvas != null && canvas.rootCanvas != null ? canvas.rootCanvas : canvas;
+            if (root == null || !root.isActiveAndEnabled || root.renderMode != RenderMode.ScreenSpaceOverlay)
             {
                 return false;
             }
@@ -5670,41 +5674,181 @@ namespace AsteroidsGoneRogue.EditorTools
                 return false;
             }
 
+            float mappedMinX;
+            float mappedMinY;
+            float mappedMaxX;
+            float mappedMaxY;
+            if (!TryMapHud(graphic, minX, minY, maxX, maxY, targetW, targetH, out mappedMinX, out mappedMinY, out mappedMaxX, out mappedMaxY))
+            {
+                return false;
+            }
+
             string block = HudBlock(graphic.transform);
-            float scaleX = 1f;
-            float scaleY = 1f;
-            float screenW = Screen.width;
-            float screenH = Screen.height;
-            if (screenW < 1f)
-            {
-                screenW = 1f;
-            }
-
-            if (screenH < 1f)
-            {
-                screenH = 1f;
-            }
-
-            if (targetW > 1)
-            {
-                scaleX = targetW / screenW;
-            }
-
-            if (targetH > 1)
-            {
-                scaleY = targetH / screenH;
-            }
-
             mark = new HudMark();
             mark.Name = graphic.gameObject.name;
             mark.Block = block;
             mark.Card = HudCard(graphic.transform);
             mark.Lane = HudLane(block);
             mark.Raycast = graphic.raycastTarget;
-            mark.MinX = minX * scaleX;
-            mark.MinY = minY * scaleY;
-            mark.MaxX = maxX * scaleX;
-            mark.MaxY = maxY * scaleY;
+            mark.MinX = mappedMinX;
+            mark.MinY = mappedMinY;
+            mark.MaxX = mappedMaxX;
+            mark.MaxY = mappedMaxY;
+            return true;
+        }
+
+        /// <summary>
+        /// Modals that are not the hangar pose. They stay in the scene and used
+        /// to be scored as if they were the HUD on screen.
+        /// </summary>
+        static bool HudUnderModal(Transform node)
+        {
+            Transform cursor = node;
+            while (cursor != null)
+            {
+                string name = cursor.name;
+                if (name == "FirstStart"
+                    || name == "SettingsRoot"
+                    || name == "ConfirmRoot"
+                    || name == "RebindRoot"
+                    || name == "RunSetupCanvas"
+                    || name == "SinkShopCanvas"
+                    || name == "BoonModalCanvas"
+                    || name == "EndCredits")
+                {
+                    return true;
+                }
+
+                cursor = cursor.parent;
+            }
+
+            return false;
+        }
+
+        static bool HudLaidOut(Graphic graphic)
+        {
+            if (graphic == null)
+            {
+                return false;
+            }
+
+            RectTransform rect = graphic.rectTransform;
+            if (rect == null)
+            {
+                return false;
+            }
+
+            Rect area = rect.rect;
+            if (area.width <= 1f || area.height <= 1f)
+            {
+                return false;
+            }
+
+            RectTransform parent = rect.parent as RectTransform;
+            if (parent != null && parent.GetComponent<Canvas>() == null)
+            {
+                Rect parentArea = parent.rect;
+                if (parentArea.width <= 1f || parentArea.height <= 1f)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Map world corners through the root overlay canvas, then into the
+        /// target resolution. Screen pixels and a camera-space canvas (the
+        /// capture camera sits at y = -10000) are not the same space.
+        /// </summary>
+        static bool TryMapHud(
+            Graphic graphic,
+            float worldMinX,
+            float worldMinY,
+            float worldMaxX,
+            float worldMaxY,
+            int targetW,
+            int targetH,
+            out float minX,
+            out float minY,
+            out float maxX,
+            out float maxY)
+        {
+            minX = 0f;
+            minY = 0f;
+            maxX = 0f;
+            maxY = 0f;
+            if (graphic == null)
+            {
+                return false;
+            }
+
+            Canvas canvas = graphic.canvas;
+            if (canvas == null)
+            {
+                canvas = graphic.GetComponentInParent<Canvas>();
+            }
+
+            if (canvas == null)
+            {
+                return false;
+            }
+
+            Canvas root = canvas.rootCanvas != null ? canvas.rootCanvas : canvas;
+            if (!root.isActiveAndEnabled || root.renderMode != RenderMode.ScreenSpaceOverlay)
+            {
+                return false;
+            }
+
+            RectTransform rootRect = root.transform as RectTransform;
+            if (rootRect == null)
+            {
+                return false;
+            }
+
+            Vector3[] corners = new Vector3[4];
+            rootRect.GetWorldCorners(corners);
+            float canvasMinX = corners[0].x;
+            float canvasMinY = corners[0].y;
+            float canvasMaxX = corners[0].x;
+            float canvasMaxY = corners[0].y;
+            for (int corner = 1; corner < corners.Length; corner++)
+            {
+                if (corners[corner].x < canvasMinX)
+                {
+                    canvasMinX = corners[corner].x;
+                }
+
+                if (corners[corner].y < canvasMinY)
+                {
+                    canvasMinY = corners[corner].y;
+                }
+
+                if (corners[corner].x > canvasMaxX)
+                {
+                    canvasMaxX = corners[corner].x;
+                }
+
+                if (corners[corner].y > canvasMaxY)
+                {
+                    canvasMaxY = corners[corner].y;
+                }
+            }
+
+            float canvasW = canvasMaxX - canvasMinX;
+            float canvasH = canvasMaxY - canvasMinY;
+            if (canvasW <= 1f || canvasH <= 1f)
+            {
+                return false;
+            }
+
+            float width = targetW > 1 ? targetW : canvasW;
+            float height = targetH > 1 ? targetH : canvasH;
+            minX = (worldMinX - canvasMinX) / canvasW * width;
+            minY = (worldMinY - canvasMinY) / canvasH * height;
+            maxX = (worldMaxX - canvasMinX) / canvasW * width;
+            maxY = (worldMaxY - canvasMinY) / canvasH * height;
             return true;
         }
 

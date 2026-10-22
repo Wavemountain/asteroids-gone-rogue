@@ -725,9 +725,15 @@ namespace AsteroidsGoneRogue
             _poseComboBest = false;
             _hoveredItem = null;
             _tutorialDismissed = true;
+            _doctrineIntroDismissed = true;
             if (_tutorialRoot != null)
             {
                 _tutorialRoot.SetActive(false);
+            }
+
+            if (_game != null && _game.ShowDifficultyChooser)
+            {
+                _game.SkipFirstStart(DifficultyGrade.Normal);
             }
 
             if (_game != null)

@@ -34,7 +34,15 @@ namespace AsteroidsGoneRogue
                 cameraObject.AddComponent<AudioListener>();
             }
 
-            ShaderWarmup.Touch();
+            try
+            {
+                ShaderWarmup.Touch();
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning("Shader warm-up skipped: " + ex.Message);
+            }
+
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(PremiumLook.OutsideR, PremiumLook.OutsideG, PremiumLook.OutsideB, 1f);
             camera.fieldOfView = 54f;
