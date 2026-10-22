@@ -2326,12 +2326,12 @@ def test_daily_shield_and_remainder_047() -> None:
     import sim_longhaul
 
     report = sim_longhaul.sweep(root)
-    # Revision 2b catalogue is 15987. Easy and Normal earnings stay 8367 / 7464.
+    # Revision 2c catalogue is 15961. Easy and Normal earnings stay 8367 / 7464.
     # Hard clear credits 162 raise wave-35 earnings to 7312.
-    assert report["catalogue"] == 15987
-    assert abs(report["ratio"]["easy"] - 0.523) <= 0.001
-    assert abs(report["ratio"]["normal"] - 0.467) <= 0.001
-    assert abs(report["ratio"]["hard"] - 0.457) <= 0.001
+    assert report["catalogue"] == 15961
+    assert abs(report["ratio"]["easy"] - 0.524) <= 0.001
+    assert abs(report["ratio"]["normal"] - 0.468) <= 0.001
+    assert abs(report["ratio"]["hard"] - 0.458) <= 0.001
 
 
 def test_roslyn_stub_artefact_gate() -> None:
@@ -3434,8 +3434,8 @@ def test_difficulty_economy_043() -> None:
     assert costs["RapidFire"] == 60
     assert costs["SpreadBolt"] == 110
     assert costs["Seeker"] == 125
-    assert costs["TwinGuns"] == 260
-    assert costs["EngineUpgrade02"] == 305
+    assert costs["TwinGuns"] == 295
+    assert costs["EngineUpgrade02"] == 260
     assert costs["Pierce"] == 155
     assert costs["Ricochet"] == 170
     assert costs["BodyUpgrade02"] == 175
@@ -4719,8 +4719,8 @@ def test_doctrine_w1_affordability() -> None:
     """Barrage and Hunter still fit a Normal wave-1 clear. Lance does not.
 
     Credits are the flat wave-clear purse (kills do not pay credits). A doctrine
-    costs its gate weapon plus the entry pick. Twin is 260, so Twin + Lance 45
-    is 305. Pierce + Lance is 200 and is the cheaper miss of the Normal purse.
+    costs its gate weapon plus the entry pick. Twin is 295, so the Twin + Lance
+    combo is 340. Pierce + Lance is 200 and is the cheaper miss of the Normal purse.
     """
     from pathlib import Path
 
@@ -4742,7 +4742,7 @@ def test_doctrine_w1_affordability() -> None:
     barrage_gate = _cs_int(rules, "BarrageGateCost")
     lance_gate = _cs_int(rules, "LanceGateCost")
     hunter_gate = _cs_int(rules, "HunterGateCost")
-    assert spread == 110 and seeker == 125 and twin == 260 and pierce == 155
+    assert spread == 110 and seeker == 125 and twin == 295 and pierce == 155
 
     barrage = spread + barrage_gate
     hunter = seeker + hunter_gate
@@ -4753,7 +4753,7 @@ def test_doctrine_w1_affordability() -> None:
     assert barrage == normal
     assert hunter == normal
     assert lance_gate == 45
-    assert lance_twin == 305
+    assert lance_twin == 340
     assert lance_pierce == 200
     assert lance_pierce < lance_twin
     assert lance_pierce > normal
@@ -4991,13 +4991,13 @@ _PAD_ITEMS = (
     ("NoseUpgrade02", "Hull", 450),
     ("NoseUpgrade03", "Hull", 775),
     ("RapidFire", "Hull", 60),
-    ("EngineUpgrade02", "Hull", 305),
+    ("EngineUpgrade02", "Hull", 260),
     ("EngineUpgrade03", "Hull", 1450),
     ("Overcharger", "Hull", 230),
     ("Afterburner", "Hull", 230),
     ("SpreadBolt", "Weapons", 110),
     ("Pierce", "Weapons", 155),
-    ("TwinGuns", "Weapons", 260),
+    ("TwinGuns", "Weapons", 295),
     ("Seeker", "Weapons", 125),
     ("Ricochet", "Weapons", 170),
     ("ShieldCell", "Defense", 80),
@@ -7667,12 +7667,12 @@ def test_fairness_047b() -> None:
     import sim_longhaul
 
     report = sim_longhaul.sweep(root)
-    # Revision 2b catalogue is 15987. Easy and Normal earnings stay 8367 / 7464.
+    # Revision 2c catalogue is 15961. Easy and Normal earnings stay 8367 / 7464.
     # Hard clear credits 162 raise wave-35 earnings to 7312.
-    assert report["catalogue"] == 15987
-    assert abs(report["ratio"]["easy"] - 0.523) <= 0.001
-    assert abs(report["ratio"]["normal"] - 0.467) <= 0.001
-    assert abs(report["ratio"]["hard"] - 0.457) <= 0.001
+    assert report["catalogue"] == 15961
+    assert abs(report["ratio"]["easy"] - 0.524) <= 0.001
+    assert abs(report["ratio"]["normal"] - 0.468) <= 0.001
+    assert abs(report["ratio"]["hard"] - 0.458) <= 0.001
     assert report["credit_total"]["normal"] == 7464
 
 
@@ -9585,11 +9585,11 @@ def test_balance_049_package_b() -> None:
 
     report = sim_longhaul.sweep(root)
     assert report["gates"] == 140
-    assert report["catalogue"] == 15987
+    assert report["catalogue"] == 15961
     assert report["credit_total"] == {"easy": 8367, "normal": 7464, "hard": 7312}
-    assert abs(report["ratio"]["easy"] - 0.5234) < 0.0002
-    assert abs(report["ratio"]["normal"] - 0.4669) < 0.0002
-    assert abs(report["ratio"]["hard"] - 0.4574) < 0.0002
+    assert abs(report["ratio"]["easy"] - 0.5242) < 0.0002
+    assert abs(report["ratio"]["normal"] - 0.4676) < 0.0002
+    assert abs(report["ratio"]["hard"] - 0.4581) < 0.0002
 
 
 def test_fire_cadence_carries_frame_60fps() -> None:
@@ -9894,6 +9894,123 @@ def test_balance_049_package_c() -> None:
     assert _save_parse(_save_to_json(dict(sample, FirstDiscount=41))) is None
 
 
+def test_oc_mk2_cooldown_not_damage() -> None:
+    """OC Mk II is fire cooldown ×0.92 on Mk2EngineMul, not +1 damage.
+
+    Engine Mk II and OC Mk II share that one return, so both owned is still
+    ×0.92. The shop tile shows that Mk II's own price once. The hover line
+    stays the Mk I Overcharger copy (+2 damage), which is not the removed bonus.
+    """
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    loadout = (root / "Assets/Scripts/Core/LoadoutState.cs").read_text(encoding="utf-8")
+    rules = (root / "Assets/Scripts/Core/DoctrineRules.cs").read_text(encoding="utf-8")
+    prices = (root / "Assets/Scripts/Core/ShopPrices.cs").read_text(encoding="utf-8")
+    catalog = (root / "Assets/Scripts/Core/ShopCatalog.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    view = (root / "Assets/Scripts/Core/ShopTileView.cs").read_text(encoding="utf-8")
+
+    nose = loadout.split("int Mk2NoseBonus()")[1].split("float Mk2EngineMul()")[0]
+    assert "UpgradeId.Overcharger" not in nose
+    engine = loadout.split("float Mk2EngineMul()")[1].split("float Mk2WeaponMul")[0]
+    assert "UpgradeId.Overcharger" in engine
+    assert engine.count("return ShopPrices.Mk2CooldownMul;") == 5
+    assert "*=" not in engine
+    assert "Mk2CooldownMul = 0.92f" in prices
+    assert "Twin + Lance combo price is 340" in rules
+    assert "×0.92" in rules
+    assert "do not stack" in rules
+    assert "OverchargerDamageBonus = 2" in loadout
+
+    oc_block = catalog.split("UpgradeId.Overcharger")[1].split("new ShopItem")[0]
+    assert "+2 damage, slightly slower gun." in oc_block
+    assert "+1 damage" not in oc_block
+    sv = loc.split('"shop.desc.Overcharger"')[1].split("},", 1)[0]
+    assert "+2 skada" in sv
+    assert "+1 skada" not in sv
+    refresh = ui.split("void RefreshBuyButton")[1].split("void RefreshServiceButtons")[0]
+    assert "Mk2Price(item, shopWorld)" in refresh
+    assert "Mk2Cost" not in refresh
+    price_fn = loadout.split("int Mk2Price")[1].split("bool OwnsMk2")[0]
+    assert price_fn.count("Mk2Cost") == 1
+    assert price_fn.count("ApplyWorld") == 1
+    assert 'status = "Mk II  " + CostText(price, swedish);' in view
+    assert '_hoveredItem.Title + "  —  " + _hoveredItem.Description' in ui
+
+    bonus = _cs_int(loadout, "OverchargerDamageBonus")
+    penalty = _cs_float(loadout, "OverchargerCooldownPenalty")
+    mul = _cs_float(prices, "Mk2CooldownMul")
+    assert bonus == 2 and abs(penalty - 0.03) < 1e-9 and abs(mul - 0.92) < 1e-9
+
+    def cooldown(owned: set[str], mk2: set[str]) -> float:
+        if "Afterburner" in owned:
+            base = _cs_float(loadout, "AfterburnerCooldown")
+            scale = engine_mul(owned, mk2)
+            return base * scale
+        if "EngineUpgrade03" in owned:
+            base = _cs_float(loadout, "EngineUpgrade03Cooldown")
+        elif "EngineUpgrade02" in owned:
+            base = _cs_float(loadout, "EngineUpgrade02Cooldown")
+        elif "RapidFire" in owned:
+            base = _cs_float(loadout, "RapidFireCooldown")
+        else:
+            base = _cs_float(loadout, "BaseFireCooldown")
+        if "Overcharger" in owned:
+            base += penalty
+        return base * engine_mul(owned, mk2)
+
+    def engine_mul(owned: set[str], mk2: set[str]) -> float:
+        if "Afterburner" in owned and "Afterburner" in mk2:
+            return mul
+        if "EngineUpgrade03" in owned and "EngineUpgrade03" in mk2:
+            return mul
+        if "EngineUpgrade02" in owned and "EngineUpgrade02" in mk2:
+            return mul
+        if "RapidFire" in owned and "RapidFire" in mk2:
+            return mul
+        if "Overcharger" in owned and "Overcharger" in mk2:
+            return mul
+        return 1.0
+
+    def damage(owned: set[str], mk2: set[str]) -> int:
+        if "NoseUpgrade03" in owned:
+            amount = _cs_int(loadout, "NoseUpgrade03Damage")
+        elif "NoseUpgrade02" in owned:
+            amount = _cs_int(loadout, "NoseUpgrade02Damage")
+        elif "NoseHardpoint" in owned:
+            amount = _cs_int(loadout, "HardpointProjectileDamage")
+        else:
+            amount = _cs_int(loadout, "BaseProjectileDamage")
+        if "Overcharger" in owned:
+            amount += bonus
+        if "NoseUpgrade03" in owned and "NoseUpgrade03" in mk2:
+            amount += 1
+        elif "NoseUpgrade02" in owned and "NoseUpgrade02" in mk2:
+            amount += 1
+        elif "NoseHardpoint" in owned and "NoseHardpoint" in mk2:
+            amount += 1
+        return amount
+
+    bare = {"Overcharger"}
+    assert damage(bare, set()) == 3
+    assert damage(bare, {"Overcharger"}) == 3
+    assert abs(cooldown(bare, set()) - 0.41) < 1e-9
+    assert abs(cooldown(bare, {"Overcharger"}) - 0.41 * 0.92) < 1e-9
+
+    nose_oc = {"NoseUpgrade03", "Overcharger"}
+    assert damage(nose_oc, {"Overcharger"}) == 6
+    assert damage(nose_oc, {"NoseUpgrade03", "Overcharger"}) == 7
+
+    e02 = {"EngineUpgrade02", "Overcharger"}
+    once = (0.12 + 0.03) * 0.92
+    assert abs(cooldown(e02, {"EngineUpgrade02"}) - once) < 1e-9
+    assert abs(cooldown(e02, {"Overcharger"}) - once) < 1e-9
+    assert abs(cooldown(e02, {"EngineUpgrade02", "Overcharger"}) - once) < 1e-9
+    assert abs(cooldown(e02, {"EngineUpgrade02", "Overcharger"}) - (0.12 + 0.03) * 0.92 * 0.92) > 0.01
+
+
 def main() -> int:
     test_clear_loop()
     test_fail_keeps_wave_and_upgrades()
@@ -9973,6 +10090,7 @@ def main() -> int:
     test_pr2_046()
     test_speltest_063_marker_title_bank()
     test_mk2_grant_and_abandoned_lives()
+    test_oc_mk2_cooldown_not_damage()
     test_first_minutes_047()
     test_speltest_047_part_a()
     test_honest_fail_copy()
@@ -12459,6 +12577,8 @@ def test_mk2_grant_and_abandoned_lives() -> None:
                 return mk2_mul
             if "RapidFire" in self.owned and self.owns_mk2("RapidFire"):
                 return mk2_mul
+            if "Overcharger" in self.owned and self.owns_mk2("Overcharger"):
+                return mk2_mul
             return 1.0
 
         def damage(self) -> int:
@@ -12480,8 +12600,6 @@ def test_mk2_grant_and_abandoned_lives() -> None:
             if "NoseUpgrade02" in self.owned and self.owns_mk2("NoseUpgrade02"):
                 return 1
             if "NoseHardpoint" in self.owned and self.owns_mk2("NoseHardpoint"):
-                return 1
-            if "Overcharger" in self.owned and self.owns_mk2("Overcharger"):
                 return 1
             return 0
 
