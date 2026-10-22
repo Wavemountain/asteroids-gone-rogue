@@ -173,6 +173,11 @@ Official: https://screamingbrainstudios.com/dl-seamless-space-backgrounds/
 
 Credit is optional; included because the skybox is player-visible.
 
+## UI-ikoner (0.49) — Kenney (www.kenney.nl), CC0 1.0
+- `hud_coin`, `hud_target`, `hud_star`, `hud_wrench`, `hud_warning` — Kenney Game Icons / Game Icons Expansion (`coin`, `target`, `star`, `wrench`, `warning`)
+- `hud_shield`, `hud_hourglass` — Kenney Board Game Icons 1.1 (`shield`, `hourglass`)
+- `hud_ship` — Kenney Simple Space `ship_F` (vit silhuett, derivat gjort för projektet)
+
 ## Engine wiring
 
 `AudioCues` loads these clips from `Resources/Audio` at runtime (so Play Mode does not depend on Inspector references). Hangar UI has **Mute** plus **SFX** and **Music** sliders; Mute also plays the UI click. Values persist in PlayerPrefs. Local best score / wave / world persist under `agr.best.*`. Hangar medals persist under `agr.hangar.medals`. Language is `agr.ui.language`. Difficulty is `agr.difficulty`. `UiFonts` loads Kenney Future / Future Narrow from `Resources/Fonts` (LegacyRuntime fallback; never Arial). `ArenaEnv` loads SBS star/nebula textures from `Resources/Art/Env`.

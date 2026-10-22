@@ -24,10 +24,10 @@ namespace AsteroidsGoneRogue.EditorTools
     /// before anything else, restored on every exit path, and left on disk.
     /// </summary>
     [InitializeOnLoad]
-    public static class AgrCapture
+    public static partial class AgrCapture
     {
-        const int Width = 1920;
-        const int Height = 1080;
+        static int Width = 1920;
+        static int Height = 1080;
         const int ShotCount = 7;
         const int SettleFrames = 60;
         const int CardFrames = 3;
@@ -162,6 +162,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 SessionState.SetInt(KeySeen, -1);
                 SessionState.SetString(KeyError, string.Empty);
                 SessionState.SetString(KeyHud, string.Empty);
+                SessionState.SetInt(KeyHudSet, ReadHudSetFlag());
                 SessionState.SetString(KeyLayer, string.Empty);
                 SessionState.SetString(KeyHintSharp, string.Empty);
                 SessionState.SetString(KeyHintEarly, string.Empty);
@@ -406,6 +407,12 @@ namespace AsteroidsGoneRogue.EditorTools
 
             if (phase == PhaseSettle)
             {
+                if (HudSetOn())
+                {
+                    TickHudSettle();
+                    return;
+                }
+
                 Nudge();
                 if (!AdvanceFrame())
                 {
@@ -542,6 +549,11 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static void StageCurrent()
         {
+            if (HudSetOn())
+            {
+                return;
+            }
+
             int shot = SessionState.GetInt(KeyShot, 0);
             bool reduce = SessionState.GetInt(KeyReduce, 0) != 0;
             Debug.Log(
@@ -738,7 +750,8 @@ namespace AsteroidsGoneRogue.EditorTools
             SessionState.SetInt(KeyShot, shot);
             SessionState.SetInt(KeyWaited, 0);
             SessionState.SetInt(KeySeen, -1);
-            if (shot >= ShotCount)
+            int shotLimit = HudSetOn() ? HudShotCount : ShotCount;
+            if (shot >= shotLimit)
             {
                 SessionState.SetInt(KeyPhase, PhaseStop);
                 return;

@@ -245,6 +245,8 @@ namespace AsteroidsGoneRogue
         private AudioClip _deathWhoosh;
         private AudioClip _waveWhoosh;
         private float _waveClearAt;
+        private AudioClip _recordCue;
+        public float StingerAt { get; private set; }
         private MusicLowPassState _lp = MusicLowPass.OpenState();
         private int _lpPhase = -1;
         private AudioLowPassFilter _musicLp;
@@ -1000,7 +1002,12 @@ namespace AsteroidsGoneRogue
             if (_waveClearAt <= Time.unscaledTime)
             {
                 _waveClearAt = 0f;
+                StingerAt = Time.unscaledTime;
                 Play(_waveClear, WaveClearScale);
+            }
+            else
+            {
+                StingerAt = _waveClearAt;
             }
 
             DuckMusic(MusicLowPass.WaveDuckSeconds, MusicLowPass.WaveDuckScale);
@@ -1008,7 +1015,20 @@ namespace AsteroidsGoneRogue
 
         public void PlayFarDriftAward()
         {
+            StingerAt = Time.unscaledTime;
             Play(_farDriftAward != null ? _farDriftAward : _waveClear, FarDriftAwardScale);
+        }
+
+        public void PlayRecord()
+        {
+            if (_recordCue == null)
+            {
+                _recordCue = Resources.Load<AudioClip>("Audio/Sfx/threeTone2");
+            }
+
+            AudioClip clip = _recordCue != null ? _recordCue : _doctrinePick;
+            Play(clip, 0.55f);
+            UseVoice(VoiceRoster.CatUi, false);
         }
 
         public void PlayWorldChange()

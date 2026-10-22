@@ -26,6 +26,7 @@ namespace AsteroidsGoneRogue
         public int MaxLives { get; private set; } = DifficultySettings.MaxLives;
         public bool CampaignWon { get; private set; }
         public bool WaveTookHit { get; private set; }
+        public WaveStats Wave { get; private set; } = new WaveStats();
         public int ExtraLifeStreak { get; private set; }
         public bool WaveInProgress { get; private set; }
         public int LivesAtWaveStart { get; private set; }
@@ -117,6 +118,11 @@ namespace AsteroidsGoneRogue
             CampaignWon = false;
             WaveTookHit = false;
             WorldCleared = 0;
+            if (Wave != null)
+            {
+                Wave.Reset();
+            }
+
             if (Lives <= 0)
             {
                 ResetLives(DifficultySettings.StartLives);
@@ -289,7 +295,41 @@ namespace AsteroidsGoneRogue
             ExtraLifeWorld = 0;
             ClearWaveMarker();
             ResetLives(DifficultySettings.StartLives);
+            if (Wave != null)
+            {
+                Wave.Reset();
+            }
+
             Phase = GamePhase.Hangar;
+        }
+
+        /// <summary>
+        /// Pins a hangar or summary frame for capture. Does not write the save.
+        /// </summary>
+        public void PresentForCapture(GamePhase phase, int wave, int resolved, int credits, int lives, int maxLives)
+        {
+            Phase = phase;
+            WaveIndex = wave < 1 ? 1 : wave;
+            LastResolvedWave = resolved < 0 ? 0 : resolved;
+            Credits = credits < 0 ? 0 : credits;
+            if (maxLives < 1)
+            {
+                maxLives = 1;
+            }
+
+            MaxLives = maxLives;
+            if (lives < 0)
+            {
+                lives = 0;
+            }
+
+            if (lives > MaxLives)
+            {
+                lives = MaxLives;
+            }
+
+            Lives = lives;
+            WaveInProgress = false;
         }
 
         public void MarkWaveHit()
