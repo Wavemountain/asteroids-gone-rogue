@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import struct
 import sys
 from pathlib import Path
 
@@ -1563,6 +1564,75 @@ def _kenney_allowed() -> set[int] | None:
     return shared
 
 
+def _cmap_digit_gids(path: Path) -> dict[int, int]:
+    """Platform-3 format-4 glyph ids for '0'..'9'. Missing entries stay absent."""
+    data = path.read_bytes()
+    if len(data) < 12 or data[:4] not in (b"\x00\x01\x00\x00", b"OTTO", b"true"):
+        return {}
+    num = struct.unpack_from(">H", data, 4)[0]
+    tables: dict[bytes, int] = {}
+    for index in range(num):
+        tag, _checksum, offset, _length = struct.unpack_from(">4sIII", data, 12 + index * 16)
+        tables[tag] = offset
+    if b"cmap" not in tables:
+        return {}
+    off = tables[b"cmap"]
+    ntables = struct.unpack_from(">H", data, off + 2)[0]
+    found: dict[int, int] = {}
+    for index in range(ntables):
+        plat, enc, sub = struct.unpack_from(">HHI", data, off + 4 + index * 8)
+        if plat != 3 or enc != 1:
+            continue
+        base = off + sub
+        if struct.unpack_from(">H", data, base)[0] != 4:
+            continue
+        seg = struct.unpack_from(">H", data, base + 6)[0] // 2
+        end = list(struct.unpack_from(">" + "H" * seg, data, base + 14))
+        start = list(struct.unpack_from(">" + "H" * seg, data, base + 14 + 2 * seg + 2))
+        delta = list(struct.unpack_from(">" + "h" * seg, data, base + 14 + 4 * seg + 2))
+        idoff = base + 14 + 6 * seg + 2
+        for code in range(48, 58):
+            gid = 0
+            for piece in range(seg):
+                if code > end[piece] or code < start[piece]:
+                    continue
+                id_delta = struct.unpack_from(">H", data, idoff + piece * 2)[0]
+                if id_delta == 0:
+                    gid = (code + delta[piece]) & 0xFFFF
+                else:
+                    pos = idoff + piece * 2 + id_delta + 2 * (code - start[piece])
+                    raw = struct.unpack_from(">H", data, pos)[0]
+                    gid = (raw + delta[piece]) & 0xFFFF if raw else 0
+                break
+            found[code] = gid
+    return found
+
+
+def check_hud_digit_glyphs(fonts_src: str) -> None:
+    """Every HUD face must draw 0-9, and digit texts must go through the fallback."""
+    if "ForDigits" not in fonts_src or "GetCharacterInfo" not in fonts_src or "DigitProbe" not in fonts_src:
+        err("UiFonts.ForDigits must probe 0-9 with GetCharacterInfo and fall back")
+    hangar = read(ROOT / "Assets/Scripts/UI/GameUi.HangarStatus.cs")
+    play = read(ROOT / "Assets/Scripts/UI/GameUi.cs")
+    if "UiFonts.ForDigits" not in hangar:
+        err("Hangar digit cells must use UiFonts.ForDigits (MakeDigits / life counter)")
+    if hangar.count("UiFonts.ForDigits") < 2:
+        err("Both MakeDigits and the life counter must use UiFonts.ForDigits")
+    if "UiFonts.ForDigits" not in play:
+        err("Play HUD score and bar counts must use UiFonts.ForDigits")
+    for name in ("KenneyFuture.ttf", "KenneyFutureNarrow.ttf"):
+        path = ROOT / "Assets/Resources/Fonts" / name
+        if not path.is_file():
+            err(f"HUD font missing {name}")
+            continue
+        gids = _cmap_digit_gids(path)
+        for code in range(48, 58):
+            gid = gids.get(code, 0)
+            if gid == 0:
+                err(f"{name} has no glyph for {chr(code)}")
+                return
+
+
 def check_ui_loc_font_coverage(loc_src: str, ui_src: str) -> None:
     """UI string literals must stay inside both Kenney Future cmaps."""
     allowed = _kenney_allowed()
@@ -2240,6 +2310,7 @@ def main() -> int:
         err("UiFonts should load bundled Kenney Future / Future Narrow")
     if 'GetBuiltinResource<Font>(LegacyBuiltin)' not in fonts and 'GetBuiltinResource<Font>("LegacyRuntime.ttf")' not in fonts:
         err("UiFonts should fall back to builtin LegacyRuntime.ttf")
+    check_hud_digit_glyphs(fonts)
     shadow_files: list[tuple[str, str]] = []
     for path in scripts + editor_scripts:
         for hit in shader_conditional_violations(read(path)):

@@ -36,7 +36,71 @@ namespace AsteroidsGoneRogue
                 return font;
             }
 
-            font = Resources.GetBuiltinResource<Font>(LegacyBuiltin);
+            return Legacy();
+        }
+
+        /// <summary>
+        /// Digits for the hangar counters and the play HUD score.
+        /// MakeDigits (credit / strip / damage on <see cref="Display"/>,
+        /// life / hull / shield values on <see cref="Body"/>) and the play
+        /// score and bar counts used to force <see cref="FontStyle.Bold"/>.
+        /// Both Kenney faces are regular weight, and Unity 6000.6 draws the
+        /// missing-glyph box for digits in that style. Probe 0-9 and fall
+        /// back to LegacyRuntime when the face cannot draw them.
+        /// </summary>
+        public const string DigitProbe = "0123456789";
+
+        public static Font ForDigits(Font preferred, int size, out FontStyle style)
+        {
+            int pixel = size < 1 ? 1 : size;
+            style = FontStyle.Normal;
+            if (CoversDigits(preferred, pixel, style))
+            {
+                preferred.RequestCharactersInTexture(HudProbe, pixel, style);
+                return preferred;
+            }
+
+            Font legacy = Legacy();
+            if (CoversDigits(legacy, pixel, style))
+            {
+                legacy.RequestCharactersInTexture(HudProbe, pixel, style);
+                return legacy;
+            }
+
+            if (preferred != null)
+            {
+                preferred.RequestCharactersInTexture(HudProbe, pixel, style);
+                return preferred;
+            }
+
+            return legacy;
+        }
+
+        const string HudProbe = "0123456789×+·-/.:% ";
+
+        static bool CoversDigits(Font font, int size, FontStyle style)
+        {
+            if (font == null)
+            {
+                return false;
+            }
+
+            font.RequestCharactersInTexture(DigitProbe, size, style);
+            for (int index = 0; index < DigitProbe.Length; index++)
+            {
+                CharacterInfo info;
+                if (!font.GetCharacterInfo(DigitProbe[index], out info, size, style))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        static Font Legacy()
+        {
+            Font font = Resources.GetBuiltinResource<Font>(LegacyBuiltin);
             if (font == null)
             {
                 font = Font.CreateDynamicFontFromOSFont("LegacyRuntime", 16);

@@ -165,7 +165,9 @@ namespace AsteroidsGoneRogue
             ghostIconRt.pivot = new Vector2(0f, 0.5f);
             ghostIconRt.sizeDelta = new Vector2(22f, 22f);
             _hudLifeGhost.gameObject.SetActive(false);
-            _hudLifeTimes = CreateText("LifeTimes", lifeContent.transform, display, 22, TextAnchor.MiddleLeft, FontStyle.Bold);
+            FontStyle lifeStyle;
+            Font lifeFont = UiFonts.ForDigits(display, 22, out lifeStyle);
+            _hudLifeTimes = CreateText("LifeTimes", lifeContent.transform, lifeFont, 22, TextAnchor.MiddleLeft, lifeStyle);
             _hudLifeTimes.color = UiTheme.Accent;
             RectTransform timesRt = _hudLifeTimes.rectTransform;
             timesRt.anchorMin = new Vector2(0f, 0.5f);
@@ -1370,7 +1372,9 @@ namespace AsteroidsGoneRogue
             Text[] cells = new Text[count];
             for (int i = 0; i < count; i++)
             {
-                Text text = CreateText(name + i, parent, font, size, TextAnchor.MiddleCenter, FontStyle.Bold);
+                FontStyle digitStyle;
+                Font digitFont = UiFonts.ForDigits(font, size, out digitStyle);
+                Text text = CreateText(name + i, parent, digitFont, size, TextAnchor.MiddleCenter, digitStyle);
                 text.color = color;
                 text.horizontalOverflow = HorizontalWrapMode.Wrap;
                 text.verticalOverflow = VerticalWrapMode.Truncate;

@@ -96,6 +96,7 @@ namespace UnityEngine
         public Component AddComponent(Type componentType) { return null; }
         public T AddComponent<T>() where T : Component { return null; }
         public static GameObject CreatePrimitive(PrimitiveType type) { return null; }
+        public static GameObject Find(string name) { return null; }
         public static GameObject FindGameObjectWithTag(string tag) { return null; }
         public static GameObject[] FindGameObjectsWithTag(string tag) { return new GameObject[0]; }
     }
@@ -689,10 +690,31 @@ namespace UnityEngine
         public void Encapsulate(Bounds bounds) { }
     }
 
+    public struct CharacterInfo
+    {
+        public int index;
+        public int advance;
+        public int glyphWidth;
+        public int glyphHeight;
+        public int minX;
+        public int maxX;
+        public int minY;
+        public int maxY;
+        public Vector2 uvBottomLeft;
+        public Vector2 uvBottomRight;
+        public Vector2 uvTopRight;
+        public Vector2 uvTopLeft;
+    }
+
     public class Font : Object
     {
         public static Font CreateDynamicFontFromOSFont(string fontname, int size) { return null; }
         public void RequestCharactersInTexture(string characters, int size, FontStyle style) { }
+        public bool GetCharacterInfo(char ch, out CharacterInfo info, int size, FontStyle style)
+        {
+            info = new CharacterInfo();
+            return false;
+        }
     }
 
     public class Texture : Object
@@ -1056,6 +1078,7 @@ namespace UnityEngine
         public ShapeModule shape { get { return new ShapeModule(); } }
         public VelocityOverLifetimeModule velocityOverLifetime { get { return new VelocityOverLifetimeModule(); } }
         public void Emit(EmitParams emitParams, int count) { }
+        public void Play() { }
         public void Clear() { }
         public void Stop() { }
         public int GetParticles(Particle[] particles) { return 0; }
