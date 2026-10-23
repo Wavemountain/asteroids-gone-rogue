@@ -309,6 +309,26 @@ def check(root: Path) -> list[str]:
                 continue
             errors.append(f"SV {key} matches EN ({value!r}); translate it or add it to SAME_LANGUAGE_ALLOW")
 
+    errors.extend(_shop_tile_hardcoded(root))
+    return errors
+
+
+def _shop_tile_hardcoded(root: Path) -> list[str]:
+    """ShopTileView copy has to come from Loc.T / Loc.Tf, not a swedish ternary."""
+    relative = "Assets/Scripts/Core/ShopTileView.cs"
+    path = root / relative
+    if not path.is_file():
+        return [f"missing {relative}"]
+    stripped = _CALL.sub('""', path.read_text(encoding="utf-8"))
+    errors: list[str] = []
+    for literal in _string_literals(stripped):
+        if not re.search(r"[A-Za-zÅÄÖåäö]", literal):
+            continue
+        if re.fullmatch(r"#[0-9A-Fa-f]{3,8}", literal):
+            continue
+        if literal == "FocusFill":
+            continue
+        errors.append(f"{relative} hardcoded string {literal!r}")
     return errors
 
 

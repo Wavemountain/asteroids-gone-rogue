@@ -951,7 +951,8 @@ namespace AsteroidsGoneRogue
             _dust = dustObject.AddComponent<ParticleSystem>();
             _dustBuf = new ParticleSystem.Particle[ArenaDepth.DustFull];
             ParticleSystem.MainModule main = _dust.main;
-            main.playOnAwake = true;
+            main.playOnAwake = false;
+            _dust.Stop();
             main.loop = true;
             main.duration = ArenaDepth.DustLife;
             main.startLifetime = ArenaDepth.DustLife;
@@ -978,6 +979,10 @@ namespace AsteroidsGoneRogue
             {
                 _dust.Stop();
                 dustObject.SetActive(false);
+            }
+            else
+            {
+                _dust.Play();
             }
         }
 

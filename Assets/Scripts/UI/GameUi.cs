@@ -910,7 +910,7 @@ namespace AsteroidsGoneRogue
                 0.962f);
             RaiseShopAbovePreview();
             CreateFill("HangarInner", _menuRoot.transform, UiTheme.InnerWash,
-                new Vector2(0.012f, 0.018f), new Vector2(0.988f, 0.728f));
+                new Vector2(0.012f, 0.096f), new Vector2(0.988f, 0.728f));
 
             BuildRunSummary(display, body);
 
@@ -957,9 +957,9 @@ namespace AsteroidsGoneRogue
             PlaceAbortButton(Screen.width, Screen.height);
             _abortButton.gameObject.SetActive(false);
 
-            // End-credits roll, not currency. Anchored under hangar min.y 0.080 so it
-            // does not sit on the shop; WAVE-CLEAR strip owns CREDITS (+delta).
-            _creditsButton = CreateButton("OpenCredits", transform, body, new Vector2(0.014f, 0.010f), new Vector2(0.128f, 0.070f));
+            // End-credits roll, not currency. Sits above the play hint (max Y 0.034)
+            // and left of the hangar hint (min X 0.14), under the hangar panel (0.080).
+            _creditsButton = CreateButton("OpenCredits", transform, body, new Vector2(0.014f, 0.040f), new Vector2(0.128f, 0.076f));
             _creditsButtonLabel = _creditsButton.GetComponentInChildren<Text>();
             _creditsButtonLabel.text = "Credits";
             _creditsButtonLabel.fontSize = 14;
@@ -2062,8 +2062,13 @@ namespace AsteroidsGoneRogue
         {
             // Shared header Y so HULL / WEAPONS / DEFENSE start on one line.
             _hullHeader = BuildGroupHeader(display, ShopCatalog.HullHeader, new Vector2(0.02f, 0.675f), new Vector2(0.49f, 0.728f));
-            // WEAPONS title stays in the header band; slot readout (P/U) sits under the rule.
-            _weaponsHeader = BuildGroupHeader(display, ShopCatalog.WeaponsHeader, new Vector2(0.51f, 0.704f), new Vector2(0.735f, 0.728f));
+            // WEAPONS title sits above its rule. The slot readout owns 0.675–0.704.
+            _weaponsHeader = BuildGroupHeader(
+                display,
+                ShopCatalog.WeaponsHeader,
+                new Vector2(0.51f, 0.714f),
+                new Vector2(0.735f, 0.732f),
+                true);
             _defenseHeader = BuildGroupHeader(display, ShopCatalog.DefenseHeader, new Vector2(0.755f, 0.675f), new Vector2(0.98f, 0.728f));
 
             float rowStep = ShopCellHeight + ShopCellGutter;
@@ -2702,12 +2707,35 @@ namespace AsteroidsGoneRogue
 
         private Text BuildGroupHeader(Font font, string label, Vector2 min, Vector2 max)
         {
+            return BuildGroupHeader(font, label, min, max, false);
+        }
+
+        private Text BuildGroupHeader(Font font, string label, Vector2 min, Vector2 max, bool ruleBelow)
+        {
             Text header = CreateText("Group_" + label, _menuRoot.transform, font, UiTheme.ShopHeaderSize, TextAnchor.MiddleLeft, FontStyle.Bold);
             Stretch(header.rectTransform, min, max);
             header.color = UiAmber;
             header.text = label;
-            CreateFill("Rule_" + label, _menuRoot.transform, UiTheme.HeaderRule,
-                new Vector2(min.x, min.y), new Vector2(max.x, min.y + 0.008f));
+            if (ruleBelow)
+            {
+                header.alignment = TextAnchor.UpperLeft;
+                header.resizeTextForBestFit = true;
+                header.resizeTextMinSize = 10;
+                header.resizeTextMaxSize = UiTheme.ShopHeaderSize;
+                ClampOneLine(header);
+                CreateFill(
+                    "Rule_" + label,
+                    _menuRoot.transform,
+                    UiTheme.HeaderRule,
+                    new Vector2(min.x, min.y - 0.008f),
+                    new Vector2(max.x, min.y));
+            }
+            else
+            {
+                CreateFill("Rule_" + label, _menuRoot.transform, UiTheme.HeaderRule,
+                    new Vector2(min.x, min.y), new Vector2(max.x, min.y + 0.008f));
+            }
+
             return header;
         }
 
@@ -7183,7 +7211,9 @@ namespace AsteroidsGoneRogue
             Stretch(label.rectTransform, new Vector2(0f, 0.64f), new Vector2(0.58f, 1f));
             label.color = UiBody;
 
-            count = CreateText(name + "Count", row.transform, body, (int)PremiumLook.HudLabel, TextAnchor.MiddleRight, FontStyle.Bold);
+            FontStyle countStyle;
+            Font countFont = UiFonts.ForDigits(body, (int)PremiumLook.HudLabel, out countStyle);
+            count = CreateText(name + "Count", row.transform, countFont, (int)PremiumLook.HudLabel, TextAnchor.MiddleRight, countStyle);
             Stretch(count.rectTransform, new Vector2(0.5f, 0.64f), new Vector2(1f, 1f));
             count.color = UiAmber;
 
@@ -7403,7 +7433,10 @@ namespace AsteroidsGoneRogue
                 // Hud: amber score numeral at the top of the corner plate.
                 Stretch(_hud.rectTransform, new Vector2(0.02f, PlayHudLayout.ScoreMinY), new Vector2(corner - 0.008f, PlayHudLayout.ScoreMaxY));
                 _hud.fontSize = (int)PremiumLook.HudNumber;
-                _hud.fontStyle = FontStyle.Bold;
+                FontStyle scoreStyle;
+                Font scoreFont = UiFonts.ForDigits(UiFonts.Body(), _hud.fontSize, out scoreStyle);
+                _hud.font = scoreFont;
+                _hud.fontStyle = scoreStyle;
                 _hud.color = UiAmber;
                 _hud.alignment = TextAnchor.UpperLeft;
                 _hud.horizontalOverflow = HorizontalWrapMode.Overflow;

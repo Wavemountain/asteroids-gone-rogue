@@ -30,38 +30,9 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static void CaptureLookPolish()
         {
-            string folder = SessionState.GetString(KeyOut, string.Empty);
-            int count = LookPolish.CaptureCount;
-            Debug.Log("AgrCapture look count " + count.ToString());
-            int index = 0;
-            while (index < count)
-            {
-                string fileName = LookPolish.CaptureFile(index);
-                Debug.Log("AgrCapture look file " + fileName);
-                bool reduce = fileName.IndexOf("_reduce_", System.StringComparison.Ordinal) >= 0;
-                bool after = fileName.IndexOf("look_after_", System.StringComparison.Ordinal) == 0;
-                SettingsState posed = SettingsState.CreateDefault();
-                posed.ReduceEffects = reduce;
-                posed.FilmGrain = false;
-                SettingsState.Publish(posed);
-                GameObject stage = StageLookSubject(fileName, after, reduce);
-                byte[] png = RenderFrame();
-                if (stage != null)
-                {
-                    UnityEngine.Object.DestroyImmediate(stage);
-                }
-
-                if (png == null || png.Length < 64)
-                {
-                    Fail("empty look capture " + fileName);
-                    return;
-                }
-
-                string path = System.IO.Path.Combine(folder, fileName);
-                System.IO.File.WriteAllBytes(path, png);
-                Debug.Log("AgrCapture: wrote " + path + " (" + png.Length.ToString() + " bytes)");
-                index++;
-            }
+            // Each file is a gameplay shot: PrepareGameplayShot starts w1,
+            // PhaseBatch waits, AssertGameplayShot rejects a hangar or shop canvas.
+            Debug.Log("AgrCapture look count " + LookPolish.CaptureCount.ToString());
         }
 
         static GameObject StageLookSubject(string fileName, bool after, bool reduce)

@@ -14,6 +14,8 @@ namespace AsteroidsGoneRogue.EditorTools
     /// "C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe" -batchmode -projectPath . -executeMethod AsteroidsGoneRogue.EditorTools.AgrCapture.Run -logFile - -captureOut Captures\compare -reduce 0 -seed 48048
     /// Look polish before/after (grid, player shots, each enemy shot, hit vignette, explosions S/M/L, Full and Reduce):
     /// -executeMethod AsteroidsGoneRogue.EditorTools.AgrCapture.Run -lookPolish 1 -captureOut Captures\look -reduce 0 -seed 48048
+    /// Arena edge, one world per file (arena_wN_), gameplay not the hangar:
+    /// -executeMethod AsteroidsGoneRogue.EditorTools.AgrCapture.Run -arenaEdge 1 -captureOut Captures\arena -reduce 0 -seed 48048
     ///
     /// -seed stays required. The picture seed is always W4PinSeed so a second
     /// capture of the same shot matches the first. The requested value is logged.
@@ -32,6 +34,7 @@ namespace AsteroidsGoneRogue.EditorTools
         static int Height = 1080;
         const int ShotCount = 7;
         const int SettleFrames = 60;
+        const int GameplaySettleFrames = 24;
         const int CardFrames = 3;
         const double TimeoutSeconds = 300.0;
         const double EnterLimitSeconds = 20.0;
@@ -76,6 +79,7 @@ namespace AsteroidsGoneRogue.EditorTools
         const int PhaseStop = 7;
         const int PhaseWaitStop = 8;
         const int PhaseRestore = 9;
+        const int PhaseBatch = 10;
 
         const System.Reflection.BindingFlags Flags =
             System.Reflection.BindingFlags.Instance |
@@ -85,7 +89,9 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static System.Collections.Generic.Dictionary<string, System.Type> _types;
         static bool _loggedPost;
+        static bool _loggedGameplay;
         static string _backupPath = string.Empty;
+        static GameObject _posedLook;
 
         static AgrCapture()
         {
@@ -397,25 +403,9 @@ namespace AsteroidsGoneRogue.EditorTools
 
             if (phase == PhaseStage)
             {
-                if (SessionState.GetInt(KeyLook, 0) != 0)
+                if (SessionState.GetInt(KeyLook, 0) != 0 || SessionState.GetInt(KeyArenaEdge, 0) != 0)
                 {
-                    CaptureLookPolish();
-                    if (!HasError())
-                    {
-                        SessionState.SetInt(KeyPhase, PhaseStop);
-                    }
-
-                    return;
-                }
-
-                if (SessionState.GetInt(KeyArenaEdge, 0) != 0)
-                {
-                    CaptureArenaEdge();
-                    if (!HasError())
-                    {
-                        SessionState.SetInt(KeyPhase, PhaseStop);
-                    }
-
+                    BeginGameplayCapture();
                     return;
                 }
 
@@ -428,6 +418,12 @@ namespace AsteroidsGoneRogue.EditorTools
                 SessionState.SetInt(KeyWaited, 0);
                 SessionState.SetInt(KeySeen, -1);
                 SessionState.SetInt(KeyPhase, PhaseSettle);
+                return;
+            }
+
+            if (phase == PhaseBatch)
+            {
+                TickGameplayCapture();
                 return;
             }
 
@@ -6221,6 +6217,454 @@ namespace AsteroidsGoneRogue.EditorTools
             SessionState.EraseBool(KeySceneLogged);
             SessionState.EraseInt(KeyLoggedPhase);
             _backupPath = string.Empty;
+        }
+
+        static int GameplayCaptureCount()
+        {
+            if (SessionState.GetInt(KeyLook, 0) != 0)
+            {
+                return LookPolish.CaptureCount;
+            }
+
+            return ArenaEdgeShots.Count;
+        }
+
+        static string GameplayCaptureFile(int index)
+        {
+            if (SessionState.GetInt(KeyLook, 0) != 0)
+            {
+                return LookPolish.CaptureFile(index);
+            }
+
+            return ArenaEdgeShots.FileName(index);
+        }
+
+        static int WorldForCaptureFile(string fileName)
+        {
+            int world = 1;
+            if (string.IsNullOrEmpty(fileName))
+            {
+                return world;
+            }
+
+            for (int index = 0; index < fileName.Length; index++)
+            {
+                char mark = fileName[index];
+                if (mark != 'w' && mark != 'W')
+                {
+                    continue;
+                }
+
+                bool boundary = index == 0 || fileName[index - 1] == '_' || fileName[index - 1] == '-';
+                if (!boundary || index + 1 >= fileName.Length)
+                {
+                    continue;
+                }
+
+                char digit = fileName[index + 1];
+                if (digit < '1' || digit > '7')
+                {
+                    continue;
+                }
+
+                if (index + 2 < fileName.Length)
+                {
+                    char after = fileName[index + 2];
+                    if (after != '_' && after != '.' && after != '-')
+                    {
+                        continue;
+                    }
+                }
+
+                world = digit - '0';
+            }
+
+            return world;
+        }
+
+        static void BeginGameplayCapture()
+        {
+            if (!_loggedGameplay)
+            {
+                _loggedGameplay = true;
+                if (SessionState.GetInt(KeyLook, 0) != 0)
+                {
+                    CaptureLookPolish();
+                }
+
+                if (SessionState.GetInt(KeyArenaEdge, 0) != 0)
+                {
+                    CaptureArenaEdge();
+                }
+            }
+
+            int index = SessionState.GetInt(KeyShot, 0);
+            int count = GameplayCaptureCount();
+            if (index >= count)
+            {
+                SessionState.SetInt(KeyPhase, PhaseStop);
+                return;
+            }
+
+            string fileName = GameplayCaptureFile(index);
+            int world = WorldForCaptureFile(fileName);
+            if (!PrepareGameplayShot(fileName, world))
+            {
+                return;
+            }
+
+            SessionState.SetInt(KeyWaited, 0);
+            SessionState.SetInt(KeySeen, -1);
+            SessionState.SetInt(KeyPhase, PhaseBatch);
+        }
+
+        static void TickGameplayCapture()
+        {
+            Nudge();
+            if (!AdvanceFrame())
+            {
+                return;
+            }
+
+            KeepShipAlive();
+            PinShip();
+            int waited = SessionState.GetInt(KeyWaited, 0);
+            if (waited < GameplaySettleFrames)
+            {
+                return;
+            }
+
+            int index = SessionState.GetInt(KeyShot, 0);
+            string fileName = GameplayCaptureFile(index);
+            int world = WorldForCaptureFile(fileName);
+            bool reduce = fileName.IndexOf("_reduce_", System.StringComparison.Ordinal) >= 0;
+            bool after = fileName.IndexOf("look_after_", System.StringComparison.Ordinal) == 0;
+            Component ui = FindComponent("GameUi");
+            InvokeZero(ui, "Refresh");
+            ClearPosedLook();
+            if (SessionState.GetInt(KeyLook, 0) != 0)
+            {
+                _posedLook = StageLookSubject(fileName, after, reduce);
+            }
+            else
+            {
+                StageArenaEdge(fileName, reduce);
+            }
+
+            Canvas.ForceUpdateCanvases();
+            AssertGameplayShot(fileName, world);
+            if (HasError())
+            {
+                ClearPosedLook();
+                return;
+            }
+
+            string folder = SessionState.GetString(KeyOut, string.Empty);
+            byte[] png = RenderFrame();
+            ClearPosedLook();
+            if (png == null || png.Length < 64)
+            {
+                Fail("empty gameplay capture " + fileName);
+                return;
+            }
+
+            string path = System.IO.Path.Combine(folder, fileName);
+            System.IO.File.WriteAllBytes(path, png);
+            Debug.Log("AgrCapture: wrote " + path + " (" + png.Length.ToString() + " bytes)");
+            int next = index + 1;
+            SessionState.SetInt(KeyShot, next);
+            SessionState.SetInt(KeyWaited, 0);
+            SessionState.SetInt(KeySeen, -1);
+            if (next >= GameplayCaptureCount())
+            {
+                SessionState.SetInt(KeyPhase, PhaseStop);
+                return;
+            }
+
+            SessionState.SetInt(KeyPhase, PhaseStage);
+        }
+
+        static bool PrepareGameplayShot(string fileName, int world)
+        {
+            bool reduce = fileName.IndexOf("_reduce_", System.StringComparison.Ordinal) >= 0;
+            SettingsState posed = SettingsState.CreateDefault();
+            posed.ReduceEffects = reduce;
+            posed.FilmGrain = false;
+            SettingsState.Publish(posed);
+            Component game = FindComponent("GameManager");
+            if (game == null)
+            {
+                Fail("GameManager missing");
+                return false;
+            }
+
+            object session = GetProp(game, "Session");
+            if (session == null)
+            {
+                Fail("GameSession missing");
+                return false;
+            }
+
+            int wave = ((world - 1) * 5) + 1;
+            object waveValue = GetProp(session, "WaveIndex");
+            int currentWave = waveValue is int ? (int)waveValue : 0;
+            bool playing = PhaseName(session) == "Playing";
+            if (!playing || currentWave != wave)
+            {
+                if (playing && !InvokeZero(game, "AbortWave"))
+                {
+                    Fail("AbortWave missing");
+                    return false;
+                }
+
+                CloseFirstStart(game);
+                if (!InvokeInts(session, "RestoreHangar", new int[] { wave, 0, 0, 3, 0, 0, 0, 0 }))
+                {
+                    Fail("RestoreHangar missing");
+                    return false;
+                }
+
+                SkipTutorial(game);
+                ApplySeedValue(game, W4PinSeed);
+                if (!InvokeZero(game, "StartWave"))
+                {
+                    Fail("StartWave missing");
+                    return false;
+                }
+
+                if (PhaseName(session) != "Playing")
+                {
+                    Fail("wave did not start, phase " + PhaseName(session));
+                    return false;
+                }
+            }
+
+            SnapWorld(world);
+            HideGameplayMenus();
+            KeepShipAlive();
+            QuietBanners();
+            PinShip();
+            Debug.Log(
+                "AgrCapture gameplay " + fileName
+                + " world " + world.ToString()
+                + " wave " + wave.ToString());
+            return true;
+        }
+
+        static void CloseFirstStart(object game)
+        {
+            if (game == null)
+            {
+                return;
+            }
+
+            System.Type grade = FindType("DifficultyGrade");
+            if (grade == null)
+            {
+                return;
+            }
+
+            System.Reflection.MethodInfo skip = game.GetType().GetMethod("SkipFirstStart", new System.Type[] { grade });
+            if (skip == null)
+            {
+                return;
+            }
+
+            object normal = System.Enum.Parse(grade, "Normal");
+            skip.Invoke(game, new object[] { normal });
+        }
+
+        static readonly string[] GameplayHideNames = new string[]
+        {
+            "HangarPanel",
+            "SinkShopCanvas",
+            "FirstStart",
+            "FirstHangarHint",
+            "TutorialPromptCard",
+            "TutorialBanner",
+        };
+
+        static void HideGameplayMenus()
+        {
+            for (int index = 0; index < GameplayHideNames.Length; index++)
+            {
+                GameObject go = GameObject.Find(GameplayHideNames[index]);
+                if (go != null)
+                {
+                    go.SetActive(false);
+                }
+            }
+
+            Canvas[] canvases = UnityEngine.Object.FindObjectsByType<Canvas>();
+            if (canvases == null)
+            {
+                return;
+            }
+
+            for (int index = 0; index < canvases.Length; index++)
+            {
+                Canvas canvas = canvases[index];
+                if (canvas == null || !canvas.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                string name = canvas.gameObject.name;
+                if (name == "HangarPanel" || name.IndexOf("Shop", System.StringComparison.Ordinal) >= 0)
+                {
+                    canvas.gameObject.SetActive(false);
+                }
+            }
+        }
+
+        static void AssertGameplayShot(string fileName, int world)
+        {
+            string blocking = ActiveGameplayBlocker();
+            if (blocking.Length > 0)
+            {
+                Fail("gameplay shot " + fileName + " still shows " + blocking);
+                return;
+            }
+
+            Component game = FindComponent("GameManager");
+            object session = game != null ? GetProp(game, "Session") : null;
+            int active = session != null ? ActiveWorld(session) : 0;
+            if (active != world)
+            {
+                Fail(
+                    "gameplay shot " + fileName
+                    + " world " + active.ToString()
+                    + " expected w" + world.ToString());
+                return;
+            }
+
+            GameObject badge = GameObject.Find("WorldBadge");
+            if (badge == null)
+            {
+                return;
+            }
+
+            Text label = badge.GetComponent<Text>();
+            if (label == null || !WorldToken(label.text, world))
+            {
+                string shown = label != null ? label.text : string.Empty;
+                Fail("gameplay shot " + fileName + " header '" + shown + "' is not world " + world.ToString());
+            }
+        }
+
+        static string ActiveGameplayBlocker()
+        {
+            for (int index = 0; index < GameplayHideNames.Length; index++)
+            {
+                string name = GameplayHideNames[index];
+                GameObject go = GameObject.Find(name);
+                if (go != null && go.activeInHierarchy)
+                {
+                    return name;
+                }
+            }
+
+            Canvas[] canvases = UnityEngine.Object.FindObjectsByType<Canvas>();
+            if (canvases == null)
+            {
+                return string.Empty;
+            }
+
+            for (int index = 0; index < canvases.Length; index++)
+            {
+                Canvas canvas = canvases[index];
+                if (canvas == null || !canvas.isActiveAndEnabled)
+                {
+                    continue;
+                }
+
+                string name = canvas.gameObject.name;
+                if (name == "HangarPanel" || name.IndexOf("Shop", System.StringComparison.Ordinal) >= 0)
+                {
+                    return name;
+                }
+            }
+
+            return string.Empty;
+        }
+
+        static int ActiveWorld(object session)
+        {
+            object waveValue = GetProp(session, "WaveIndex");
+            int wave = waveValue is int ? (int)waveValue : 1;
+            if (wave < 1)
+            {
+                wave = 1;
+            }
+
+            System.Type catalog = FindType("WorldCatalog");
+            if (catalog == null)
+            {
+                return ((wave - 1) / 5) + 1;
+            }
+
+            System.Reflection.MethodInfo method = catalog.GetMethod("NumberForWave", new System.Type[] { typeof(int) });
+            if (method == null)
+            {
+                return ((wave - 1) / 5) + 1;
+            }
+
+            object number = method.Invoke(null, new object[] { wave });
+            if (number is int)
+            {
+                return (int)number;
+            }
+
+            return ((wave - 1) / 5) + 1;
+        }
+
+        static bool WorldToken(string text, int world)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return false;
+            }
+
+            string token = world.ToString();
+            int index = 0;
+            while (index < text.Length)
+            {
+                if (text[index] < '0' || text[index] > '9')
+                {
+                    index++;
+                    continue;
+                }
+
+                int end = index;
+                while (end < text.Length && text[end] >= '0' && text[end] <= '9')
+                {
+                    end++;
+                }
+
+                if (text.Substring(index, end - index) == token)
+                {
+                    return true;
+                }
+
+                index = end;
+            }
+
+            return false;
+        }
+
+        static void ClearPosedLook()
+        {
+            if (_posedLook != null)
+            {
+                UnityEngine.Object.DestroyImmediate(_posedLook);
+                _posedLook = null;
+            }
+
+            if (_arenaFlyIn != null)
+            {
+                UnityEngine.Object.DestroyImmediate(_arenaFlyIn);
+                _arenaFlyIn = null;
+            }
         }
 
         static void Quit(int code)

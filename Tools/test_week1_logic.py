@@ -1182,6 +1182,9 @@ def test_ui_fonts_039() -> None:
     credits = (root / "CREDITS.md").read_text(encoding="utf-8")
 
     assert "class UiFonts" in fonts
+    assert "ForDigits" in fonts and "GetCharacterInfo" in fonts and "DigitProbe" in fonts
+    hangar = (root / "Assets/Scripts/UI/GameUi.HangarStatus.cs").read_text(encoding="utf-8")
+    assert "UiFonts.ForDigits" in hangar
     assert 'DisplayResource = "Fonts/KenneyFuture"' in fonts
     assert 'BodyResource = "Fonts/KenneyFutureNarrow"' in fonts
     assert 'LegacyBuiltin = "LegacyRuntime.ttf"' in fonts
@@ -4612,7 +4615,8 @@ def test_doctrine_rail_045() -> None:
     assert "OffPathTint" in theme and "PaintOffPathCue" in theme
     assert "UiTheme.DoctrineBadge" in ui
     tile_view = (root / "Assets/Scripts/Core/ShopTileView.cs").read_text(encoding="utf-8")
-    assert "off-path" in tile_view and "av vägen" in tile_view
+    assert 'Loc.T("ui.off_path", "off-path")' in tile_view
+    assert "av vägen" not in tile_view
     assert "ui.off_path" in loc and "av vägen" in loc
     assert "DoctrineRunLine" in summary and "run.doctrine_wave" in summary and "run.doctrine_wave" in loc
     assert "Lance run — wave {1}" in summary or "{0} run — wave {1}" in summary
@@ -6926,9 +6930,9 @@ def _damage_percent(world: int) -> int:
 
 
 def _extra_enemies(world: int) -> int:
-    table = (1, 1, 3, 3, 4, 4, 6)
+    table = (1, 1, 3, 3, 4, 4, 5)
     shown = max(world, 1)
-    extra = 6 if shown >= 7 else table[shown - 1]
+    extra = table[-1] if shown > len(table) else table[shown - 1]
     if extra > 6:
         extra = 6
     if extra < 0:
@@ -7191,9 +7195,9 @@ def test_long_haul_difficulty_046() -> None:
     assert _extra_enemies(1) == 1
     assert _extra_enemies(2) == 1
     assert _extra_enemies(4) == 3
-    assert _extra_enemies(7) == 6
-    assert _extra_enemies(9) == 6
-    assert _extra_enemies(20) == 6
+    assert _extra_enemies(7) == 5
+    assert _extra_enemies(9) == 5
+    assert _extra_enemies(20) == 5
     assert _fire_percent(1) == 100
     assert _fire_percent(7) == 112
     assert _fire_percent(16) == 130
@@ -7336,7 +7340,8 @@ def test_longhaul_balance_046e() -> None:
     assert report["radial_shots"] == 8
     assert report["aimed_shots"] <= 4
     assert report["radial_shots"] <= 8
-    assert report["wave45_hard_count"] == 16
+    # World 9 hard extras are 5 + 1. Roster 8 + those extras + the guardian is 15.
+    assert report["wave45_hard_count"] == 15
     assert report["wave45_hard_dropped"] == 0
     assert report["wave5_easy_count"] <= 6
     assert report["wave10_hard_count"] <= 14
@@ -9937,7 +9942,7 @@ def test_oc_mk2_cooldown_not_damage() -> None:
     price_fn = loadout.split("int Mk2Price")[1].split("bool OwnsMk2")[0]
     assert price_fn.count("Mk2Cost") == 1
     assert price_fn.count("ApplyWorld") == 1
-    assert 'status = "Mk II  " + CostText(price, swedish);' in view
+    assert 'Loc.T("ui.mk2", "Mk II") + "  " + CostText(price)' in view
     assert '_hoveredItem.Title + "  —  " + _hoveredItem.Description' in ui
 
     bonus = _cs_int(loadout, "OverchargerDamageBonus")
@@ -17272,6 +17277,9 @@ def test_p9_audio_arena() -> None:
     assert bpm.count("0") >= 8
     assert "ArenaDepth.Parallax" in arena and "ArenaDepth.Breathe" in arena
     assert "ArenaDepth.GridAlphaMul" in arena and "NearDust" in arena
+    dust = arena.split("private void CreateNearDust()")[1].split("private static Material NearDustMaterial")[0]
+    assert "playOnAwake = false" in dust
+    assert dust.index("_dust.Stop()") < dust.index("main.duration")
     assert "Particles/Standard Unlit" in arena and "Mat_Env_NearDust" in arena
     assert "DustAlphaMax" in depth and "0.18f" in depth
     assert "RunRng" not in roster and "RunRng" not in lowpass and "RunRng" not in depth
@@ -18200,6 +18208,8 @@ def test_premium_050_look() -> None:
     assert "PrewarmProjectiles" in factory
     assert "-lookPolish" in capture
     assert "CaptureLookPolish" in capture_look
+    assert "PrepareGameplayShot" in capture and "AssertGameplayShot" in capture
+    assert "PhaseBatch" in capture
     assert "look_before_full_grid.png" in look
     assert "public static bool SelfCheck()" in look
 
@@ -18486,7 +18496,7 @@ def test_arena_shape_050() -> None:
     assert "RicochetLifetime = 3.9f" in projectile
     assert "ExtraLifeTimeoutSeconds = 10.5f" in grade
     assert "MaxExtraEnemies = 6" in curve and "MaxSpawnedEnemies = 16" in curve
-    assert "ExtraEnemyTable = { 1, 1, 3, 3, 4, 4, 6 }" in curve
+    assert "ExtraEnemyTable = { 1, 1, 3, 3, 4, 4, 5 }" in curve
     assert "CurrentVersion = 7" in settings
     assert 'TurnSpeedKey = "agr.settings.turnSpeed"' in settings
     assert "TurnMin = 0.70f" in rows and "TurnMax = 1.30f" in rows and "TurnStep = 0.05f" in rows
@@ -18496,6 +18506,9 @@ def test_arena_shape_050() -> None:
     assert "Svänghastighet" in loc
     assert "_UseContour" in shader and "signedDistance" in shader
     assert "-arenaEdge" in capture
+    assert "AssertGameplayShot" in capture
+    main_capture = (root / "Assets/Editor/AgrCapture.cs").read_text(encoding="utf-8")
+    assert "PrepareGameplayShot" in main_capture and "WorldForCaptureFile" in main_capture
     names = []
     # Mirror ArenaEdgeShots.FileName without the editor.
     for world in range(1, 8):

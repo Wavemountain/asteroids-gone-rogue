@@ -170,9 +170,9 @@ def _damage_percent(spec: dict, world: int) -> int:
 
 
 def _extra_enemies(spec: dict, world: int) -> int:
-    table = (1, 1, 3, 3, 4, 4, 6)
+    table = (1, 1, 3, 3, 4, 4, 5)
     shown = 1 if world < 1 else world
-    extra = 6 if shown >= 7 else table[shown - 1]
+    extra = table[-1] if shown > len(table) else table[shown - 1]
     if extra < 0:
         extra = 0
     if extra > spec["max_extra"]:

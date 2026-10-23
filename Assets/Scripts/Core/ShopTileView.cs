@@ -163,34 +163,37 @@ namespace AsteroidsGoneRogue
             int price,
             int credits)
         {
+            // Titles already come from Loc. Status used to branch on `swedish`
+            // and could show English next to a Swedish title. Loc is the only copy.
+            _ = swedish;
             string status;
             if (runOver)
             {
-                status = swedish ? "Rundan är slut" : "Run is over";
+                status = Loc.T("ui.run_over", "Run is over");
             }
             else if (owned && mk2Owned)
             {
-                status = "Mk II  MAX";
+                status = Loc.T("ui.mk2", "Mk II") + "  " + Loc.T("ui.legacy.max", "MAX");
             }
             else if (mk2Offer)
             {
-                status = "Mk II  " + CostText(price, swedish);
+                status = Loc.T("ui.mk2", "Mk II") + "  " + CostText(price);
             }
             else if (owned)
             {
-                status = (swedish ? "KÖPT" : "OWNED") + " +";
+                status = Loc.T("ui.owned", "OWNED") + " +";
             }
             else if (!canApply)
             {
-                status = swedish ? "LÅST" : "LOCKED";
+                status = Loc.T("ui.locked", "LOCKED");
             }
             else if (credits < price)
             {
-                status = swedish ? "behöver " + price + " kr" : "need " + price + " cr";
+                status = Loc.Tf("ui.need_cr", "need {0} cr", price);
             }
             else
             {
-                status = CostText(price, swedish);
+                status = CostText(price);
             }
 
             return status;
@@ -210,7 +213,7 @@ namespace AsteroidsGoneRogue
             string status = PriceLine(owned, mk2Owned, mk2Offer, canApply, runOver, swedish, price, credits);
             if (!runOver && offPath)
             {
-                string prefix = swedish ? "av vägen" : "off-path";
+                string prefix = Loc.T("ui.off_path", "off-path");
                 status = prefix + "  ·  " + status;
             }
 
@@ -328,14 +331,9 @@ namespace AsteroidsGoneRogue
             return Contrast(textHex, fillHex) >= MinContrast;
         }
 
-        private static string CostText(int price, bool swedish)
+        private static string CostText(int price)
         {
-            if (swedish)
-            {
-                return price + " kr";
-            }
-
-            return price + " cr";
+            return Loc.Tf("ui.cost_cr", "{0} cr", price);
         }
 
         private static float RelativeLuminance(string hex)

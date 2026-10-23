@@ -31,30 +31,9 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static void CaptureArenaEdge()
         {
-            string folder = SessionState.GetString(KeyOut, string.Empty);
-            int count = ArenaEdgeShots.Count;
-            Debug.Log("AgrCapture arena edge count " + count.ToString());
-            for (int index = 0; index < count; index++)
-            {
-                string fileName = ArenaEdgeShots.FileName(index);
-                Debug.Log("AgrCapture arena file " + fileName);
-                bool reduce = fileName.IndexOf("_reduce_", System.StringComparison.Ordinal) >= 0;
-                SettingsState posed = SettingsState.CreateDefault();
-                posed.ReduceEffects = reduce;
-                posed.FilmGrain = false;
-                SettingsState.Publish(posed);
-                StageArenaEdge(fileName, reduce);
-                byte[] png = RenderFrame();
-                if (png == null || png.Length < 64)
-                {
-                    Fail("empty arena edge capture " + fileName);
-                    return;
-                }
-
-                string path = System.IO.Path.Combine(folder, fileName);
-                System.IO.File.WriteAllBytes(path, png);
-                Debug.Log("AgrCapture: wrote " + path + " (" + png.Length.ToString() + " bytes)");
-            }
+            // Each arena_wN file is a gameplay shot. AssertGameplayShot fails
+            // when the hangar or shop canvas is active, or the world is not wN.
+            Debug.Log("AgrCapture arena edge count " + ArenaEdgeShots.Count.ToString());
         }
 
         static void StageArenaEdge(string fileName, bool reduce)

@@ -104,15 +104,15 @@ namespace AsteroidsGoneRogue
             return 100 + bonus;
         }
 
-        public static readonly int[] ExtraEnemyTable = { 1, 1, 3, 3, 4, 4, 6 };
+        public static readonly int[] ExtraEnemyTable = { 1, 1, 3, 3, 4, 4, 5 };
 
         public static int ExtraEnemiesForWorld(int worldNumber)
         {
             int world = worldNumber < 1 ? 1 : worldNumber;
             int extra;
-            if (world >= 7)
+            if (world > ExtraEnemyTable.Length)
             {
-                extra = 6;
+                extra = ExtraEnemyTable[ExtraEnemyTable.Length - 1];
             }
             else
             {
