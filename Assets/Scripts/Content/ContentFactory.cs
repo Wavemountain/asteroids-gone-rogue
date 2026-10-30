@@ -70,6 +70,13 @@ namespace AsteroidsGoneRogue
         private Material _swarmGlow;
         private Material _swarmling;
         private Material _enemyGlow;
+        private Material _enemyBody;
+        private Material _enemyTrim;
+        private Material _enemyCore;
+        private Material _enemyMidBody;
+        private Material _enemyMidCore;
+        private Material _enemyTelegraph;
+        private Material _enemyThruster;
         private Material _projectileRail;
         private Material _pickupHeart;
         private Material _pickupGeneric;
@@ -223,6 +230,74 @@ namespace AsteroidsGoneRogue
                 0.15f,
                 0.4f,
                 false);
+            Color enemySteel = new Color(LookPolish.EnemySteelR, LookPolish.EnemySteelG, LookPolish.EnemySteelB, 1f);
+            Color enemyTrim = new Color(LookPolish.EnemyTrimR, LookPolish.EnemyTrimG, LookPolish.EnemyTrimB, 1f);
+            Color enemyCore = new Color(LookPolish.EnemyRimR, LookPolish.EnemyRimG, LookPolish.EnemyRimB, 1f);
+            Color midCore = new Color(LookPolish.EnemyMidCoreR, LookPolish.EnemyMidCoreG, LookPolish.EnemyMidCoreB, 1f);
+            Color telegraph = new Color(LookPolish.EnemyCoreR, LookPolish.EnemyCoreG, LookPolish.EnemyCoreB, 1f);
+            _enemyBody = MakeShipRim(
+                "Mat_Enemy_V4_Body",
+                enemySteel,
+                enemySteel,
+                EmissionTargets.EnemyRimPower,
+                EmissionTargets.EnemyRimStrength,
+                Color.black,
+                LookPolish.EnemyBodyMetallic,
+                LookPolish.EnemyBodySmoothness,
+                false);
+            _enemyTrim = MakeShipRim(
+                "Mat_Enemy_V4_Trim",
+                enemyTrim,
+                enemyTrim,
+                EmissionTargets.EnemyRimPower,
+                0.2f,
+                Color.black,
+                0f,
+                0.2f,
+                false);
+            _enemyCore = MakeShipRim(
+                "Mat_Enemy_V4_Core",
+                enemyCore,
+                enemyCore,
+                EmissionTargets.EnemyRimPower,
+                EmissionTargets.EnemyRimStrength,
+                enemyCore * LookPolish.EnemySlotCoreEmission,
+                0.1f,
+                0.45f,
+                false);
+            _enemyMidBody = MakeShipRim(
+                "Mat_Enemy_V4_MidBody",
+                Color.Lerp(enemySteel, midCore, LookPolish.EnemyMidBodyMix),
+                enemySteel,
+                EmissionTargets.EnemyRimPower,
+                EmissionTargets.EnemyRimStrength,
+                Color.black,
+                LookPolish.EnemyBodyMetallic,
+                LookPolish.EnemyBodySmoothness,
+                false);
+            _enemyMidCore = MakeShipRim(
+                "Mat_Enemy_V4_MidCore",
+                midCore,
+                midCore,
+                EmissionTargets.EnemyRimPower,
+                EmissionTargets.EnemyRimStrength,
+                midCore * LookPolish.EnemySlotCoreEmission,
+                0.1f,
+                0.45f,
+                false);
+            _enemyTelegraph = MakeShipRim(
+                "Mat_Enemy_V4_Telegraph",
+                telegraph,
+                telegraph,
+                EmissionTargets.EnemyRimPower,
+                0f,
+                Color.black,
+                0f,
+                0.35f,
+                false);
+            _enemyThruster = MakeAdditiveThruster(
+                "Mat_Enemy_V4_Thruster",
+                new Color(1f, 0.72f, 0.42f, 1f));
             // 0.40 floor anchor stays in this file: 0.039f, 0.063f, 0.086f. Drawn albedo is the surface token.
             _arena = MakeMaterial(
                 "Mat_Arena",
@@ -1178,6 +1253,7 @@ namespace AsteroidsGoneRogue
 
             if (importedMesh)
             {
+                DressImportedEnemy(root.transform, kind);
                 ScaleImportedToRadius(root.transform, MeshFit.LegacyRadius(EnemyCatalog.MeshFitId(kind)));
             }
             else if (kind == EnemyKind.Swarmling)
@@ -1194,6 +1270,8 @@ namespace AsteroidsGoneRogue
 
             EnemySeeker seeker = root.AddComponent<EnemySeeker>();
             seeker.Initialize(player, waves, kind);
+            EnemyMeshTelegraph telegraph = root.AddComponent<EnemyMeshTelegraph>();
+            telegraph.Collect(root.transform);
             if (!keepOutside)
             {
                 OpeningClearance.ScreenPlace(root.transform);
@@ -2710,7 +2788,7 @@ namespace AsteroidsGoneRogue
             block.SetColor("_EmissionColor", emission);
             for (int i = 0; i < renderers.Length; i++)
             {
-                if (renderers[i] != null)
+                if (renderers[i] != null && !UsesEnemySlotMaterials(renderers[i]))
                 {
                     renderers[i].SetPropertyBlock(block);
                 }
@@ -2720,6 +2798,12 @@ namespace AsteroidsGoneRogue
         private Material RemapImported(string importedName, Material fallback)
         {
             string name = importedName ?? string.Empty;
+            Material enemySlot = RemapEnemySlot(name);
+            if (enemySlot != null)
+            {
+                return enemySlot;
+            }
+
             // W2–W6 Accent/Glow strips are the decor beams. W4 Glow used to
             // fall through to Mat_Ship_Glow (the white pillar). Inactive beams
             // use the additive zero material, not an opaque unlit plate.
@@ -3021,6 +3105,223 @@ namespace AsteroidsGoneRogue
             return fallback;
         }
 
+        private Material RemapEnemySlot(string name)
+        {
+            if (ContainsIgnoreCase(name, "Mat_Enemy_Thruster"))
+            {
+                return _enemyThruster;
+            }
+
+            if (ContainsIgnoreCase(name, "Mat_Enemy_Telegraph"))
+            {
+                return _enemyTelegraph;
+            }
+
+            if (ContainsIgnoreCase(name, "Mat_Enemy_Trim"))
+            {
+                return _enemyTrim;
+            }
+
+            if (ContainsIgnoreCase(name, "Mat_Enemy_Core"))
+            {
+                return _enemyCore;
+            }
+
+            if (ContainsIgnoreCase(name, "Mat_Enemy_Body"))
+            {
+                return _enemyBody;
+            }
+
+            return null;
+        }
+
+        private void DressImportedEnemy(Transform root, EnemyKind kind)
+        {
+            HideEnemyDebris(root);
+            FollowBomberHatch(root, kind);
+            PaintMidSlots(root, kind);
+        }
+
+        /// <summary>
+        /// Look capture and other previews. Same slots as a live enemy, no seeker.
+        /// </summary>
+        public bool PresentEnemyMesh(EnemyKind kind, Transform parent)
+        {
+            if (parent == null)
+            {
+                return false;
+            }
+
+            GameObject instance;
+            string meshAsset = EnemyCatalog.MeshAsset(kind);
+            bool imported = TryVisual(meshAsset, parent, _enemyBody != null ? _enemyBody : _enemy, out instance);
+            if (!imported)
+            {
+                imported = TryVisual(EnemyCatalog.VisualName(kind), parent, _enemy, out instance);
+            }
+
+            if (!imported || instance == null)
+            {
+                return false;
+            }
+
+            DressImportedEnemy(instance.transform, kind);
+            float authored = MeshFit.LegacyRadius(EnemyCatalog.MeshFitId(kind));
+            if (authored <= 0.01f)
+            {
+                authored = EnemyCatalog.ColliderRadius(kind);
+            }
+
+            ScaleImportedToRadius(parent, authored);
+            return true;
+        }
+
+        private void PaintMidSlots(Transform root, EnemyKind kind)
+        {
+            if (root == null || kind != EnemyKind.Mid01)
+            {
+                return;
+            }
+
+            Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null)
+                {
+                    continue;
+                }
+
+                Material[] slots = renderer.sharedMaterials;
+                if (slots == null || slots.Length == 0)
+                {
+                    continue;
+                }
+
+                bool changed = false;
+                for (int slot = 0; slot < slots.Length; slot++)
+                {
+                    Material mat = slots[slot];
+                    if (mat == null)
+                    {
+                        continue;
+                    }
+
+                    if (mat == _enemyCore || mat.name.IndexOf("Mat_Enemy_V4_Core", System.StringComparison.Ordinal) >= 0)
+                    {
+                        slots[slot] = _enemyMidCore;
+                        changed = true;
+                    }
+                    else if (mat == _enemyBody || mat.name.IndexOf("Mat_Enemy_V4_Body", System.StringComparison.Ordinal) >= 0)
+                    {
+                        slots[slot] = _enemyMidBody;
+                        changed = true;
+                    }
+                }
+
+                if (changed)
+                {
+                    renderer.sharedMaterials = slots;
+                }
+            }
+        }
+
+        private static void HideEnemyDebris(Transform root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null)
+                {
+                    continue;
+                }
+
+                string part = renderer.gameObject.name;
+                if (!MeshFit.IsEnemyDebrisName(part))
+                {
+                    continue;
+                }
+
+                renderer.enabled = false;
+            }
+        }
+
+        private static void FollowBomberHatch(Transform root, EnemyKind kind)
+        {
+            if (root == null || kind != EnemyKind.Bomber)
+            {
+                return;
+            }
+
+            Transform hatch = null;
+            Transform[] parts = root.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (parts[i] != null && parts[i].name == "Hatch_Open")
+                {
+                    hatch = parts[i];
+                    break;
+                }
+            }
+
+            if (hatch == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < parts.Length; i++)
+            {
+                Transform part = parts[i];
+                if (part == null || part == hatch || part == root)
+                {
+                    continue;
+                }
+
+                if (part.name.IndexOf("Core", System.StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    continue;
+                }
+
+                if (part.IsChildOf(hatch) || hatch.IsChildOf(part))
+                {
+                    continue;
+                }
+
+                part.SetParent(hatch, true);
+            }
+        }
+
+        private static bool UsesEnemySlotMaterials(Renderer renderer)
+        {
+            if (renderer == null)
+            {
+                return false;
+            }
+
+            Material[] slots = renderer.sharedMaterials;
+            if (slots == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < slots.Length; i++)
+            {
+                Material mat = slots[i];
+                if (mat != null && mat.name.IndexOf("Mat_Enemy_V4_", System.StringComparison.Ordinal) >= 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static bool ContainsIgnoreCase(string value, string token)
         {
             return value.IndexOf(token, System.StringComparison.OrdinalIgnoreCase) >= 0;
@@ -3074,6 +3375,38 @@ namespace AsteroidsGoneRogue
                     renderer.enabled = false;
                 }
             }
+        }
+
+        private static Material MakeAdditiveThruster(string materialName, Color color)
+        {
+            Shader shader = Shader.Find("Particles/Additive");
+            if (shader == null)
+            {
+                shader = Shader.Find("Legacy Shaders/Particles/Additive");
+            }
+
+            if (shader == null)
+            {
+                shader = Shader.Find("Unlit/Transparent");
+            }
+
+            if (shader == null)
+            {
+                return MakeMaterial(materialName, color, 0f, 0.2f, color);
+            }
+
+            Material material = new Material(shader);
+            material.name = materialName;
+            material.color = color;
+            if (material.HasProperty("_TintColor"))
+            {
+                material.SetColor("_TintColor", color);
+            }
+
+            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.One);
+            material.renderQueue = 3000;
+            return material;
         }
 
         private static Material MakeInvisibleBeam(string materialName)

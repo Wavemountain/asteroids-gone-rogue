@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+using AsteroidsGoneRogue;
 
 namespace AsteroidsGoneRogue.EditorTools
 {
@@ -48,6 +49,11 @@ namespace AsteroidsGoneRogue.EditorTools
             root.transform.position = at;
             root.transform.rotation = Quaternion.LookRotation(-camera.transform.forward, Vector3.up);
             bool enemy = fileName.IndexOf("shot_enemy_", System.StringComparison.Ordinal) >= 0;
+            if (after && enemy && TryPlaceImportedEnemy(fileName, root.transform))
+            {
+                return root;
+            }
+
             bool shot = fileName.IndexOf("shot_", System.StringComparison.Ordinal) >= 0;
             bool grid = fileName.IndexOf("_grid", System.StringComparison.Ordinal) >= 0;
             bool hit = fileName.IndexOf("hit_vignette", System.StringComparison.Ordinal) >= 0;
@@ -154,6 +160,67 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             return root;
+        }
+
+        static bool TryPlaceImportedEnemy(string fileName, Transform parent)
+        {
+            ContentFactory[] factories = UnityEngine.Object.FindObjectsByType<ContentFactory>();
+            if (factories == null || factories.Length == 0 || factories[0] == null)
+            {
+                return false;
+            }
+
+            return factories[0].PresentEnemyMesh(LookEnemyKind(fileName), parent);
+        }
+
+        static EnemyKind LookEnemyKind(string fileName)
+        {
+            if (fileName.IndexOf("swarmling", System.StringComparison.Ordinal) >= 0)
+            {
+                return EnemyKind.Swarmling;
+            }
+
+            if (fileName.IndexOf("swarmpod", System.StringComparison.Ordinal) >= 0)
+            {
+                return EnemyKind.SwarmPod;
+            }
+
+            if (fileName.IndexOf("swarm", System.StringComparison.Ordinal) >= 0)
+            {
+                return EnemyKind.Swarm;
+            }
+
+            if (fileName.IndexOf("scout", System.StringComparison.Ordinal) >= 0)
+            {
+                return EnemyKind.Scout;
+            }
+
+            if (fileName.IndexOf("gunner", System.StringComparison.Ordinal) >= 0)
+            {
+                return EnemyKind.Gunner;
+            }
+
+            if (fileName.IndexOf("drone", System.StringComparison.Ordinal) >= 0)
+            {
+                return EnemyKind.Drone;
+            }
+
+            if (fileName.IndexOf("bomber", System.StringComparison.Ordinal) >= 0)
+            {
+                return EnemyKind.Bomber;
+            }
+
+            if (fileName.IndexOf("sniper", System.StringComparison.Ordinal) >= 0)
+            {
+                return EnemyKind.Sniper;
+            }
+
+            if (fileName.IndexOf("brute", System.StringComparison.Ordinal) >= 0)
+            {
+                return EnemyKind.Brute;
+            }
+
+            return EnemyKind.Mid01;
         }
     }
 }

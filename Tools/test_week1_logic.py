@@ -16685,9 +16685,18 @@ def test_p6_emission_rim_meshes() -> None:
     assert "ReadabilityPalette.AsteroidAlbedoScale" in factory
     assert "EnemyBrute" in factory and "EnemyGlow" in factory and "PlayerShot" in factory and "PlayerRail" in factory
     assert "EnemyShot" in factory
-    assert 'return "Enemy_Brute_v2"' in enemies
-    assert 'return "Enemy_Swarm_v2"' in enemies
-    assert 'return "Enemy_Bomber_v2"' in enemies
+    assert 'return "Enemy_Brute_v4"' in enemies
+    assert 'return "Enemy_Swarm_v4"' in enemies
+    assert 'return "Enemy_Swarmling_v4"' in enemies
+    assert 'return "Enemy_Bomber_v4"' in enemies
+    assert 'return "Enemy_Mid01_v5"' in enemies
+    assert "Mat_Enemy_V4_Thruster" in factory
+    assert "Mat_Enemy_V4_Telegraph" in factory
+    assert "Mat_Enemy_V4_MidCore" in factory
+    assert "Hatch_Open" in factory
+    assert "Particles/Additive" in factory
+    assert "242f / 255f" in (root / "Assets/Scripts/Core/LookPolish.cs").read_text(encoding="utf-8")
+    assert "142f / 255f" in (root / "Assets/Scripts/Core/LookPolish.cs").read_text(encoding="utf-8")
     assert 'return "Monster_Brute"' in enemies
     assert "return 0.98f;" in enemies and "return 0.62f;" in enemies and "return 0.82f;" in enemies
     assert "MeshFit.LegacyRadius" in factory

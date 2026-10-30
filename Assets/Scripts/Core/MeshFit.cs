@@ -226,6 +226,26 @@ namespace AsteroidsGoneRogue
             return LegacySmallVariantRadius;
         }
 
+        public static bool IsEnemyDebrisName(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+            {
+                return false;
+            }
+
+            if (name.IndexOf("Chunk", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            if (name.IndexOf("Debris", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
         public static bool SelfCheck()
         {
             if (Bad(SwarmLookScale < 0.75f || SwarmLookScale > 0.85f))

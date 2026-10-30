@@ -56,22 +56,33 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// Imported mesh. Brute, swarm, and bomber prefer the 0.48 sculpts
-        /// and fall back to VisualName when the file is missing.
+        /// Imported mesh. v4 sculpts, with Mid01 on v5. VisualName remains
+        /// the spawn id and is the fallback when the file is missing.
         /// </summary>
         public static string MeshAsset(EnemyKind kind)
         {
             switch (kind)
             {
-                case EnemyKind.Brute:
-                    return "Enemy_Brute_v2";
-                case EnemyKind.Swarm:
-                case EnemyKind.Swarmling:
-                    return "Enemy_Swarm_v2";
+                case EnemyKind.Scout:
+                    return "Enemy_Scout_v4";
+                case EnemyKind.Gunner:
+                    return "Enemy_Gunner_v4";
+                case EnemyKind.Drone:
+                    return "Enemy_Drone_v4";
                 case EnemyKind.Bomber:
-                    return "Enemy_Bomber_v2";
+                    return "Enemy_Bomber_v4";
+                case EnemyKind.Sniper:
+                    return "Enemy_Sniper_v4";
+                case EnemyKind.SwarmPod:
+                    return "Enemy_SwarmPod_v4";
+                case EnemyKind.Brute:
+                    return "Enemy_Brute_v4";
+                case EnemyKind.Swarm:
+                    return "Enemy_Swarm_v4";
+                case EnemyKind.Swarmling:
+                    return "Enemy_Swarmling_v4";
                 default:
-                    return VisualName(kind);
+                    return "Enemy_Mid01_v5";
             }
         }
 
@@ -280,6 +291,7 @@ namespace AsteroidsGoneRogue
         public static EnemyKind FromVisual(string visualName)
         {
             if (visualName == "Enemy_Scout"
+                || visualName == "Enemy_Scout_v4"
                 || visualName == "Enemy_Scout_Buffer_v7"
                 || visualName == "Enemy_Scout_Buffer_v6"
                 || visualName == "Enemy_Scout_Buffer_v5"
@@ -289,6 +301,7 @@ namespace AsteroidsGoneRogue
             }
 
             if (visualName == "Enemy_Gunner"
+                || visualName == "Enemy_Gunner_v4"
                 || visualName == "Enemy_Gunner_Buffer_v7"
                 || visualName == "Enemy_Gunner_Buffer_v6"
                 || visualName == "Enemy_Gunner_Buffer_v5"
@@ -298,6 +311,7 @@ namespace AsteroidsGoneRogue
             }
 
             if (visualName == "Enemy_Drone"
+                || visualName == "Enemy_Drone_v4"
                 || visualName == "Enemy_Drone_Buffer_v6"
                 || visualName == "Enemy_Drone_Buffer_v5"
                 || visualName == "Enemy_Drone_Buffer_v4")
@@ -306,6 +320,7 @@ namespace AsteroidsGoneRogue
             }
 
             if (visualName == "Enemy_Bomber"
+                || visualName == "Enemy_Bomber_v4"
                 || visualName == "Enemy_Bomber_v2"
                 || visualName == "Enemy_Bomber_Buffer_v8"
                 || visualName == "Enemy_Bomber_Buffer_v6"
@@ -315,33 +330,36 @@ namespace AsteroidsGoneRogue
             }
 
             if (visualName == "Enemy_Sniper"
+                || visualName == "Enemy_Sniper_v4"
                 || visualName == "Enemy_Sniper_Buffer_v8"
                 || visualName == "Enemy_Sniper_Buffer_v5")
             {
                 return EnemyKind.Sniper;
             }
 
-            if (visualName == "Enemy_SwarmPod" || visualName == "Enemy_SwarmPod_Buffer_v6")
+            if (visualName == "Enemy_SwarmPod"
+                || visualName == "Enemy_SwarmPod_v4"
+                || visualName == "Enemy_SwarmPod_Buffer_v6")
             {
                 return EnemyKind.SwarmPod;
             }
 
-            if (visualName == "Monster_Brute" || visualName == "Enemy_Brute_v2")
+            if (visualName == "Monster_Brute" || visualName == "Enemy_Brute_v4" || visualName == "Enemy_Brute_v2")
             {
                 return EnemyKind.Brute;
             }
 
-            if (visualName == "Monster_Swarmling")
+            if (visualName == "Monster_Swarmling" || visualName == "Enemy_Swarmling_v4")
             {
                 return EnemyKind.Swarmling;
             }
 
-            if (visualName == "Monster_Swarm" || visualName == "Enemy_Swarm_v2")
+            if (visualName == "Monster_Swarm" || visualName == "Enemy_Swarm_v4" || visualName == "Enemy_Swarm_v2")
             {
                 return EnemyKind.Swarm;
             }
 
-            if (visualName == "Enemy_01" || visualName == "Enemy_01_Buffer_v8")
+            if (visualName == "Enemy_01" || visualName == "Enemy_Mid01_v5" || visualName == "Enemy_01_Buffer_v8")
             {
                 return EnemyKind.Mid01;
             }
