@@ -16,11 +16,11 @@ namespace AsteroidsGoneRogue
         public const float HangarInnerMinX = 0.012f;
         public const float HangarInnerMinY = 0.096f;
         public const float HangarInnerMaxX = 0.988f;
-        public const float HangarInnerMaxY = 0.728f;
+        public const float HangarInnerMaxY = 0.734f;
         public const float WeaponsGroupMinX = 0.51f;
-        public const float WeaponsGroupMinY = 0.706f;
+        public const float WeaponsGroupMinY = 0.714f;
         public const float WeaponsGroupMaxX = 0.735f;
-        public const float WeaponsGroupMaxY = 0.724f;
+        public const float WeaponsGroupMaxY = 0.732f;
         public const float WeaponsRuleDrop = 0.008f;
         public const float PanelMinX = 0.014f;
         public const float PanelMinY = 0.080f;

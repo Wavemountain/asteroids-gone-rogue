@@ -15,8 +15,8 @@ namespace AsteroidsGoneRogue
 
         public const float StatusMinY = 0.705f;
         public const float StatusMaxY = 0.888f;
-        // Health and boss keep the 62ee6bf heights (0.082 and 0.040) and sit
-        // just above the bottom hint row so the two rows do not overlap.
+        // Health sits just above the bottom hint row. The rack is tall enough
+        // that the HEALTH, SHIELD, and HULL labels do not meet.
         public const float HealthMinY = 0.050f;
         // Taller than the old 0.082 rack so HÄLSA / SKÖLD / SKROV labels
         // have a gap. Boss keeps its 0.040 height and stays above the rack.

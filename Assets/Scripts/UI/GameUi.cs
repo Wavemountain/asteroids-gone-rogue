@@ -2083,7 +2083,7 @@ namespace AsteroidsGoneRogue
 
             // Slot readout sits in the WEAPONS header band (0.675–0.728), not on shop cells.
             _loadoutSlots = CreateText("LoadoutSlots", _menuRoot.transform, body, 12, TextAnchor.MiddleLeft, FontStyle.Bold);
-            Stretch(_loadoutSlots.rectTransform, new Vector2(HangarHudLayout.WeaponsGroupMinX, 0.675f), new Vector2(HangarHudLayout.WeaponsGroupMaxX, HangarHudLayout.WeaponsGroupMinY - HangarHudLayout.WeaponsRuleDrop - 0.004f));
+            Stretch(_loadoutSlots.rectTransform, new Vector2(HangarHudLayout.WeaponsGroupMinX, 0.675f), new Vector2(HangarHudLayout.WeaponsGroupMaxX, 0.704f));
             _loadoutSlots.color = UiTheme.Accent;
             ClampOneLine(_loadoutSlots);
 
