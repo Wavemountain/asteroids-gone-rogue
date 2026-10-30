@@ -1095,7 +1095,7 @@ def test_sniper_fardrift_037() -> None:
     assert "ScoutWingTitle" in summary
     assert "RunSummary.ShowContinueHint(" in ui
     assert "persist.LadderLine()" in ui
-    assert "playing ? 12 : 14" in ui
+    assert "playing ? 16 : 14" in ui
     complete = manager.split("private void CompleteWave()")[1].split("private bool TryAwardWorldMedal")[0]
     assert "PlayFarDriftAward" in complete
     assert "PlayWaveClear" in complete
@@ -10134,6 +10134,7 @@ def main() -> int:
     test_capture_fixed_seed()
     test_shop_price_fits()
     test_catalogue_coverage_label()
+    test_weapons_group_inside_hangar_inner()
     test_wave_summary_and_hangar_hud()
     test_premium_050_look()
     test_shader_warmup_cannot_block_boot()
@@ -17574,6 +17575,8 @@ def test_capture_048_clearance_hud() -> None:
     work.mkdir(parents=True)
     shutil.copyfile(root / "Assets/Scripts/Core/OpeningView.cs", work / "OpeningView.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/PlayHudLayout.cs", work / "PlayHudLayout.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/HangarHudLayout.cs", work / "HangarHudLayout.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/GamePhase.cs", work / "GamePhase.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/PremiumLook.cs", work / "PremiumLook.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/EffectScale.cs", work / "EffectScale.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/PromptLayout.cs", work / "PromptLayout.cs")
@@ -17608,6 +17611,7 @@ class Program
     {
         if (!AsteroidsGoneRogue.OpeningView.SelfCheck()) throw new Exception("view");
         if (!AsteroidsGoneRogue.PlayHudLayout.SelfCheck()) throw new Exception("hud");
+        if (!AsteroidsGoneRogue.HangarHudLayout.WeaponsGroupInsideInner()) throw new Exception("weapons inner");
         if (!AsteroidsGoneRogue.PremiumLook.SelfCheck()) throw new Exception("look");
         if (!AsteroidsGoneRogue.PromptLayout.SelfCheck()) throw new Exception("prompt fit");
         if (!AsteroidsGoneRogue.CaptureContinue.SelfCheck()) throw new Exception("capture continue");
@@ -17633,6 +17637,8 @@ class Program
                 "  <ItemGroup>",
                 '    <Compile Include="OpeningView.cs" />',
                 '    <Compile Include="PlayHudLayout.cs" />',
+                '    <Compile Include="HangarHudLayout.cs" />',
+                '    <Compile Include="GamePhase.cs" />',
                 '    <Compile Include="PremiumLook.cs" />',
                 '    <Compile Include="EffectScale.cs" />',
                 '    <Compile Include="PromptLayout.cs" />',
@@ -18066,6 +18072,60 @@ def _map_band(parent, local):
         px0 + lx1 * width,
         py0 + ly1 * height,
     )
+
+
+def test_weapons_group_inside_hangar_inner() -> None:
+    """Group_WEAPONS title and rule stay inside HangarInner at the HUD resolutions."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    layout = (root / "Assets/Scripts/Core/HangarHudLayout.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+
+    def const(name: str) -> float:
+        match = re.search(rf"public const float {name} = ([0-9.]+)f;", layout)
+        assert match, name
+        return float(match.group(1))
+
+    inner = (const("HangarInnerMinX"), const("HangarInnerMinY"), const("HangarInnerMaxX"), const("HangarInnerMaxY"))
+    group = (const("WeaponsGroupMinX"), const("WeaponsGroupMinY"), const("WeaponsGroupMaxX"), const("WeaponsGroupMaxY"))
+    drop = const("WeaponsRuleDrop")
+    panel = (const("PanelMinX"), const("PanelMinY"), const("PanelMaxX"), const("PanelMaxY"))
+    rule = (group[0], group[1] - drop, group[2], group[1])
+
+    def contains(outer, inner_rect) -> bool:
+        return inner_rect[0] >= outer[0] and inner_rect[1] >= outer[1] and inner_rect[2] <= outer[2] and inner_rect[3] <= outer[3]
+
+    assert contains(inner, group)
+    assert contains(inner, rule)
+
+    def panel_px(local, width, height):
+        span_x = panel[2] - panel[0]
+        span_y = panel[3] - panel[1]
+        return (
+            (panel[0] + local[0] * span_x) * width,
+            (panel[1] + local[1] * span_y) * height,
+            (panel[0] + local[2] * span_x) * width,
+            (panel[1] + local[3] * span_y) * height,
+        )
+
+    def overflow(child, parent) -> float:
+        over = parent[0] - child[0]
+        over = max(over, parent[1] - child[1])
+        over = max(over, child[2] - parent[2])
+        over = max(over, child[3] - parent[3])
+        return over
+
+    for width, height in ((1280, 800), (1920, 1080), (2560, 1440), (3440, 1440)):
+        inner_px = panel_px(inner, width, height)
+        assert overflow(panel_px(group, width, height), inner_px) <= 0
+        assert overflow(panel_px(rule, width, height), inner_px) <= 0
+
+    assert "WeaponsGroupInsideInner" in layout
+    assert "HangarHudLayout.HangarInnerMaxY" in ui
+    assert "HangarHudLayout.WeaponsGroupMaxY" in ui
+    assert "0.732f" not in ui
 
 
 def test_wave_summary_and_hangar_hud() -> None:

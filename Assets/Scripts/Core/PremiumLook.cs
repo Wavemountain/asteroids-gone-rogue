@@ -42,6 +42,12 @@ namespace AsteroidsGoneRogue
         public const float BeamAlbedoScale = 0.55f;
         // World 3 key. Used only to keep the beam under the bloom knee.
         public const float BeamLightAllowance = 1.20f;
+        // W3 edge posts. #6AA8C8 (106, 168, 200) pulled 40% toward its own luma
+        // so the posts read as cool grey, not player amber #D4A04A. Luma stays
+        // above the 0.45 dead-plate floor. Blue stays above red.
+        public const float BeamPostR = 0.496f;
+        public const float BeamPostG = 0.641f;
+        public const float BeamPostB = 0.716f;
 
         public const float SurfaceR = 14f / 255f;
         public const float SurfaceG = 21f / 255f;
@@ -122,6 +128,37 @@ namespace AsteroidsGoneRogue
             {
                 Desaturate(red, green, blue, W3ChromaKeep, out red, out green, out blue);
             }
+        }
+
+        /// <summary>
+        /// Unlit W3 post colour. Cooler than player amber, and bright enough
+        /// that an opaque post is not a dead plate.
+        /// </summary>
+        public static bool BeamPostsAreCool()
+        {
+            float red = BeamPostR;
+            float green = BeamPostG;
+            float blue = BeamPostB;
+            if (blue <= red || red > green)
+            {
+                return false;
+            }
+
+            float luma = Luma(red, green, blue);
+            if (luma <= 0.50f)
+            {
+                return false;
+            }
+
+            float amberR = 212f / 255f;
+            float amberG = 160f / 255f;
+            float amberB = 74f / 255f;
+            if (red > amberR * 0.85f && blue < amberB * 1.5f)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -1355,6 +1392,11 @@ namespace AsteroidsGoneRogue
             }
 
             if (!BeamNotBrighterThanEnemy() || !BeamBloomFullMatchesReduce() || !DecorBeamsUnderKnee())
+            {
+                return false;
+            }
+
+            if (!BeamPostsAreCool())
             {
                 return false;
             }

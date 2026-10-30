@@ -15,12 +15,25 @@ namespace AsteroidsGoneRogue
 
         public const float StatusMinY = 0.705f;
         public const float StatusMaxY = 0.888f;
-        // Health and boss keep the 62ee6bf heights (0.082 and 0.040) and sit
-        // just above the bottom hint row so the two rows do not overlap.
+        // Health sits just above the bottom hint row. The rack is tall enough
+        // that the HEALTH, SHIELD, and HULL labels do not meet.
         public const float HealthMinY = 0.050f;
-        public const float HealthMaxY = 0.132f;
-        public const float BossMinY = 0.140f;
-        public const float BossMaxY = 0.180f;
+        // Taller than the old 0.082 rack so HÄLSA / SKÖLD / SKROV labels
+        // have a gap. Boss keeps its 0.040 height and stays above the rack.
+        public const float HealthMaxY = 0.168f;
+        public const float BossMinY = 0.176f;
+        public const float BossMaxY = 0.216f;
+        // Fractions of the health rack. Title is HEALTH. The two bar rows
+        // are SHIELD then HULL. Label glyphs stay off the neighbouring row.
+        public const float RackTitleMinY = 0.80f;
+        public const float RackTitleMaxY = 0.98f;
+        public const float RackShieldMinY = 0.46f;
+        public const float RackShieldMaxY = 0.74f;
+        public const float RackHullMinY = 0.04f;
+        public const float RackHullMaxY = 0.40f;
+        // Inside a bar row: label owns the top, the track stays under it.
+        public const float RackBarLabelMin = 0.46f;
+        public const float RackBarTop = 0.40f;
         // Tools panel and doctrine badge are the 62ee6bf rects.
         public const float UtilityMinX = 0.74f;
         public const float UtilityMinY = 0.085f;
@@ -110,6 +123,11 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            if (!StatusLabelsClear())
+            {
+                return false;
+            }
+
             float[] widths = { 1280f, 1920f, 2560f, 3440f };
             float[] heights = { 800f, 1080f, 1440f };
             for (int widthIndex = 0; widthIndex < widths.Length; widthIndex++)
@@ -188,6 +206,42 @@ namespace AsteroidsGoneRogue
             if (Overlaps(UtilityMinX, UtilityMinY, UtilityMaxX, UtilityMaxY, DoctrineMinX, DoctrineMinY, DoctrineMaxX, DoctrineMaxY))
             {
                 return false;
+            }
+
+            return true;
+        }
+
+        private static bool StatusLabelsClear()
+        {
+            if (!Stacked(RackHullMaxY, RackShieldMinY) || !Stacked(RackShieldMaxY, RackTitleMinY))
+            {
+                return false;
+            }
+
+            if (!Stacked(RackBarTop, RackBarLabelMin))
+            {
+                return false;
+            }
+
+            float shieldSpan = RackShieldMaxY - RackShieldMinY;
+            float shieldLabelBottom = RackShieldMinY + (RackBarLabelMin * shieldSpan);
+            float hullLabelTop = RackHullMaxY;
+            if (!Stacked(hullLabelTop, shieldLabelBottom))
+            {
+                return false;
+            }
+
+            float rack = HealthMaxY - HealthMinY;
+            float[] heights = { 800f, 1080f, 1440f };
+            for (int heightIndex = 0; heightIndex < heights.Length; heightIndex++)
+            {
+                float px = rack * heights[heightIndex];
+                float titleGap = (RackTitleMinY - RackShieldMaxY) * px;
+                float rowGap = (shieldLabelBottom - hullLabelTop) * px;
+                if (titleGap < 4f || rowGap < 4f)
+                {
+                    return false;
+                }
             }
 
             return true;

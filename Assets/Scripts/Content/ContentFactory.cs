@@ -305,9 +305,8 @@ namespace AsteroidsGoneRogue
                 PremiumLook.FloorMetallic,
                 PremiumLook.FloorSmoothness);
             _arena.mainTexture = FloorNoise();
-            // Inactive decor beams are not a dimmed opaque plate. Additive
-            // black adds nothing, so a resting beam is invisible.
-            _w3Beam = MakeInvisibleBeam("Mat_Arena_W3_Beam");
+            // W3 edge posts are cool grey, not player amber and not a dim plate.
+            _w3Beam = MakeEdgeBeam("Mat_Arena_W3_Beam");
             _astroRim = MakeMaterial("Mat_AstroRim", new Color(0.357f, 0.561f, 0.659f), 0.12f, 0.38f, new Color(0.357f, 0.561f, 0.659f) * 0.55f);
             _projectile = MakeMaterial("Mat_Projectile", primaryEmit, 0f, 0.32f, primaryEmit * EmissionTargets.PlayerShot);
             _projectileSpread = MakeMaterial("Mat_Projectile_Spread", primaryEmit, 0f, 0.28f, primaryEmit * EmissionTargets.PlayerShot);
@@ -2805,8 +2804,8 @@ namespace AsteroidsGoneRogue
             }
 
             // W2–W6 Accent/Glow strips are the decor beams. W4 Glow used to
-            // fall through to Mat_Ship_Glow (the white pillar). Inactive beams
-            // use the additive zero material, not an opaque unlit plate.
+            // fall through to Mat_Ship_Glow (the white pillar). Edge posts use
+            // the cool-grey unlit beam, not player amber.
             if (IsArenaDecorBeam(name))
             {
                 return _w3Beam != null ? _w3Beam : _arena;
@@ -3328,9 +3327,8 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
-        /// A renderer that is only an inactive decor beam is turned off.
-        /// Mixed meshes keep the floor and hide the beam submesh via the
-        /// additive zero material.
+        /// A renderer that is only a decor beam is turned off.
+        /// Mixed meshes keep the floor and draw the beam submesh in cool grey.
         /// </summary>
         private static void HideInactiveBeams(GameObject visual)
         {
@@ -3409,14 +3407,10 @@ namespace AsteroidsGoneRogue
             return material;
         }
 
-        private static Material MakeInvisibleBeam(string materialName)
+        private static Material MakeEdgeBeam(string materialName)
         {
-            Shader shader = Shader.Find("AGR/BeamAdd");
-            if (shader == null)
-            {
-                shader = Shader.Find("Particles/Additive");
-            }
-
+            Color steel = new Color(PremiumLook.BeamPostR, PremiumLook.BeamPostG, PremiumLook.BeamPostB, 1f);
+            Shader shader = Shader.Find("Unlit/Color");
             if (shader == null)
             {
                 shader = Shader.Find("Unlit/Transparent");
@@ -3424,13 +3418,13 @@ namespace AsteroidsGoneRogue
 
             if (shader == null)
             {
-                return MakeTransparent(materialName, new Color(0f, 0f, 0f, 0f), Color.black);
+                return MakeMaterial(materialName, steel, 0f, 0.2f);
             }
 
             Material material = new Material(shader);
             material.name = materialName;
-            material.color = new Color(0f, 0f, 0f, 0f);
-            material.renderQueue = 3000;
+            material.color = steel;
+            material.renderQueue = 2000;
             return material;
         }
 
