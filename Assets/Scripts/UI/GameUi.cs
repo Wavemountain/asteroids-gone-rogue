@@ -910,7 +910,8 @@ namespace AsteroidsGoneRogue
                 0.962f);
             RaiseShopAbovePreview();
             CreateFill("HangarInner", _menuRoot.transform, UiTheme.InnerWash,
-                new Vector2(0.012f, 0.096f), new Vector2(0.988f, 0.728f));
+                new Vector2(HangarHudLayout.HangarInnerMinX, HangarHudLayout.HangarInnerMinY),
+                new Vector2(HangarHudLayout.HangarInnerMaxX, HangarHudLayout.HangarInnerMaxY));
 
             BuildRunSummary(display, body);
 
@@ -2066,8 +2067,8 @@ namespace AsteroidsGoneRogue
             _weaponsHeader = BuildGroupHeader(
                 display,
                 ShopCatalog.WeaponsHeader,
-                new Vector2(0.51f, 0.714f),
-                new Vector2(0.735f, 0.732f),
+                new Vector2(HangarHudLayout.WeaponsGroupMinX, HangarHudLayout.WeaponsGroupMinY),
+                new Vector2(HangarHudLayout.WeaponsGroupMaxX, HangarHudLayout.WeaponsGroupMaxY),
                 true);
             _defenseHeader = BuildGroupHeader(display, ShopCatalog.DefenseHeader, new Vector2(0.755f, 0.675f), new Vector2(0.98f, 0.728f));
 
@@ -2082,7 +2083,7 @@ namespace AsteroidsGoneRogue
 
             // Slot readout sits in the WEAPONS header band (0.675–0.728), not on shop cells.
             _loadoutSlots = CreateText("LoadoutSlots", _menuRoot.transform, body, 12, TextAnchor.MiddleLeft, FontStyle.Bold);
-            Stretch(_loadoutSlots.rectTransform, new Vector2(0.51f, 0.675f), new Vector2(0.735f, 0.704f));
+            Stretch(_loadoutSlots.rectTransform, new Vector2(HangarHudLayout.WeaponsGroupMinX, 0.675f), new Vector2(HangarHudLayout.WeaponsGroupMaxX, HangarHudLayout.WeaponsGroupMinY - HangarHudLayout.WeaponsRuleDrop - 0.004f));
             _loadoutSlots.color = UiTheme.Accent;
             ClampOneLine(_loadoutSlots);
 

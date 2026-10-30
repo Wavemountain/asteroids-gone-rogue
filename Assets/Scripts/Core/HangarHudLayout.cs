@@ -9,6 +9,24 @@ namespace AsteroidsGoneRogue
     {
         public const float PreviewMaxY = 0.468f;
 
+        // HangarInner and the WEAPONS header are hangar-panel local anchors.
+        // The header used to end at 0.732, about 3–4 px above the inner top
+        // (0.728) at 1080 and 1440. Both the title and the rule under it stay
+        // inside the inner wash at 1280x800, 1920x1080, 2560x1440, and 3440x1440.
+        public const float HangarInnerMinX = 0.012f;
+        public const float HangarInnerMinY = 0.096f;
+        public const float HangarInnerMaxX = 0.988f;
+        public const float HangarInnerMaxY = 0.728f;
+        public const float WeaponsGroupMinX = 0.51f;
+        public const float WeaponsGroupMinY = 0.706f;
+        public const float WeaponsGroupMaxX = 0.735f;
+        public const float WeaponsGroupMaxY = 0.724f;
+        public const float WeaponsRuleDrop = 0.008f;
+        public const float PanelMinX = 0.014f;
+        public const float PanelMinY = 0.080f;
+        public const float PanelMaxX = 0.55f;
+        public const float PanelMaxY = 0.888f;
+
         public static readonly ScreenBand Hud = new ScreenBand(0.562f, 0.480f, 0.986f, 0.596f);
         public static readonly ScreenBand Preview = new ScreenBand(0.562f, 0.080f, 0.986f, PreviewMaxY);
         public static readonly ScreenBand Doctrine = new ScreenBand(0.562f, 0.608f, 0.986f, 0.898f);
@@ -155,6 +173,99 @@ namespace AsteroidsGoneRogue
         public static float PreviewHeightPx(float screenHeight)
         {
             return (PreviewMaxY - Preview.MinY) * screenHeight;
+        }
+
+        /// <summary>
+        /// WEAPONS title and the rule under it are inside HangarInner.
+        /// Overflow in screen pixels is zero at the HUD-gate resolutions.
+        /// </summary>
+        public static bool WeaponsGroupInsideInner()
+        {
+            if (!Contains(HangarInnerMinX, HangarInnerMinY, HangarInnerMaxX, HangarInnerMaxY, WeaponsGroupMinX, WeaponsGroupMinY, WeaponsGroupMaxX, WeaponsGroupMaxY))
+            {
+                return false;
+            }
+
+            float ruleMinY = WeaponsGroupMinY - WeaponsRuleDrop;
+            if (ruleMinY < HangarInnerMinY)
+            {
+                return false;
+            }
+
+            if (!Contains(HangarInnerMinX, HangarInnerMinY, HangarInnerMaxX, HangarInnerMaxY, WeaponsGroupMinX, ruleMinY, WeaponsGroupMaxX, WeaponsGroupMinY))
+            {
+                return false;
+            }
+
+            float[] widths = { 1280f, 1920f, 2560f, 3440f };
+            float[] heights = { 800f, 1080f, 1440f, 1440f };
+            for (int i = 0; i < widths.Length; i++)
+            {
+                if (OverflowPx(widths[i], heights[i]) > 0f)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public static float OverflowPx(float screenWidth, float screenHeight)
+        {
+            float innerMinX;
+            float innerMinY;
+            float innerMaxX;
+            float innerMaxY;
+            float groupMinX;
+            float groupMinY;
+            float groupMaxX;
+            float groupMaxY;
+            float ruleMinX;
+            float ruleMinY;
+            float ruleMaxX;
+            float ruleMaxY;
+            PanelPx(HangarInnerMinX, HangarInnerMinY, HangarInnerMaxX, HangarInnerMaxY, screenWidth, screenHeight, out innerMinX, out innerMinY, out innerMaxX, out innerMaxY);
+            PanelPx(WeaponsGroupMinX, WeaponsGroupMinY, WeaponsGroupMaxX, WeaponsGroupMaxY, screenWidth, screenHeight, out groupMinX, out groupMinY, out groupMaxX, out groupMaxY);
+            PanelPx(WeaponsGroupMinX, WeaponsGroupMinY - WeaponsRuleDrop, WeaponsGroupMaxX, WeaponsGroupMinY, screenWidth, screenHeight, out ruleMinX, out ruleMinY, out ruleMaxX, out ruleMaxY);
+            float over = Edge(groupMinX, innerMinX, false);
+            over = Max(over, Edge(groupMinY, innerMinY, false));
+            over = Max(over, Edge(groupMaxX, innerMaxX, true));
+            over = Max(over, Edge(groupMaxY, innerMaxY, true));
+            over = Max(over, Edge(ruleMinX, innerMinX, false));
+            over = Max(over, Edge(ruleMinY, innerMinY, false));
+            over = Max(over, Edge(ruleMaxX, innerMaxX, true));
+            over = Max(over, Edge(ruleMaxY, innerMaxY, true));
+            return over;
+        }
+
+        private static void PanelPx(float minX, float minY, float maxX, float maxY, float screenWidth, float screenHeight, out float outMinX, out float outMinY, out float outMaxX, out float outMaxY)
+        {
+            float width = PanelMaxX - PanelMinX;
+            float height = PanelMaxY - PanelMinY;
+            outMinX = (PanelMinX + (minX * width)) * screenWidth;
+            outMinY = (PanelMinY + (minY * height)) * screenHeight;
+            outMaxX = (PanelMinX + (maxX * width)) * screenWidth;
+            outMaxY = (PanelMinY + (maxY * height)) * screenHeight;
+        }
+
+        private static float Edge(float child, float parent, bool high)
+        {
+            if (high)
+            {
+                return child - parent;
+            }
+
+            return parent - child;
+        }
+
+        private static float Max(float left, float right)
+        {
+            return left > right ? left : right;
+        }
+
+        private static bool Contains(float outerMinX, float outerMinY, float outerMaxX, float outerMaxY, float innerMinX, float innerMinY, float innerMaxX, float innerMaxY)
+        {
+            return innerMinX >= outerMinX && innerMinY >= outerMinY && innerMaxX <= outerMaxX && innerMaxY <= outerMaxY;
         }
     }
 
