@@ -469,6 +469,30 @@ namespace UnityEngine
         public void SetPropertyBlock(MaterialPropertyBlock block, int materialIndex) { }
     }
 
+    public struct LOD
+    {
+        public float screenRelativeTransitionHeight;
+        public float fadeTransitionWidth;
+        public Renderer[] renderers;
+
+        public LOD(float screenRelativeTransitionHeight, Renderer[] renderers)
+        {
+            this.screenRelativeTransitionHeight = screenRelativeTransitionHeight;
+            this.fadeTransitionWidth = 0f;
+            this.renderers = renderers;
+        }
+    }
+
+    public class LODGroup : Component
+    {
+        public Vector3 localReferencePoint { get; set; }
+        public float size { get; set; }
+        public void SetLODs(LOD[] lods) { }
+        public LOD[] GetLODs() { return new LOD[0]; }
+        public void RecalculateBounds() { }
+        public void ForceLOD(int index) { }
+    }
+
     public class MaterialPropertyBlock
     {
         public void Clear() { }
@@ -511,6 +535,7 @@ namespace UnityEngine
         public Vector2 mainTextureOffset { get; set; }
         public Vector2 mainTextureScale { get; set; }
         public int renderQueue { get; set; }
+        public bool enableInstancing { get; set; }
         public void SetColor(string name, Color color) { }
         public void SetColor(int nameID, Color color) { }
         public Color GetColor(string name) { return Color.white; }

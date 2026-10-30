@@ -10127,6 +10127,7 @@ def main() -> int:
     test_balance_049_package_c()
     test_legacy_grant_once()
     test_arena_shape_050()
+    test_edge_decor_050()
     test_daily_reset_warning()
     test_glass_follows_focus()
     test_glaskanon_spelling()
@@ -18565,6 +18566,234 @@ def test_arena_shape_050() -> None:
     assert "arena_w" in shots and "_edge.png" in shots and "_flyin_" in shots
     assert "ArenaRadius = 30f" in waves
     assert "BeginOutside" in waves and "CreateOutside" in waves
+
+
+def _edge_const_float(rules: str, name: str) -> float:
+    import re
+
+    match = re.search(rf"public const float {name} = (-?[0-9.]+)f;", rules)
+    assert match, name
+    return float(match.group(1))
+
+
+def _edge_const_int(rules: str, name: str) -> int:
+    import re
+
+    match = re.search(rf"public const int {name} = (\d+);", rules)
+    assert match, name
+    return int(match.group(1))
+
+
+def _edge_luma(red: float, green: float, blue: float) -> float:
+    return (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
+
+
+def _edge_grade(rules: str, fog_r: float, fog_g: float, fog_b: float, fog: float) -> tuple[float, float, float]:
+    red = _edge_const_float(rules, "EdgeRockR") * _edge_const_float(rules, "AlbedoScale")
+    green = _edge_const_float(rules, "EdgeRockG") * _edge_const_float(rules, "AlbedoScale")
+    blue = _edge_const_float(rules, "EdgeRockB") * _edge_const_float(rules, "AlbedoScale")
+    gray = _edge_luma(red, green, blue)
+    desat = _edge_const_float(rules, "Desaturate")
+    keep = 1.0 - desat
+    red = (red * keep) + (gray * desat)
+    green = (green * keep) + (gray * desat)
+    blue = (blue * keep) + (gray * desat)
+    if fog < 0.0:
+        fog = 0.0
+    if fog > 1.0:
+        fog = 1.0
+    stay = 1.0 - fog
+    red = (red * stay) + (fog_r * fog)
+    green = (green * stay) + (fog_g * fog)
+    blue = (blue * stay) + (fog_b * fog)
+    luma = _edge_luma(red, green, blue)
+    cap = _edge_const_float(rules, "DecorLumaCap")
+    if luma > cap and luma > 0.0001:
+        scale = cap / luma
+        red *= scale
+        green *= scale
+        blue *= scale
+    real = _edge_luma(
+        _edge_const_float(rules, "RealRockR"),
+        _edge_const_float(rules, "RealRockG"),
+        _edge_const_float(rules, "RealRockB"),
+    )
+    limit = real / _edge_const_float(rules, "ContrastMin")
+    luma = _edge_luma(red, green, blue)
+    if luma > limit and luma > 0.0001:
+        scale = limit / luma
+        red *= scale
+        green *= scale
+        blue *= scale
+    return red, green, blue
+
+
+def test_edge_decor_050() -> None:
+    """Contour clusters, dust band, instance/tri budget, no colliders or shadows."""
+    import math
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    rules = (root / "Assets/Scripts/Core/DecorDepthRules.cs").read_text(encoding="utf-8")
+    env = (root / "Assets/Scripts/Content/ArenaEnv.cs").read_text(encoding="utf-8")
+    shader = (root / "Assets/Resources/Shaders/AgrEdgeDust.shader").read_text(encoding="utf-8")
+    rock_mat = (root / "Assets/Art/Materials/Mat_Edge_Rock.mat").read_text(encoding="utf-8")
+    dust_mat = (root / "Assets/Art/Materials/Mat_Edge_Dust.mat").read_text(encoding="utf-8")
+
+    instances = (
+        _edge_const_int(rules, "EdgeClusterCount")
+        + _edge_const_int(rules, "FarClusterCount")
+        + _edge_const_int(rules, "DustCardCount")
+        + _edge_const_int(rules, "RockLodCount")
+    )
+    tris = (
+        _edge_const_int(rules, "EdgeClusterCount") * _edge_const_int(rules, "ClusterTris")
+        + _edge_const_int(rules, "FarClusterCount") * _edge_const_int(rules, "ClusterTris")
+        + _edge_const_int(rules, "DustCardCount") * _edge_const_int(rules, "DustTris")
+        + _edge_const_int(rules, "RockLodCount") * _edge_const_int(rules, "RockLod0Tris")
+    )
+    assert instances <= _edge_const_int(rules, "MaxEdgeInstances")
+    assert tris <= _edge_const_int(rules, "MaxEdgeTris")
+    assert instances == 102
+    assert tris == 55620
+    assert _edge_const_int(rules, "RockLod0Tris") <= 294
+    assert _edge_const_int(rules, "RockLod1Tris") <= 78
+    assert _edge_const_int(rules, "MaxEdgeInstances") == 1500
+    assert _edge_const_int(rules, "MaxEdgeTris") == 60000
+    assert "PlannedInstances" in rules and "PlannedTris" in rules and "EdgeBudgetHolds" in rules
+
+    def clears(outside: float, extent: float) -> bool:
+        return (outside - extent) > 0.05
+
+    edge_out = _edge_const_float(rules, "EdgeOutsideMetres")
+    far_out = _edge_const_float(rules, "FarOutsideMetres")
+    dust_near = _edge_const_float(rules, "DustNearMetres")
+    dust_far = _edge_const_float(rules, "DustFarMetres")
+    dust_band = _edge_const_float(rules, "DustBandMetres")
+    assert dust_band == 7.0
+    assert 0.0 < dust_near < dust_far <= dust_band
+    assert clears(edge_out, _edge_const_float(rules, "ClusterExtent"))
+    assert clears(far_out, _edge_const_float(rules, "ClusterExtent"))
+    assert clears(dust_near, _edge_const_float(rules, "DustCardExtent"))
+    assert clears(dust_far, _edge_const_float(rules, "DustCardExtent"))
+    rock_clear = far_out - _edge_const_float(rules, "RockGroupRadius")
+    assert clears(rock_clear, _edge_const_float(rules, "RockExtent"))
+    assert edge_out > 0.0 and far_out > 0.0
+
+    play_radius = 30.0
+    for step in range(48):
+        angle = (math.pi * 2.0 * step) / 48.0
+        for outside in (edge_out, far_out, dust_near, dust_far):
+            radius = play_radius + outside
+            x = math.cos(angle) * radius
+            z = math.sin(angle) * radius
+            assert math.hypot(x, z) > play_radius + 0.05
+        child = play_radius + far_out - _edge_const_float(rules, "RockGroupRadius")
+        assert child > play_radius + 0.05
+
+    y_min = _edge_const_float(rules, "EdgeLayerYMin")
+    y_max = _edge_const_float(rules, "EdgeLayerYMax")
+    far_min = _edge_const_float(rules, "FarLayerYMin")
+    far_max = _edge_const_float(rules, "FarLayerYMax")
+    assert y_min == -1.5 and y_max == -0.6
+    assert far_min == -20.0 and far_max == -6.0
+    for index in range(12):
+        t = (index % 5) / 4.0
+        edge_y = y_min + ((y_max - y_min) * t)
+        far_y = far_min + ((far_max - far_min) * t)
+        assert y_min <= edge_y <= y_max
+        assert far_min <= far_y <= far_max
+        spin = 0.5 + ((index % 8) * 0.45)
+        assert 0.0 <= spin <= _edge_const_float(rules, "MaxSpinDegrees")
+        assert spin <= 4.0
+
+    for fog in (0.35, 0.70):
+        red, green, blue = _edge_grade(rules, 0.12, 0.28, 0.9, fog)
+        luma = _edge_luma(red, green, blue)
+        real = _edge_luma(0.38, 0.32, 0.28)
+        assert luma <= 0.17 + 1e-6
+        assert real / luma >= 3.0 - 1e-6
+    assert _edge_const_float(rules, "EdgeFog") == 0.35
+    assert 0.60 <= _edge_const_float(rules, "FarFog") <= 0.80
+    assert _edge_const_float(rules, "AlbedoScale") == 0.45
+    assert _edge_const_float(rules, "Desaturate") == 0.70
+    assert _edge_const_float(rules, "RockRoughness") == 0.95
+
+    dust_base = _edge_luma(
+        _edge_const_float(rules, "DustBaseR"),
+        _edge_const_float(rules, "DustBaseG"),
+        _edge_const_float(rules, "DustBaseB"),
+    )
+    dust_l = _edge_const_float(rules, "DustLuma")
+    glimmer_l = _edge_const_float(rules, "GlimmerLuma")
+    assert 0.10 <= dust_l <= 0.15
+    assert glimmer_l <= _edge_const_float(rules, "GlimmerLumaCap") <= 0.20
+    assert abs((_edge_const_float(rules, "DustBaseR") * (dust_l / dust_base)) - (0x3A / 255.0) * (dust_l / dust_base)) < 1e-4
+
+    edge_code = env.split("private void CreateEdgeDecor")[1].split("private static Texture2D MakeGridTexture")[0]
+    assert "SpawnRing" in edge_code
+    assert "EdgeOutsideMetres" in edge_code and "FarOutsideMetres" in edge_code
+    assert "DustNearMetres" in edge_code and "DustBandMetres" in edge_code
+    assert "Edge_Cluster_01" in edge_code and "Edge_Cluster_04" in edge_code
+    assert "EdgeLayerYMin" in edge_code and "FarLayerYMin" in edge_code
+    rock_code = edge_code.split("private void PlaceRockLodCluster")[1].split("private void PlaceDustBand")[0]
+    assert "Edge_Rock_0" in rock_code
+    assert "FarOutsideMetres" in rock_code and "FarLayerYMin" in rock_code
+    assert "EdgeOutsideMetres" not in rock_code
+    cluster_code = edge_code.split("private void PlaceCluster")[1].split("private void PlaceRockLodCluster")[0]
+    assert "Edge_Rock_" not in cluster_code
+    assert "Destroy(collider)" in edge_code
+    assert "ShadowCastingMode.Off" in edge_code
+    assert "receiveShadows = false" in edge_code
+    assert "AddComponent<BoxCollider>" not in edge_code
+    assert "AddComponent<MeshCollider>" not in edge_code
+    assert "AddComponent<SphereCollider>" not in edge_code
+    assert "LODGroup" in edge_code and "SetLODs" in edge_code
+    assert "enableInstancing = true" in edge_code
+    assert 'Shader.Find("AGR/EdgeDust")' in edge_code
+    assert "BlendMode.One" in edge_code and "BlendMode.OneMinusSrcAlpha" in edge_code
+    spin = edge_code.split("private void TickEdgeSpin")[1].split("private void ApplyEdgeGrade")[0]
+    assert spin.index("if (reduce") < spin.index("Rotate")
+    assert ".color" not in spin and "GradeDecor" not in spin
+    grade = edge_code.split("private void ApplyEdgeGrade")[1].split("private Material KeepEdgeMaterial")[0]
+    assert "reduce" not in grade and "GradeDecor" in grade
+    assert "RunRng" not in env and "RunRng" not in rules
+    assert "DottedContourMesh" in env and "Mat_Env_VoidField" in env
+    assert "BeltRadiusScale = 1.6f" in env and "CreateBelt" in env and "ArenaLip" in env
+    assert "DustRing" not in env and "CreateDustRing" not in env
+    assert 'Shader.Find("Particles/Additive")' in env
+
+    assert 'Shader "AGR/EdgeDust"' in shader
+    assert "Blend One OneMinusSrcAlpha" in shader
+    assert "ZTest Always" not in shader
+    assert "Overlay" not in shader
+    assert "m_EnableInstancingVariants: 1" in rock_mat
+    assert "_Glossiness: 0.05" in rock_mat
+    assert "0.16470589" in rock_mat and "0.18039216" in rock_mat and "0.20784314" in rock_mat
+    assert "m_CustomRenderQueue: 3000" in dust_mat
+    assert "Blend One OneMinusSrcAlpha" in shader
+
+    lfs_prefix = b"version https://git-lfs.github.com/spec/v1"
+    names = [f"Edge_Rock_{i:02d}" for i in range(1, 7)]
+    names += [f"Edge_Cluster_{i:02d}" for i in range(1, 5)]
+    names += [f"Edge_Dust_{i:02d}" for i in range(1, 4)]
+    for name in names:
+        for folder in ("Assets/Art/Import", "Assets/Resources/Art/Import"):
+            fbx = root / folder / f"{name}.fbx"
+            meta = root / folder / f"{name}.fbx.meta"
+            assert fbx.is_file() and fbx.stat().st_size > 1000
+            assert not fbx.read_bytes()[:64].startswith(lfs_prefix)
+            meta_text = meta.read_text(encoding="utf-8")
+            assert "addColliders: 0" in meta_text
+            assert "globalScale: 1" in meta_text
+    for tex_name in (
+        "T_Edge_Dust_01.png",
+        "T_Edge_Dust_02.png",
+        "T_Edge_Dust_03_Glimmer.png",
+        "T_Edge_DustDecal_Tile.png",
+    ):
+        assert (root / "Assets/Art/Import/Textures" / tex_name).is_file()
+        assert (root / "Assets/Resources/Art/Import/Textures" / tex_name).is_file()
 
 
 if __name__ == "__main__":
