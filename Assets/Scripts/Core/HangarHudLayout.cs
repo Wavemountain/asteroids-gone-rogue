@@ -33,7 +33,7 @@ namespace AsteroidsGoneRogue
         public static readonly ScreenBand TopBar = new ScreenBand(0.012f, 0.905f, 0.988f, 0.995f);
         public static readonly ScreenBand Title = new ScreenBand(0.012f, 0.905f, 0.340f, 0.995f);
         public static readonly ScreenBand WorldRow = new ScreenBand(0.490f, 0.906f, 0.735f, 0.948f);
-        public static readonly ScreenBand MedalRow = new ScreenBand(0.490f, 0.948f, 0.735f, 0.994f);
+        public static readonly ScreenBand MedalRow = new ScreenBand(0.490f, 0.952f, 0.735f, 0.994f);
         public static readonly ScreenBand HangarPanel = new ScreenBand(0.014f, 0.080f, 0.55f, 0.888f);
 
         public const float StripMinX = 0.03f;

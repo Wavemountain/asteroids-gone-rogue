@@ -377,7 +377,7 @@ namespace AsteroidsGoneRogue
         private static readonly Vector2 HangarTitleMax = new Vector2(0.340f, 0.995f);
         private static readonly Vector2 HangarWorldMin = new Vector2(0.490f, 0.906f);
         private static readonly Vector2 HangarWorldMax = new Vector2(0.735f, 0.948f);
-        private static readonly Vector2 HangarMedalMin = new Vector2(0.490f, 0.948f);
+        private static readonly Vector2 HangarMedalMin = new Vector2(0.490f, 0.952f);
         private static readonly Vector2 HangarMedalMax = new Vector2(0.735f, 0.994f);
         private const float HintScrimAlpha = 0.62f;
         // Gear stays on the top-right. Mute / SFX / Music live in the settings panel.
