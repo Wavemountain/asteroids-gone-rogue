@@ -213,12 +213,12 @@ namespace AsteroidsGoneRogue
 
         private static bool StatusLabelsClear()
         {
-            if (!(RackHullMaxY < RackShieldMinY) || !(RackShieldMaxY < RackTitleMinY))
+            if (!Stacked(RackHullMaxY, RackShieldMinY) || !Stacked(RackShieldMaxY, RackTitleMinY))
             {
                 return false;
             }
 
-            if (!(RackBarTop < RackBarLabelMin))
+            if (!Stacked(RackBarTop, RackBarLabelMin))
             {
                 return false;
             }
@@ -226,7 +226,7 @@ namespace AsteroidsGoneRogue
             float shieldSpan = RackShieldMaxY - RackShieldMinY;
             float shieldLabelBottom = RackShieldMinY + (RackBarLabelMin * shieldSpan);
             float hullLabelTop = RackHullMaxY;
-            if (!(hullLabelTop < shieldLabelBottom) || !(RackShieldMaxY < RackTitleMinY))
+            if (!Stacked(hullLabelTop, shieldLabelBottom))
             {
                 return false;
             }
