@@ -377,8 +377,8 @@ namespace AsteroidsGoneRogue
         private static readonly Vector2 HangarTitleMax = new Vector2(0.340f, 0.995f);
         private static readonly Vector2 HangarWorldMin = new Vector2(0.490f, 0.906f);
         private static readonly Vector2 HangarWorldMax = new Vector2(0.735f, 0.948f);
-        private static readonly Vector2 HangarMedalMin = new Vector2(0.490f, 0.952f);
-        private static readonly Vector2 HangarMedalMax = new Vector2(0.735f, 0.992f);
+        private static readonly Vector2 HangarMedalMin = new Vector2(0.490f, 0.948f);
+        private static readonly Vector2 HangarMedalMax = new Vector2(0.735f, 0.994f);
         private const float HintScrimAlpha = 0.62f;
         // Gear stays on the top-right. Mute / SFX / Music live in the settings panel.
         public static readonly Vector2 SettingsGearMin = new Vector2(0.900f, 0.905f);
@@ -6646,7 +6646,7 @@ namespace AsteroidsGoneRogue
             if (show)
             {
                 _badgeRow.text = Loc.T("ui.medals", MedalLadderPrefix) + "  " + row;
-                _badgeRow.fontSize = playing ? 12 : 14;
+                _badgeRow.fontSize = playing ? 16 : 14;
                 _badgeRow.color = playing
                     ? UiTheme.WithAlpha(UiTheme.Primary, 0.92f)
                     : UiTheme.Primary;
@@ -7052,12 +7052,12 @@ namespace AsteroidsGoneRogue
                 UiTheme.HudPlate);
 
             _healthTitle = CreateText("HealthTitle", _healthRoot.transform, display, 15, TextAnchor.MiddleLeft, FontStyle.Bold);
-            Stretch(_healthTitle.rectTransform, new Vector2(0.07f, 0.8f), new Vector2(0.48f, 0.98f));
+            Stretch(_healthTitle.rectTransform, new Vector2(0.07f, PlayHudLayout.RackTitleMinY), new Vector2(0.48f, PlayHudLayout.RackTitleMaxY));
             _healthTitle.color = UiBody;
             AddReadability(_healthTitle, true);
 
             _livesHud = CreateText("LivesHud", _healthRoot.transform, display, 13, TextAnchor.MiddleRight, FontStyle.Bold);
-            Stretch(_livesHud.rectTransform, new Vector2(0.48f, 0.8f), new Vector2(0.95f, 0.98f));
+            Stretch(_livesHud.rectTransform, new Vector2(0.48f, PlayHudLayout.RackTitleMinY), new Vector2(0.95f, PlayHudLayout.RackTitleMaxY));
             _livesHud.color = UiAmber;
             AddReadability(_livesHud, true);
 
@@ -7066,8 +7066,8 @@ namespace AsteroidsGoneRogue
                 _healthRoot.transform,
                 display,
                 body,
-                new Vector2(0.05f, 0.42f),
-                new Vector2(0.95f, 0.76f),
+                new Vector2(0.05f, PlayHudLayout.RackShieldMinY),
+                new Vector2(0.95f, PlayHudLayout.RackShieldMaxY),
                 UiShield,
                 out _shieldBarLabel,
                 out _shieldBarCount,
@@ -7077,8 +7077,8 @@ namespace AsteroidsGoneRogue
                 _healthRoot.transform,
                 display,
                 body,
-                new Vector2(0.05f, 0.04f),
-                new Vector2(0.95f, 0.38f),
+                new Vector2(0.05f, PlayHudLayout.RackHullMinY),
+                new Vector2(0.95f, PlayHudLayout.RackHullMaxY),
                 UiTheme.Accent,
                 out _hullBarLabel,
                 out _hullBarCount,
@@ -7209,19 +7209,19 @@ namespace AsteroidsGoneRogue
             Stretch(row.AddComponent<RectTransform>(), min, max);
 
             label = CreateText(name + "Label", row.transform, display, (int)PremiumLook.HudLabel, TextAnchor.MiddleLeft, FontStyle.Bold);
-            Stretch(label.rectTransform, new Vector2(0f, 0.64f), new Vector2(0.58f, 1f));
+            Stretch(label.rectTransform, new Vector2(0f, PlayHudLayout.RackBarLabelMin), new Vector2(0.58f, 1f));
             label.color = UiBody;
 
             FontStyle countStyle;
             Font countFont = UiFonts.ForDigits(body, (int)PremiumLook.HudLabel, out countStyle);
             count = CreateText(name + "Count", row.transform, countFont, (int)PremiumLook.HudLabel, TextAnchor.MiddleRight, countStyle);
-            Stretch(count.rectTransform, new Vector2(0.5f, 0.64f), new Vector2(1f, 1f));
+            Stretch(count.rectTransform, new Vector2(0.5f, PlayHudLayout.RackBarLabelMin), new Vector2(1f, 1f));
             count.color = UiAmber;
 
             CreateFill(name + "Bezel", row.transform, UiTheme.WithAlpha(UiTheme.Accent, 0.35f),
-                new Vector2(0f, 0.02f), new Vector2(1f, 0.6f));
+                new Vector2(0f, 0.02f), new Vector2(1f, PlayHudLayout.RackBarTop));
             GameObject track = CreateFill(name + "Track", row.transform, UiTheme.WithAlpha(UiTheme.Void, 0.96f),
-                new Vector2(0.012f, 0.07f), new Vector2(0.988f, 0.55f));
+                new Vector2(0.012f, 0.06f), new Vector2(0.988f, PlayHudLayout.RackBarTop - 0.04f));
             GameObject fillGo = new GameObject(name + "Fill");
             fillGo.transform.SetParent(track.transform, false);
             fill = fillGo.AddComponent<Image>();

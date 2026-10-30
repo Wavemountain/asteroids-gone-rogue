@@ -1095,7 +1095,7 @@ def test_sniper_fardrift_037() -> None:
     assert "ScoutWingTitle" in summary
     assert "RunSummary.ShowContinueHint(" in ui
     assert "persist.LadderLine()" in ui
-    assert "playing ? 12 : 14" in ui
+    assert "playing ? 16 : 14" in ui
     complete = manager.split("private void CompleteWave()")[1].split("private bool TryAwardWorldMedal")[0]
     assert "PlayFarDriftAward" in complete
     assert "PlayWaveClear" in complete
