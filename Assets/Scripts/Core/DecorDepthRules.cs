@@ -39,6 +39,52 @@ namespace AsteroidsGoneRogue
         public const float SpokeSpikeScale = 0.85f;
         public const float BeltOuterScale = 1.6f;
         public const float BeltTop = 3.2f;
+
+        // Contour decor. Clusters sit outside the play shape. Counts are the per-level budget.
+        public const float EdgeLayerYMin = -1.5f;
+        public const float EdgeLayerYMax = -0.6f;
+        public const float FarLayerYMin = -20f;
+        public const float FarLayerYMax = -6f;
+        public const float EdgeOutsideMetres = 2f;
+        public const float FarOutsideMetres = 6f;
+        public const float DustBandMetres = 7f;
+        public const float DustNearMetres = 2.2f;
+        public const float DustFarMetres = 5f;
+        public const float ClusterExtent = 0.65f;
+        public const float DustCardExtent = 2f;
+        public const float RockExtent = 0.2f;
+        public const float RockGroupRadius = 0.35f;
+        public const int EdgeClusterCount = 32;
+        public const int FarClusterCount = 16;
+        public const int DustCardCount = 48;
+        public const int RockLodCount = 6;
+        public const int MaxEdgeInstances = 1500;
+        public const int MaxEdgeTris = 60000;
+        public const int ClusterTris = 1120;
+        public const int DustTris = 2;
+        public const int RockLod0Tris = 294;
+        public const int RockLod1Tris = 78;
+        public const float MaxSpinDegrees = 4f;
+        public const float AlbedoScale = 0.45f;
+        public const float Desaturate = 0.70f;
+        public const float DecorLumaCap = 0.17f;
+        public const float ContrastMin = 3f;
+        public const float EdgeFog = 0.35f;
+        public const float FarFog = 0.70f;
+        public const float RealRockR = 0.38f;
+        public const float RealRockG = 0.32f;
+        public const float RealRockB = 0.28f;
+        public const float EdgeRockR = 0.16470589f;
+        public const float EdgeRockG = 0.18039216f;
+        public const float EdgeRockB = 0.20784314f;
+        public const float RockRoughness = 0.95f;
+        public const float DustLuma = 0.12f;
+        public const float GlimmerLuma = 0.18f;
+        public const float GlimmerLumaCap = 0.20f;
+        public const float DustBaseR = 0.22745098f;
+        public const float DustBaseG = 0.20392157f;
+        public const float DustBaseB = 0.17254902f;
+
         public const float MeshYWorld2 = 4.80f;
         public const float MeshZWorld2 = 24f;
         public const float MeshYWorld3 = 4.55f;
@@ -203,7 +249,216 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            if (!EdgeBudgetHolds())
+            {
+                return false;
+            }
+
+            if (!ClearsPlay(EdgeOutsideMetres, ClusterExtent))
+            {
+                return false;
+            }
+
+            if (!ClearsPlay(FarOutsideMetres, ClusterExtent))
+            {
+                return false;
+            }
+
+            if (!ClearsPlay(DustNearMetres, DustCardExtent))
+            {
+                return false;
+            }
+
+            if (!ClearsPlay(DustFarMetres, DustCardExtent))
+            {
+                return false;
+            }
+
+            if (!ClearsPlay(FarOutsideMetres - RockGroupRadius, RockExtent))
+            {
+                return false;
+            }
+
+            float gradedR;
+            float gradedG;
+            float gradedB;
+            GradeDecor(0.12f, 0.28f, 0.9f, EdgeFog, out gradedR, out gradedG, out gradedB);
+            float gradedLuma = Luma(gradedR, gradedG, gradedB);
+            float realLuma = Luma(RealRockR, RealRockG, RealRockB);
+            if (gradedLuma > DecorLumaCap || gradedLuma <= 0f || (realLuma / gradedLuma) < ContrastMin)
+            {
+                return false;
+            }
+
+            float farR;
+            float farG;
+            float farB;
+            GradeDecor(0.12f, 0.28f, 0.9f, FarFog, out farR, out farG, out farB);
+            float farLuma = Luma(farR, farG, farB);
+            if (farLuma > DecorLumaCap || farLuma <= 0f || (realLuma / farLuma) < ContrastMin)
+            {
+                return false;
+            }
+
+            float dustR;
+            float dustG;
+            float dustB;
+            DustRgb(DustLuma, out dustR, out dustG, out dustB);
+            float dustLuma = Luma(dustR, dustG, dustB);
+            if (dustLuma < 0.10f || dustLuma > 0.15f)
+            {
+                return false;
+            }
+
+            DustRgb(GlimmerLuma, out dustR, out dustG, out dustB);
+            if (Luma(dustR, dustG, dustB) > GlimmerLumaCap)
+            {
+                return false;
+            }
+
+            for (int sample = 0; sample < 8; sample++)
+            {
+                float yEdge = EdgeDecorY(sample, EdgeLayerYMin, EdgeLayerYMax);
+                if (yEdge < EdgeLayerYMin || yEdge > EdgeLayerYMax)
+                {
+                    return false;
+                }
+
+                float yFar = EdgeDecorY(sample, FarLayerYMin, FarLayerYMax);
+                if (yFar < FarLayerYMin || yFar > FarLayerYMax)
+                {
+                    return false;
+                }
+
+                float spin = SpinDegrees(sample);
+                if (spin < 0f || spin > MaxSpinDegrees)
+                {
+                    return false;
+                }
+            }
+
             return true;
+        }
+
+        public static int PlannedInstances()
+        {
+            return EdgeClusterCount + FarClusterCount + DustCardCount + RockLodCount;
+        }
+
+        public static int PlannedTris()
+        {
+            return (EdgeClusterCount * ClusterTris)
+                + (FarClusterCount * ClusterTris)
+                + (DustCardCount * DustTris)
+                + (RockLodCount * RockLod0Tris);
+        }
+
+        public static bool EdgeBudgetHolds()
+        {
+            int instances = PlannedInstances();
+            int tris = PlannedTris();
+            if (instances > MaxEdgeInstances || instances < 1)
+            {
+                return false;
+            }
+
+            if (tris > MaxEdgeTris || tris < 1)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        public static bool ClearsPlay(float outside, float extent)
+        {
+            return (outside - extent) > 0.05f;
+        }
+
+        public static float Luma(float red, float green, float blue)
+        {
+            return (0.2126f * red) + (0.7152f * green) + (0.0722f * blue);
+        }
+
+        public static float EdgeDecorY(int index, float yMin, float yMax)
+        {
+            float t = (index % 5) / 4f;
+            return yMin + ((yMax - yMin) * t);
+        }
+
+        public static float SpinDegrees(int index)
+        {
+            float spin = 0.5f + ((index % 8) * 0.45f);
+            if (spin > MaxSpinDegrees)
+            {
+                spin = MaxSpinDegrees;
+            }
+
+            if (spin < 0f)
+            {
+                spin = 0f;
+            }
+
+            return spin;
+        }
+
+        public static void DustRgb(float lumaTarget, out float red, out float green, out float blue)
+        {
+            float baseLuma = Luma(DustBaseR, DustBaseG, DustBaseB);
+            float scale = lumaTarget / baseLuma;
+            red = DustBaseR * scale;
+            green = DustBaseG * scale;
+            blue = DustBaseB * scale;
+        }
+
+        /// <summary>
+        /// #2A2E35 times 0.45, 70% toward gray, then the world fog. Luma stays
+        /// at or under 0.17 and at least 3:1 under a real asteroid.
+        /// </summary>
+        public static void GradeDecor(float fogR, float fogG, float fogB, float fogAmount, out float red, out float green, out float blue)
+        {
+            red = EdgeRockR * AlbedoScale;
+            green = EdgeRockG * AlbedoScale;
+            blue = EdgeRockB * AlbedoScale;
+            float gray = Luma(red, green, blue);
+            float keep = 1f - Desaturate;
+            red = (red * keep) + (gray * Desaturate);
+            green = (green * keep) + (gray * Desaturate);
+            blue = (blue * keep) + (gray * Desaturate);
+            float fog = fogAmount;
+            if (fog < 0f)
+            {
+                fog = 0f;
+            }
+
+            if (fog > 1f)
+            {
+                fog = 1f;
+            }
+
+            float stay = 1f - fog;
+            red = (red * stay) + (fogR * fog);
+            green = (green * stay) + (fogG * fog);
+            blue = (blue * stay) + (fogB * fog);
+            float luma = Luma(red, green, blue);
+            if (luma > DecorLumaCap && luma > 0.0001f)
+            {
+                float capScale = DecorLumaCap / luma;
+                red *= capScale;
+                green *= capScale;
+                blue *= capScale;
+            }
+
+            float real = Luma(RealRockR, RealRockG, RealRockB);
+            float limit = real / ContrastMin;
+            luma = Luma(red, green, blue);
+            if (luma > limit && luma > 0.0001f)
+            {
+                float contrastScale = limit / luma;
+                red *= contrastScale;
+                green *= contrastScale;
+                blue *= contrastScale;
+            }
         }
     }
 }

@@ -64,6 +64,14 @@ namespace AsteroidsGoneRogue
         private float _lipAlpha = ArenaEdge.RestAlpha;
         private Texture2D _distTex;
         private int _distWorld = -1;
+        private Material _edgeRockMat;
+        private Material _farRockMat;
+        private Material _edgeDustMat;
+        private Material _edgeDustCard;
+        private Material _edgeGlimmerMat;
+        private Material _edgeAssign;
+        private Transform[] _edgeSpinners;
+        private float[] _edgeSpin;
 
         public static ArenaEnv Ensure(Transform arenaRoot)
         {
@@ -154,6 +162,7 @@ namespace AsteroidsGoneRogue
             PostStack.SetWorld(world, SettingsState.ReduceEffectsEnabled);
             PlaceBelt(ArenaShapeCatalog.Active.BoundingRadius * BeltRadiusScale);
             RebuildLip();
+            ApplyEdgeGrade(world);
         }
 
         public void RestoreHangarKey()
@@ -386,6 +395,7 @@ namespace AsteroidsGoneRogue
             }
 
             TickLip(reduce);
+            TickEdgeSpin(reduce);
         }
 
         private void Build()
@@ -434,6 +444,7 @@ namespace AsteroidsGoneRogue
             CreateRimLight();
             CreateUnderGlow(radius);
             CreateNearDust();
+            CreateEdgeDecor();
         }
 
         private void CreateDome(string name, float radius, Material material)
@@ -1343,6 +1354,406 @@ namespace AsteroidsGoneRogue
             tex.Apply(true, false);
             tex.name = "AstroGridFade";
             return tex;
+        }
+
+        private void CreateEdgeDecor()
+        {
+            GameObject root = new GameObject("EdgeDecor");
+            root.transform.SetParent(transform, false);
+            _edgeRockMat = CreateEdgeRockMaterial("Mat_Edge_Rock");
+            _farRockMat = CreateEdgeRockMaterial("Mat_Edge_Rock_Far");
+            _edgeDustMat = CreateEdgeDustMaterial("Mat_Edge_Dust", "T_Edge_DustDecal_Tile", false);
+            _edgeDustCard = CreateEdgeDustMaterial("Mat_Edge_DustCard", "T_Edge_Dust_02", false);
+            _edgeGlimmerMat = CreateEdgeDustMaterial("Mat_Edge_Dust_Glimmer", "T_Edge_Dust_03_Glimmer", true);
+            ApplyEdgeGrade(_world);
+
+            int spinning = DecorDepthRules.EdgeClusterCount + DecorDepthRules.FarClusterCount + 1;
+            _edgeSpinners = new Transform[spinning];
+            _edgeSpin = new float[spinning];
+            ArenaShape shape = ArenaShapeCatalog.Active;
+            for (int edgeIndex = 0; edgeIndex < DecorDepthRules.EdgeClusterCount; edgeIndex++)
+            {
+                float angle = (Mathf.PI * 2f * edgeIndex) / DecorDepthRules.EdgeClusterCount;
+                float y = DecorDepthRules.EdgeDecorY(edgeIndex, DecorDepthRules.EdgeLayerYMin, DecorDepthRules.EdgeLayerYMax);
+                PlaceCluster(root.transform, shape, edgeIndex, angle, DecorDepthRules.EdgeOutsideMetres, y, _edgeRockMat, edgeIndex);
+            }
+
+            for (int farIndex = 0; farIndex < DecorDepthRules.FarClusterCount; farIndex++)
+            {
+                float angle = ((Mathf.PI * 2f * farIndex) / DecorDepthRules.FarClusterCount) + 0.17f;
+                float y = DecorDepthRules.EdgeDecorY(farIndex, DecorDepthRules.FarLayerYMin, DecorDepthRules.FarLayerYMax);
+                int slot = DecorDepthRules.EdgeClusterCount + farIndex;
+                PlaceCluster(root.transform, shape, slot, angle, DecorDepthRules.FarOutsideMetres, y, _farRockMat, slot);
+            }
+
+            PlaceRockLodCluster(root.transform, shape, spinning - 1);
+            PlaceDustBand(root.transform, shape);
+            DecorCameraStack.ApplyLayer(root);
+        }
+
+        private void PlaceCluster(Transform parent, ArenaShape shape, int slot, float angle, float outside, float y, Material rockMat, int spinSlot)
+        {
+            if (outside <= 0f || parent == null || shape == null)
+            {
+                return;
+            }
+
+            float x;
+            float z;
+            shape.SpawnRing(angle, outside, out x, out z);
+            Transform cluster = new GameObject("EdgeCluster_" + slot).transform;
+            cluster.SetParent(parent, false);
+            cluster.position = new Vector3(x, y, z);
+            cluster.rotation = Quaternion.Euler(0f, angle * Mathf.Rad2Deg, 0f);
+            if (_edgeSpinners != null && spinSlot >= 0 && spinSlot < _edgeSpinners.Length)
+            {
+                _edgeSpinners[spinSlot] = cluster;
+                _edgeSpin[spinSlot] = DecorDepthRules.SpinDegrees(spinSlot);
+            }
+
+            int kind = slot % 4;
+            string mesh = "Edge_Cluster_01";
+            if (kind == 1)
+            {
+                mesh = "Edge_Cluster_02";
+            }
+            else if (kind == 2)
+            {
+                mesh = "Edge_Cluster_03";
+            }
+            else if (kind == 3)
+            {
+                mesh = "Edge_Cluster_04";
+            }
+
+            _edgeAssign = rockMat;
+            GameObject instance;
+            if (!ArtImport.TryInstantiate(mesh, cluster, KeepEdgeMaterial, rockMat, out instance))
+            {
+                return;
+            }
+
+            StripEdgePhysics(instance);
+            EnsureRockLod(instance);
+        }
+
+        private void PlaceRockLodCluster(Transform parent, ArenaShape shape, int spinSlot)
+        {
+            if (parent == null || shape == null)
+            {
+                return;
+            }
+
+            float angle = 0.4f;
+            float x;
+            float z;
+            shape.SpawnRing(angle, DecorDepthRules.FarOutsideMetres, out x, out z);
+            Transform group = new GameObject("EdgeRockLod").transform;
+            group.SetParent(parent, false);
+            group.position = new Vector3(x, DecorDepthRules.FarLayerYMin, z);
+            group.rotation = Quaternion.Euler(0f, angle * Mathf.Rad2Deg, 0f);
+            if (_edgeSpinners != null && spinSlot >= 0 && spinSlot < _edgeSpinners.Length)
+            {
+                _edgeSpinners[spinSlot] = group;
+                _edgeSpin[spinSlot] = DecorDepthRules.SpinDegrees(spinSlot);
+            }
+
+            for (int rock = 0; rock < DecorDepthRules.RockLodCount; rock++)
+            {
+                float around = (Mathf.PI * 2f * rock) / DecorDepthRules.RockLodCount;
+                Transform slot = new GameObject("EdgeRock_" + rock).transform;
+                slot.SetParent(group, false);
+                slot.localPosition = new Vector3(
+                    Mathf.Cos(around) * DecorDepthRules.RockGroupRadius,
+                    0f,
+                    Mathf.Sin(around) * DecorDepthRules.RockGroupRadius);
+                string mesh = "Edge_Rock_0" + (rock + 1);
+                _edgeAssign = _farRockMat;
+                GameObject instance;
+                if (!ArtImport.TryInstantiate(mesh, slot, KeepEdgeMaterial, _farRockMat, out instance))
+                {
+                    continue;
+                }
+
+                StripEdgePhysics(instance);
+                EnsureRockLod(instance);
+            }
+        }
+
+        private void PlaceDustBand(Transform parent, ArenaShape shape)
+        {
+            if (parent == null || shape == null)
+            {
+                return;
+            }
+
+            int perRing = DecorDepthRules.DustCardCount / 2;
+            for (int card = 0; card < DecorDepthRules.DustCardCount; card++)
+            {
+                int ring = card % 2;
+                int along = card / 2;
+                float angle = ((Mathf.PI * 2f) * along) / perRing + (ring * 0.13f);
+                float outside = DecorDepthRules.DustNearMetres;
+                string mesh = "Edge_Dust_01";
+                Material mat = _edgeDustMat;
+                if (ring == 1)
+                {
+                    outside = DecorDepthRules.DustFarMetres;
+                    mesh = "Edge_Dust_02";
+                    mat = _edgeDustCard;
+                }
+
+                if (card % 6 == 0)
+                {
+                    mesh = "Edge_Dust_03";
+                    mat = _edgeGlimmerMat;
+                }
+
+                if (outside <= 0f || outside > DecorDepthRules.DustBandMetres)
+                {
+                    continue;
+                }
+
+                float x;
+                float z;
+                shape.SpawnRing(angle, outside, out x, out z);
+                Transform slot = new GameObject("EdgeDust_" + card).transform;
+                slot.SetParent(parent, false);
+                slot.position = new Vector3(x, 0.02f, z);
+                slot.rotation = Quaternion.Euler(0f, angle * Mathf.Rad2Deg, 0f);
+                _edgeAssign = mat;
+                GameObject instance;
+                if (!ArtImport.TryInstantiate(mesh, slot, KeepEdgeMaterial, mat, out instance))
+                {
+                    continue;
+                }
+
+                StripEdgePhysics(instance);
+            }
+        }
+
+        private void TickEdgeSpin(bool reduce)
+        {
+            if (reduce || _edgeSpinners == null || _edgeSpin == null)
+            {
+                return;
+            }
+
+            float dt = Time.unscaledDeltaTime;
+            int count = _edgeSpinners.Length;
+            if (_edgeSpin.Length < count)
+            {
+                count = _edgeSpin.Length;
+            }
+
+            for (int spinIndex = 0; spinIndex < count; spinIndex++)
+            {
+                Transform slot = _edgeSpinners[spinIndex];
+                if (slot == null)
+                {
+                    continue;
+                }
+
+                float rate = _edgeSpin[spinIndex];
+                if (rate > DecorDepthRules.MaxSpinDegrees)
+                {
+                    rate = DecorDepthRules.MaxSpinDegrees;
+                }
+
+                if (rate < 0f)
+                {
+                    rate = 0f;
+                }
+
+                slot.Rotate(0f, rate * dt, 0f, Space.Self);
+            }
+        }
+
+        private void ApplyEdgeGrade(int world)
+        {
+            if (_edgeRockMat == null && _farRockMat == null)
+            {
+                return;
+            }
+
+            WorldTint tint = WorldRules.TintForWorld(world);
+            float bright = tint.Brightness;
+            if (bright < 0f)
+            {
+                bright = 0f;
+            }
+
+            float fogR = tint.NebulaR * bright;
+            float fogG = tint.NebulaG * bright;
+            float fogB = tint.NebulaB * bright;
+            float edgeR;
+            float edgeG;
+            float edgeB;
+            DecorDepthRules.GradeDecor(fogR, fogG, fogB, DecorDepthRules.EdgeFog, out edgeR, out edgeG, out edgeB);
+            float farR;
+            float farG;
+            float farB;
+            DecorDepthRules.GradeDecor(fogR, fogG, fogB, DecorDepthRules.FarFog, out farR, out farG, out farB);
+            if (_edgeRockMat != null)
+            {
+                _edgeRockMat.color = new Color(edgeR, edgeG, edgeB, 1f);
+            }
+
+            if (_farRockMat != null)
+            {
+                _farRockMat.color = new Color(farR, farG, farB, 1f);
+            }
+        }
+
+        private Material KeepEdgeMaterial(string meshName, Material imported)
+        {
+            if (_edgeAssign != null && meshName != null)
+            {
+                return _edgeAssign;
+            }
+
+            return imported;
+        }
+
+        private static Material CreateEdgeRockMaterial(string name)
+        {
+            Shader shader = Shader.Find("Standard");
+            if (shader == null)
+            {
+                shader = Shader.Find("Unlit/Color");
+            }
+
+            Material material = new Material(shader);
+            material.name = name;
+            material.color = new Color(DecorDepthRules.EdgeRockR, DecorDepthRules.EdgeRockG, DecorDepthRules.EdgeRockB, 1f);
+            material.SetFloat("_Glossiness", 1f - DecorDepthRules.RockRoughness);
+            material.SetFloat("_Metallic", 0f);
+            material.SetColor("_EmissionColor", Color.black);
+            material.enableInstancing = true;
+            material.renderQueue = DecorDepthRules.DecorQueue;
+            return material;
+        }
+
+        private static Material CreateEdgeDustMaterial(string name, string textureName, bool glimmer)
+        {
+            Shader shader = Shader.Find("AGR/EdgeDust");
+            if (shader == null)
+            {
+                shader = Shader.Find("Legacy Shaders/Particles/Alpha Blended Premultiply");
+            }
+
+            if (shader == null)
+            {
+                shader = Shader.Find("Unlit/Transparent");
+            }
+
+            Material material = new Material(shader);
+            material.name = name;
+            Texture2D tex = Resources.Load<Texture2D>("Art/Import/Textures/" + textureName);
+            if (tex != null)
+            {
+                material.mainTexture = tex;
+                if (textureName != null && textureName.IndexOf("Tile", System.StringComparison.Ordinal) >= 0)
+                {
+                    tex.wrapMode = TextureWrapMode.Repeat;
+                }
+            }
+
+            float luma = DecorDepthRules.DustLuma;
+            if (glimmer)
+            {
+                luma = DecorDepthRules.GlimmerLuma;
+            }
+
+            float red;
+            float green;
+            float blue;
+            DecorDepthRules.DustRgb(luma, out red, out green, out blue);
+            material.color = new Color(red, green, blue, 0.85f);
+            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            material.SetInt("_ZWrite", 0);
+            material.renderQueue = 3000;
+            material.enableInstancing = true;
+            return material;
+        }
+
+        private static void StripEdgePhysics(GameObject instance)
+        {
+            if (instance == null)
+            {
+                return;
+            }
+
+            Collider[] colliders = instance.GetComponentsInChildren<Collider>(true);
+            for (int colliderIndex = 0; colliderIndex < colliders.Length; colliderIndex++)
+            {
+                Collider collider = colliders[colliderIndex];
+                if (collider != null)
+                {
+                    Destroy(collider);
+                }
+            }
+
+            Renderer[] renderers = instance.GetComponentsInChildren<Renderer>(true);
+            for (int rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
+            {
+                Renderer renderer = renderers[rendererIndex];
+                if (renderer == null)
+                {
+                    continue;
+                }
+
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+            }
+        }
+
+        private static void EnsureRockLod(GameObject instance)
+        {
+            if (instance == null)
+            {
+                return;
+            }
+
+            Renderer lod0 = null;
+            Renderer lod1 = null;
+            Renderer[] renderers = instance.GetComponentsInChildren<Renderer>(true);
+            for (int rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
+            {
+                Renderer renderer = renderers[rendererIndex];
+                if (renderer == null)
+                {
+                    continue;
+                }
+
+                string rendererName = renderer.gameObject.name;
+                if (rendererName.IndexOf("LOD0", System.StringComparison.Ordinal) >= 0)
+                {
+                    lod0 = renderer;
+                }
+                else if (rendererName.IndexOf("LOD1", System.StringComparison.Ordinal) >= 0)
+                {
+                    lod1 = renderer;
+                }
+            }
+
+            if (lod0 == null || lod1 == null)
+            {
+                return;
+            }
+
+            LODGroup group = instance.GetComponent<LODGroup>();
+            if (group == null)
+            {
+                group = instance.AddComponent<LODGroup>();
+            }
+
+            LOD[] lods = new LOD[2];
+            lods[0] = new LOD(0.4f, new Renderer[] { lod0 });
+            lods[1] = new LOD(0.08f, new Renderer[] { lod1 });
+            group.SetLODs(lods);
+            group.RecalculateBounds();
         }
     }
 }
