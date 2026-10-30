@@ -502,6 +502,49 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        /// <summary>
+        /// 0 at rest, 1 at the end of a windup. The mesh telegraph multiplies
+        /// this into emission only, so the warm-white albedo stays put.
+        /// </summary>
+        public float TelegraphRamp()
+        {
+            float now = Time.time;
+            float ramp = WindupRamp(now, _windupUntil, EnemyCatalog.BruteWindupSeconds);
+            float bolt = WindupRamp(now, _boltWindupUntil, EnemyCatalog.BoltWindupSeconds);
+            if (bolt > ramp)
+            {
+                ramp = bolt;
+            }
+
+            return ramp;
+        }
+
+        private static float WindupRamp(float now, float until, float span)
+        {
+            if (until <= now)
+            {
+                return 0f;
+            }
+
+            if (span < 0.05f)
+            {
+                span = 0.05f;
+            }
+
+            float ramp = 1f - ((until - now) / span);
+            if (ramp < 0f)
+            {
+                return 0f;
+            }
+
+            if (ramp > 1f)
+            {
+                return 1f;
+            }
+
+            return ramp;
+        }
+
         private void SetEntryColliders(bool enabled)
         {
             Collider[] colliders = GetComponentsInChildren<Collider>(true);

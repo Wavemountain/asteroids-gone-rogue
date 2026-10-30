@@ -2496,7 +2496,7 @@ def test_monsters_arenas_040() -> None:
     assert "DressPulse" in hazard
 
     warm = art.split("PlayModeAssets")[1].split("};")[0]
-    assert warm.count("\n            \"") == 86
+    assert warm.count("\n            \"") == 96
     assert "Monster_Brute" in warm
     assert "Monster_Swarm" in warm
     assert "Arena_Hazard_Spike" in warm
@@ -2824,7 +2824,7 @@ def test_art_parity_040c() -> None:
     require_mesh = enemies.split("public static bool RequiresImportedMesh")[1].split("public static")[0]
     assert "EnemyKind.Bomber" in require_mesh
     warm = art.split("PlayModeAssets")[1].split("};")[0]
-    assert warm.count("\n            \"") == 86
+    assert warm.count("\n            \"") == 96
     assert "Ship_Complete" in warm and "Enemy_Bomber" in warm
     assert "Ship_Body_Upgrade02" not in warm
 
@@ -3136,7 +3136,7 @@ def test_astro_env_040() -> None:
     assert "Arena_AstroFloor_v2" in blockout
     assert "Arena_AstroFloor" in blockout
     warm = art.split("PlayModeAssets")[1].split("};")[0]
-    assert warm.count("\n            \"") == 86
+    assert warm.count("\n            \"") == 96
     assert "Arena_AstroFloor" not in warm
     assert "AstroFloor_v2" not in warm
     assert "Arena_AstroFloor_v2" not in warm
@@ -10118,6 +10118,7 @@ def main() -> int:
     test_p4_tutorial_prompt_cards()
     test_p5_glass_risk_daily()
     test_p6_emission_rim_meshes()
+    test_enemy_hitbox_skips_debris()
     test_p7_post_and_light()
     test_p8_vfx_pool()
     test_p9_audio_arena()
@@ -16654,6 +16655,41 @@ def _remaining_text(seconds: int) -> str:
     return str(secs) + "s"
 
 
+def test_enemy_hitbox_skips_debris() -> None:
+    """v4 hitbox matches the combat mesh: no chunks or debris, rotors lance and horns included."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    fit = (root / "Assets/Scripts/Core/MeshFit.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    assert "MeshFit.CountsForEnemyHitbox" in factory
+    assert "IsEnemyDebrisName" in fit and "CountsForEnemyHitbox" in fit
+    check = fit.split("public static bool SelfCheck()")[1]
+    assert 'CountsForEnemyHitbox("Enemy_Scout_v4_Chunk_01")' in check
+    assert 'CountsForEnemyHitbox("Debris_Plate")' in check
+    assert 'CountsForEnemyHitbox("Rotor_R")' in check
+    assert 'CountsForEnemyHitbox("Lance")' in check
+    assert 'CountsForEnemyHitbox("Horn_L")' in check
+    assert 'CountsForEnemyHitbox("Telegraph_Horn")' in check
+    for name in (
+        "Enemy_Scout_v4",
+        "Enemy_Gunner_v4",
+        "Enemy_Drone_v4",
+        "Enemy_Bomber_v4",
+        "Enemy_Sniper_v4",
+        "Enemy_SwarmPod_v4",
+        "Enemy_Brute_v4",
+        "Enemy_Swarm_v4",
+        "Enemy_Swarmling_v4",
+        "Enemy_Mid01_v5",
+    ):
+        art_fbx = root / "Assets/Art/Import" / f"{name}.fbx"
+        res_fbx = root / "Assets/Resources/Art/Import" / f"{name}.fbx"
+        assert art_fbx.read_bytes() == res_fbx.read_bytes()
+        assert art_fbx.read_bytes()[:8] == b"Kaydara "
+        assert "Enemy_Mid01_v4" not in name
+
+
 def test_p6_emission_rim_meshes() -> None:
     """0.48 PR A: emission table, rim shader, and mesh fit that keeps 0.47 hitboxes."""
     import os
@@ -16685,9 +16721,18 @@ def test_p6_emission_rim_meshes() -> None:
     assert "ReadabilityPalette.AsteroidAlbedoScale" in factory
     assert "EnemyBrute" in factory and "EnemyGlow" in factory and "PlayerShot" in factory and "PlayerRail" in factory
     assert "EnemyShot" in factory
-    assert 'return "Enemy_Brute_v2"' in enemies
-    assert 'return "Enemy_Swarm_v2"' in enemies
-    assert 'return "Enemy_Bomber_v2"' in enemies
+    assert 'return "Enemy_Brute_v4"' in enemies
+    assert 'return "Enemy_Swarm_v4"' in enemies
+    assert 'return "Enemy_Swarmling_v4"' in enemies
+    assert 'return "Enemy_Bomber_v4"' in enemies
+    assert 'return "Enemy_Mid01_v5"' in enemies
+    assert "Mat_Enemy_V4_Thruster" in factory
+    assert "Mat_Enemy_V4_Telegraph" in factory
+    assert "Mat_Enemy_V4_MidCore" in factory
+    assert "Hatch_Open" in factory
+    assert "Particles/Additive" in factory
+    assert "242f / 255f" in (root / "Assets/Scripts/Core/LookPolish.cs").read_text(encoding="utf-8")
+    assert "142f / 255f" in (root / "Assets/Scripts/Core/LookPolish.cs").read_text(encoding="utf-8")
     assert 'return "Monster_Brute"' in enemies
     assert "return 0.98f;" in enemies and "return 0.62f;" in enemies and "return 0.82f;" in enemies
     assert "MeshFit.LegacyRadius" in factory
