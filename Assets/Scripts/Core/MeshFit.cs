@@ -246,6 +246,42 @@ namespace AsteroidsGoneRogue
             return false;
         }
 
+        /// <summary>
+        /// Combat-mesh hitbox. Chunks and debris stay out. Drone rotors,
+        /// the sniper lance, and brute horns stay in even when the name
+        /// also carries a telegraph or ring token.
+        /// </summary>
+        public static bool CountsForEnemyHitbox(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+            {
+                return false;
+            }
+
+            if (IsEnemyDebrisName(name))
+            {
+                return false;
+            }
+
+            if (name.IndexOf("Rotor", System.StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("Lance", System.StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("Horn", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            if (name.IndexOf("Ring", System.StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("Well", System.StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("Aura", System.StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("Telegraph", System.StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("Presence", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         public static bool SelfCheck()
         {
             if (Bad(SwarmLookScale < 0.75f || SwarmLookScale > 0.85f))
@@ -327,6 +363,36 @@ namespace AsteroidsGoneRogue
             float fitted = SphereRadius(1.981f, 1.487f, 1.794f);
             float factor = Uniform(fitted, AsteroidRadius(false, 0));
             if (fitted * factor < LegacySmallVariantRadius - 0.001f || fitted * factor > LegacySmallVariantRadius + 0.001f)
+            {
+                return false;
+            }
+
+            if (!IsEnemyDebrisName("Enemy_Scout_v4_Chunk_01") || !IsEnemyDebrisName("Debris_Plate"))
+            {
+                return false;
+            }
+
+            if (CountsForEnemyHitbox("Enemy_Scout_v4_Chunk_01") || CountsForEnemyHitbox("Debris_Plate"))
+            {
+                return false;
+            }
+
+            if (!CountsForEnemyHitbox("Rotor_R") || !CountsForEnemyHitbox("RotorHub_L"))
+            {
+                return false;
+            }
+
+            if (!CountsForEnemyHitbox("Lance") || !CountsForEnemyHitbox("Horn_L") || !CountsForEnemyHitbox("Telegraph_Horn"))
+            {
+                return false;
+            }
+
+            if (CountsForEnemyHitbox("Telegraph_Muzzle"))
+            {
+                return false;
+            }
+
+            if (!CountsForEnemyHitbox("Body") || !CountsForEnemyHitbox("Thruster_Main"))
             {
                 return false;
             }

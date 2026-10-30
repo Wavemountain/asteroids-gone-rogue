@@ -2377,12 +2377,12 @@ namespace AsteroidsGoneRogue
 
         private static bool IsEnemyHullRenderer(Renderer renderer)
         {
-            string name = renderer.gameObject.name;
-            return name.IndexOf("Ring", System.StringComparison.OrdinalIgnoreCase) < 0
-                && name.IndexOf("Well", System.StringComparison.OrdinalIgnoreCase) < 0
-                && name.IndexOf("Aura", System.StringComparison.OrdinalIgnoreCase) < 0
-                && name.IndexOf("Telegraph", System.StringComparison.OrdinalIgnoreCase) < 0
-                && name.IndexOf("Presence", System.StringComparison.OrdinalIgnoreCase) < 0;
+            if (renderer == null)
+            {
+                return false;
+            }
+
+            return MeshFit.CountsForEnemyHitbox(renderer.gameObject.name);
         }
 
         private static void ScaleImportedVisual(Transform root, float scale)
