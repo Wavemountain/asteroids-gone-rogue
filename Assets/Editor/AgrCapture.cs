@@ -1021,7 +1021,13 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
-            HoldCamera(new Vector3(0f, 35f, -22f), new Vector3(0f, 0f, 0f), 54f);
+            Vector3 play = new Vector3(0f, 35f, -22f);
+            if (shot == 1 || shot == 5)
+            {
+                play *= ArenaShapeCatalog.World1CameraPull;
+            }
+
+            HoldCamera(play, new Vector3(0f, 0f, 0f), 54f);
         }
 
         static void HoldCamera(Vector3 pos, Vector3 look, float fov)

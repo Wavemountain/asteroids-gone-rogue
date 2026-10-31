@@ -235,23 +235,24 @@ namespace AsteroidsGoneRogue
             Color enemyCore = new Color(LookPolish.EnemyRimR, LookPolish.EnemyRimG, LookPolish.EnemyRimB, 1f);
             Color midCore = new Color(LookPolish.EnemyMidCoreR, LookPolish.EnemyMidCoreG, LookPolish.EnemyMidCoreB, 1f);
             Color telegraph = new Color(LookPolish.EnemyCoreR, LookPolish.EnemyCoreG, LookPolish.EnemyCoreB, 1f);
+            Color bodyGlow = enemyCore * LookPolish.EnemyBodyEmission;
             _enemyBody = MakeShipRim(
                 "Mat_Enemy_V4_Body",
                 enemySteel,
-                enemySteel,
+                enemyCore,
                 EmissionTargets.EnemyRimPower,
-                EmissionTargets.EnemyRimStrength,
-                Color.black,
+                LookPolish.EnemyBodyRimStrength,
+                bodyGlow,
                 LookPolish.EnemyBodyMetallic,
                 LookPolish.EnemyBodySmoothness,
                 false);
             _enemyTrim = MakeShipRim(
                 "Mat_Enemy_V4_Trim",
                 enemyTrim,
-                enemyTrim,
+                enemyCore,
                 EmissionTargets.EnemyRimPower,
-                0.2f,
-                Color.black,
+                LookPolish.EnemyBodyRimStrength * 0.65f,
+                bodyGlow * 0.45f,
                 0f,
                 0.2f,
                 false);
@@ -268,10 +269,10 @@ namespace AsteroidsGoneRogue
             _enemyMidBody = MakeShipRim(
                 "Mat_Enemy_V4_MidBody",
                 Color.Lerp(enemySteel, midCore, LookPolish.EnemyMidBodyMix),
-                enemySteel,
+                enemyCore,
                 EmissionTargets.EnemyRimPower,
-                EmissionTargets.EnemyRimStrength,
-                Color.black,
+                LookPolish.EnemyBodyRimStrength,
+                bodyGlow * 0.7f,
                 LookPolish.EnemyBodyMetallic,
                 LookPolish.EnemyBodySmoothness,
                 false);
