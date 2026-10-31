@@ -377,8 +377,8 @@ namespace AsteroidsGoneRogue
         private static readonly Vector2 HangarTitleMax = new Vector2(0.340f, 0.995f);
         private static readonly Vector2 HangarWorldMin = new Vector2(0.490f, 0.906f);
         private static readonly Vector2 HangarWorldMax = new Vector2(0.735f, 0.948f);
-        private static readonly Vector2 HangarMedalMin = new Vector2(0.490f, 0.952f);
-        private static readonly Vector2 HangarMedalMax = new Vector2(0.735f, 0.994f);
+        private static readonly Vector2 HangarMedalMin = new Vector2(HangarHudLayout.MedalRow.MinX, HangarHudLayout.MedalRow.MinY);
+        private static readonly Vector2 HangarMedalMax = new Vector2(HangarHudLayout.MedalRow.MaxX, HangarHudLayout.MedalRow.MaxY);
         private const float HintScrimAlpha = 0.62f;
         // Gear stays on the top-right. Mute / SFX / Music live in the settings panel.
         public static readonly Vector2 SettingsGearMin = new Vector2(0.900f, 0.905f);
@@ -1010,13 +1010,13 @@ namespace AsteroidsGoneRogue
             for (int perkIndex = 0; perkIndex < LegacyProgress.PerkCount; perkIndex++)
             {
                 int capturedPerk = perkIndex;
-                float column = 0.02f + (capturedPerk * 0.245f);
+                float column = HangarHudLayout.LegacyPerkMinX + (capturedPerk * HangarHudLayout.LegacyPerkStep);
                 Button perkButton = CreateButton(
                     "LegacyPerk" + capturedPerk,
                     _menuRoot.transform,
                     body,
-                    new Vector2(column, 0.092f),
-                    new Vector2(column + 0.23f, 0.126f));
+                    new Vector2(column, HangarHudLayout.LegacyPerkMinY),
+                    new Vector2(column + HangarHudLayout.LegacyPerkSpan, HangarHudLayout.LegacyPerkMaxY));
                 Text perkLabel = perkButton.GetComponentInChildren<Text>();
                 perkLabel.fontSize = UiTheme.BodyMin;
                 perkLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -6646,7 +6646,15 @@ namespace AsteroidsGoneRogue
             if (show)
             {
                 _badgeRow.text = Loc.T("ui.medals", MedalLadderPrefix) + "  " + row;
-                _badgeRow.fontSize = playing ? 16 : 14;
+                int badgeSize = playing ? 16 : 14;
+                float badgeBand = (HangarHudLayout.MedalRow.MaxY - HangarHudLayout.MedalRow.MinY) * Screen.height;
+                float badgePreferred = HangarHudLayout.BadgeLines * badgeSize * HangarHudLayout.TextLineFactor;
+                if (badgePreferred > badgeBand + HangarHudLayout.TextSlopPx)
+                {
+                    badgeSize = (int)HangarHudLayout.BadgeFont;
+                }
+
+                _badgeRow.fontSize = badgeSize;
                 _badgeRow.color = playing
                     ? UiTheme.WithAlpha(UiTheme.Primary, 0.92f)
                     : UiTheme.Primary;
@@ -7433,7 +7441,7 @@ namespace AsteroidsGoneRogue
             {
                 // Hud: amber score numeral at the top of the corner plate.
                 Stretch(_hud.rectTransform, new Vector2(0.02f, PlayHudLayout.ScoreMinY), new Vector2(corner - 0.008f, PlayHudLayout.ScoreMaxY));
-                _hud.fontSize = (int)PremiumLook.HudNumber;
+                _hud.fontSize = PlayHudLayout.ScoreSize(height, (int)PremiumLook.HudNumber);
                 FontStyle scoreStyle;
                 Font scoreFont = UiFonts.ForDigits(UiFonts.Body(), _hud.fontSize, out scoreStyle);
                 _hud.font = scoreFont;

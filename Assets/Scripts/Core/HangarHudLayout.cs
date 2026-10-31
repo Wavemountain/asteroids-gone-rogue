@@ -14,7 +14,13 @@ namespace AsteroidsGoneRogue
         // (0.728) at 1080 and 1440. Both the title and the rule under it stay
         // inside the inner wash at 1280x800, 1920x1080, 2560x1440, and 3440x1440.
         public const float HangarInnerMinX = 0.012f;
-        public const float HangarInnerMinY = 0.096f;
+        public const float HangarInnerMinY = 0.136f;
+        public const float LegacyPerkMinX = 0.02f;
+        public const float LegacyPerkMinY = 0.092f;
+        public const float LegacyPerkMaxY = 0.126f;
+        public const float LegacyPerkSpan = 0.23f;
+        public const float LegacyPerkStep = 0.245f;
+        public const int LegacyPerkCount = 4;
         public const float HangarInnerMaxX = 0.988f;
         public const float HangarInnerMaxY = 0.734f;
         public const float WeaponsGroupMinX = 0.51f;
@@ -33,7 +39,11 @@ namespace AsteroidsGoneRogue
         public static readonly ScreenBand TopBar = new ScreenBand(0.012f, 0.905f, 0.988f, 0.995f);
         public static readonly ScreenBand Title = new ScreenBand(0.012f, 0.905f, 0.340f, 0.995f);
         public static readonly ScreenBand WorldRow = new ScreenBand(0.490f, 0.906f, 0.735f, 0.948f);
-        public static readonly ScreenBand MedalRow = new ScreenBand(0.490f, 0.952f, 0.735f, 0.994f);
+        public static readonly ScreenBand MedalRow = new ScreenBand(0.490f, 0.954f, 0.742f, 0.998f);
+        public const float BadgeFont = 14f;
+        public const float BadgeLines = 2f;
+        public const float TextLineFactor = 1.2f;
+        public const float TextSlopPx = 2f;
         public static readonly ScreenBand HangarPanel = new ScreenBand(0.014f, 0.080f, 0.55f, 0.888f);
 
         public const float StripMinX = 0.03f;
@@ -179,6 +189,28 @@ namespace AsteroidsGoneRogue
         /// WEAPONS title and the rule under it are inside HangarInner.
         /// Overflow in screen pixels is zero at the HUD-gate resolutions.
         /// </summary>
+        public static bool LegacyPerksClearInner()
+        {
+            for (int perk = 0; perk < LegacyPerkCount; perk++)
+            {
+                float minX = LegacyPerkMinX + (perk * LegacyPerkStep);
+                float maxX = minX + LegacyPerkSpan;
+                if (minX < HangarInnerMaxX && maxX > HangarInnerMinX && LegacyPerkMinY < HangarInnerMaxY && LegacyPerkMaxY > HangarInnerMinY)
+                {
+                    return false;
+                }
+            }
+
+            return LegacyPerkMaxY + 0.004f <= HangarInnerMinY;
+        }
+
+        public static bool BadgeTextFits(float screenHeight)
+        {
+            float band = (MedalRow.MaxY - MedalRow.MinY) * screenHeight;
+            float preferred = BadgeLines * BadgeFont * TextLineFactor;
+            return preferred <= band + TextSlopPx;
+        }
+
         public static bool WeaponsGroupInsideInner()
         {
             if (!Contains(HangarInnerMinX, HangarInnerMinY, HangarInnerMaxX, HangarInnerMaxY, WeaponsGroupMinX, WeaponsGroupMinY, WeaponsGroupMaxX, WeaponsGroupMaxY))

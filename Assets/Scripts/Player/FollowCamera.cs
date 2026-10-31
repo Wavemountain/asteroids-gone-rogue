@@ -58,7 +58,7 @@ namespace AsteroidsGoneRogue
             _target = target;
             if (_target != null)
             {
-                Vector3 snapped = _target.position + Offset;
+                Vector3 snapped = _target.position + PlayOffset();
                 transform.position = snapped;
                 transform.LookAt(_target.position);
                 _springX = snapped.x;
@@ -201,7 +201,7 @@ namespace AsteroidsGoneRogue
                 leadZ = edgeZ - _target.position.z;
             }
             Vector3 look = _target.position + new Vector3(leadX, 0f, leadZ);
-            Vector3 desired = look + Offset;
+            Vector3 desired = look + PlayOffset();
             float step = Time.deltaTime;
             if (!_springReady)
             {
@@ -302,6 +302,36 @@ namespace AsteroidsGoneRogue
             }
 
             return _pressureWaves.RemainingThreats;
+        }
+
+        /// <summary>
+        /// World 1's contour floor is larger than the 0.48 30 m disc. Pull the
+        /// same offset back so the plates fill the frame the way they did then.
+        /// </summary>
+        private Vector3 PlayOffset()
+        {
+            float pull = 1f;
+            if (ReadWorld() == 1)
+            {
+                pull = ArenaShapeCatalog.World1CameraPull;
+            }
+
+            return Offset * pull;
+        }
+
+        private int ReadWorld()
+        {
+            if (_pressureWaves == null)
+            {
+                _pressureWaves = UnityEngine.Object.FindAnyObjectByType<WaveManager>();
+            }
+
+            if (_pressureWaves == null)
+            {
+                return 1;
+            }
+
+            return WorldCatalog.NumberForWave(_pressureWaves.ActiveWave);
         }
 
         /// <summary>

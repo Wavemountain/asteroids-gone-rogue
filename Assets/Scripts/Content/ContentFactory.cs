@@ -235,26 +235,29 @@ namespace AsteroidsGoneRogue
             Color enemyCore = new Color(LookPolish.EnemyRimR, LookPolish.EnemyRimG, LookPolish.EnemyRimB, 1f);
             Color midCore = new Color(LookPolish.EnemyMidCoreR, LookPolish.EnemyMidCoreG, LookPolish.EnemyMidCoreB, 1f);
             Color telegraph = new Color(LookPolish.EnemyCoreR, LookPolish.EnemyCoreG, LookPolish.EnemyCoreB, 1f);
+            Color bodyGlow = enemyCore * LookPolish.EnemyBodyEmission;
             _enemyBody = MakeShipRim(
                 "Mat_Enemy_V4_Body",
                 enemySteel,
-                enemySteel,
+                enemyCore,
                 EmissionTargets.EnemyRimPower,
-                EmissionTargets.EnemyRimStrength,
-                Color.black,
+                LookPolish.EnemyBodyRimStrength,
+                bodyGlow,
                 LookPolish.EnemyBodyMetallic,
                 LookPolish.EnemyBodySmoothness,
                 false);
             _enemyTrim = MakeShipRim(
                 "Mat_Enemy_V4_Trim",
                 enemyTrim,
-                enemyTrim,
+                enemyCore,
                 EmissionTargets.EnemyRimPower,
-                0.2f,
-                Color.black,
+                LookPolish.EnemyBodyRimStrength * 0.65f,
+                bodyGlow * 0.45f,
                 0f,
                 0.2f,
                 false);
+            _enemyBody.renderQueue = 2000;
+            _enemyTrim.renderQueue = 2000;
             _enemyCore = MakeShipRim(
                 "Mat_Enemy_V4_Core",
                 enemyCore,
@@ -268,10 +271,10 @@ namespace AsteroidsGoneRogue
             _enemyMidBody = MakeShipRim(
                 "Mat_Enemy_V4_MidBody",
                 Color.Lerp(enemySteel, midCore, LookPolish.EnemyMidBodyMix),
-                enemySteel,
+                enemyCore,
                 EmissionTargets.EnemyRimPower,
-                EmissionTargets.EnemyRimStrength,
-                Color.black,
+                LookPolish.EnemyBodyRimStrength,
+                bodyGlow * 0.7f,
                 LookPolish.EnemyBodyMetallic,
                 LookPolish.EnemyBodySmoothness,
                 false);
@@ -1253,7 +1256,8 @@ namespace AsteroidsGoneRogue
             if (importedMesh)
             {
                 DressImportedEnemy(root.transform, kind);
-                ScaleImportedToRadius(root.transform, MeshFit.LegacyRadius(EnemyCatalog.MeshFitId(kind)));
+                // MeshFit.LegacyRadius stays the old capsule target. Visual size uses the 0.48 max axis.
+                ScaleImportedToExtent(root.transform, MeshFit.ReferenceExtent(EnemyCatalog.MeshFitId(kind)));
             }
             else if (kind == EnemyKind.Swarmling)
             {
@@ -1277,6 +1281,7 @@ namespace AsteroidsGoneRogue
                 seeker.BeginSpawnGrace();
             }
             DecorDepthClamp.KeepGameplay(root);
+            PinEnemyLayer(root);
             CastFormShadow(root.transform);
             if (AudioCues.Instance != null)
             {
@@ -2394,6 +2399,33 @@ namespace AsteroidsGoneRogue
             root.GetChild(0).localScale = Vector3.one * scale;
         }
 
+        private static void ScaleImportedToExtent(Transform root, float authoredExtent)
+        {
+            if (root == null || authoredExtent <= 0.01f)
+            {
+                return;
+            }
+
+            Bounds local;
+            if (!TryEnemyMeshBounds(root, out local))
+            {
+                return;
+            }
+
+            float measured = local.size.x;
+            if (local.size.y > measured)
+            {
+                measured = local.size.y;
+            }
+
+            if (local.size.z > measured)
+            {
+                measured = local.size.z;
+            }
+
+            ScaleImportedVisual(root, MeshFit.Uniform(measured, authoredExtent));
+        }
+
         private static void ScaleImportedToRadius(Transform root, float authoredRadius)
         {
             if (root == null || authoredRadius <= 0.01f)
@@ -3137,6 +3169,7 @@ namespace AsteroidsGoneRogue
         private void DressImportedEnemy(Transform root, EnemyKind kind)
         {
             HideEnemyDebris(root);
+            RemoveTrimBeam(root);
             FollowBomberHatch(root, kind);
             PaintMidSlots(root, kind);
         }
@@ -3165,13 +3198,7 @@ namespace AsteroidsGoneRogue
             }
 
             DressImportedEnemy(instance.transform, kind);
-            float authored = MeshFit.LegacyRadius(EnemyCatalog.MeshFitId(kind));
-            if (authored <= 0.01f)
-            {
-                authored = EnemyCatalog.ColliderRadius(kind);
-            }
-
-            ScaleImportedToRadius(parent, authored);
+            ScaleImportedToExtent(parent, MeshFit.ReferenceExtent(EnemyCatalog.MeshFitId(kind)));
             return true;
         }
 
@@ -3221,6 +3248,40 @@ namespace AsteroidsGoneRogue
                 if (changed)
                 {
                     renderer.sharedMaterials = slots;
+                }
+            }
+        }
+
+        private static void RemoveTrimBeam(Transform root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            Transform[] parts = root.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (parts[i] != null && parts[i].name == "Trim_Beam")
+                {
+                    parts[i].gameObject.SetActive(false);
+                }
+            }
+        }
+
+        private static void PinEnemyLayer(GameObject root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            Transform[] nodes = root.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < nodes.Length; i++)
+            {
+                if (nodes[i] != null)
+                {
+                    nodes[i].gameObject.layer = 0;
                 }
             }
         }

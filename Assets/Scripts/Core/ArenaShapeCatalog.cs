@@ -81,6 +81,24 @@ namespace AsteroidsGoneRogue
             return bound + FloorMargin;
         }
 
+        /// <summary>
+        /// 0.48 framed world 1 at the 30 m disc. The contour floor reaches
+        /// farther, so the same camera offset fills the shot with plates.
+        /// </summary>
+        public static float World1CameraPull
+        {
+            get
+            {
+                float reach = FloorReach(ForWorld(1));
+                if (reach < 1f)
+                {
+                    return 1f;
+                }
+
+                return reach / LegacyRadius;
+            }
+        }
+
         public static bool SelfCheck()
         {
             float circle = 3.14159265f * LegacyRadius * LegacyRadius;
