@@ -167,9 +167,29 @@ namespace AsteroidsGoneRogue
             get { return Color.Lerp(DangerTint, WithAlpha(Secondary, 0.72f), 0.45f); }
         }
 
+        /// <summary>
+        /// Opaque white footer ink. The hangar layer gate compares this stem
+        /// with the wave-1 crop; 80 is the hard one-pixel edge. Reduce does
+        /// not retint it.
+        /// </summary>
+        public const float FooterHintAlpha = 1f;
+        public const float HintContrastMin = 80f;
+
         public static Color FooterHint
         {
-            get { return WithAlpha(Accent, 0.92f); }
+            get { return new Color(1f, 1f, 1f, FooterHintAlpha); }
+        }
+
+        public static float FooterHintLuma()
+        {
+            Color ink = FooterHint;
+            float luma = (0.2126f * ink.r) + (0.7152f * ink.g) + (0.0722f * ink.b);
+            return luma * 255f * ink.a;
+        }
+
+        public static bool FooterHintReadable()
+        {
+            return FooterHint.a >= FooterHintAlpha && FooterHintLuma() >= HintContrastMin;
         }
 
         /// <summary>

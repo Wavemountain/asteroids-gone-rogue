@@ -406,7 +406,8 @@ namespace AsteroidsGoneRogue
         // Shared shop cell + gutter (hangar-local). All 3 columns start at ShopGridTop.
         public const float ShopGridTop = 0.665f;
         public const float ShopCellHeight = 0.094f;
-        public const float ShopCellGutter = 0.016f;
+        // 0.012 keeps the bottom row inside HangarInner by >= 4 px at 800px.
+        public const float ShopCellGutter = 0.012f;
         public const int ShipPreviewSortOrder = CanvasOrder.ShipPreview;
         public const string ShipPreviewCanvasName = "ShipPreviewCanvas";
         public const string FirstHangarHintKey = "agr.ui.firstHangarHint";
@@ -8066,6 +8067,8 @@ namespace AsteroidsGoneRogue
             }
 
             ApplyFooterHintSize();
+            // Same ink in every mode, including Reduce. Children copy this colour.
+            _hint.color = UiTheme.FooterHint;
             bool waveClear = WaveClearHint();
             // Wave clear uses the wave-1 hint row: same anchors, same height.
             bool combatHint = waveClear || playing || (_game != null && (_game.TutorialActive || _game.DeathArming));
@@ -8151,7 +8154,10 @@ namespace AsteroidsGoneRogue
             if (_session != null && _session.Phase == GamePhase.Playing && _session.WaveIndex == 1)
             {
                 PromptLineView.CapturePlayBox(_hint);
+                return;
             }
+
+            PromptLineView.SnapHangarHint(_hint);
         }
 
         private void SyncHintScrim()

@@ -23,6 +23,19 @@ namespace AsteroidsGoneRogue
         public const int LegacyPerkCount = 4;
         public const float HangarInnerMaxX = 0.988f;
         public const float HangarInnerMaxY = 0.734f;
+        // Shop columns share GameUi.ShopGridTop. The gutter is 0.012 so the
+        // bottom row (Ricochet, Shield Refill, the column plates) stays inside
+        // this wash by at least ShopInnerMarginPx at every HUD-gate height.
+        public const float ShopGridTop = 0.665f;
+        public const float ShopCellHeight = 0.094f;
+        public const float ShopCellGutter = 0.012f;
+        public const float ShopInnerMarginPx = 4f;
+        public const float ShopHullMinX = 0.02f;
+        public const float ShopHullMaxX = 0.49f;
+        public const float ShopWeaponsMinX = 0.51f;
+        public const float ShopWeaponsMaxX = 0.735f;
+        public const float ShopDefenseMinX = 0.755f;
+        public const float ShopDefenseMaxX = 0.98f;
         public const float WeaponsGroupMinX = 0.51f;
         public const float WeaponsGroupMinY = 0.714f;
         public const float WeaponsGroupMaxX = 0.735f;
@@ -211,6 +224,63 @@ namespace AsteroidsGoneRogue
             return preferred <= band + TextSlopPx;
         }
 
+        public static float ShopRowStep
+        {
+            get { return ShopCellHeight + ShopCellGutter; }
+        }
+
+        /// <summary>
+        /// Bottom of the five shop rows. Same formula as the column plates.
+        /// </summary>
+        public static float ShopGridBottom
+        {
+            get { return ShopGridTop - (4f * ShopRowStep) - ShopCellHeight; }
+        }
+
+        /// <summary>
+        /// True when the child's top is above HangarInner. Y grows upward.
+        /// </summary>
+        public static bool ExtendsAboveInnerTop(float childMaxY)
+        {
+            return childMaxY > HangarInnerMaxY;
+        }
+
+        /// <summary>
+        /// Hull, weapons, and defense plates plus Ricochet and Shield Refill
+        /// sit inside HangarInner. Any child whose top clears the inner top
+        /// fails, and every edge keeps ShopInnerMarginPx at the HUD heights.
+        /// </summary>
+        public static bool ShopColumnsInsideInner()
+        {
+            if (ExtendsAboveInnerTop(ShopGridTop))
+            {
+                return false;
+            }
+
+            float bottom = ShopGridBottom;
+            if (bottom < HangarInnerMinY)
+            {
+                return false;
+            }
+
+            float[] widths = { 1280f, 1920f, 2560f, 3440f };
+            float[] heights = { 800f, 1080f, 1440f, 1440f };
+            float[] minX = { ShopHullMinX, ShopWeaponsMinX, ShopDefenseMinX, ShopWeaponsMinX, ShopDefenseMinX };
+            float[] maxX = { ShopHullMaxX, ShopWeaponsMaxX, ShopDefenseMaxX, ShopWeaponsMaxX, ShopDefenseMaxX };
+            for (int res = 0; res < widths.Length; res++)
+            {
+                for (int child = 0; child < minX.Length; child++)
+                {
+                    if (!InsideInner(minX[child], bottom, maxX[child], ShopGridTop, widths[res], heights[res], ShopInnerMarginPx))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
         public static bool WeaponsGroupInsideInner()
         {
             if (!Contains(HangarInnerMinX, HangarInnerMinY, HangarInnerMaxX, HangarInnerMaxY, WeaponsGroupMinX, WeaponsGroupMinY, WeaponsGroupMaxX, WeaponsGroupMaxY))
@@ -293,6 +363,51 @@ namespace AsteroidsGoneRogue
         private static float Max(float left, float right)
         {
             return left > right ? left : right;
+        }
+
+        private static bool InsideInner(float childMinX, float childMinY, float childMaxX, float childMaxY, float screenWidth, float screenHeight, float marginPx)
+        {
+            if (ExtendsAboveInnerTop(childMaxY))
+            {
+                return false;
+            }
+
+            float innerMinX;
+            float innerMinY;
+            float innerMaxX;
+            float innerMaxY;
+            float boxMinX;
+            float boxMinY;
+            float boxMaxX;
+            float boxMaxY;
+            PanelPx(HangarInnerMinX, HangarInnerMinY, HangarInnerMaxX, HangarInnerMaxY, screenWidth, screenHeight, out innerMinX, out innerMinY, out innerMaxX, out innerMaxY);
+            PanelPx(childMinX, childMinY, childMaxX, childMaxY, screenWidth, screenHeight, out boxMinX, out boxMinY, out boxMaxX, out boxMaxY);
+            if (boxMaxY > innerMaxY)
+            {
+                return false;
+            }
+
+            if (boxMinX < innerMinX + marginPx)
+            {
+                return false;
+            }
+
+            if (boxMaxX > innerMaxX - marginPx)
+            {
+                return false;
+            }
+
+            if (boxMinY < innerMinY + marginPx)
+            {
+                return false;
+            }
+
+            if (boxMaxY > innerMaxY - marginPx)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         private static bool Contains(float outerMinX, float outerMinY, float outerMaxX, float outerMaxY, float innerMinX, float innerMinY, float innerMaxX, float innerMaxY)

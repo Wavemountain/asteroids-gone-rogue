@@ -502,13 +502,18 @@ namespace AsteroidsGoneRogue
             {
                 float reach = ArenaShapeCatalog.FloorReach(ArenaShapeCatalog.Active);
                 float scale = reach / WaveManager.ArenaDesignRadius;
-                if (IsAstroPlayFloor(visualName))
+                bool astroFloor = IsAstroPlayFloor(visualName);
+                float legacy = WaveManager.ArenaRadius / WaveManager.ArenaDesignRadius;
+                if (astroFloor)
                 {
                     scale *= AstroFloorVisualScale;
+                    legacy *= AstroFloorVisualScale;
                 }
 
+                // W2 stays on the 0.48 disc. The contour reach scale washes that plate.
+                scale = WorldFloorExposure.CapMeshScale(worldNumber, scale, legacy);
                 visual.transform.localScale = Vector3.one * scale;
-                if (IsAstroPlayFloor(visualName))
+                if (astroFloor)
                 {
                     SinkPlaySurface(visual, ArenaPlaySurfaceY);
                     DressArenaFloorRenderers(visual);
@@ -527,7 +532,10 @@ namespace AsteroidsGoneRogue
             else
             {
                 GameObject floor = CreatePrimitive(PrimitiveType.Cylinder, "Arena_Floor", _arenaRoot.transform, _arena);
-                float fallbackReach = ArenaShapeCatalog.FloorReach(ArenaShapeCatalog.Active);
+                float fallbackReach = WorldFloorExposure.CapMeshScale(
+                    worldNumber,
+                    ArenaShapeCatalog.FloorReach(ArenaShapeCatalog.Active),
+                    WaveManager.ArenaRadius);
                 floor.transform.localScale = new Vector3(fallbackReach * 2f, 0.04f, fallbackReach * 2f);
                 floor.transform.position = new Vector3(0f, ArenaPlaySurfaceY, 0f);
                 floorVisual = floor;

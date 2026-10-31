@@ -837,6 +837,15 @@ namespace AsteroidsGoneRogue
             return Mathf.Round(local * scale) / scale;
         }
 
+        /// <summary>
+        /// Pixel-align the hangar footer glyphs. Does not replace the wave-1
+        /// box the capture gate stores. Colour stays on the host.
+        /// </summary>
+        public static void SnapHangarHint(Text host)
+        {
+            SnapHintChildren(host);
+        }
+
         private static void SnapHintChildren(Text host)
         {
             if (host == null)

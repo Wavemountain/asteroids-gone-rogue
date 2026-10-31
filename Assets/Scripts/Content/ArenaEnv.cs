@@ -279,10 +279,6 @@ namespace AsteroidsGoneRogue
                     if (paintedMat != null && paintedMat.name.IndexOf("W3_Beam", System.StringComparison.Ordinal) < 0)
                     {
                         PaintFloorMaterial(paintedMat);
-                        if (_world == 2)
-                        {
-                            DimWorld2Emission(paintedMat);
-                        }
                     }
 
                     continue;
@@ -305,9 +301,6 @@ namespace AsteroidsGoneRogue
 
                     Material paintedMat = new Material(source);
                     PaintFloorMaterial(paintedMat);
-                    // 0.48 lit this mesh at the 30 m disc. The contour floor is larger,
-                    // so the same glow emission washes the plate white.
-                    DimWorld2Emission(paintedMat);
                     slots[slotIndex] = paintedMat;
                 }
 
@@ -332,7 +325,30 @@ namespace AsteroidsGoneRogue
                 ApplyContourFade(paintedMat);
             }
 
-            paintedMat.color = new Color(floorR, floorG, floorB, 1f);
+            float emitR = 0f;
+            float emitG = 0f;
+            float emitB = 0f;
+            if (paintedMat.HasProperty("_EmissionColor"))
+            {
+                Color emit = paintedMat.GetColor("_EmissionColor");
+                emitR = emit.r;
+                emitG = emit.g;
+                emitB = emit.b;
+            }
+
+            float outR;
+            float outG;
+            float outB;
+            float outEmitR;
+            float outEmitG;
+            float outEmitB;
+            WorldFloorExposure.Cap(_world, floorR, floorG, floorB, emitR, emitG, emitB, out outR, out outG, out outB, out outEmitR, out outEmitG, out outEmitB);
+            paintedMat.color = new Color(outR, outG, outB, 1f);
+            if (paintedMat.HasProperty("_EmissionColor"))
+            {
+                paintedMat.SetColor("_EmissionColor", new Color(outEmitR, outEmitG, outEmitB, 1f));
+            }
+
             if (paintedMat.HasProperty("_Glossiness"))
             {
                 paintedMat.SetFloat("_Glossiness", PremiumLook.FloorSmoothness);
@@ -341,33 +357,6 @@ namespace AsteroidsGoneRogue
             if (paintedMat.HasProperty("_Metallic"))
             {
                 paintedMat.SetFloat("_Metallic", PremiumLook.FloorMetallic);
-            }
-        }
-
-        private static void DimWorld2Emission(Material paintedMat)
-        {
-            float reach = ArenaShapeCatalog.FloorReach(ArenaShapeCatalog.ForWorld(2));
-            float keep = 1f;
-            if (reach > 1f)
-            {
-                keep = ArenaShapeCatalog.LegacyRadius / reach;
-            }
-
-            if (keep < 0f)
-            {
-                keep = 0f;
-            }
-
-            if (keep > 1f)
-            {
-                keep = 1f;
-            }
-
-            float area = keep * keep;
-            if (paintedMat.HasProperty("_EmissionColor"))
-            {
-                Color emit = paintedMat.GetColor("_EmissionColor");
-                paintedMat.SetColor("_EmissionColor", new Color(emit.r * area, emit.g * area, emit.b * area, emit.a));
             }
         }
 

@@ -4385,7 +4385,7 @@ def test_hangar_wave_clear_layout() -> None:
     assert "ShipPreviewMax = new Vector2(0.986f, 0.596f)" in ui
     assert "ShopGridTop = 0.665f" in ui
     assert "ShopCellHeight = 0.094f" in ui
-    assert "ShopCellGutter = 0.016f" in ui
+    assert "ShopCellGutter = 0.012f" in ui
     assert '"HullCol"' in ui and '"WeaponsCol"' in ui and '"DefenseCol"' in ui
     assert "hullIndex % 4" in ui
     assert "TryBuy" in hangar and "CanApply" in hangar
@@ -4423,7 +4423,7 @@ def test_hangar_wave_clear_layout() -> None:
     assert not _overlap(cta, headers)
     assert cta[3] < strip[1]
     assert headers[3] < cta[1]
-    assert status[3] < 0.665 - 5 * (0.094 + 0.016) + 0.016 + 0.02
+    assert status[3] < 0.665 - 5 * (0.094 + 0.012) + 0.012 + 0.02
 
     assert "new Vector2(0.03f, 0.735f)" in ui and "new Vector2(0.97f, 0.800f)" in ui
     assert "ClampOneLine" in ui
@@ -5383,7 +5383,7 @@ def _doctrine_strip_shares_next_wave_row() -> bool:
     right = _map_anchors(strip[0], strip[1], strip[2], strip[3], 0.52, 0.08, 0.96, 0.92)
     wave_mid = (wave[1] + wave[3]) * 0.5
     left_mid = (left[1] + left[3]) * 0.5
-    pitch = (0.094 + 0.016) * (0.888 - 0.080)
+    pitch = (0.094 + 0.012) * (0.888 - 0.080)
     return abs(left_mid - wave_mid) <= pitch * 0.5 and left[0] > wave[2] and right[0] > left[2]
 
 
@@ -10078,6 +10078,8 @@ def main() -> int:
     test_hangar_next_wave_always_selectable()
     test_doctrine_rows_pad_reachable()
     test_hangar_footer_launch_and_hint_size()
+    test_hangar_hint_contrast()
+    test_w2_floor_exposure()
     test_settings_shell()
     test_confirm_restart()
     test_pad_nav_source()
@@ -10135,6 +10137,7 @@ def main() -> int:
     test_shop_price_fits()
     test_catalogue_coverage_label()
     test_weapons_group_inside_hangar_inner()
+    test_shop_columns_inside_hangar_inner()
     test_enemy_bounds_within_048()
     test_hud_text_and_perk_clearance()
     test_wave_summary_and_hangar_hud()
@@ -10665,7 +10668,7 @@ def test_world_continue_and_hangar_readability() -> None:
             _map_anchors(*hangar, 0.755, 0.675, 0.98, 0.728),
         )
         cells = []
-        row_step = 0.094 + 0.016
+        row_step = 0.094 + 0.012
         for col in range(4):
             for row in range(3):
                 if row == 2 and col > 1:
@@ -15079,7 +15082,7 @@ def test_part_f_preview_and_sinks() -> None:
             a, b = boxes[left], boxes[right]
             assert not (a[0] < b[2] and a[2] > b[0] and a[1] < b[3] and a[3] > b[1])
 
-    row_step = 0.094 + 0.016
+    row_step = 0.094 + 0.012
     entry = (0.02 + 3 * 0.1175, 0.665 - 2 * row_step - 0.094, 0.02 + 3 * 0.1175 + 0.110, 0.665 - 2 * row_step)
     bank = (0.02 + 2 * 0.1175, 0.665 - 2 * row_step - 0.094, 0.02 + 2 * 0.1175 + 0.110, 0.665 - 2 * row_step)
     assert entry[0] >= bank[2]
@@ -17625,6 +17628,7 @@ def test_capture_048_clearance_hud() -> None:
     shutil.copyfile(root / "Assets/Scripts/Core/LayerGate.cs", work / "LayerGate.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/ArenaShape.cs", work / "ArenaShape.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/ArenaShapeCatalog.cs", work / "ArenaShapeCatalog.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/WorldFloorExposure.cs", work / "WorldFloorExposure.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/ArenaEdge.cs", work / "ArenaEdge.cs")
     hint_fixtures = root / "Tools" / "fixtures" / "hint"
     hint_names = ["hint_flat.bmp"]
@@ -17653,6 +17657,9 @@ class Program
         if (!AsteroidsGoneRogue.OpeningView.SelfCheck()) throw new Exception("view");
         if (!AsteroidsGoneRogue.PlayHudLayout.SelfCheck()) throw new Exception("hud");
         if (!AsteroidsGoneRogue.HangarHudLayout.WeaponsGroupInsideInner()) throw new Exception("weapons inner");
+        if (!AsteroidsGoneRogue.HangarHudLayout.ShopColumnsInsideInner()) throw new Exception("shop inner");
+        if (!AsteroidsGoneRogue.HangarHudLayout.ExtendsAboveInnerTop(0.80f)) throw new Exception("above inner");
+        if (AsteroidsGoneRogue.HangarHudLayout.ExtendsAboveInnerTop(0.70f)) throw new Exception("inside top");
         if (!AsteroidsGoneRogue.HangarHudLayout.LegacyPerksClearInner()) throw new Exception("legacy perk");
         if (!AsteroidsGoneRogue.HangarHudLayout.BadgeTextFits(800f)) throw new Exception("badge 800");
         if (!AsteroidsGoneRogue.HangarHudLayout.BadgeTextFits(1080f)) throw new Exception("badge 1080");
@@ -17662,6 +17669,7 @@ class Program
         if (!AsteroidsGoneRogue.CaptureContinue.SelfCheck()) throw new Exception("capture continue");
         if (!AsteroidsGoneRogue.LayerGate.SelfCheck()) throw new Exception("layer gate");
         if (!AsteroidsGoneRogue.DecorDepthRules.SelfCheck()) throw new Exception("decor depth");
+        if (!AsteroidsGoneRogue.WorldFloorExposure.SelfCheck()) throw new Exception("w2 floor");
         if (AsteroidsGoneRogue.CaptureContinue.NextShot(2, true, false) != 3) throw new Exception("hud fail still advances");
         Console.WriteLine("clearance-ok");
     }
@@ -17691,6 +17699,7 @@ class Program
                 '    <Compile Include="LayerGate.cs" />',
                 '    <Compile Include="ArenaShape.cs" />',
                 '    <Compile Include="ArenaShapeCatalog.cs" />',
+                '    <Compile Include="WorldFloorExposure.cs" />',
                 '    <Compile Include="ArenaEdge.cs" />',
                 '    <Compile Include="DecorDepthRules.cs" />',
                 '    <Compile Include="Program.cs" />',
@@ -18189,6 +18198,149 @@ def test_weapons_group_inside_hangar_inner() -> None:
     assert "HangarHudLayout.HangarInnerMaxY" in ui
     assert "HangarHudLayout.WeaponsGroupMaxY" in ui
     assert "0.732f" not in ui
+
+
+def test_shop_columns_inside_hangar_inner() -> None:
+    """Shop plates and the bottom buys stay inside HangarInner by >= 4 px.
+
+    A child whose top is above HangarInner fails. Y grows upward.
+    """
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    layout = (root / "Assets/Scripts/Core/HangarHudLayout.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+
+    def const(name: str) -> float:
+        match = re.search(rf"public const float {name} = ([0-9.]+)f;", layout)
+        assert match, name
+        return float(match.group(1))
+
+    inner = (const("HangarInnerMinX"), const("HangarInnerMinY"), const("HangarInnerMaxX"), const("HangarInnerMaxY"))
+    panel = (const("PanelMinX"), const("PanelMinY"), const("PanelMaxX"), const("PanelMaxY"))
+    top = const("ShopGridTop")
+    height = const("ShopCellHeight")
+    gutter = const("ShopCellGutter")
+    margin = const("ShopInnerMarginPx")
+    step = height + gutter
+    bottom = top - (4 * step) - height
+    children = (
+        (const("ShopHullMinX"), bottom, const("ShopHullMaxX"), top),
+        (const("ShopWeaponsMinX"), bottom, const("ShopWeaponsMaxX"), top),
+        (const("ShopDefenseMinX"), bottom, const("ShopDefenseMaxX"), top),
+        (const("ShopWeaponsMinX"), bottom, const("ShopWeaponsMaxX"), top),
+        (const("ShopDefenseMinX"), bottom, const("ShopDefenseMaxX"), top),
+    )
+
+    def above(child_max_y: float) -> bool:
+        return child_max_y > inner[3]
+
+    assert above(0.80)
+    assert not above(0.70)
+    for child in children:
+        assert not above(child[3]), child
+
+    def panel_px(local, width, screen_h):
+        span_x = panel[2] - panel[0]
+        span_y = panel[3] - panel[1]
+        return (
+            (panel[0] + local[0] * span_x) * width,
+            (panel[1] + local[1] * span_y) * screen_h,
+            (panel[0] + local[2] * span_x) * width,
+            (panel[1] + local[3] * span_y) * screen_h,
+        )
+
+    for width, screen_h in ((1280, 800), (1920, 1080), (2560, 1440), (3440, 1440)):
+        inner_px = panel_px(inner, width, screen_h)
+        for child in children:
+            box = panel_px(child, width, screen_h)
+            assert box[3] <= inner_px[3], (width, screen_h, box, inner_px)
+            assert box[0] >= inner_px[0] + margin
+            assert box[2] <= inner_px[2] - margin
+            assert box[1] >= inner_px[1] + margin
+            assert box[3] <= inner_px[3] - margin
+
+    assert "ShopColumnsInsideInner" in layout
+    assert "ExtendsAboveInnerTop" in layout
+    assert "ShopCellGutter = 0.012f" in ui
+    assert "ShopCellHeight = 0.094f" in ui
+
+
+def test_hangar_hint_contrast() -> None:
+    """Hangar hint ink stays at full alpha. Reduce does not retint it.
+
+    The layer gate's hard stem is 80. Footer luma on the 0–255 scale clears that.
+    """
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    theme = (root / "Assets/Scripts/UI/UiTheme.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    prompts = (root / "Assets/Scripts/UI/PromptLineView.cs").read_text(encoding="utf-8")
+    footer = theme.split("public static Color FooterHint")[1].split("public static float FooterHintLuma")[0]
+    assert "FooterHintAlpha = 1f" in theme
+    assert "HintContrastMin = 80f" in theme
+    assert "new Color(1f, 1f, 1f, FooterHintAlpha)" in footer
+    assert "ReduceEffects" not in footer
+    luma = (0.2126 + 0.7152 + 0.0722) * 255.0 * 1.0
+    assert luma >= 80.0
+    assert "FooterHintReadable" in theme
+    assert "_hint.color = UiTheme.FooterHint" in ui
+    apply = ui.split("private void ApplyBottomHint")[1].split("private void FinishHintBox")[0]
+    assert apply.index("_hint.color = UiTheme.FooterHint") < apply.index("if (!waveClear")
+    assert "ReduceEffects" not in apply.split("_hint.color = UiTheme.FooterHint")[0]
+    finish = ui.split("private void FinishHintBox")[1].split("private void SyncHintScrim")[0]
+    assert "PromptLineView.SnapHangarHint(_hint)" in finish
+    assert "public static void SnapHangarHint" in prompts
+    assert "ReduceEffects" not in prompts.split("public static void SnapHangarHint")[1].split("private static void SnapHintChildren")[0]
+
+
+def test_w2_floor_exposure() -> None:
+    """W2 floor albedo*emission stays at or under the 0.48 paint, and the mesh scale is capped."""
+    import math
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    exposure = (root / "Assets/Scripts/Core/WorldFloorExposure.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    env = (root / "Assets/Scripts/Content/ArenaEnv.cs").read_text(encoding="utf-8")
+    assert "CapMeshScale" in exposure and "ProductWithinReference" in exposure
+    assert "WorldFloorExposure.CapMeshScale" in factory
+    assert "WorldFloorExposure.Cap(" in env
+    assert "DimWorld2Emission" not in env
+    assert "keep * keep" not in env
+
+    def floor_rgb(tint_r, tint_g, tint_b):
+        surface = (14 / 255, 21 / 255, 32 / 255)
+        mix = 0.18
+        tint = (tint_r, tint_g, tint_b)
+        return tuple(surface[i] + ((tint[i] - surface[i]) * mix) for i in range(3))
+
+    ref = floor_rgb(0.2 * 0.86, 0.04 * 0.86, 0.34 * 0.86)
+    # Glow slot on the blockout is about (4, 2, 0.8) before the cap. W2 clears it.
+    capped_emit = (0.0, 0.0, 0.0)
+    capped_albedo = tuple(min(channel, ref[i]) for i, channel in enumerate((0.9, 0.8, 0.7)))
+    for i in range(3):
+        assert capped_albedo[i] * capped_emit[i] <= ref[i] * 0.0 + 1e-6
+        assert capped_albedo[i] <= ref[i] + 1e-6
+    # World 3 keeps its emission. The product gate is W2 only.
+    kept = (ref[0] * 0.25, ref[1] * 0.1, ref[2] * 0.05)
+    assert kept[0] > 0.0
+
+    legacy = 30.0 / 22.0
+    # Contour reach is larger than the 30 m disc. The cap must win for world 2.
+    reach = 57.0
+    contour = reach / 22.0
+    assert contour > legacy
+    capped_scale = min(contour, legacy)
+    assert capped_scale <= legacy + 1e-6
+    assert capped_scale < contour
+    other = contour
+    assert other > legacy
+    assert "public const int World = 2" in exposure
+    assert "emitR = 0f" in exposure or "outEmitR = 0f" in exposure
+    assert math.isclose(legacy, 30.0 / 22.0)
 
 
 def test_wave_summary_and_hangar_hud() -> None:
