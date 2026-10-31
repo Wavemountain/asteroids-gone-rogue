@@ -1962,6 +1962,7 @@ namespace AsteroidsGoneRogue.EditorTools
 
             try
             {
+                LogW2Floor();
                 for (int drawIndex = 0; drawIndex < screenCams.Length; drawIndex++)
                 {
                     Camera drawCam = screenCams[drawIndex];
@@ -3812,6 +3813,23 @@ namespace AsteroidsGoneRogue.EditorTools
                 }
 
                 PromptLineView.BindHintGlyph(part);
+            }
+        }
+
+        static void LogW2Floor()
+        {
+            ArenaEnv[] envs = UnityEngine.Object.FindObjectsByType<ArenaEnv>();
+            if (envs == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < envs.Length; i++)
+            {
+                if (envs[i] != null)
+                {
+                    envs[i].LogCaptureFloor();
+                }
             }
         }
 
