@@ -8067,7 +8067,8 @@ namespace AsteroidsGoneRogue
             }
 
             ApplyFooterHintSize();
-            // Same ink in every mode, including Reduce. Children copy this colour.
+            // Same ink in every mode, including Reduce. The drawn PSegT children
+            // are rewritten in SnapHangarHint; this host write is not the pixels.
             _hint.color = UiTheme.FooterHint;
             bool waveClear = WaveClearHint();
             // Wave clear uses the wave-1 hint row: same anchors, same height.

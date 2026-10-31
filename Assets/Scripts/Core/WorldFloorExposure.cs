@@ -11,6 +11,21 @@ namespace AsteroidsGoneRogue
     {
         public const int World = 2;
 
+        /// <summary>
+        /// W2 disc is still lighter than the void around it. This keeps the
+        /// paint under the 0.48 reference and pulls it down.
+        /// </summary>
+        public const float Darken = 0.55f;
+
+        /// <summary>
+        /// Other worlds fade just outside the contour (lead 3, span 4).
+        /// W2 starts inside the plate so the edge eases into space.
+        /// </summary>
+        public const float FadeLead = -16f;
+        public const float FadeSpan = 24f;
+        public const float OtherFadeLead = 3f;
+        public const float OtherFadeSpan = 4f;
+
         public static float LegacyDiscScale(float arenaRadius, float designRadius)
         {
             if (designRadius < 0.001f)
@@ -89,9 +104,25 @@ namespace AsteroidsGoneRogue
                 outAlbedoB = refB;
             }
 
+            outAlbedoR *= Darken;
+            outAlbedoG *= Darken;
+            outAlbedoB *= Darken;
             outEmitR = 0f;
             outEmitG = 0f;
             outEmitB = 0f;
+        }
+
+        public static void ContourBand(int world, out float lead, out float span)
+        {
+            if (world == World)
+            {
+                lead = FadeLead;
+                span = FadeSpan;
+                return;
+            }
+
+            lead = OtherFadeLead;
+            span = OtherFadeSpan;
         }
 
         public static bool ProductWithinReference(float albedoR, float albedoG, float albedoB, float emitR, float emitG, float emitB)

@@ -839,11 +839,130 @@ namespace AsteroidsGoneRogue
 
         /// <summary>
         /// Pixel-align the hangar footer glyphs. Does not replace the wave-1
-        /// box the capture gate stores. Colour stays on the host.
+        /// box the capture gate stores. Ink is applied after the snap so a
+        /// stamp skip cannot leave the previous child colour in place.
         /// </summary>
         public static void SnapHangarHint(Text host)
         {
             SnapHintChildren(host);
+            ApplyHangarInk(host);
+        }
+
+        /// <summary>
+        /// Product of CanvasGroup alphas from this node up to, but not past,
+        /// <paramref name="stopBefore"/>. The canvas above the hint is not part
+        /// of the hint ink.
+        /// </summary>
+        public static float HintGroupAlpha(Transform node, Transform stopBefore)
+        {
+            float alpha = 1f;
+            Transform walk = node;
+            while (walk != null && walk != stopBefore)
+            {
+                CanvasGroup group = walk.GetComponent<CanvasGroup>();
+                if (group != null)
+                {
+                    alpha *= group.alpha;
+                }
+
+                walk = walk.parent;
+            }
+
+            return alpha;
+        }
+
+        /// <summary>
+        /// The host colour is not what the camera draws. Paint copies it onto
+        /// PSegT only when the layout stamp changes, and those children keep
+        /// font.material: the Smooth atlas stores coverage in gray RGB, so a
+        /// white vertex still peaks near 142 and the rise stays soft.
+        /// This is the last writer for the hangar row: opaque white, group
+        /// alpha 1 on the hint subtree, and AGR/HintInk so the stem is a hard pixel.
+        /// </summary>
+        public static void ApplyHangarInk(Text host)
+        {
+            if (host == null)
+            {
+                return;
+            }
+
+            host.color = UiTheme.FooterHint;
+            ForceHintGroup(host.gameObject);
+            Text[] parts = host.GetComponentsInChildren<Text>(true);
+            if (parts == null)
+            {
+                return;
+            }
+
+            Transform stop = host.transform.parent;
+            for (int index = 0; index < parts.Length; index++)
+            {
+                Text part = parts[index];
+                if (part == null || part.gameObject == null || part.gameObject.name != SegmentPrefix + "T")
+                {
+                    continue;
+                }
+
+                UseHintInk(part);
+                part.color = UiTheme.FooterHint;
+                ForceHintGroup(part.gameObject);
+                WarmGlyphs(part);
+                float grouped = HintGroupAlpha(part.transform, stop);
+                if (!UiTheme.EffectiveFooterHolds(part.color, grouped))
+                {
+                    part.color = UiTheme.FooterHint;
+                    ForceHintGroup(part.gameObject);
+                }
+            }
+        }
+
+        private static void ForceHintGroup(GameObject go)
+        {
+            if (go == null)
+            {
+                return;
+            }
+
+            CanvasGroup group = go.GetComponent<CanvasGroup>();
+            if (group != null && group.alpha < 1f)
+            {
+                group.alpha = 1f;
+            }
+        }
+
+        private static Material _hintInk;
+
+        private static void UseHintInk(Text part)
+        {
+            if (part == null)
+            {
+                return;
+            }
+
+            if (_hintInk == null)
+            {
+                Shader shader = Shader.Find("AGR/HintInk");
+                if (shader == null)
+                {
+                    shader = Resources.Load<Shader>("Shaders/AgrHintInk");
+                }
+
+                if (shader == null)
+                {
+                    UseDefaultUiMaterial(part);
+                    return;
+                }
+
+                _hintInk = new Material(shader);
+                _hintInk.hideFlags = HideFlags.HideAndDontSave;
+                _hintInk.SetColor("_Color", Color.white);
+                _hintInk.SetFloat("_Cutoff", 0.40f);
+            }
+
+            if (part.material != _hintInk)
+            {
+                part.material = _hintInk;
+            }
         }
 
         private static void SnapHintChildren(Text host)

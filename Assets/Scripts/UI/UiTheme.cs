@@ -193,6 +193,38 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
+        /// Vertex colour times every CanvasGroup on the glyph and its parents.
+        /// A 0.55 group or a non-white writer fails the opaque-white bar.
+        /// </summary>
+        public static Color EffectiveFooterInk(Color vertex, float groupAlpha)
+        {
+            float alpha = vertex.a * groupAlpha;
+            if (alpha < 0f)
+            {
+                alpha = 0f;
+            }
+
+            if (alpha > 1f)
+            {
+                alpha = 1f;
+            }
+
+            return new Color(vertex.r, vertex.g, vertex.b, alpha);
+        }
+
+        public static float InkLuma(Color ink)
+        {
+            return ((0.2126f * ink.r) + (0.7152f * ink.g) + (0.0722f * ink.b)) * 255f * ink.a;
+        }
+
+        public static bool EffectiveFooterHolds(Color vertex, float groupAlpha)
+        {
+            bool white = vertex.r >= 0.99f && vertex.g >= 0.99f && vertex.b >= 0.99f;
+            Color ink = EffectiveFooterInk(vertex, groupAlpha);
+            return white && ink.a >= FooterHintAlpha - 0.001f && InkLuma(ink) >= HintContrastMin;
+        }
+
+        /// <summary>
         /// Hint/footer size. 18 at Steam Deck 1280x800 and any narrower width;
         /// otherwise the previous 16px footer size.
         /// </summary>
