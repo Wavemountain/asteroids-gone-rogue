@@ -8124,7 +8124,9 @@ namespace AsteroidsGoneRogue
             }
             else
             {
+                PromptLineView.HangarInkPass = true;
                 PaintPrompt(_hint, Loc.T("ui.hint_footer", HintFooter));
+                PromptLineView.HangarInkPass = false;
             }
 
             ClampOneLine(_hint);

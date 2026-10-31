@@ -18312,8 +18312,25 @@ def test_hangar_hint_contrast() -> None:
     shader = (root / "Assets/Resources/Shaders/AgrHintInk.shader").read_text(encoding="utf-8")
     assert 'Shader "AGR/HintInk"' in shader
     assert "ZTest Always" not in shader
+    assert "ZTest Off" in shader
     assert "Overlay" not in shader
     assert "_Cutoff" in shader
+    # The sharpness crop is every active PSegT whose parent is Hint.
+    capture = (root / "Assets/Editor/AgrCapture.cs").read_text(encoding="utf-8")
+    assert 'part.gameObject.name != "PSegT"' in capture
+    assert 'parent.name == "Hint"' in capture
+    assert "SealHangarHint" in capture
+    assert "BindHintGlyph" in capture
+    assert "AgrCapture hint-glyph path=" in capture
+    overlay = capture.split("static void CompositeOverlay")[1].split("static void EnableUi")[0]
+    assert "Canvas.ForceUpdateCanvases();\n                SealHangarHint();\n                RecordHintCrops(uiCam);\n                uiCam.Render();" in overlay
+    place = prompts.split("private static void Place(")[1].split("private static bool ClampToHost")[0]
+    assert 'new GameObject(SegmentPrefix + "T")' in place
+    assert "HangarInkPass" in place and "BindHintGlyph(text)" in place
+    assert "HangarInkPass = true" in ui
+    assert 'PaintPrompt(_hint, Loc.T("ui.hint_footer", HintFooter))' in ui
+    footer_paint = ui.split("PromptLineView.HangarInkPass = true")[1].split("PromptLineView.HangarInkPass = false")[0]
+    assert "ui.hint_footer" in footer_paint
 
     def effective(vertex, group_alpha):
         r, g, b, a = vertex

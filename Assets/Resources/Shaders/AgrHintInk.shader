@@ -24,7 +24,9 @@ Shader "AGR/HintInk"
         Cull Off
         Lighting Off
         ZWrite Off
-        ZTest LEqual
+        // Screen glyphs composite after the arena. LEqual fails against the
+        // capture HDR depth, so the hangar crop kept the soft plate behind them.
+        ZTest Off
         Blend SrcAlpha OneMinusSrcAlpha
         Pass
         {
