@@ -18293,7 +18293,48 @@ def test_hangar_hint_contrast() -> None:
     finish = ui.split("private void FinishHintBox")[1].split("private void SyncHintScrim")[0]
     assert "PromptLineView.SnapHangarHint(_hint)" in finish
     assert "public static void SnapHangarHint" in prompts
-    assert "ReduceEffects" not in prompts.split("public static void SnapHangarHint")[1].split("private static void SnapHintChildren")[0]
+    snap = prompts.split("public static void SnapHangarHint")[1].split("private static void SnapHintChildren")[0]
+    assert "ReduceEffects" not in snap
+    assert "ApplyHangarInk(host)" in snap
+    assert snap.index("SnapHintChildren(host)") < snap.index("ApplyHangarInk(host)")
+    ink = prompts.split("public static void ApplyHangarInk")[1].split("private static void ForceHintGroup")[0]
+    assert "part.color = UiTheme.FooterHint" in ink
+    assert "UseHintInk" in ink
+    assert "HintGroupAlpha" in ink
+    assert "Shader.Find(\"AGR/HintInk\")" in prompts
+    assert "group.alpha = 1f" in prompts
+    # Stamp skip used to keep the old child colour. Ink is the last hangar writer.
+    assert "mark.Stamp == stamp" in prompts
+    writers = [line.strip() for line in prompts.splitlines() if "part.color =" in line]
+    assert writers
+    for line in writers:
+        assert "UiTheme.FooterHint" in line or "_play.Color" in line or "host.color" in line, line
+    shader = (root / "Assets/Resources/Shaders/AgrHintInk.shader").read_text(encoding="utf-8")
+    assert 'Shader "AGR/HintInk"' in shader
+    assert "ZTest Always" not in shader
+    assert "Overlay" not in shader
+    assert "_Cutoff" in shader
+
+    def effective(vertex, group_alpha):
+        r, g, b, a = vertex
+        alpha = a * group_alpha
+        alpha = 0.0 if alpha < 0.0 else (1.0 if alpha > 1.0 else alpha)
+        white = r >= 0.99 and g >= 0.99 and b >= 0.99
+        luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) * 255.0 * alpha
+        return white and alpha >= 1.0 - 0.001 and luma >= 80.0
+
+    # Opaque white, no dim parent group.
+    assert effective((1.0, 1.0, 1.0, 1.0), 1.0)
+    # The measured peak (~142) is white * ~0.55 coverage, or a 0.55 CanvasGroup.
+    assert not effective((1.0, 1.0, 1.0, 1.0), 0.55)
+    assert not effective((1.0, 1.0, 1.0, 0.55), 1.0)
+    # Accent at 0.92 was the previous footer. It is not opaque white.
+    assert not effective((200 / 255, 206 / 255, 214 / 255, 0.92), 1.0)
+    # A runtime writer that leaves gray RGB fails even at alpha 1.
+    assert not effective((142 / 255, 142 / 255, 142 / 255, 1.0), 1.0)
+    assert "EffectiveFooterHolds" in theme
+    assert "EffectiveFooterInk" in theme
+    assert "vertex.a * groupAlpha" in theme
 
 
 def test_w2_floor_exposure() -> None:
