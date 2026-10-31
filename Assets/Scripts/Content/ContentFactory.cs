@@ -1254,7 +1254,8 @@ namespace AsteroidsGoneRogue
             if (importedMesh)
             {
                 DressImportedEnemy(root.transform, kind);
-                ScaleImportedToRadius(root.transform, MeshFit.LegacyRadius(EnemyCatalog.MeshFitId(kind)));
+                // MeshFit.LegacyRadius stays the old capsule target. Visual size uses the 0.48 max axis.
+                ScaleImportedToExtent(root.transform, MeshFit.ReferenceExtent(EnemyCatalog.MeshFitId(kind)));
             }
             else if (kind == EnemyKind.Swarmling)
             {
@@ -2395,6 +2396,33 @@ namespace AsteroidsGoneRogue
             root.GetChild(0).localScale = Vector3.one * scale;
         }
 
+        private static void ScaleImportedToExtent(Transform root, float authoredExtent)
+        {
+            if (root == null || authoredExtent <= 0.01f)
+            {
+                return;
+            }
+
+            Bounds local;
+            if (!TryEnemyMeshBounds(root, out local))
+            {
+                return;
+            }
+
+            float measured = local.size.x;
+            if (local.size.y > measured)
+            {
+                measured = local.size.y;
+            }
+
+            if (local.size.z > measured)
+            {
+                measured = local.size.z;
+            }
+
+            ScaleImportedVisual(root, MeshFit.Uniform(measured, authoredExtent));
+        }
+
         private static void ScaleImportedToRadius(Transform root, float authoredRadius)
         {
             if (root == null || authoredRadius <= 0.01f)
@@ -3166,13 +3194,7 @@ namespace AsteroidsGoneRogue
             }
 
             DressImportedEnemy(instance.transform, kind);
-            float authored = MeshFit.LegacyRadius(EnemyCatalog.MeshFitId(kind));
-            if (authored <= 0.01f)
-            {
-                authored = EnemyCatalog.ColliderRadius(kind);
-            }
-
-            ScaleImportedToRadius(parent, authored);
+            ScaleImportedToExtent(parent, MeshFit.ReferenceExtent(EnemyCatalog.MeshFitId(kind)));
             return true;
         }
 

@@ -98,8 +98,18 @@ namespace AsteroidsGoneRogue
                     return MeshFit.Bomber;
                 case EnemyKind.Swarmling:
                     return MeshFit.Swarmling;
+                case EnemyKind.Scout:
+                    return MeshFit.Scout;
+                case EnemyKind.Gunner:
+                    return MeshFit.Gunner;
+                case EnemyKind.Drone:
+                    return MeshFit.Drone;
+                case EnemyKind.Sniper:
+                    return MeshFit.Sniper;
+                case EnemyKind.SwarmPod:
+                    return MeshFit.SwarmPod;
                 default:
-                    return MeshFit.None;
+                    return MeshFit.Mid;
             }
         }
 

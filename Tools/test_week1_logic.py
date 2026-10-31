@@ -16657,6 +16657,45 @@ def _remaining_text(seconds: int) -> str:
     return str(secs) + "s"
 
 
+def test_enemy_bounds_within_048() -> None:
+    """Each v4 enemy's fitted max axis stays within 15% of its 0.48 world size."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    fit = (root / "Assets/Scripts/Core/MeshFit.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    enemies = (root / "Assets/Scripts/Combat/EnemyKind.cs").read_text(encoding="utf-8")
+    assert "ReferenceExtent" in fit and "ExtentNearReference" in fit and "ExtentBand = 0.15f" in fit
+    assert "ScaleImportedToExtent" in factory and "MeshFit.ReferenceExtent" in factory
+    assert "FitEnemyCollider" in factory
+    pairs = (
+        ("V4ScoutExtent", "RefScoutExtent", "MeshFit.Scout"),
+        ("V4GunnerExtent", "RefGunnerExtent", "MeshFit.Gunner"),
+        ("V4DroneExtent", "RefDroneExtent", "MeshFit.Drone"),
+        ("V4BomberExtent", "RefBomberExtent", "MeshFit.Bomber"),
+        ("V4SniperExtent", "RefSniperExtent", "MeshFit.Sniper"),
+        ("V4SwarmPodExtent", "RefSwarmPodExtent", "MeshFit.SwarmPod"),
+        ("V4BruteExtent", "RefBruteExtent", "MeshFit.Brute"),
+        ("V4SwarmExtent", "RefSwarmExtent", "MeshFit.Swarm"),
+        ("V4SwarmlingExtent", "RefSwarmlingExtent", "MeshFit.Swarmling"),
+        ("V4MidExtent", "RefMidExtent", "MeshFit.Mid"),
+    )
+
+    def value(name: str) -> float:
+        token = name + " = "
+        line = next(row for row in fit.splitlines() if token in row)
+        return float(line.split(token, 1)[1].split("f", 1)[0])
+
+    for raw_name, ref_name, kind_id in pairs:
+        raw = value(raw_name)
+        reference = value(ref_name)
+        fitted = raw * (reference / raw)
+        assert reference > 0
+        assert abs(fitted - reference) / reference <= 0.15
+        assert f"ExtentNearReference({raw_name}, {ref_name})" in fit
+        assert f"return {kind_id};" in enemies
+
+
 def test_enemy_hitbox_skips_debris() -> None:
     """v4 hitbox matches the combat mesh: no chunks or debris, rotors lance and horns included."""
     from pathlib import Path

@@ -51,6 +51,7 @@ namespace AsteroidsGoneRogue.EditorTools
             bool enemy = fileName.IndexOf("shot_enemy_", System.StringComparison.Ordinal) >= 0;
             if (after && enemy && TryPlaceImportedEnemy(fileName, root.transform))
             {
+                FitLookDistance(camera, root);
                 return root;
             }
 
@@ -160,6 +161,67 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             return root;
+        }
+
+        static void FitLookDistance(Camera camera, GameObject root)
+        {
+            if (camera == null || root == null)
+            {
+                return;
+            }
+
+            Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+            bool any = false;
+            Bounds bounds = new Bounds(root.transform.position, Vector3.zero);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null || !renderer.enabled)
+                {
+                    continue;
+                }
+
+                if (!any)
+                {
+                    bounds = renderer.bounds;
+                    any = true;
+                }
+                else
+                {
+                    bounds.Encapsulate(renderer.bounds);
+                }
+            }
+
+            if (!any)
+            {
+                return;
+            }
+
+            float extent = bounds.size.x;
+            if (bounds.size.y > extent)
+            {
+                extent = bounds.size.y;
+            }
+
+            if (bounds.size.z > extent)
+            {
+                extent = bounds.size.z;
+            }
+
+            float half = 27f * Mathf.Deg2Rad;
+            float span = Mathf.Tan(half) * 2f * 0.62f;
+            if (span < 0.05f)
+            {
+                span = 0.05f;
+            }
+
+            float distance = extent / span;
+            if (distance < 6f)
+            {
+                distance = 6f;
+            }
+
+            root.transform.position = camera.transform.position + (camera.transform.forward * distance);
         }
 
         static bool TryPlaceImportedEnemy(string fileName, Transform parent)

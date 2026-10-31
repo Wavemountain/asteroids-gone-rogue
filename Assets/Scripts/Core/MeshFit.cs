@@ -15,6 +15,12 @@ namespace AsteroidsGoneRogue
         public const int Swarm = 2;
         public const int Bomber = 3;
         public const int Swarmling = 4;
+        public const int Scout = 5;
+        public const int Gunner = 6;
+        public const int Drone = 7;
+        public const int Sniper = 8;
+        public const int SwarmPod = 9;
+        public const int Mid = 10;
 
         public const float LegacyBruteRadius = 1.625f;
         public const float LegacyBruteHeight = 3.250f;
@@ -23,6 +29,32 @@ namespace AsteroidsGoneRogue
         public const float LegacyBomberRadius = 4.635f;
         public const float LegacyBomberHeight = 9.270f;
         public const float SwarmlingScale = 0.45f;
+
+        // 0.48 world max-axis, metres, after the importer unit scale and the
+        // legacy capsule fit. v4 meshes are scaled onto these.
+        public const float RefBruteExtent = 3.250f;
+        public const float RefSwarmExtent = 1.820f;
+        public const float RefBomberExtent = 9.270f;
+        public const float RefSwarmlingExtent = 0.819f;
+        public const float RefScoutExtent = 4.720f;
+        public const float RefGunnerExtent = 5.795f;
+        public const float RefDroneExtent = 2.390f;
+        public const float RefSniperExtent = 7.565f;
+        public const float RefSwarmPodExtent = 3.085f;
+        public const float RefMidExtent = 5.207f;
+        public const float ExtentBand = 0.15f;
+
+        // Imported v4 hitbox max-axis before the fit. SelfCheck scales these.
+        public const float V4BruteExtent = 2.435f;
+        public const float V4SwarmExtent = 1.016f;
+        public const float V4BomberExtent = 2.126f;
+        public const float V4SwarmlingExtent = 0.600f;
+        public const float V4ScoutExtent = 1.648f;
+        public const float V4GunnerExtent = 1.877f;
+        public const float V4DroneExtent = 2.496f;
+        public const float V4SniperExtent = 2.202f;
+        public const float V4SwarmPodExtent = 2.360f;
+        public const float V4MidExtent = 2.332f;
         public const float SwarmRawRadius = 0.757f;
         public const float SwarmLookScale = 0.80f;
         public const bool SwarmShrinksGameplay = false;
@@ -55,6 +87,69 @@ namespace AsteroidsGoneRogue
             }
 
             return 0f;
+        }
+
+        public static float ReferenceExtent(int id)
+        {
+            if (id == Brute)
+            {
+                return RefBruteExtent;
+            }
+
+            if (id == Swarm)
+            {
+                return RefSwarmExtent;
+            }
+
+            if (id == Bomber)
+            {
+                return RefBomberExtent;
+            }
+
+            if (id == Swarmling)
+            {
+                return RefSwarmlingExtent;
+            }
+
+            if (id == Scout)
+            {
+                return RefScoutExtent;
+            }
+
+            if (id == Gunner)
+            {
+                return RefGunnerExtent;
+            }
+
+            if (id == Drone)
+            {
+                return RefDroneExtent;
+            }
+
+            if (id == Sniper)
+            {
+                return RefSniperExtent;
+            }
+
+            if (id == SwarmPod)
+            {
+                return RefSwarmPodExtent;
+            }
+
+            if (id == Mid)
+            {
+                return RefMidExtent;
+            }
+
+            return 0f;
+        }
+
+        public static bool ExtentNearReference(float rawExtent, float reference)
+        {
+            float fitted = rawExtent * Uniform(rawExtent, reference);
+            float low = reference * (1f - ExtentBand);
+            float high = reference * (1f + ExtentBand);
+            return fitted >= low && fitted <= high;
         }
 
         public static float LegacyHeight(int id)
@@ -393,6 +488,61 @@ namespace AsteroidsGoneRogue
             }
 
             if (!CountsForEnemyHitbox("Body") || !CountsForEnemyHitbox("Thruster_Main"))
+            {
+                return false;
+            }
+
+            if (!ExtentNearReference(V4BruteExtent, RefBruteExtent))
+            {
+                return false;
+            }
+
+            if (!ExtentNearReference(V4SwarmExtent, RefSwarmExtent))
+            {
+                return false;
+            }
+
+            if (!ExtentNearReference(V4BomberExtent, RefBomberExtent))
+            {
+                return false;
+            }
+
+            if (!ExtentNearReference(V4SwarmlingExtent, RefSwarmlingExtent))
+            {
+                return false;
+            }
+
+            if (!ExtentNearReference(V4ScoutExtent, RefScoutExtent))
+            {
+                return false;
+            }
+
+            if (!ExtentNearReference(V4GunnerExtent, RefGunnerExtent))
+            {
+                return false;
+            }
+
+            if (!ExtentNearReference(V4DroneExtent, RefDroneExtent))
+            {
+                return false;
+            }
+
+            if (!ExtentNearReference(V4SniperExtent, RefSniperExtent))
+            {
+                return false;
+            }
+
+            if (!ExtentNearReference(V4SwarmPodExtent, RefSwarmPodExtent))
+            {
+                return false;
+            }
+
+            if (!ExtentNearReference(V4MidExtent, RefMidExtent))
+            {
+                return false;
+            }
+
+            if (ReferenceExtent(Scout) <= 0f || ReferenceExtent(None) != 0f)
             {
                 return false;
             }
