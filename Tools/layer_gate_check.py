@@ -123,8 +123,9 @@ def injection_errors() -> list[str]:
         "_enemyBody.renderQueue = 2000;\n"
         "_enemyTrim.renderQueue = 2000;\n"
         "PinEnemyLayer(root);\n"
+        'MakeShipRim(\n"Mat_Enemy_V4_Body",\n'
     )
-    if enemy_part_hits(["Crossbeam", "Hatch"], good_parts):
+    if enemy_part_hits(list(_V4_BARE), good_parts):
         errors.append("self-test enemy parts were flagged")
     if not spawn_clear_hits("", "", ""):
         errors.append("self-test spawn-decor did not FAIL")
@@ -161,11 +162,89 @@ def spawn_clear_hits(factory: str, capture: str, carve: str) -> list[str]:
     return hits
 
 
+_NAME_BYTES = set(b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_")
+_V4_BARE = ("Crossbeam", "Hatch", "Head", "Lance", "Hub", "Ring")
+_V4_MAT = re.compile(r"Mat_Enemy_V4_[A-Za-z0-9_]+")
+
+
+def _glob(pattern: str, text: str) -> bool:
+    """Same rules as LayerGate.Glob. A lone star matches any span."""
+    if pattern is None or text is None:
+        return False
+    parts = pattern.split("*")
+    index = 0
+    for i, part in enumerate(parts):
+        if not part:
+            continue
+        found = text.find(part, index)
+        if found < 0:
+            return False
+        if i == 0 and pattern and pattern[0] != "*" and found != 0:
+            return False
+        index = found + len(part)
+    if not pattern or pattern[-1] != "*":
+        last = parts[-1] if parts else ""
+        if last and not text.endswith(last):
+            return False
+    return True
+
+
+def _match_any(patterns, text: str) -> bool:
+    if not isinstance(patterns, list):
+        return False
+    return any(_glob(pattern, text) for pattern in patterns if isinstance(pattern, str))
+
+
+def v4_model_names(root: Path) -> list[str]:
+    """GameObject names on every Enemy_*_v4.fbx Model node."""
+    folder = root / "Assets" / "Resources" / "Art" / "Import"
+    names: set[str] = set()
+    if not folder.is_dir():
+        return []
+    marker = b"\x01Model"
+    for path in sorted(folder.glob("Enemy_*_v4.fbx")):
+        data = path.read_bytes()
+        start = 0
+        while True:
+            index = data.find(marker, start)
+            if index < 0:
+                break
+            if index >= 1 and data[index - 1] == 0:
+                end = index - 1
+                cursor = end - 1
+                while cursor >= 0 and data[cursor] in _NAME_BYTES:
+                    cursor -= 1
+                raw = data[cursor + 1 : end]
+                try:
+                    name = raw.decode("ascii")
+                except UnicodeDecodeError:
+                    name = ""
+                if len(name) >= 2 and name[0].isupper() and name.replace("_", "").isalnum():
+                    names.add(name)
+            start = index + 1
+    return sorted(names)
+
+
+def v4_part_hits(renderers, materials, factory: str, root: Path) -> list[str]:
+    """FAIL when any v4 FBX part or Mat_Enemy_V4_* material is off the whitelist."""
+    hits: list[str] = []
+    parts = v4_model_names(root)
+    if len(parts) < 20:
+        hits.append("v4 enemy FBX part list is empty")
+    for token in parts:
+        if not _match_any(renderers, token):
+            hits.append(f"unknown {token} missing from layer whitelist")
+    for token in sorted(set(_V4_MAT.findall(factory or ""))):
+        if not _match_any(materials, token):
+            hits.append(f"unknown {token} missing from layer whitelist")
+    return hits
+
+
 def enemy_part_hits(renderers, factory: str) -> list[str]:
-    """FAIL when W3 Crossbeam / W4 Hatch are off the whitelist, or Trim_Beam stays live."""
+    """FAIL when a bare v4 part is off the whitelist, or Trim_Beam stays live."""
     hits: list[str] = []
     names = renderers if isinstance(renderers, list) else []
-    for token in ("Crossbeam", "Hatch"):
+    for token in _V4_BARE:
         if token not in names:
             hits.append(f"unknown {token} missing from layer whitelist")
     text = factory or ""
@@ -219,6 +298,7 @@ def check(root: Path) -> list[str]:
     if not factory_path.is_file():
         errors.append("missing ContentFactory.cs for enemy part gate")
     errors.extend(enemy_part_hits(payload.get("renderers"), factory_text))
+    errors.extend(v4_part_hits(payload.get("renderers"), payload.get("materials"), factory_text, root))
     sorts = payload.get("canvasSorts")
     order_path = root / "Assets/Scripts/Core/CanvasOrder.cs"
     if order_path.is_file():

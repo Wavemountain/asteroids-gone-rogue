@@ -830,6 +830,18 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            Fact head = FactOf("Head", "Mat_Enemy_V4_Body", "enemy", 2000, ZTestLEqual, 1f, 0.6f, 0.7f, false);
+            if (Evaluate("3", rules, new Fact[] { head }, null, null, null).Length != 0)
+            {
+                return false;
+            }
+
+            Fact lance = FactOf("Lance", "Mat_Enemy_V4_Body", "enemy", 2000, ZTestLEqual, 1f, 0.6f, 0.7f, false);
+            if (Evaluate("4", rules, new Fact[] { lance }, null, null, null).Length != 0)
+            {
+                return false;
+            }
+
             Fact trimBeam = FactOf("Trim_Beam", "Mat_Enemy_V4_Trim", "enemy", 2000, ZTestLEqual, 1f, 0.1f, 0.2f, false);
             if (!Expect("dead", Evaluate("3", rules, new Fact[] { trimBeam }, null, null, null)))
             {
@@ -1869,7 +1881,7 @@ namespace AsteroidsGoneRogue
         static Rules TestRules()
         {
             Rules rules = new Rules();
-            rules.Renderers = new string[] { "Ship*", "Enemy*", "Asteroid*", "Arena*", "ContactBlob", "AstroGrid", "Crossbeam", "Hatch" };
+            rules.Renderers = new string[] { "Ship*", "Enemy*", "Asteroid*", "Arena*", "ContactBlob", "AstroGrid", "Crossbeam", "Hatch", "Head", "Lance", "Hub", "Ring" };
             rules.Materials = new string[] { "Mat_Ship_*", "Mat_Enemy", "Mat_Enemy_V4_*", "Mat_Asteroid", "Mat_Env_*", "Mat_Arena_*", "Mat_ContactBlob" };
             rules.HangarRenderers = new string[] { "Desk" };
             rules.World1Renderers = new string[0];
