@@ -256,6 +256,8 @@ namespace AsteroidsGoneRogue
                 0f,
                 0.2f,
                 false);
+            _enemyBody.renderQueue = 2000;
+            _enemyTrim.renderQueue = 2000;
             _enemyCore = MakeShipRim(
                 "Mat_Enemy_V4_Core",
                 enemyCore,
@@ -1279,6 +1281,7 @@ namespace AsteroidsGoneRogue
                 seeker.BeginSpawnGrace();
             }
             DecorDepthClamp.KeepGameplay(root);
+            PinEnemyLayer(root);
             CastFormShadow(root.transform);
             if (AudioCues.Instance != null)
             {
@@ -3166,6 +3169,7 @@ namespace AsteroidsGoneRogue
         private void DressImportedEnemy(Transform root, EnemyKind kind)
         {
             HideEnemyDebris(root);
+            RemoveTrimBeam(root);
             FollowBomberHatch(root, kind);
             PaintMidSlots(root, kind);
         }
@@ -3244,6 +3248,40 @@ namespace AsteroidsGoneRogue
                 if (changed)
                 {
                     renderer.sharedMaterials = slots;
+                }
+            }
+        }
+
+        private static void RemoveTrimBeam(Transform root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            Transform[] parts = root.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (parts[i] != null && parts[i].name == "Trim_Beam")
+                {
+                    parts[i].gameObject.SetActive(false);
+                }
+            }
+        }
+
+        private static void PinEnemyLayer(GameObject root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            Transform[] nodes = root.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < nodes.Length; i++)
+            {
+                if (nodes[i] != null)
+                {
+                    nodes[i].gameObject.layer = 0;
                 }
             }
         }

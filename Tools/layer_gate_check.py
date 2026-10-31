@@ -115,6 +115,17 @@ def injection_errors() -> list[str]:
         errors.append("self-test canvas-layer did not FAIL")
     if canvas_file_hits("UseUiLayer(canvasObject);\ncanvasObject.AddComponent<Canvas>();\n", "Inject.cs"):
         errors.append("self-test UI canvas was flagged")
+    if not enemy_part_hits([], "unused"):
+        errors.append("self-test enemy part whitelist did not FAIL")
+    good_parts = (
+        'if (parts[i].name == "Trim_Beam")\n'
+        "parts[i].gameObject.SetActive(false);\n"
+        "_enemyBody.renderQueue = 2000;\n"
+        "_enemyTrim.renderQueue = 2000;\n"
+        "PinEnemyLayer(root);\n"
+    )
+    if enemy_part_hits(["Crossbeam", "Hatch"], good_parts):
+        errors.append("self-test enemy parts were flagged")
     if not spawn_clear_hits("", "", ""):
         errors.append("self-test spawn-decor did not FAIL")
     if spawn_clear_hits(
@@ -147,6 +158,23 @@ def spawn_clear_hits(factory: str, capture: str, carve: str) -> list[str]:
         hits.append("spawn-decor capture does not measure decor near spawn")
     if "IsSpawnClutter(" not in carve or "IsRingCorner(" not in carve:
         hits.append("spawn-decor carve does not use the layer-gate island rules")
+    return hits
+
+
+def enemy_part_hits(renderers, factory: str) -> list[str]:
+    """FAIL when W3 Crossbeam / W4 Hatch are off the whitelist, or Trim_Beam stays live."""
+    hits: list[str] = []
+    names = renderers if isinstance(renderers, list) else []
+    for token in ("Crossbeam", "Hatch"):
+        if token not in names:
+            hits.append(f"unknown {token} missing from layer whitelist")
+    text = factory or ""
+    if 'name == "Trim_Beam"' not in text or "SetActive(false)" not in text:
+        hits.append("dead Trim_Beam is still in the world")
+    if "_enemyBody.renderQueue = 2000;" not in text or "_enemyTrim.renderQueue = 2000;" not in text:
+        hits.append("enemy v4 body/trim renderQueue is not geometry")
+    if "PinEnemyLayer(" not in text:
+        hits.append("enemy parts are not pinned to the gameplay layer")
     return hits
 
 
@@ -186,6 +214,11 @@ def check(root: Path) -> list[str]:
     materials = payload.get("materials")
     if not isinstance(materials, list) or "Mat_*" not in materials:
         errors.append("layer whitelist materials must include Mat_*")
+    factory_path = root / "Assets/Scripts/Content/ContentFactory.cs"
+    factory_text = factory_path.read_text(encoding="utf-8") if factory_path.is_file() else ""
+    if not factory_path.is_file():
+        errors.append("missing ContentFactory.cs for enemy part gate")
+    errors.extend(enemy_part_hits(payload.get("renderers"), factory_text))
     sorts = payload.get("canvasSorts")
     order_path = root / "Assets/Scripts/Core/CanvasOrder.cs"
     if order_path.is_file():
