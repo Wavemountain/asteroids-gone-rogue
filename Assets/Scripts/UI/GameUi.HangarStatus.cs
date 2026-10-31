@@ -112,7 +112,7 @@ namespace AsteroidsGoneRogue
                 StretchSide(_hudLifeCaptions[row].rectTransform, 0f, 80f, true);
                 ClampOneLine(_hudLifeCaptions[row]);
 
-                int valueCell = UiDigits.NarrowCell(UiDigits.ValueSize);
+                int valueCell = UiDigits.GlyphWidth(UiDigits.ValueSize);
                 GameObject valueBox = new GameObject("Value", typeof(RectTransform));
                 valueBox.transform.SetParent(rowRt, false);
                 RectTransform valueRt = valueBox.GetComponent<RectTransform>();
@@ -1132,7 +1132,7 @@ namespace AsteroidsGoneRogue
                 digits[i] = _hudValueDigits[(row * 7) + i];
             }
 
-            PaintDigits(digits, text, UiDigits.NarrowCell(UiDigits.ValueSize), true);
+            PaintDigits(digits, text, UiDigits.GlyphWidth(UiDigits.ValueSize), true);
             TintDigits(digits, UiTheme.Accent);
         }
 
@@ -1379,10 +1379,10 @@ namespace AsteroidsGoneRogue
                 text.horizontalOverflow = HorizontalWrapMode.Wrap;
                 text.verticalOverflow = VerticalWrapMode.Truncate;
                 RectTransform rt = text.rectTransform;
-                rt.anchorMin = new Vector2(1f, 0f);
-                rt.anchorMax = new Vector2(1f, 1f);
+                rt.anchorMin = new Vector2(1f, 0.5f);
+                rt.anchorMax = new Vector2(1f, 0.5f);
                 rt.pivot = new Vector2(1f, 0.5f);
-                rt.sizeDelta = new Vector2(cell, 0f);
+                rt.sizeDelta = new Vector2(cell, UiDigits.GlyphHeight(size));
                 rt.anchoredPosition = new Vector2(-i * cell, 0f);
                 cells[i] = text;
             }

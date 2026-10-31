@@ -17651,6 +17651,10 @@ class Program
         if (!AsteroidsGoneRogue.OpeningView.SelfCheck()) throw new Exception("view");
         if (!AsteroidsGoneRogue.PlayHudLayout.SelfCheck()) throw new Exception("hud");
         if (!AsteroidsGoneRogue.HangarHudLayout.WeaponsGroupInsideInner()) throw new Exception("weapons inner");
+        if (!AsteroidsGoneRogue.HangarHudLayout.LegacyPerksClearInner()) throw new Exception("legacy perk");
+        if (!AsteroidsGoneRogue.HangarHudLayout.BadgeTextFits(800f)) throw new Exception("badge 800");
+        if (!AsteroidsGoneRogue.HangarHudLayout.BadgeTextFits(1080f)) throw new Exception("badge 1080");
+        if (!AsteroidsGoneRogue.HangarHudLayout.BadgeTextFits(1440f)) throw new Exception("badge 1440");
         if (!AsteroidsGoneRogue.PremiumLook.SelfCheck()) throw new Exception("look");
         if (!AsteroidsGoneRogue.PromptLayout.SelfCheck()) throw new Exception("prompt fit");
         if (!AsteroidsGoneRogue.CaptureContinue.SelfCheck()) throw new Exception("capture continue");
@@ -18111,6 +18115,24 @@ def _map_band(parent, local):
         px0 + lx1 * width,
         py0 + ly1 * height,
     )
+
+
+def test_hud_text_and_perk_clearance() -> None:
+    """Legacy perks stay off HangarInner, and BadgeRow, Hud, and Xy cells fit their glyphs."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    layout = (root / "Assets/Scripts/Core/HangarHudLayout.cs").read_text(encoding="utf-8")
+    play = (root / "Assets/Scripts/Core/PlayHudLayout.cs").read_text(encoding="utf-8")
+    digits = (root / "Assets/Scripts/UI/UiDigits.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    status = (root / "Assets/Scripts/UI/GameUi.HangarStatus.cs").read_text(encoding="utf-8")
+    assert "LegacyPerksClearInner" in layout
+    assert "HangarHudLayout.LegacyPerkMinY" in ui and "HangarHudLayout.LegacyPerkMaxY" in ui
+    assert "BadgeTextFits" in layout and "HangarHudLayout.BadgeFont" in ui
+    assert "ScoreGlyphFits" in play and "PlayHudLayout.ScoreSize" in ui
+    assert "GlyphFits" in digits and "UiDigits.GlyphWidth" in status and "UiDigits.GlyphHeight" in status
+    assert "CanvasOrder" in (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
 
 
 def test_weapons_group_inside_hangar_inner() -> None:

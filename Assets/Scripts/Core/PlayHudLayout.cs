@@ -106,8 +106,39 @@ namespace AsteroidsGoneRogue
             maxY = AbortMaxY;
         }
 
+        public static int ScoreSize(float screenHeight, int designSize)
+        {
+            float band = (ScoreMaxY - ScoreMinY) * screenHeight;
+            float room = band + HangarHudLayout.TextSlopPx;
+            int size = (int)(room / HangarHudLayout.TextLineFactor);
+            if (size > designSize)
+            {
+                size = designSize;
+            }
+
+            if (size < 18)
+            {
+                size = 18;
+            }
+
+            return size;
+        }
+
+        public static bool ScoreGlyphFits(float screenHeight, int designSize)
+        {
+            int size = ScoreSize(screenHeight, designSize);
+            float band = (ScoreMaxY - ScoreMinY) * screenHeight;
+            float preferred = size * HangarHudLayout.TextLineFactor;
+            return preferred <= band + HangarHudLayout.TextSlopPx;
+        }
+
         public static bool SelfCheck()
         {
+            if (!ScoreGlyphFits(800f, 28) || !ScoreGlyphFits(1080f, 28) || !ScoreGlyphFits(1440f, 28))
+            {
+                return false;
+            }
+
             if (!Stacked(PlayHintMaxY, HealthMinY) || !Stacked(PlayHintMaxY, DoctrineMinY))
             {
                 return false;
