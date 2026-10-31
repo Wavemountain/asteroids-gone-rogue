@@ -706,6 +706,11 @@ namespace AsteroidsGoneRogue
             paintedMat.SetTexture("_DistTex", _distTex);
             paintedMat.SetFloat("_DistReach", reach);
             paintedMat.SetFloat("_ClipReach", reach);
+            float lead;
+            float span;
+            WorldFloorExposure.ContourBand(_world, out lead, out span);
+            paintedMat.SetFloat("_FadeLead", lead);
+            paintedMat.SetFloat("_FadeSpan", span);
         }
 
         private void PlaceBelt(float radius)

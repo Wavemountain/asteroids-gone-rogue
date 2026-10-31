@@ -374,3 +374,18 @@ def _exempt(shader_name: str, exempt: list[str]) -> bool:
         elif shader_name == pattern:
             return True
     return False
+
+
+def main() -> int:
+    errors = check(Path(__file__).resolve().parents[1])
+    if errors:
+        for item in errors:
+            print(item)
+        print("FAIL " + str(len(errors)))
+        return 1
+    print("PASS")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

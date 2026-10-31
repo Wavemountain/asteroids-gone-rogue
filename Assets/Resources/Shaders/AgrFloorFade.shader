@@ -11,6 +11,8 @@ Shader "AGR/FloorFade"
         _Void ("Void", Color) = (0.015, 0.022, 0.045, 1)
         _FadeStart ("Fade Start", Float) = 24
         _FadeEnd ("Fade End", Float) = 30
+        _FadeLead ("Fade Lead", Float) = 3
+        _FadeSpan ("Fade Span", Float) = 4
         _DistTex ("Contour", 2D) = "gray" {}
         _DistReach ("Contour Reach", Float) = 50
         _ClipReach ("Clip Reach", Float) = 50
@@ -31,6 +33,8 @@ Shader "AGR/FloorFade"
         fixed4 _Void;
         float _FadeStart;
         float _FadeEnd;
+        float _FadeLead;
+        float _FadeSpan;
         float _DistReach;
         float _ClipReach;
         float _UseContour;
@@ -49,7 +53,13 @@ Shader "AGR/FloorFade"
                 float2 uv = IN.worldPos.xz / (2.0 * _DistReach) + 0.5;
                 float encoded = tex2D(_DistTex, uv).r;
                 float signedDistance = (encoded - 0.5) * 2.0 * _DistReach;
-                t = saturate((-3.0 - signedDistance) / 4.0);
+                float fadeSpan = _FadeSpan;
+                if (fadeSpan < 0.001)
+                {
+                    fadeSpan = 4.0;
+                }
+
+                t = saturate((-_FadeLead - signedDistance) / fadeSpan);
                 float reach = _ClipReach;
                 if (reach < 1.0)
                 {

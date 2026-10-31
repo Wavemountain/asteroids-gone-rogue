@@ -18382,6 +18382,14 @@ def test_w2_floor_exposure() -> None:
     assert "public const int World = 2" in exposure
     assert "emitR = 0f" in exposure or "outEmitR = 0f" in exposure
     assert math.isclose(legacy, 30.0 / 22.0)
+    assert "Darken = 0.55f" in exposure
+    assert "FadeLead = -16f" in exposure and "FadeSpan = 24f" in exposure
+    assert "WorldFloorExposure.ContourBand" in env
+    assert "Mat_TrailRibbon" in (root / "Assets/Scripts/Hangar/HangarShipPreview.cs").read_text(encoding="utf-8")
+    darkened = tuple(channel * 0.55 for channel in ref)
+    for channel, cap in zip(darkened, ref):
+        assert channel <= cap + 1e-6
+        assert channel < cap
 
 
 def test_wave_summary_and_hangar_hud() -> None:

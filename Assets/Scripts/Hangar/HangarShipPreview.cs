@@ -1077,6 +1077,29 @@ namespace AsteroidsGoneRogue
                 _trailRibbon.transform.localScale = new Vector3(0.12f, 0.08f, 0.85f);
                 _trailRibbon.layer = PreviewLayer;
                 StripCollider(_trailRibbon);
+                Renderer ribbon = _trailRibbon.GetComponent<Renderer>();
+                if (ribbon != null)
+                {
+                    Shader shader = Shader.Find("Standard");
+                    if (shader == null)
+                    {
+                        shader = Shader.Find("AGR/RimLit");
+                    }
+
+                    if (shader != null)
+                    {
+                        Material mat = new Material(shader);
+                        mat.name = "Mat_TrailRibbon";
+                        mat.color = new Color(0.45f, 0.78f, 1f, 1f);
+                        if (mat.HasProperty("_EmissionColor"))
+                        {
+                            mat.SetColor("_EmissionColor", new Color(0.12f, 0.22f, 0.32f, 1f));
+                        }
+
+                        ribbon.sharedMaterial = mat;
+                    }
+                }
+
                 _trailRibbon.SetActive(false);
             }
         }
