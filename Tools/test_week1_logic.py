@@ -10135,6 +10135,8 @@ def main() -> int:
     test_shop_price_fits()
     test_catalogue_coverage_label()
     test_weapons_group_inside_hangar_inner()
+    test_enemy_bounds_within_048()
+    test_hud_text_and_perk_clearance()
     test_wave_summary_and_hangar_hud()
     test_premium_050_look()
     test_shader_warmup_cannot_block_boot()

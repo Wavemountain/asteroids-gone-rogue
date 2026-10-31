@@ -272,36 +272,46 @@ namespace AsteroidsGoneRogue
                     continue;
                 }
 
-                Material[] slots = floorRenderer.materials;
-                if (slots == null || slots.Length == 0)
+                Material[] shared = floorRenderer.sharedMaterials;
+                if (_world != 2 || shared == null || shared.Length <= 1)
                 {
+                    Material paintedMat = floorRenderer.material;
+                    if (paintedMat != null && paintedMat.name.IndexOf("W3_Beam", System.StringComparison.Ordinal) < 0)
+                    {
+                        PaintFloorMaterial(paintedMat);
+                        if (_world == 2)
+                        {
+                            DimWorld2Emission(paintedMat);
+                        }
+                    }
+
                     continue;
                 }
 
-                int count = _world == 2 ? slots.Length : 1;
-                for (int slotIndex = 0; slotIndex < count; slotIndex++)
+                Material[] slots = new Material[shared.Length];
+                for (int slotIndex = 0; slotIndex < shared.Length; slotIndex++)
                 {
-                    Material paintedMat = slots[slotIndex];
-                    if (paintedMat == null)
+                    Material source = shared[slotIndex];
+                    if (source == null)
                     {
                         continue;
                     }
 
-                    if (paintedMat.name.IndexOf("W3_Beam", System.StringComparison.Ordinal) >= 0)
+                    if (source.name.IndexOf("W3_Beam", System.StringComparison.Ordinal) >= 0)
                     {
+                        slots[slotIndex] = source;
                         continue;
                     }
 
+                    Material paintedMat = new Material(source);
                     PaintFloorMaterial(paintedMat);
-                    if (_world == 2)
-                    {
-                        // 0.48 lit this mesh at the 30 m disc. The contour floor is larger,
-                        // so the same glow emission washes the plate white.
-                        DimWorld2Emission(paintedMat);
-                    }
+                    // 0.48 lit this mesh at the 30 m disc. The contour floor is larger,
+                    // so the same glow emission washes the plate white.
+                    DimWorld2Emission(paintedMat);
+                    slots[slotIndex] = paintedMat;
                 }
 
-                floorRenderer.materials = slots;
+                floorRenderer.sharedMaterials = slots;
             }
         }
 

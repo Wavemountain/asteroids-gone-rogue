@@ -6646,7 +6646,15 @@ namespace AsteroidsGoneRogue
             if (show)
             {
                 _badgeRow.text = Loc.T("ui.medals", MedalLadderPrefix) + "  " + row;
-                _badgeRow.fontSize = (int)HangarHudLayout.BadgeFont;
+                int badgeSize = playing ? 16 : 14;
+                float badgeBand = (HangarHudLayout.MedalRow.MaxY - HangarHudLayout.MedalRow.MinY) * Screen.height;
+                float badgePreferred = HangarHudLayout.BadgeLines * badgeSize * HangarHudLayout.TextLineFactor;
+                if (badgePreferred > badgeBand + HangarHudLayout.TextSlopPx)
+                {
+                    badgeSize = (int)HangarHudLayout.BadgeFont;
+                }
+
+                _badgeRow.fontSize = badgeSize;
                 _badgeRow.color = playing
                     ? UiTheme.WithAlpha(UiTheme.Primary, 0.92f)
                     : UiTheme.Primary;
