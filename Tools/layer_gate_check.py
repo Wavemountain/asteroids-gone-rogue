@@ -135,6 +135,10 @@ def injection_errors() -> list[str]:
         "LayerGate.IsSpawnClutter(minX, maxX, minZ, maxZ);\nLayerGate.IsRingCorner(minX, maxX, minZ, maxZ, ring);\n",
     ):
         errors.append("self-test spawn carve was flagged")
+    if not v4_binding_source_hits("nope", ["Head"]):
+        errors.append("self-test v4 material binding did not FAIL")
+    if v4_binding_source_hits('hits.Add("v4-mat " + name);\nV4MaterialHit(name, material);\n"Head"\n', ["Head"]):
+        errors.append("self-test v4 material binding was flagged")
     return errors
 
 
@@ -240,6 +244,18 @@ def v4_part_hits(renderers, materials, factory: str, root: Path) -> list[str]:
     return hits
 
 
+def v4_binding_source_hits(gate_source: str, names) -> list[str]:
+    """FAIL unless every v4 part must be drawn with a Mat_Enemy_V4_* material."""
+    hits: list[str] = []
+    text = gate_source or ""
+    if "v4-mat " not in text or "V4MaterialHit(" not in text:
+        hits.append("v4 parts are not required to use Mat_Enemy_V4_")
+    for token in names or []:
+        if f'"{token}"' not in text:
+            hits.append(f"v4 part {token} is not bound to Mat_Enemy_V4_")
+    return hits
+
+
 def enemy_part_hits(renderers, factory: str) -> list[str]:
     """FAIL when a bare v4 part is off the whitelist, or Trim_Beam stays live."""
     hits: list[str] = []
@@ -299,6 +315,9 @@ def check(root: Path) -> list[str]:
         errors.append("missing ContentFactory.cs for enemy part gate")
     errors.extend(enemy_part_hits(payload.get("renderers"), factory_text))
     errors.extend(v4_part_hits(payload.get("renderers"), payload.get("materials"), factory_text, root))
+    gate_path = root / "Assets/Scripts/Core/LayerGate.cs"
+    gate_text = gate_path.read_text(encoding="utf-8") if gate_path.is_file() else ""
+    errors.extend(v4_binding_source_hits(gate_text, v4_model_names(root)))
     sorts = payload.get("canvasSorts")
     order_path = root / "Assets/Scripts/Core/CanvasOrder.cs"
     if order_path.is_file():
