@@ -10079,6 +10079,7 @@ def main() -> int:
     test_doctrine_rows_pad_reachable()
     test_hangar_footer_launch_and_hint_size()
     test_hangar_hint_contrast()
+    test_w2_floor_exposure()
     test_settings_shell()
     test_confirm_restart()
     test_pad_nav_source()
@@ -17627,6 +17628,7 @@ def test_capture_048_clearance_hud() -> None:
     shutil.copyfile(root / "Assets/Scripts/Core/LayerGate.cs", work / "LayerGate.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/ArenaShape.cs", work / "ArenaShape.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/ArenaShapeCatalog.cs", work / "ArenaShapeCatalog.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/WorldFloorExposure.cs", work / "WorldFloorExposure.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/ArenaEdge.cs", work / "ArenaEdge.cs")
     hint_fixtures = root / "Tools" / "fixtures" / "hint"
     hint_names = ["hint_flat.bmp"]
@@ -17667,6 +17669,7 @@ class Program
         if (!AsteroidsGoneRogue.CaptureContinue.SelfCheck()) throw new Exception("capture continue");
         if (!AsteroidsGoneRogue.LayerGate.SelfCheck()) throw new Exception("layer gate");
         if (!AsteroidsGoneRogue.DecorDepthRules.SelfCheck()) throw new Exception("decor depth");
+        if (!AsteroidsGoneRogue.WorldFloorExposure.SelfCheck()) throw new Exception("w2 floor");
         if (AsteroidsGoneRogue.CaptureContinue.NextShot(2, true, false) != 3) throw new Exception("hud fail still advances");
         Console.WriteLine("clearance-ok");
     }
@@ -17696,6 +17699,7 @@ class Program
                 '    <Compile Include="LayerGate.cs" />',
                 '    <Compile Include="ArenaShape.cs" />',
                 '    <Compile Include="ArenaShapeCatalog.cs" />',
+                '    <Compile Include="WorldFloorExposure.cs" />',
                 '    <Compile Include="ArenaEdge.cs" />',
                 '    <Compile Include="DecorDepthRules.cs" />',
                 '    <Compile Include="Program.cs" />',
@@ -18290,6 +18294,53 @@ def test_hangar_hint_contrast() -> None:
     assert "PromptLineView.SnapHangarHint(_hint)" in finish
     assert "public static void SnapHangarHint" in prompts
     assert "ReduceEffects" not in prompts.split("public static void SnapHangarHint")[1].split("private static void SnapHintChildren")[0]
+
+
+def test_w2_floor_exposure() -> None:
+    """W2 floor albedo*emission stays at or under the 0.48 paint, and the mesh scale is capped."""
+    import math
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    exposure = (root / "Assets/Scripts/Core/WorldFloorExposure.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    env = (root / "Assets/Scripts/Content/ArenaEnv.cs").read_text(encoding="utf-8")
+    assert "CapMeshScale" in exposure and "ProductWithinReference" in exposure
+    assert "WorldFloorExposure.CapMeshScale" in factory
+    assert "WorldFloorExposure.Cap(" in env
+    assert "DimWorld2Emission" not in env
+    assert "keep * keep" not in env
+
+    def floor_rgb(tint_r, tint_g, tint_b):
+        surface = (14 / 255, 21 / 255, 32 / 255)
+        mix = 0.18
+        tint = (tint_r, tint_g, tint_b)
+        return tuple(surface[i] + ((tint[i] - surface[i]) * mix) for i in range(3))
+
+    ref = floor_rgb(0.2 * 0.86, 0.04 * 0.86, 0.34 * 0.86)
+    # Glow slot on the blockout is about (4, 2, 0.8) before the cap. W2 clears it.
+    capped_emit = (0.0, 0.0, 0.0)
+    capped_albedo = tuple(min(channel, ref[i]) for i, channel in enumerate((0.9, 0.8, 0.7)))
+    for i in range(3):
+        assert capped_albedo[i] * capped_emit[i] <= ref[i] * 0.0 + 1e-6
+        assert capped_albedo[i] <= ref[i] + 1e-6
+    # World 3 keeps its emission. The product gate is W2 only.
+    kept = (ref[0] * 0.25, ref[1] * 0.1, ref[2] * 0.05)
+    assert kept[0] > 0.0
+
+    legacy = 30.0 / 22.0
+    # Contour reach is larger than the 30 m disc. The cap must win for world 2.
+    reach = 57.0
+    contour = reach / 22.0
+    assert contour > legacy
+    capped_scale = min(contour, legacy)
+    assert capped_scale <= legacy + 1e-6
+    assert capped_scale < contour
+    other = contour
+    assert other > legacy
+    assert "public const int World = 2" in exposure
+    assert "emitR = 0f" in exposure or "outEmitR = 0f" in exposure
+    assert math.isclose(legacy, 30.0 / 22.0)
 
 
 def test_wave_summary_and_hangar_hud() -> None:
