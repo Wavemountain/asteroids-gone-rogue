@@ -1962,6 +1962,7 @@ namespace AsteroidsGoneRogue.EditorTools
 
             try
             {
+                LogW2Floor();
                 for (int drawIndex = 0; drawIndex < screenCams.Length; drawIndex++)
                 {
                     Camera drawCam = screenCams[drawIndex];
@@ -2110,6 +2111,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 hintPoses = SaveHintPoses();
                 AlignHintCapture(uiCam);
                 Canvas.ForceUpdateCanvases();
+                SealHangarHint();
                 RecordHintCrops(uiCam);
                 uiCam.Render();
             }
@@ -3693,6 +3695,10 @@ namespace AsteroidsGoneRogue.EditorTools
 
                 PromptLineView.WarmGlyphs(part);
                 PromptLineView.SnapHintText(part, cam, Width, Height);
+                if (LayerWorld(SessionState.GetInt(KeyShot, 0)) == "hangar")
+                {
+                    PromptLineView.BindHintGlyph(part);
+                }
             }
         }
 
@@ -3776,7 +3782,88 @@ namespace AsteroidsGoneRogue.EditorTools
                 crop.X1 = x1;
                 crop.Y1 = y1;
                 _hintCrops.Add(crop);
+                LogHintGlyph(part, crop);
             }
+        }
+
+        /// <summary>
+        /// Last writer before the hangar UI camera. Canvas.ForceUpdateCanvases
+        /// rebuilds PSegT after ApplyHangarInk, and that rebuild was still on
+        /// the font material. The sharpness metric samples these same objects.
+        /// </summary>
+        static void SealHangarHint()
+        {
+            if (LayerWorld(SessionState.GetInt(KeyShot, 0)) != "hangar")
+            {
+                return;
+            }
+
+            Text[] texts = UnityEngine.Object.FindObjectsByType<Text>();
+            if (texts == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < texts.Length; i++)
+            {
+                Text part = texts[i];
+                if (!IsHintGlyph(part))
+                {
+                    continue;
+                }
+
+                PromptLineView.BindHintGlyph(part);
+            }
+        }
+
+        static void LogW2Floor()
+        {
+            ArenaEnv[] envs = UnityEngine.Object.FindObjectsByType<ArenaEnv>();
+            if (envs == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < envs.Length; i++)
+            {
+                if (envs[i] != null)
+                {
+                    envs[i].LogCaptureFloor();
+                }
+            }
+        }
+
+        static void LogHintGlyph(Text part, HintCrop crop)
+        {
+            if (part == null)
+            {
+                return;
+            }
+
+            Material material = part.material;
+            string materialName = material != null ? material.name : "null";
+            string shaderName = "null";
+            if (material != null && material.shader != null)
+            {
+                shaderName = material.shader.name;
+            }
+
+            Color color = part.color;
+            float alpha = PromptLineView.DrawnHintAlpha(part);
+            Debug.Log(
+                "AgrCapture hint-glyph path=" + PromptLineView.HintGlyphPath(part.transform)
+                + " type=" + part.GetType().FullName
+                + " material=" + materialName
+                + " shader=" + shaderName
+                + " color=" + color.r.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)
+                + "," + color.g.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)
+                + "," + color.b.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)
+                + "," + color.a.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)
+                + " alpha=" + alpha.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)
+                + " rect=" + crop.X0.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + "," + crop.Y0.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + "," + crop.X1.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + "," + crop.Y1.ToString(System.Globalization.CultureInfo.InvariantCulture));
         }
 
         static bool IsHintGlyph(Text part)

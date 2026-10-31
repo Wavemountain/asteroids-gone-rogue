@@ -3498,8 +3498,17 @@ namespace AsteroidsGoneRogue
         }
 
         /// <summary>
+        /// W2 blockout Accent submesh. It covers the shot. Floor/Wall do not.
+        /// </summary>
+        private static bool IsW2FloorPlate(string name)
+        {
+            return ContainsIgnoreCase(name, "W2") && ContainsIgnoreCase(name, "Accent") && !ContainsIgnoreCase(name, "Glow");
+        }
+
+        /// <summary>
         /// Arena blockout Accent and Glow strips (Mat_Arena_W4_Glow and the
-        /// same pair on worlds 2–6). Not ship or hangar materials.
+        /// same pair on worlds 2–6). Not ship or hangar materials. W2 Accent
+        /// is the floor plate and stays on the floor shader.
         /// </summary>
         private static bool IsArenaDecorBeam(string name)
         {
@@ -3520,6 +3529,14 @@ namespace AsteroidsGoneRogue
 
             bool strip = ContainsIgnoreCase(name, "Accent") || ContainsIgnoreCase(name, "Glow");
             if (!strip)
+            {
+                return false;
+            }
+
+            // Mat_Arena_W2_Accent is the play plate. The Floor slot has no
+            // polygons, so treating Accent as a beam left the camera on unlit
+            // steel and WorldFloorExposure never reached the pixels.
+            if (IsW2FloorPlate(name))
             {
                 return false;
             }

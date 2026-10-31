@@ -22,6 +22,12 @@ namespace AsteroidsGoneRogue
     public static class PromptLineView
     {
         private const string SegmentPrefix = "PSeg";
+
+        /// <summary>
+        /// Set only around the hangar footer paint. Wave 1 and wave clear share
+        /// the Hint host; they must keep the play material that scores the reference.
+        /// </summary>
+        public static bool HangarInkPass;
         private static readonly Dictionary<string, Sprite> Cache = new Dictionary<string, Sprite>();
         private static readonly HashSet<string> Missing = new HashSet<string>();
 
@@ -566,6 +572,11 @@ namespace AsteroidsGoneRogue
 
             textRect.sizeDelta = new Vector2(textWidth, textHeight);
             textRect.anchoredPosition = new Vector2(textX, textY);
+            if (HangarInkPass && host.gameObject.name == "Hint")
+            {
+                BindHintGlyph(text);
+            }
+
             if (!lockMetrics)
             {
                 int size = text.fontSize;
@@ -903,9 +914,7 @@ namespace AsteroidsGoneRogue
                     continue;
                 }
 
-                UseHintInk(part);
-                part.color = UiTheme.FooterHint;
-                ForceHintGroup(part.gameObject);
+                BindHintGlyph(part);
                 WarmGlyphs(part);
                 float grouped = HintGroupAlpha(part.transform, stop);
                 if (!UiTheme.EffectiveFooterHolds(part.color, grouped))
@@ -914,6 +923,84 @@ namespace AsteroidsGoneRogue
                     ForceHintGroup(part.gameObject);
                 }
             }
+        }
+
+        /// <summary>
+        /// Opaque white on the PSegT AgrCapture samples (parent named Hint).
+        /// Sets the vertex colour, the material tint, and any CanvasGroup on
+        /// the glyph and its Hint host. Called when the glyph is created and
+        /// again after the capture canvas rebuild.
+        /// </summary>
+        public static void BindHintGlyph(Text part)
+        {
+            if (part == null)
+            {
+                return;
+            }
+
+            part.color = UiTheme.FooterHint;
+            UseHintInk(part);
+            Material ink = part.material;
+            if (ink != null)
+            {
+                ink.color = Color.white;
+                if (ink.HasProperty("_Color"))
+                {
+                    ink.SetColor("_Color", Color.white);
+                }
+            }
+
+            ForceHintGroup(part.gameObject);
+            if (part.transform.parent != null)
+            {
+                ForceHintGroup(part.transform.parent.gameObject);
+            }
+        }
+
+        /// <summary>
+        /// Hierarchy path for the capture log. The metric's object is this transform.
+        /// </summary>
+        public static string HintGlyphPath(Transform node)
+        {
+            if (node == null)
+            {
+                return string.Empty;
+            }
+
+            string path = node.name;
+            Transform walk = node.parent;
+            while (walk != null)
+            {
+                path = walk.name + "/" + path;
+                walk = walk.parent;
+            }
+
+            return path;
+        }
+
+        /// <summary>
+        /// Vertex alpha times every CanvasGroup from the glyph up to the canvas.
+        /// </summary>
+        public static float DrawnHintAlpha(Text part)
+        {
+            if (part == null)
+            {
+                return 0f;
+            }
+
+            float grouped = HintGroupAlpha(part.transform, null);
+            float alpha = part.color.a * grouped;
+            if (alpha < 0f)
+            {
+                return 0f;
+            }
+
+            if (alpha > 1f)
+            {
+                return 1f;
+            }
+
+            return alpha;
         }
 
         private static void ForceHintGroup(GameObject go)

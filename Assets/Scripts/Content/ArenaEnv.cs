@@ -360,6 +360,130 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        /// <summary>
+        /// Capture log for the renderer that fills the W2 shot. That is the
+        /// largest sibling mesh (the Accent plate), not Mat_Arena_W2_Floor.
+        /// </summary>
+        public void LogCaptureFloor()
+        {
+            if (_world != WorldFloorExposure.World)
+            {
+                return;
+            }
+
+            Transform root = transform.parent;
+            Renderer best = null;
+            float bestArea = -1f;
+            if (root != null)
+            {
+                Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+                for (int i = 0; i < renderers.Length; i++)
+                {
+                    Renderer renderer = renderers[i];
+                    if (renderer == null || renderer.transform.IsChildOf(transform))
+                    {
+                        continue;
+                    }
+
+                    Vector3 size = renderer.bounds.size;
+                    float area = size.x * size.z;
+                    if (area > bestArea)
+                    {
+                        bestArea = area;
+                        best = renderer;
+                    }
+                }
+            }
+
+            string path = best != null ? best.transform.name : "none";
+            if (best != null)
+            {
+                Transform walk = best.transform.parent;
+                while (walk != null)
+                {
+                    path = walk.name + "/" + path;
+                    walk = walk.parent;
+                }
+            }
+
+            string materialName = "null";
+            string shaderName = "null";
+            string albedo = "0,0,0";
+            string emission = "0,0,0";
+            if (best != null)
+            {
+                Material material = best.sharedMaterial;
+                if (material != null)
+                {
+                    materialName = material.name;
+                    if (material.shader != null)
+                    {
+                        shaderName = material.shader.name;
+                    }
+
+                    Color color = material.color;
+                    albedo = color.r.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)
+                        + "," + color.g.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)
+                        + "," + color.b.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture);
+                    if (material.HasProperty("_EmissionColor"))
+                    {
+                        Color emit = material.GetColor("_EmissionColor");
+                        emission = emit.r.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)
+                            + "," + emit.g.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)
+                            + "," + emit.b.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture);
+                    }
+                }
+            }
+
+            float key = 0f;
+            float rim = 0f;
+            float under = 0f;
+            Light[] lights = UnityEngine.Object.FindObjectsByType<Light>();
+            if (lights != null)
+            {
+                for (int i = 0; i < lights.Length; i++)
+                {
+                    Light light = lights[i];
+                    if (light == null || !light.enabled)
+                    {
+                        continue;
+                    }
+
+                    if (light.type == LightType.Directional && light.gameObject.name != "ArenaRimLight")
+                    {
+                        if (light.intensity > key)
+                        {
+                            key = light.intensity;
+                        }
+                    }
+
+                    if (light.gameObject.name == "ArenaRimLight")
+                    {
+                        rim = light.intensity;
+                    }
+
+                    if (light.gameObject.name == "ArenaUnderGlow")
+                    {
+                        under = light.intensity;
+                    }
+                }
+            }
+
+            Color ambient = RenderSettings.ambientLight;
+            Debug.Log(
+                "AgrCapture w2-floor path=" + path
+                + " material=" + materialName
+                + " shader=" + shaderName
+                + " albedo=" + albedo
+                + " emission=" + emission
+                + " key=" + key.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)
+                + " rim=" + rim.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)
+                + " under=" + under.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)
+                + " ambient=" + ambient.r.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)
+                + "," + ambient.g.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)
+                + "," + ambient.b.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
+        }
+
         private void TintNamedLight(string lightName, Color color)
         {
             Transform lightNode = transform.Find(lightName);

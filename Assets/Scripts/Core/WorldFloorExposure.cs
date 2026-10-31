@@ -12,10 +12,11 @@ namespace AsteroidsGoneRogue
         public const int World = 2;
 
         /// <summary>
-        /// W2 disc is still lighter than the void around it. This keeps the
-        /// paint under the 0.48 reference and pulls it down.
+        /// 0.48 W2 paint, lifted so a lit FloorFade plate lands near the
+        /// world-1 floor (about 42 on the 0–255 capture). The extra 0.55
+        /// crush darkened a material the camera does not draw.
         /// </summary>
-        public const float Darken = 0.55f;
+        public const float PlateLift = 1.25f;
 
         /// <summary>
         /// Other worlds fade just outside the contour (lead 3, span 4).
@@ -89,24 +90,24 @@ namespace AsteroidsGoneRogue
             float refG;
             float refB;
             ReferenceAlbedo(out refR, out refG, out refB);
-            if (outAlbedoR > refR)
+            outAlbedoR = refR * PlateLift;
+            outAlbedoG = refG * PlateLift;
+            outAlbedoB = refB * PlateLift;
+            if (outAlbedoR > 1f)
             {
-                outAlbedoR = refR;
+                outAlbedoR = 1f;
             }
 
-            if (outAlbedoG > refG)
+            if (outAlbedoG > 1f)
             {
-                outAlbedoG = refG;
+                outAlbedoG = 1f;
             }
 
-            if (outAlbedoB > refB)
+            if (outAlbedoB > 1f)
             {
-                outAlbedoB = refB;
+                outAlbedoB = 1f;
             }
 
-            outAlbedoR *= Darken;
-            outAlbedoG *= Darken;
-            outAlbedoB *= Darken;
             outEmitR = 0f;
             outEmitG = 0f;
             outEmitB = 0f;
@@ -146,7 +147,10 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (albedoR > refR + 0.0001f || albedoG > refG + 0.0001f || albedoB > refB + 0.0001f)
+            float limitR = refR * PlateLift;
+            float limitG = refG * PlateLift;
+            float limitB = refB * PlateLift;
+            if (albedoR > limitR + 0.0001f || albedoG > limitG + 0.0001f || albedoB > limitB + 0.0001f)
             {
                 return false;
             }
@@ -191,7 +195,7 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (albedoR > refR + 0.0001f)
+            if (albedoR < (refR * PlateLift) - 0.0001f || albedoR > (refR * PlateLift) + 0.0001f)
             {
                 return false;
             }

@@ -18312,8 +18312,25 @@ def test_hangar_hint_contrast() -> None:
     shader = (root / "Assets/Resources/Shaders/AgrHintInk.shader").read_text(encoding="utf-8")
     assert 'Shader "AGR/HintInk"' in shader
     assert "ZTest Always" not in shader
+    assert "ZTest Off" in shader
     assert "Overlay" not in shader
     assert "_Cutoff" in shader
+    # The sharpness crop is every active PSegT whose parent is Hint.
+    capture = (root / "Assets/Editor/AgrCapture.cs").read_text(encoding="utf-8")
+    assert 'part.gameObject.name != "PSegT"' in capture
+    assert 'parent.name == "Hint"' in capture
+    assert "SealHangarHint" in capture
+    assert "BindHintGlyph" in capture
+    assert "AgrCapture hint-glyph path=" in capture
+    overlay = capture.split("static void CompositeOverlay")[1].split("static void EnableUi")[0]
+    assert "Canvas.ForceUpdateCanvases();\n                SealHangarHint();\n                RecordHintCrops(uiCam);\n                uiCam.Render();" in overlay
+    place = prompts.split("private static void Place(")[1].split("private static bool ClampToHost")[0]
+    assert 'new GameObject(SegmentPrefix + "T")' in place
+    assert "HangarInkPass" in place and "BindHintGlyph(text)" in place
+    assert "HangarInkPass = true" in ui
+    assert 'PaintPrompt(_hint, Loc.T("ui.hint_footer", HintFooter))' in ui
+    footer_paint = ui.split("PromptLineView.HangarInkPass = true")[1].split("PromptLineView.HangarInkPass = false")[0]
+    assert "ui.hint_footer" in footer_paint
 
     def effective(vertex, group_alpha):
         r, g, b, a = vertex
@@ -18351,6 +18368,15 @@ def test_w2_floor_exposure() -> None:
     assert "WorldFloorExposure.Cap(" in env
     assert "DimWorld2Emission" not in env
     assert "keep * keep" not in env
+    # The sampled floor is the Accent plate, not Mat_Arena_W2_Floor (no polygons).
+    assert "IsW2FloorPlate" in factory
+    beam = factory.split("bool IsArenaDecorBeam")[1].split("private static Transform CreateSlot")[0]
+    assert "IsW2FloorPlate(name)" in beam
+    assert beam.index("IsW2FloorPlate(name)") < beam.index('return ContainsIgnoreCase(name, "W2")')
+    capture = (root / "Assets/Editor/AgrCapture.cs").read_text(encoding="utf-8")
+    assert "LogW2Floor()" in capture
+    assert "AgrCapture w2-floor path=" in env
+    assert "LogCaptureFloor" in env
 
     def floor_rgb(tint_r, tint_g, tint_b):
         surface = (14 / 255, 21 / 255, 32 / 255)
@@ -18359,12 +18385,12 @@ def test_w2_floor_exposure() -> None:
         return tuple(surface[i] + ((tint[i] - surface[i]) * mix) for i in range(3))
 
     ref = floor_rgb(0.2 * 0.86, 0.04 * 0.86, 0.34 * 0.86)
-    # Glow slot on the blockout is about (4, 2, 0.8) before the cap. W2 clears it.
+    # The Accent plate is painted to the lifted 0.48 reference. Emission stays off.
     capped_emit = (0.0, 0.0, 0.0)
-    capped_albedo = tuple(min(channel, ref[i]) for i, channel in enumerate((0.9, 0.8, 0.7)))
+    capped_albedo = tuple(channel * 1.25 for channel in ref)
     for i in range(3):
         assert capped_albedo[i] * capped_emit[i] <= ref[i] * 0.0 + 1e-6
-        assert capped_albedo[i] <= ref[i] + 1e-6
+        assert capped_albedo[i] <= ref[i] * 1.25 + 1e-6
     # World 3 keeps its emission. The product gate is W2 only.
     kept = (ref[0] * 0.25, ref[1] * 0.1, ref[2] * 0.05)
     assert kept[0] > 0.0
@@ -18382,14 +18408,17 @@ def test_w2_floor_exposure() -> None:
     assert "public const int World = 2" in exposure
     assert "emitR = 0f" in exposure or "outEmitR = 0f" in exposure
     assert math.isclose(legacy, 30.0 / 22.0)
-    assert "Darken = 0.55f" in exposure
+    assert "PlateLift = 1.25f" in exposure
     assert "FadeLead = -16f" in exposure and "FadeSpan = 24f" in exposure
     assert "WorldFloorExposure.ContourBand" in env
     assert "Mat_TrailRibbon" in (root / "Assets/Scripts/Hangar/HangarShipPreview.cs").read_text(encoding="utf-8")
-    darkened = tuple(channel * 0.55 for channel in ref)
-    for channel, cap in zip(darkened, ref):
-        assert channel <= cap + 1e-6
-        assert channel < cap
+    lifted = tuple(channel * 1.25 for channel in ref)
+    luma = 0.2126 * lifted[0] + 0.7152 * lifted[1] + 0.0722 * lifted[2]
+    # W1's painted floor is ~0.091 and measures ~42. This band lights near 40-55.
+    assert 0.09 <= luma <= 0.13
+    for channel, cap in zip(lifted, ref):
+        assert channel <= cap * 1.25 + 1e-6
+        assert channel > cap
 
 
 def test_wave_summary_and_hangar_hud() -> None:

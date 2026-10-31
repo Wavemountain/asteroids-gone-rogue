@@ -836,6 +836,21 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            if (!Expect("v4-mat", Evaluate("3", rules, new Fact[] { FactOf("Head", "Mat_Enemy", "enemy", 2000, ZTestLEqual, 1f, 0.6f, 0.7f, false) }, null, null, null)))
+            {
+                return false;
+            }
+
+            if (!Expect("v4-mat", Evaluate("3", rules, new Fact[] { FactOf("Hub", "Default-Material", "enemy", 2000, ZTestLEqual, 1f, 0.6f, 0.7f, false) }, null, null, null)))
+            {
+                return false;
+            }
+
+            if (!Expect("v4-mat", Evaluate("3", rules, new Fact[] { FactOf("Ring", "Mat_Ship_Hull", "enemy", 2000, ZTestLEqual, 1f, 0.6f, 0.7f, false) }, null, null, null)))
+            {
+                return false;
+            }
+
             Fact lance = FactOf("Lance", "Mat_Enemy_V4_Body", "enemy", 2000, ZTestLEqual, 1f, 0.6f, 0.7f, false);
             if (Evaluate("4", rules, new Fact[] { lance }, null, null, null).Length != 0)
             {
@@ -1510,6 +1525,12 @@ namespace AsteroidsGoneRogue
                 hits.Add("unknown " + name + " material " + material + " world " + world);
             }
 
+            string v4Mat = V4MaterialHit(name, material);
+            if (v4Mat != null)
+            {
+                hits.Add(v4Mat);
+            }
+
             bool deadExempt = MatchAny(rules.DeadExempt, name) || MatchAny(rules.DeadExempt, material);
             if (!shadow && !deadExempt && queue < TransparentMin && fact.Emission <= DeadEmissionMax && fact.Albedo <= DeadAlbedoMax && (fact.Unlit || DeadHint(rules, name) || DeadHint(rules, material)))
             {
@@ -2133,6 +2154,242 @@ namespace AsteroidsGoneRogue
             error = "whitelist array";
             return false;
         }
+
+        /// <summary>
+        /// Head, Hub, Ring, and every other v4 FBX part must use a Mat_Enemy_V4_* material.
+        /// A whitelisted bare name on any other material fails.
+        /// </summary>
+        public static string V4MaterialHit(string name, string material)
+        {
+            if (!IsV4Part(name))
+            {
+                return null;
+            }
+
+            if (material != null && material.IndexOf("Mat_Enemy_V4_", System.StringComparison.Ordinal) >= 0)
+            {
+                return null;
+            }
+
+            return "v4-mat " + name + " material " + (material == null ? string.Empty : material);
+        }
+
+        public static bool IsV4Part(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+            {
+                return false;
+            }
+
+            for (int i = 0; i < V4PartNames.Length; i++)
+            {
+                if (V4PartNames[i] == name)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        static readonly string[] V4PartNames = new string[]
+        {
+            "Arm_L",
+            "Arm_R",
+            "Armor_01",
+            "Armor_02",
+            "Armor_03",
+            "Armor_04",
+            "Armor_05",
+            "Armor_06",
+            "Barrel_L",
+            "Barrel_R",
+            "Body",
+            "Body_Upper",
+            "Cannon_L",
+            "Cannon_R",
+            "Cell_01",
+            "Cell_02",
+            "Cell_03",
+            "Core",
+            "Core_Body",
+            "Core_Top",
+            "Crossbeam",
+            "Enemy_Bomber_v4",
+            "Enemy_Bomber_v4_Chunk_01",
+            "Enemy_Bomber_v4_Chunk_02",
+            "Enemy_Bomber_v4_Chunk_03",
+            "Enemy_Bomber_v4_Chunk_04",
+            "Enemy_Bomber_v4_Chunk_05",
+            "Enemy_Bomber_v4_Chunk_06",
+            "Enemy_Bomber_v4_Chunk_07",
+            "Enemy_Bomber_v4_Chunk_08",
+            "Enemy_Brute_v4",
+            "Enemy_Brute_v4_Chunk_01",
+            "Enemy_Brute_v4_Chunk_02",
+            "Enemy_Brute_v4_Chunk_03",
+            "Enemy_Brute_v4_Chunk_04",
+            "Enemy_Brute_v4_Chunk_05",
+            "Enemy_Brute_v4_Chunk_06",
+            "Enemy_Brute_v4_Chunk_07",
+            "Enemy_Brute_v4_Chunk_08",
+            "Enemy_Brute_v4_Chunk_09",
+            "Enemy_Brute_v4_Chunk_10",
+            "Enemy_Drone_v4",
+            "Enemy_Drone_v4_Chunk_01",
+            "Enemy_Drone_v4_Chunk_02",
+            "Enemy_Drone_v4_Chunk_03",
+            "Enemy_Drone_v4_Chunk_04",
+            "Enemy_Drone_v4_Chunk_05",
+            "Enemy_Drone_v4_Chunk_06",
+            "Enemy_Gunner_v4",
+            "Enemy_Gunner_v4_Chunk_01",
+            "Enemy_Gunner_v4_Chunk_02",
+            "Enemy_Gunner_v4_Chunk_03",
+            "Enemy_Gunner_v4_Chunk_04",
+            "Enemy_Gunner_v4_Chunk_05",
+            "Enemy_Gunner_v4_Chunk_06",
+            "Enemy_Scout_v4",
+            "Enemy_Scout_v4_Chunk_01",
+            "Enemy_Scout_v4_Chunk_02",
+            "Enemy_Scout_v4_Chunk_03",
+            "Enemy_Scout_v4_Chunk_04",
+            "Enemy_Sniper_v4",
+            "Enemy_Sniper_v4_Chunk_01",
+            "Enemy_Sniper_v4_Chunk_02",
+            "Enemy_Sniper_v4_Chunk_03",
+            "Enemy_Sniper_v4_Chunk_04",
+            "Enemy_Sniper_v4_Chunk_05",
+            "Enemy_Sniper_v4_Chunk_06",
+            "Enemy_SwarmPod_v4",
+            "Enemy_SwarmPod_v4_Chunk_01",
+            "Enemy_SwarmPod_v4_Chunk_02",
+            "Enemy_SwarmPod_v4_Chunk_03",
+            "Enemy_SwarmPod_v4_Chunk_04",
+            "Enemy_SwarmPod_v4_Chunk_05",
+            "Enemy_SwarmPod_v4_Chunk_06",
+            "Enemy_SwarmPod_v4_Chunk_07",
+            "Enemy_SwarmPod_v4_Chunk_08",
+            "Enemy_SwarmPod_v4_Chunk_09",
+            "Enemy_SwarmPod_v4_Chunk_10",
+            "Enemy_Swarm_v4",
+            "Enemy_Swarm_v4_Chunk_01",
+            "Enemy_Swarm_v4_Chunk_02",
+            "Enemy_Swarm_v4_Chunk_03",
+            "Enemy_Swarm_v4_Chunk_04",
+            "Enemy_Swarmling_v4",
+            "Enemy_Swarmling_v4_Chunk_01",
+            "Enemy_Swarmling_v4_Chunk_02",
+            "Enemy_Swarmling_v4_Chunk_03",
+            "Fin_L",
+            "Fin_R",
+            "Hatch",
+            "Head",
+            "Horn",
+            "Horn_L",
+            "Horn_R",
+            "Hub",
+            "Lance",
+            "Leg_01",
+            "Leg_02",
+            "Leg_03",
+            "Leg_04",
+            "Leg_05",
+            "Leg_06",
+            "Opening_01",
+            "Opening_02",
+            "Opening_03",
+            "Plate_01",
+            "Plate_02",
+            "Plate_03",
+            "Plate_04",
+            "Ring",
+            "Rivet_L_01",
+            "Rivet_L_02",
+            "Rivet_L_03",
+            "Rivet_R_01",
+            "Rivet_R_02",
+            "Rivet_R_03",
+            "RotorHub_L",
+            "RotorHub_R",
+            "Rotor_L",
+            "Rotor_R",
+            "Shell_Top",
+            "Shoulder_L",
+            "Shoulder_R",
+            "Spike_01",
+            "Spike_02",
+            "Spike_03",
+            "Spike_04",
+            "Spike_05",
+            "Spike_06",
+            "Telegraph_Barrel_L",
+            "Telegraph_Barrel_R",
+            "Telegraph_Bay",
+            "Telegraph_Cannon_L",
+            "Telegraph_Cannon_R",
+            "Telegraph_Emitter",
+            "Telegraph_Horn",
+            "Telegraph_Mandible",
+            "Telegraph_Muzzle",
+            "Telegraph_Opening_01",
+            "Telegraph_Opening_02",
+            "Telegraph_Opening_03",
+            "Telegraph_Tip",
+            "Thruster_C",
+            "Thruster_C_Flame",
+            "Thruster_L",
+            "Thruster_LC",
+            "Thruster_LC_Flame",
+            "Thruster_L_Flame",
+            "Thruster_Main",
+            "Thruster_Main_Flame",
+            "Thruster_R",
+            "Thruster_RC",
+            "Thruster_RC_Flame",
+            "Thruster_R_Flame",
+            "Trim_Beam",
+            "Trim_Cell_01",
+            "Trim_Cell_02",
+            "Trim_Cell_03",
+            "Trim_EdgeL",
+            "Trim_EdgeR",
+            "Trim_Edge_01",
+            "Trim_Edge_02",
+            "Trim_Edge_03",
+            "Trim_Edge_04",
+            "Trim_Edge_05",
+            "Trim_Edge_06",
+            "Trim_FinL",
+            "Trim_FinR",
+            "Trim_Inner_01",
+            "Trim_Inner_02",
+            "Trim_Inner_03",
+            "Trim_Inner_04",
+            "Trim_Inner_05",
+            "Trim_Inner_06",
+            "Trim_Lance",
+            "Trim_Leg_01",
+            "Trim_Leg_02",
+            "Trim_Leg_03",
+            "Trim_Plate_01",
+            "Trim_Plate_02",
+            "Trim_Plate_03",
+            "Trim_Plate_04",
+            "Trim_Ring",
+            "Trim_RingFront",
+            "Trim_Shoulder_L",
+            "Trim_Shoulder_R",
+            "Trim_Spine",
+            "Trim_Stub_01",
+            "Trim_Stub_02",
+            "Turret_01",
+            "Turret_01_Barrel",
+            "Turret_02",
+            "Turret_02_Barrel",
+            "Turret_03",
+            "Turret_03_Barrel"
+        };
 
         static bool White(char value)
         {
