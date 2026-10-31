@@ -10078,6 +10078,7 @@ def main() -> int:
     test_hangar_next_wave_always_selectable()
     test_doctrine_rows_pad_reachable()
     test_hangar_footer_launch_and_hint_size()
+    test_hangar_hint_contrast()
     test_settings_shell()
     test_confirm_restart()
     test_pad_nav_source()
@@ -18260,6 +18261,35 @@ def test_shop_columns_inside_hangar_inner() -> None:
     assert "ExtendsAboveInnerTop" in layout
     assert "ShopCellGutter = 0.012f" in ui
     assert "ShopCellHeight = 0.094f" in ui
+
+
+def test_hangar_hint_contrast() -> None:
+    """Hangar hint ink stays at full alpha. Reduce does not retint it.
+
+    The layer gate's hard stem is 80. Footer luma on the 0–255 scale clears that.
+    """
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    theme = (root / "Assets/Scripts/UI/UiTheme.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    prompts = (root / "Assets/Scripts/UI/PromptLineView.cs").read_text(encoding="utf-8")
+    footer = theme.split("public static Color FooterHint")[1].split("public static float FooterHintLuma")[0]
+    assert "FooterHintAlpha = 1f" in theme
+    assert "HintContrastMin = 80f" in theme
+    assert "new Color(1f, 1f, 1f, FooterHintAlpha)" in footer
+    assert "ReduceEffects" not in footer
+    luma = (0.2126 + 0.7152 + 0.0722) * 255.0 * 1.0
+    assert luma >= 80.0
+    assert "FooterHintReadable" in theme
+    assert "_hint.color = UiTheme.FooterHint" in ui
+    apply = ui.split("private void ApplyBottomHint")[1].split("private void FinishHintBox")[0]
+    assert apply.index("_hint.color = UiTheme.FooterHint") < apply.index("if (!waveClear")
+    assert "ReduceEffects" not in apply.split("_hint.color = UiTheme.FooterHint")[0]
+    finish = ui.split("private void FinishHintBox")[1].split("private void SyncHintScrim")[0]
+    assert "PromptLineView.SnapHangarHint(_hint)" in finish
+    assert "public static void SnapHangarHint" in prompts
+    assert "ReduceEffects" not in prompts.split("public static void SnapHangarHint")[1].split("private static void SnapHintChildren")[0]
 
 
 def test_wave_summary_and_hangar_hud() -> None:
