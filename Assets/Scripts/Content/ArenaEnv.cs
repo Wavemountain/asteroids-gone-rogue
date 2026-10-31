@@ -272,38 +272,92 @@ namespace AsteroidsGoneRogue
                     continue;
                 }
 
-                string painted = floorRenderer.sharedMaterial != null ? floorRenderer.sharedMaterial.name : string.Empty;
-                if (painted.IndexOf("W3_Beam", System.StringComparison.Ordinal) >= 0)
+                Material[] slots = floorRenderer.materials;
+                if (slots == null || slots.Length == 0)
                 {
                     continue;
                 }
 
-                float floorR;
-                float floorG;
-                float floorB;
-                PremiumLook.FloorRgb(_world, _floorTint.r, _floorTint.g, _floorTint.b, out floorR, out floorG, out floorB);
-                Material paintedMat = floorRenderer.material;
-                Shader floorFade = Shader.Find("AGR/FloorFade");
-                if (floorFade != null)
+                int count = _world == 2 ? slots.Length : 1;
+                for (int slotIndex = 0; slotIndex < count; slotIndex++)
                 {
-                    paintedMat.shader = floorFade;
-                    paintedMat.SetColor("_Void", new Color(PremiumLook.OutsideR, PremiumLook.OutsideG, PremiumLook.OutsideB, 1f));
-                    float dome = WaveManager.ArenaRadius;
-                    paintedMat.SetFloat("_FadeStart", dome * 0.82f);
-                    paintedMat.SetFloat("_FadeEnd", dome);
-                    ApplyContourFade(paintedMat);
+                    Material paintedMat = slots[slotIndex];
+                    if (paintedMat == null)
+                    {
+                        continue;
+                    }
+
+                    if (paintedMat.name.IndexOf("W3_Beam", System.StringComparison.Ordinal) >= 0)
+                    {
+                        continue;
+                    }
+
+                    PaintFloorMaterial(paintedMat);
+                    if (_world == 2)
+                    {
+                        // 0.48 lit this mesh at the 30 m disc. The contour floor is larger,
+                        // so the same glow emission washes the plate white.
+                        DimWorld2Emission(paintedMat);
+                    }
                 }
 
-                paintedMat.color = new Color(floorR, floorG, floorB, 1f);
-                if (paintedMat.HasProperty("_Glossiness"))
-                {
-                    paintedMat.SetFloat("_Glossiness", PremiumLook.FloorSmoothness);
-                }
+                floorRenderer.materials = slots;
+            }
+        }
 
-                if (paintedMat.HasProperty("_Metallic"))
-                {
-                    paintedMat.SetFloat("_Metallic", PremiumLook.FloorMetallic);
-                }
+        private void PaintFloorMaterial(Material paintedMat)
+        {
+            float floorR;
+            float floorG;
+            float floorB;
+            PremiumLook.FloorRgb(_world, _floorTint.r, _floorTint.g, _floorTint.b, out floorR, out floorG, out floorB);
+            Shader floorFade = Shader.Find("AGR/FloorFade");
+            if (floorFade != null)
+            {
+                paintedMat.shader = floorFade;
+                paintedMat.SetColor("_Void", new Color(PremiumLook.OutsideR, PremiumLook.OutsideG, PremiumLook.OutsideB, 1f));
+                float dome = WaveManager.ArenaRadius;
+                paintedMat.SetFloat("_FadeStart", dome * 0.82f);
+                paintedMat.SetFloat("_FadeEnd", dome);
+                ApplyContourFade(paintedMat);
+            }
+
+            paintedMat.color = new Color(floorR, floorG, floorB, 1f);
+            if (paintedMat.HasProperty("_Glossiness"))
+            {
+                paintedMat.SetFloat("_Glossiness", PremiumLook.FloorSmoothness);
+            }
+
+            if (paintedMat.HasProperty("_Metallic"))
+            {
+                paintedMat.SetFloat("_Metallic", PremiumLook.FloorMetallic);
+            }
+        }
+
+        private static void DimWorld2Emission(Material paintedMat)
+        {
+            float reach = ArenaShapeCatalog.FloorReach(ArenaShapeCatalog.ForWorld(2));
+            float keep = 1f;
+            if (reach > 1f)
+            {
+                keep = ArenaShapeCatalog.LegacyRadius / reach;
+            }
+
+            if (keep < 0f)
+            {
+                keep = 0f;
+            }
+
+            if (keep > 1f)
+            {
+                keep = 1f;
+            }
+
+            float area = keep * keep;
+            if (paintedMat.HasProperty("_EmissionColor"))
+            {
+                Color emit = paintedMat.GetColor("_EmissionColor");
+                paintedMat.SetColor("_EmissionColor", new Color(emit.r * area, emit.g * area, emit.b * area, emit.a));
             }
         }
 
