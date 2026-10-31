@@ -406,7 +406,8 @@ namespace AsteroidsGoneRogue
         // Shared shop cell + gutter (hangar-local). All 3 columns start at ShopGridTop.
         public const float ShopGridTop = 0.665f;
         public const float ShopCellHeight = 0.094f;
-        public const float ShopCellGutter = 0.016f;
+        // 0.012 keeps the bottom row inside HangarInner by >= 4 px at 800px.
+        public const float ShopCellGutter = 0.012f;
         public const int ShipPreviewSortOrder = CanvasOrder.ShipPreview;
         public const string ShipPreviewCanvasName = "ShipPreviewCanvas";
         public const string FirstHangarHintKey = "agr.ui.firstHangarHint";

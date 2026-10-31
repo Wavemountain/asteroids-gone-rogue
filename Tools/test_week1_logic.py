@@ -4385,7 +4385,7 @@ def test_hangar_wave_clear_layout() -> None:
     assert "ShipPreviewMax = new Vector2(0.986f, 0.596f)" in ui
     assert "ShopGridTop = 0.665f" in ui
     assert "ShopCellHeight = 0.094f" in ui
-    assert "ShopCellGutter = 0.016f" in ui
+    assert "ShopCellGutter = 0.012f" in ui
     assert '"HullCol"' in ui and '"WeaponsCol"' in ui and '"DefenseCol"' in ui
     assert "hullIndex % 4" in ui
     assert "TryBuy" in hangar and "CanApply" in hangar
@@ -4423,7 +4423,7 @@ def test_hangar_wave_clear_layout() -> None:
     assert not _overlap(cta, headers)
     assert cta[3] < strip[1]
     assert headers[3] < cta[1]
-    assert status[3] < 0.665 - 5 * (0.094 + 0.016) + 0.016 + 0.02
+    assert status[3] < 0.665 - 5 * (0.094 + 0.012) + 0.012 + 0.02
 
     assert "new Vector2(0.03f, 0.735f)" in ui and "new Vector2(0.97f, 0.800f)" in ui
     assert "ClampOneLine" in ui
@@ -5383,7 +5383,7 @@ def _doctrine_strip_shares_next_wave_row() -> bool:
     right = _map_anchors(strip[0], strip[1], strip[2], strip[3], 0.52, 0.08, 0.96, 0.92)
     wave_mid = (wave[1] + wave[3]) * 0.5
     left_mid = (left[1] + left[3]) * 0.5
-    pitch = (0.094 + 0.016) * (0.888 - 0.080)
+    pitch = (0.094 + 0.012) * (0.888 - 0.080)
     return abs(left_mid - wave_mid) <= pitch * 0.5 and left[0] > wave[2] and right[0] > left[2]
 
 
@@ -10135,6 +10135,7 @@ def main() -> int:
     test_shop_price_fits()
     test_catalogue_coverage_label()
     test_weapons_group_inside_hangar_inner()
+    test_shop_columns_inside_hangar_inner()
     test_enemy_bounds_within_048()
     test_hud_text_and_perk_clearance()
     test_wave_summary_and_hangar_hud()
@@ -10665,7 +10666,7 @@ def test_world_continue_and_hangar_readability() -> None:
             _map_anchors(*hangar, 0.755, 0.675, 0.98, 0.728),
         )
         cells = []
-        row_step = 0.094 + 0.016
+        row_step = 0.094 + 0.012
         for col in range(4):
             for row in range(3):
                 if row == 2 and col > 1:
@@ -15079,7 +15080,7 @@ def test_part_f_preview_and_sinks() -> None:
             a, b = boxes[left], boxes[right]
             assert not (a[0] < b[2] and a[2] > b[0] and a[1] < b[3] and a[3] > b[1])
 
-    row_step = 0.094 + 0.016
+    row_step = 0.094 + 0.012
     entry = (0.02 + 3 * 0.1175, 0.665 - 2 * row_step - 0.094, 0.02 + 3 * 0.1175 + 0.110, 0.665 - 2 * row_step)
     bank = (0.02 + 2 * 0.1175, 0.665 - 2 * row_step - 0.094, 0.02 + 2 * 0.1175 + 0.110, 0.665 - 2 * row_step)
     assert entry[0] >= bank[2]
@@ -17653,6 +17654,9 @@ class Program
         if (!AsteroidsGoneRogue.OpeningView.SelfCheck()) throw new Exception("view");
         if (!AsteroidsGoneRogue.PlayHudLayout.SelfCheck()) throw new Exception("hud");
         if (!AsteroidsGoneRogue.HangarHudLayout.WeaponsGroupInsideInner()) throw new Exception("weapons inner");
+        if (!AsteroidsGoneRogue.HangarHudLayout.ShopColumnsInsideInner()) throw new Exception("shop inner");
+        if (!AsteroidsGoneRogue.HangarHudLayout.ExtendsAboveInnerTop(0.80f)) throw new Exception("above inner");
+        if (AsteroidsGoneRogue.HangarHudLayout.ExtendsAboveInnerTop(0.70f)) throw new Exception("inside top");
         if (!AsteroidsGoneRogue.HangarHudLayout.LegacyPerksClearInner()) throw new Exception("legacy perk");
         if (!AsteroidsGoneRogue.HangarHudLayout.BadgeTextFits(800f)) throw new Exception("badge 800");
         if (!AsteroidsGoneRogue.HangarHudLayout.BadgeTextFits(1080f)) throw new Exception("badge 1080");
@@ -18189,6 +18193,73 @@ def test_weapons_group_inside_hangar_inner() -> None:
     assert "HangarHudLayout.HangarInnerMaxY" in ui
     assert "HangarHudLayout.WeaponsGroupMaxY" in ui
     assert "0.732f" not in ui
+
+
+def test_shop_columns_inside_hangar_inner() -> None:
+    """Shop plates and the bottom buys stay inside HangarInner by >= 4 px.
+
+    A child whose top is above HangarInner fails. Y grows upward.
+    """
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    layout = (root / "Assets/Scripts/Core/HangarHudLayout.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+
+    def const(name: str) -> float:
+        match = re.search(rf"public const float {name} = ([0-9.]+)f;", layout)
+        assert match, name
+        return float(match.group(1))
+
+    inner = (const("HangarInnerMinX"), const("HangarInnerMinY"), const("HangarInnerMaxX"), const("HangarInnerMaxY"))
+    panel = (const("PanelMinX"), const("PanelMinY"), const("PanelMaxX"), const("PanelMaxY"))
+    top = const("ShopGridTop")
+    height = const("ShopCellHeight")
+    gutter = const("ShopCellGutter")
+    margin = const("ShopInnerMarginPx")
+    step = height + gutter
+    bottom = top - (4 * step) - height
+    children = (
+        (const("ShopHullMinX"), bottom, const("ShopHullMaxX"), top),
+        (const("ShopWeaponsMinX"), bottom, const("ShopWeaponsMaxX"), top),
+        (const("ShopDefenseMinX"), bottom, const("ShopDefenseMaxX"), top),
+        (const("ShopWeaponsMinX"), bottom, const("ShopWeaponsMaxX"), top),
+        (const("ShopDefenseMinX"), bottom, const("ShopDefenseMaxX"), top),
+    )
+
+    def above(child_max_y: float) -> bool:
+        return child_max_y > inner[3]
+
+    assert above(0.80)
+    assert not above(0.70)
+    for child in children:
+        assert not above(child[3]), child
+
+    def panel_px(local, width, screen_h):
+        span_x = panel[2] - panel[0]
+        span_y = panel[3] - panel[1]
+        return (
+            (panel[0] + local[0] * span_x) * width,
+            (panel[1] + local[1] * span_y) * screen_h,
+            (panel[0] + local[2] * span_x) * width,
+            (panel[1] + local[3] * span_y) * screen_h,
+        )
+
+    for width, screen_h in ((1280, 800), (1920, 1080), (2560, 1440), (3440, 1440)):
+        inner_px = panel_px(inner, width, screen_h)
+        for child in children:
+            box = panel_px(child, width, screen_h)
+            assert box[3] <= inner_px[3], (width, screen_h, box, inner_px)
+            assert box[0] >= inner_px[0] + margin
+            assert box[2] <= inner_px[2] - margin
+            assert box[1] >= inner_px[1] + margin
+            assert box[3] <= inner_px[3] - margin
+
+    assert "ShopColumnsInsideInner" in layout
+    assert "ExtendsAboveInnerTop" in layout
+    assert "ShopCellGutter = 0.012f" in ui
+    assert "ShopCellHeight = 0.094f" in ui
 
 
 def test_wave_summary_and_hangar_hud() -> None:

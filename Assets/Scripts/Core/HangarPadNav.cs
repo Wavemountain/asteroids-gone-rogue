@@ -830,7 +830,7 @@ namespace AsteroidsGoneRogue
         {
             float shopMidY = DoctrineShopMidY();
             float nextWaveMidY = NextWaveMidY();
-            float shopPitch = (0.094f + 0.016f) * (0.888f - 0.080f);
+            float shopPitch = (0.094f + 0.012f) * (0.888f - 0.080f);
             float deltaY = shopMidY - nextWaveMidY;
             if (deltaY < 0f)
             {
@@ -908,7 +908,7 @@ namespace AsteroidsGoneRogue
 
             float waveMidY = (waveY0 + waveY1) * 0.5f;
             float leftMidY = (leftY0 + leftY1) * 0.5f;
-            float rowPitch = (0.094f + 0.016f) * (0.888f - 0.080f);
+            float rowPitch = (0.094f + 0.012f) * (0.888f - 0.080f);
             float bandDy = leftMidY - waveMidY;
             if (bandDy < 0f)
             {
