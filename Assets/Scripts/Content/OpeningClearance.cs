@@ -392,6 +392,12 @@ namespace AsteroidsGoneRogue
                 return 0f;
             }
 
+            EnemySeeker entering = body.GetComponentInParent<EnemySeeker>();
+            if (entering != null && entering.IsEntering)
+            {
+                return 0f;
+            }
+
             if (once && Moved.Contains(body))
             {
                 return 0f;
@@ -814,6 +820,13 @@ namespace AsteroidsGoneRogue
             {
                 Component entity = Entities[entityIndex];
                 if (entity == null)
+                {
+                    EntityPush.Add(0f);
+                    continue;
+                }
+
+                EnemySeeker entering = entity.GetComponent<EnemySeeker>();
+                if (entering != null && entering.IsEntering)
                 {
                     EntityPush.Add(0f);
                     continue;
