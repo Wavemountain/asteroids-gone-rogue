@@ -120,7 +120,7 @@ namespace AsteroidsGoneRogue
                     + (Mathf.PI * 2f * spawned) / Mathf.Max(1, roster.Length)
                     + 1.1f
                     + ringPhase;
-                EnemySeeker rosterEnemy = CreateOutside(roster[rosterIndex]);
+                EnemySeeker rosterEnemy = CreateOutside(roster[rosterIndex], rosterAngle);
                 BeginOutside(rosterEnemy, roster[rosterIndex], rosterAngle, false, false);
                 Register(rosterEnemy);
                 spawned++;
@@ -140,7 +140,7 @@ namespace AsteroidsGoneRogue
                 }
 
                 float extraAngle = waveIndex * 0.31f + 2.4f + extraIndex * 0.9f + ringPhase;
-                EnemySeeker extraEnemy = CreateOutside(extraKind);
+                EnemySeeker extraEnemy = CreateOutside(extraKind, extraAngle);
                 BeginOutside(extraEnemy, extraKind, extraAngle, false, false);
                 Register(extraEnemy);
                 spawned++;
@@ -188,7 +188,7 @@ namespace AsteroidsGoneRogue
                 Register(_factory.CreateSmallAsteroid(tutorPos, tutorDrift, this));
             }
 
-            EnemySeeker tutorEnemy = CreateOutside(FirstRunRules.WeakEnemy);
+            EnemySeeker tutorEnemy = CreateOutside(FirstRunRules.WeakEnemy, 2.2f);
             if (tutorEnemy != null)
             {
                 tutorEnemy.ConfigureTraining(FirstRunRules.WeakEnemyHp, FirstRunRules.WeakEnemySpeedScale);
@@ -204,7 +204,7 @@ namespace AsteroidsGoneRogue
         private void SpawnEliteBrute(int waveIndex)
         {
             float eliteAngle = waveIndex * 0.2f + Mathf.PI + (float)SpawnLayout.PhaseRadians(RunRng.ActiveDailySeed, waveIndex);
-            EnemySeeker elite = CreateOutside(EnemyKind.Brute);
+            EnemySeeker elite = CreateOutside(EnemyKind.Brute, eliteAngle);
             if (elite == null)
             {
                 return;
@@ -229,7 +229,7 @@ namespace AsteroidsGoneRogue
         private void SpawnBoss(int waveIndex)
         {
             float bossAngle = waveIndex * 0.2f + 0.4f + (float)SpawnLayout.PhaseRadians(RunRng.ActiveDailySeed, waveIndex);
-            EnemySeeker boss = CreateOutside(EnemyKind.Brute);
+            EnemySeeker boss = CreateOutside(EnemyKind.Brute, bossAngle);
             if (boss == null)
             {
                 return;
@@ -603,15 +603,42 @@ namespace AsteroidsGoneRogue
             return new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
         }
 
-        private EnemySeeker CreateOutside(EnemyKind kind)
+        private EnemySeeker CreateOutside(EnemyKind kind, float angle)
         {
             if (_factory == null)
             {
                 return null;
             }
 
+            float px = 0f;
+            float pz = 0f;
+            if (_player != null)
+            {
+                px = _player.position.x;
+                pz = _player.position.z;
+            }
+
+            float outsideX;
+            float outsideZ;
+            float insideX;
+            float insideZ;
+            float crossX;
+            float crossZ;
+            EntryFlight.Resolve(
+                ArenaShapeCatalog.Active,
+                angle,
+                EnemyCatalog.ColliderRadius(kind),
+                px,
+                pz,
+                out outsideX,
+                out outsideZ,
+                out insideX,
+                out insideZ,
+                out crossX,
+                out crossZ);
             _factory.SetSpawnOutside(true);
-            return _factory.CreateEnemy(Vector3.zero, _player, this, EnemyCatalog.VisualName(kind));
+            Vector3 spawn = new Vector3(outsideX, 0f, outsideZ);
+            return _factory.CreateEnemy(spawn, _player, this, EnemyCatalog.VisualName(kind));
         }
 
         private void BeginOutside(EnemySeeker seeker, EnemyKind kind, float angle, bool elite, bool boss)

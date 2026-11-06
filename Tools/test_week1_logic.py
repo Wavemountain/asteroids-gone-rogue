@@ -10144,6 +10144,7 @@ def main() -> int:
     test_premium_050_look()
     test_shader_warmup_cannot_block_boot()
     test_hud_gate_measures_shown_panel()
+    test_wave_entry_clearance_skips_inflight()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -19147,6 +19148,25 @@ def test_edge_decor_050() -> None:
     ):
         assert (root / "Assets/Art/Import/Textures" / tex_name).is_file()
         assert (root / "Assets/Resources/Art/Import/Textures" / tex_name).is_file()
+
+
+def test_wave_entry_clearance_skips_inflight() -> None:
+    """Opening clearance must not shove an enemy while EntryFlight still owns it."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    clearance = (root / "Assets/Scripts/Content/OpeningClearance.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+    nudge = clearance.split("private static float NudgeRoot")[1].split("private static float CarveStanding")[0]
+    listed = clearance.split("private static void ClearListed")[1].split("private static void NoteEntity")[0]
+    assert "IsEntering" in nudge
+    assert nudge.index("IsEntering") < nudge.index("body.position +=")
+    assert "IsEntering" in listed
+    assert listed.index("IsEntering") < listed.index("NudgeRoot(")
+    create = waves.split("private EnemySeeker CreateOutside")[1].split("private void BeginOutside")[0]
+    assert "EntryFlight.Resolve" in create
+    assert "Vector3.zero" not in create
+    assert "CreateEnemy(spawn," in create
 
 
 if __name__ == "__main__":
