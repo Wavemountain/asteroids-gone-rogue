@@ -10145,6 +10145,7 @@ def main() -> int:
     test_shader_warmup_cannot_block_boot()
     test_hud_gate_measures_shown_panel()
     test_wave_entry_clearance_skips_inflight()
+    test_longrun_harness()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -19148,6 +19149,102 @@ def test_edge_decor_050() -> None:
     ):
         assert (root / "Assets/Art/Import/Textures" / tex_name).is_file()
         assert (root / "Assets/Resources/Art/Import/Textures" / tex_name).is_file()
+
+
+def test_longrun_harness() -> None:
+    """Editor long-run: player builds exclude it, save backup hashes, INCOMPLETE vs PASS."""
+    import tempfile
+    from pathlib import Path
+
+    from longrun_policy import (
+        ABSENT,
+        DEFAULT_MINUTES,
+        ENV_PROFILE,
+        HITCH_SECONDS,
+        MIN_WAVE_INDEX_FOR_PASS,
+        SAVE_NAMES,
+        backup_verified,
+        classify,
+        copy_and_verify,
+        hash_file,
+        live_untouched,
+        profile_isolated,
+        progressed,
+    )
+
+    root = Path(__file__).resolve().parents[1]
+    editor = root / "Assets/Editor/LongRun"
+    assert editor.is_dir()
+    harness_sources = list(editor.glob("*.cs"))
+    assert harness_sources, "long-run harness sources"
+    for source in harness_sources:
+        text = source.read_text(encoding="utf-8")
+        assert "UnityEngine.InputSystem" not in text
+        assert source.parts[-3] == "Editor"
+
+    verdict = (editor / "LongRunVerdict.cs").read_text(encoding="utf-8")
+    guard = (editor / "LongRunSaveGuard.cs").read_text(encoding="utf-8")
+    assert f"MinWaveIndexForPass = {MIN_WAVE_INDEX_FOR_PASS}" in verdict
+    assert f"DefaultMinutes = {DEFAULT_MINUTES}" in verdict
+    assert "0.05f" in verdict
+    assert HITCH_SECONDS == 0.05
+    classify_body = verdict.split("public static string Classify")[1].split("public static", 1)[0]
+    assert classify_body.index("return \"FAIL\"") < classify_body.index("return \"INCOMPLETE\"")
+    assert classify_body.index("return \"INCOMPLETE\"") < classify_body.index("return \"PASS\"")
+    assert "saveFailed || resumeFailed || harnessFault" in classify_body
+    assert "!ranFullTime || !progressed || diedEarly" in classify_body
+    assert "SHA256" in guard
+    assert f"\"{ENV_PROFILE}\"" in guard
+    assert "BackupVerified" in guard
+    assert "ProfileIsIsolated" in guard
+    for name in SAVE_NAMES:
+        assert name in guard
+
+    scripts = root / "Assets/Scripts"
+    for source in scripts.rglob("*.cs"):
+        text = source.read_text(encoding="utf-8")
+        if "LongRun" not in text and ENV_PROFILE not in text:
+            continue
+        assert "#if UNITY_EDITOR" in text, source
+
+    assert classify(False, False, False, True, True, False) == "PASS"
+    assert classify(False, False, False, False, True, False) == "INCOMPLETE"
+    assert classify(False, False, False, True, False, False) == "INCOMPLETE"
+    assert classify(False, False, False, True, True, True) == "INCOMPLETE"
+    assert classify(False, False, False, False, False, True) == "INCOMPLETE"
+    assert classify(True, False, False, True, True, False) == "FAIL"
+    assert classify(False, True, False, False, False, True) == "FAIL"
+    assert classify(False, False, True, True, True, False) == "FAIL"
+    assert progressed(1) is False
+    assert progressed(MIN_WAVE_INDEX_FOR_PASS) is True
+
+    assert profile_isolated("", "/tmp/profile") is False
+    assert profile_isolated("/tmp/live", "/tmp/live") is False
+    assert profile_isolated("/tmp/live", "/tmp/live/profile") is False
+    assert profile_isolated("/tmp/live/profile", "/tmp/live") is False
+    assert profile_isolated("/tmp/live", "/tmp/longrun-profile") is True
+
+    with tempfile.TemporaryDirectory() as tmp:
+        live = Path(tmp) / "live"
+        backup = Path(tmp) / "backup"
+        live.mkdir()
+        payload = b'{"Version":7,"WaveIndex":2,"Credits":40}\n'
+        live_file = live / "run_save.json"
+        live_file.write_bytes(payload)
+        source_hash = copy_and_verify(str(live_file), str(backup / "run_save.json"))
+        assert source_hash == hash_file(str(live_file))
+        assert backup_verified(source_hash, hash_file(str(backup / "run_save.json")))
+        assert live_untouched(str(live_file), source_hash)
+        assert source_hash != ABSENT
+        (backup / "run_save.json").write_bytes(payload + b" ")
+        assert not backup_verified(source_hash, hash_file(str(backup / "run_save.json")))
+        live_file.write_bytes(payload + b"x")
+        assert not live_untouched(str(live_file), source_hash)
+        missing = live / "meta_save.json"
+        missing_hash = copy_and_verify(str(missing), str(backup / "meta_save.json"))
+        assert missing_hash == ABSENT
+        assert not (backup / "meta_save.json").exists()
+        assert live_untouched(str(missing), ABSENT)
 
 
 def test_wave_entry_clearance_skips_inflight() -> None:
