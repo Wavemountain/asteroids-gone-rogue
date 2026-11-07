@@ -22,14 +22,15 @@ namespace AsteroidsGoneRogue.EditorTools
             bool harnessFault,
             bool ranFullTime,
             bool progressed,
-            bool diedEarly)
+            bool diedEarly,
+            bool resumeNotRun)
         {
             if (saveFailed || resumeFailed || harnessFault)
             {
                 return "FAIL";
             }
 
-            if (!ranFullTime || !progressed || diedEarly)
+            if (!ranFullTime || !progressed || diedEarly || resumeNotRun)
             {
                 return "INCOMPLETE";
             }

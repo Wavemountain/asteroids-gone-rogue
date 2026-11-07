@@ -1,0 +1,59 @@
+# Long run (Speltest)
+
+Editor-only play of a real run. It does not ship in a player build. It does not skip waves, grant credits, or change balance. Autopilot does not test human fun.
+
+## Command
+
+From the project folder, Unity 6000.6, with a GPU (do not pass `-nographics`):
+
+```
+"C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe" -batchmode -projectPath . -executeMethod AsteroidsGoneRogue.EditorTools.LongRun.Run -logFile - -longRunMinutes 30 -seed 48048
+```
+
+Flags:
+
+- `-longRunMinutes N` — wall-clock budget. Default 30. Range 1–720.
+- `-seed N` — optional. `Random.InitState` immediately before each normal wave start. It does not turn the run into a daily. Omit it to leave the engine stream alone.
+- `-resumeAfterWorld N` — save, quit, and resume after this world is cleared. Default 1. `0` turns the world trigger off.
+- `-resumeAfterMinutes N` — optional extra trigger, once the run has left wave 1 and is in the hangar or on a wave-clear. Default 0 (off).
+- `-longRunOut <dir>` — parent folder. Default `Captures\LongRun`. Each run writes `Captures\LongRun\<yyyyMMdd-HHmmss>\`.
+
+## Where the logs go
+
+`<run>\events.jsonl` — one JSON object per line: transitions (hangar, wave, world, shop, boon, death / continue, game over, save, resume), purchases (`item`, `cost`, `creditsBefore`, `creditsAfter`), credits and lives on every line, exceptions and error logs, and the screenshot path.
+
+`<run>\summary.md` — verdict, elapsed seconds, world, wave, purchases, deaths, resume, save check, frametime (avg, p95, p99, max, hitches over 50 ms).
+
+`<run>\shots\` — PNG at each transition and each error (cap 200).
+
+`<run>\profile\` — the only place run saves are written.
+
+`<run>\backup\` — copies of Wagge's save files taken before play, plus `manifest.txt` and `prefs.txt`.
+
+The Unity log line is `LongRun verdict=PASS|FAIL|INCOMPLETE`.
+
+## PASS, FAIL, INCOMPLETE
+
+Exit code `0` PASS, `1` FAIL, `2` INCOMPLETE.
+
+- **PASS** — the budget elapsed, the run reached at least wave 2, it did not run out of lives early, the save/quit/resume fields matched, and the live save hashes still match the backup.
+- **FAIL** — the backup hash check failed, a live save or PlayerPrefs restore did not match, the resume comparison mismatched, or the harness threw.
+- **INCOMPLETE** — the run stopped before the time limit, never reached wave 2, ran out of lives first, or never reached the save/quit/resume point. An early death is never PASS.
+
+Resume compares world, wave, credits, lives, score, upgrade mask, Mk II mask, doctrine, boon levels, run id, daily seed, and difficulty. A mismatch line is in `events.jsonl` (`kind` `resume`, `result` `FAIL`) and in the summary.
+
+## Saves must stay untouched
+
+Before play the harness hashes `run_save.json`, `meta_save.json`, and their `.bak` / `.tmp` siblings under `Application.persistentDataPath`, copies them into `<run>\backup\`, and checks the copy hash. It sets `AGR_LONGRUN_PROFILE` to `<run>\profile`. `RunSaveStore` reads that variable only inside `#if UNITY_EDITOR`, so a player build still uses the normal folder, and a normal editor session does not set the variable.
+
+After play it clears the variable and hashes the live files again. `summary.md` says `Save files: untouched` only when every hash matches. PlayerPrefs are snapshotted to `backup\prefs.txt` and restored on the way out; the summary says whether that restore matched.
+
+If Unity is killed before the summary, do not copy `<run>\profile` back. Compare the live files with `backup\manifest.txt` (tab-separated name and SHA-256, or `ABSENT`). Restore prefs from `backup\prefs.txt` by putting those keys back, or run the harness again only after that check. A matching manifest means Wagge's save files were not written.
+
+## Limits
+
+- Aim, fire, and evade are the harness policy. There is no older autopilot type on `a0abecd`. Sticks are written through `GamepadInput` (`Horizontal`, `Vertical`, `AimX`, `AimY`, Fire) because batch mode has no focused window. `InputManager.asset` is unchanged.
+- Unity has no PlayerPrefs path override, so those keys are snapshotted and restored. File saves are redirected and not written in the normal folder.
+- Shots are the world cameras. Screen-space UI is not composited.
+- `-seed` does not enable daily rules. Resume compares the saved fields, not the RNG cursor.
+- Screenshot cap is 200. Minutes cap is 720.

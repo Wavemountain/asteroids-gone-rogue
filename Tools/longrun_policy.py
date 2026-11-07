@@ -31,11 +31,12 @@ def classify(
     ran_full_time: bool,
     progressed: bool,
     died_early: bool,
+    resume_not_run: bool = False,
 ) -> str:
-    """FAIL beats everything. A short, stuck, or early-dead run is never PASS."""
+    """FAIL beats everything. A short, stuck, early-dead, or unresumed run is never PASS."""
     if save_failed or resume_failed or harness_fault:
         return "FAIL"
-    if (not ran_full_time) or (not progressed) or died_early:
+    if (not ran_full_time) or (not progressed) or died_early or resume_not_run:
         return "INCOMPLETE"
     return "PASS"
 

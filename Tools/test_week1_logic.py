@@ -19192,7 +19192,7 @@ def test_longrun_harness() -> None:
     assert classify_body.index("return \"FAIL\"") < classify_body.index("return \"INCOMPLETE\"")
     assert classify_body.index("return \"INCOMPLETE\"") < classify_body.index("return \"PASS\"")
     assert "saveFailed || resumeFailed || harnessFault" in classify_body
-    assert "!ranFullTime || !progressed || diedEarly" in classify_body
+    assert "!ranFullTime || !progressed || diedEarly || resumeNotRun" in classify_body
     assert "SHA256" in guard
     assert f"\"{ENV_PROFILE}\"" in guard
     assert "BackupVerified" in guard
@@ -19207,14 +19207,50 @@ def test_longrun_harness() -> None:
             continue
         assert "#if UNITY_EDITOR" in text, source
 
-    assert classify(False, False, False, True, True, False) == "PASS"
-    assert classify(False, False, False, False, True, False) == "INCOMPLETE"
-    assert classify(False, False, False, True, False, False) == "INCOMPLETE"
-    assert classify(False, False, False, True, True, True) == "INCOMPLETE"
-    assert classify(False, False, False, False, False, True) == "INCOMPLETE"
-    assert classify(True, False, False, True, True, False) == "FAIL"
-    assert classify(False, True, False, False, False, True) == "FAIL"
-    assert classify(False, False, True, True, True, False) == "FAIL"
+    store = (root / "Assets/Scripts/Core/RunSaveStore.cs").read_text(encoding="utf-8")
+    save_root = store.split("private static string SaveRoot()")[1].split("public static bool TryLoadRun")[0]
+    assert "#if UNITY_EDITOR" in save_root
+    assert ENV_PROFILE in save_root
+    assert save_root.index("#endif") < save_root.index("return Application.persistentDataPath")
+    assert "Path.Combine(Application.persistentDataPath" not in store
+    assert store.count("Path.Combine(SaveRoot()") == 4
+    pad = (root / "Assets/Scripts/Core/GamepadInput.cs").read_text(encoding="utf-8")
+    assert "Input.GetAxisRaw" in pad
+    assert "UnityEngine.InputSystem" not in pad
+    pump = pad.split("#if UNITY_EDITOR")[-1]
+    assert "SetEditorPump" in pump
+    assert "SetEditorPump" not in pad.split("#if UNITY_EDITOR")[0]
+    runner = (editor / "LongRun.cs").read_text(encoding="utf-8")
+    assert "public static void Run()" in runner
+    assert "namespace AsteroidsGoneRogue.EditorTools" in runner
+    assert "SetEditorPump" in runner
+    assert "ConfirmFirstStart" in runner
+    assert "AcceptContinue" in runner
+    assert "TryBuy" in runner
+    assert "Random.InitState" in runner
+    assert "SkipTutorial" not in runner
+    assert "SkipFirstStart" not in runner
+    assert "SetDaily" not in runner
+    assert "CaptureWaveClear" not in runner
+    assert "PresentForCapture" not in runner
+    assert "InputSystem" not in runner
+    doc = (root / "Docs/LONGRUN.md").read_text(encoding="utf-8")
+    assert "Autopilot does not test human fun." in doc
+    assert "-executeMethod AsteroidsGoneRogue.EditorTools.LongRun.Run" in doc
+    assert "-nographics" in doc
+    assert "do not pass `-nographics`" in doc
+    assert "INCOMPLETE" in doc and "PASS" in doc and "FAIL" in doc
+    assert "manifest.txt" in doc
+
+    assert classify(False, False, False, True, True, False, False) == "PASS"
+    assert classify(False, False, False, False, True, False, False) == "INCOMPLETE"
+    assert classify(False, False, False, True, False, False, False) == "INCOMPLETE"
+    assert classify(False, False, False, True, True, True, False) == "INCOMPLETE"
+    assert classify(False, False, False, False, False, True, False) == "INCOMPLETE"
+    assert classify(False, False, False, True, True, False, True) == "INCOMPLETE"
+    assert classify(True, False, False, True, True, False, True) == "FAIL"
+    assert classify(False, True, False, False, False, True, False) == "FAIL"
+    assert classify(False, False, True, True, True, False, False) == "FAIL"
     assert progressed(1) is False
     assert progressed(MIN_WAVE_INDEX_FOR_PASS) is True
 
