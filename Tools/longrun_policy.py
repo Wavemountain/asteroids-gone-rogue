@@ -98,3 +98,60 @@ def _norm(path: str) -> str:
     while text.endswith("/") or text.endswith("\\"):
         text = text[:-1]
     return text
+
+
+def classify_pref(
+    exists: bool,
+    int_stable: bool,
+    int_value: int,
+    float_stable: bool,
+    float_value: float,
+    string_stable: bool,
+    string_value: str,
+) -> tuple[str, str]:
+    """Type comes from which getter is stable, not from the key name."""
+    if not exists:
+        return "", ""
+    if float_stable and not int_stable:
+        return "float", repr(float_value)
+    if int_stable and not float_stable:
+        return "int", str(int_value)
+    if string_stable and not int_stable and not float_stable:
+        return "string", string_value
+    if float_stable and int_stable:
+        integral = float_value == float(round(float_value))
+        if integral and int(round(float_value)) == int_value and not _fraction_text(string_value):
+            return "int", str(int_value)
+        return "float", repr(float_value)
+    if string_stable:
+        return "string", string_value
+    return "string", ""
+
+
+def _fraction_text(text: str) -> bool:
+    return "." in text or "e" in text or "E" in text
+
+
+def restore_action(exists: bool, kind: str) -> str:
+    if not exists:
+        return "delete"
+    return "set-" + kind
+
+
+def verify_pref(
+    exists: bool,
+    kind: str,
+    value: str,
+    now_exists: bool,
+    now_kind: str,
+    now_value: str,
+) -> str:
+    if not exists:
+        return "MATCH" if not now_exists else "MISMATCH"
+    if now_exists and now_kind == kind and now_value == value:
+        return "MATCH"
+    return "MISMATCH"
+
+
+def prefs_run_allowed(marker_exists: bool) -> bool:
+    return not marker_exists

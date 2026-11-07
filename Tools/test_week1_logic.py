@@ -19165,11 +19165,15 @@ def test_longrun_harness() -> None:
         SAVE_NAMES,
         backup_verified,
         classify,
+        classify_pref,
         copy_and_verify,
         hash_file,
         live_untouched,
+        prefs_run_allowed,
         profile_isolated,
         progressed,
+        restore_action,
+        verify_pref,
     )
 
     root = Path(__file__).resolve().parents[1]
@@ -19281,6 +19285,29 @@ def test_longrun_harness() -> None:
         assert missing_hash == ABSENT
         assert not (backup / "meta_save.json").exists()
         assert live_untouched(str(missing), ABSENT)
+
+    assert classify_pref(False, False, 0, False, 0.0, False, "") == ("", "")
+    assert classify_pref(True, True, 7, False, 0.0, False, "") == ("int", "7")
+    kind, raw = classify_pref(True, False, 0, True, 1.5, False, "")
+    assert kind == "float"
+    kind, raw = classify_pref(True, False, 0, True, 1.0, False, "")
+    assert kind == "float"
+    assert classify_pref(True, False, 0, False, 0.0, True, "normal") == ("string", "normal")
+    assert classify_pref(True, True, 7, True, 7.0, True, "7.0")[0] == "float"
+    assert restore_action(False, "") == "delete"
+    assert restore_action(True, "float") == "set-float"
+    assert verify_pref(False, "", "", False, "", "") == "MATCH"
+    assert verify_pref(False, "", "", True, "int", "1") == "MISMATCH"
+    assert verify_pref(True, "int", "7", True, "int", "7") == "MATCH"
+    assert verify_pref(True, "float", "1", True, "int", "1") == "MISMATCH"
+    assert prefs_run_allowed(False) is True
+    assert prefs_run_allowed(True) is False
+    prefs = (editor / "LongRunPrefs.cs").read_text(encoding="utf-8")
+    assert "Flush(true)" in prefs
+    assert "public static void Classify(" in prefs
+    assert "\"I\\t" not in prefs
+    assert "PlayerPrefs.DeleteKey" in prefs
+    assert "RestoreAndVerify" in prefs
 
 
 def test_wave_entry_clearance_skips_inflight() -> None:
