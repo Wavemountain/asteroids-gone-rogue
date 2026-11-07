@@ -55,6 +55,12 @@ namespace AsteroidsGoneRogue
 
         public static bool FireHeld()
         {
+#if UNITY_EDITOR
+            if (EditorPumpEngaged)
+            {
+                return EditorPumpFire;
+            }
+#endif
             BindingMap map = BindingMap.ActiveOrDefault();
             if (map.UsesLegacyFire())
             {
@@ -78,6 +84,12 @@ namespace AsteroidsGoneRogue
 
         public static bool UtilityHeld()
         {
+#if UNITY_EDITOR
+            if (EditorPumpEngaged)
+            {
+                return false;
+            }
+#endif
             BindingMap map = BindingMap.ActiveOrDefault();
             if (map.UsesLegacyUtility())
             {
@@ -260,6 +272,13 @@ namespace AsteroidsGoneRogue
 
         private static float Axis(string name)
         {
+#if UNITY_EDITOR
+            float pumped;
+            if (TryEditorAxis(name, out pumped))
+            {
+                return pumped;
+            }
+#endif
             try
             {
                 return Input.GetAxisRaw(name);
@@ -446,5 +465,64 @@ namespace AsteroidsGoneRogue
                 return -1;
             }
         }
+
+#if UNITY_EDITOR
+        static bool EditorPumpEngaged;
+        static float EditorPumpHorizontal;
+        static float EditorPumpVertical;
+        static float EditorPumpAimX;
+        static float EditorPumpAimY;
+        static bool EditorPumpFire;
+
+        /// <summary>
+        /// Batch sessions have no focused game view, so the long-run harness
+        /// writes the same legacy axes the Input Manager already owns. Off
+        /// unless that harness calls this. Player builds strip the method.
+        /// </summary>
+        public static void SetEditorPump(bool engaged, float horizontal, float vertical, float aimX, float aimY, bool fire)
+        {
+            EditorPumpEngaged = engaged;
+            EditorPumpHorizontal = horizontal;
+            EditorPumpVertical = vertical;
+            EditorPumpAimX = aimX;
+            EditorPumpAimY = aimY;
+            EditorPumpFire = fire;
+        }
+
+        static bool TryEditorAxis(string name, out float value)
+        {
+            value = 0f;
+            if (!EditorPumpEngaged)
+            {
+                return false;
+            }
+
+            if (name == MoveX || name == "Horizontal")
+            {
+                value = EditorPumpHorizontal;
+                return true;
+            }
+
+            if (name == MoveY || name == "Vertical")
+            {
+                value = EditorPumpVertical;
+                return true;
+            }
+
+            if (name == AimX)
+            {
+                value = EditorPumpAimX;
+                return true;
+            }
+
+            if (name == AimY)
+            {
+                value = EditorPumpAimY;
+                return true;
+            }
+
+            return true;
+        }
+#endif
     }
 }

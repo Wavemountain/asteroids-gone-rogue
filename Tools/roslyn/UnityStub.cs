@@ -352,13 +352,25 @@ namespace UnityEngine
         public static string ToJson(object value) { return ""; }
     }
 
+    public enum LogType
+    {
+        Error,
+        Assert,
+        Warning,
+        Log,
+        Exception,
+    }
+
     public static class Application
     {
+        public delegate void LogCallback(string condition, string stackTrace, LogType type);
+        public static event LogCallback logMessageReceived;
         public static string persistentDataPath { get { return "/tmp"; } }
         public static string dataPath { get { return "/tmp/Assets"; } }
         public static int targetFrameRate { get; set; }
         public static bool isPlaying { get { return false; } }
         public static bool isBatchMode { get { return false; } }
+        public static bool runInBackground { get; set; }
     }
 
     public struct Resolution

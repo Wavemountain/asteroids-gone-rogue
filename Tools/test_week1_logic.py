@@ -10145,6 +10145,7 @@ def main() -> int:
     test_shader_warmup_cannot_block_boot()
     test_hud_gate_measures_shown_panel()
     test_wave_entry_clearance_skips_inflight()
+    test_longrun_harness()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -19148,6 +19149,177 @@ def test_edge_decor_050() -> None:
     ):
         assert (root / "Assets/Art/Import/Textures" / tex_name).is_file()
         assert (root / "Assets/Resources/Art/Import/Textures" / tex_name).is_file()
+
+
+def test_longrun_harness() -> None:
+    """Editor long-run: player builds exclude it, save backup hashes, INCOMPLETE vs PASS."""
+    import tempfile
+    from pathlib import Path
+
+    from longrun_policy import (
+        ABSENT,
+        DEFAULT_MINUTES,
+        ENV_PROFILE,
+        HITCH_SECONDS,
+        MIN_WAVE_INDEX_FOR_PASS,
+        SAVE_NAMES,
+        backup_verified,
+        classify,
+        classify_pref,
+        copy_and_verify,
+        hash_file,
+        live_untouched,
+        prefs_run_allowed,
+        profile_isolated,
+        progressed,
+        restore_action,
+        verify_pref,
+    )
+
+    root = Path(__file__).resolve().parents[1]
+    editor = root / "Assets/Editor/LongRun"
+    assert editor.is_dir()
+    harness_sources = list(editor.glob("*.cs"))
+    assert harness_sources, "long-run harness sources"
+    for source in harness_sources:
+        text = source.read_text(encoding="utf-8")
+        assert "UnityEngine.InputSystem" not in text
+        assert source.parts[-3] == "Editor"
+
+    verdict = (editor / "LongRunVerdict.cs").read_text(encoding="utf-8")
+    guard = (editor / "LongRunSaveGuard.cs").read_text(encoding="utf-8")
+    assert f"MinWaveIndexForPass = {MIN_WAVE_INDEX_FOR_PASS}" in verdict
+    assert f"DefaultMinutes = {DEFAULT_MINUTES}" in verdict
+    assert "0.05f" in verdict
+    assert HITCH_SECONDS == 0.05
+    classify_body = verdict.split("public static string Classify")[1].split("public static", 1)[0]
+    assert classify_body.index("return \"FAIL\"") < classify_body.index("return \"INCOMPLETE\"")
+    assert classify_body.index("return \"INCOMPLETE\"") < classify_body.index("return \"PASS\"")
+    assert "saveFailed || resumeFailed || harnessFault" in classify_body
+    assert "!ranFullTime || !progressed || diedEarly || resumeNotRun" in classify_body
+    assert "SHA256" in guard
+    assert f"\"{ENV_PROFILE}\"" in guard
+    assert "BackupVerified" in guard
+    assert "ProfileIsIsolated" in guard
+    for name in SAVE_NAMES:
+        assert name in guard
+
+    scripts = root / "Assets/Scripts"
+    for source in scripts.rglob("*.cs"):
+        text = source.read_text(encoding="utf-8")
+        if "LongRun" not in text and ENV_PROFILE not in text:
+            continue
+        assert "#if UNITY_EDITOR" in text, source
+
+    store = (root / "Assets/Scripts/Core/RunSaveStore.cs").read_text(encoding="utf-8")
+    save_root = store.split("private static string SaveRoot()")[1].split("public static bool TryLoadRun")[0]
+    assert "#if UNITY_EDITOR" in save_root
+    assert ENV_PROFILE in save_root
+    assert save_root.index("#endif") < save_root.index("return Application.persistentDataPath")
+    assert "Path.Combine(Application.persistentDataPath" not in store
+    assert store.count("Path.Combine(SaveRoot()") == 4
+    pad = (root / "Assets/Scripts/Core/GamepadInput.cs").read_text(encoding="utf-8")
+    assert "Input.GetAxisRaw" in pad
+    assert "UnityEngine.InputSystem" not in pad
+    pump = pad.split("#if UNITY_EDITOR")[-1]
+    assert "SetEditorPump" in pump
+    assert "SetEditorPump" not in pad.split("#if UNITY_EDITOR")[0]
+    runner = (editor / "LongRun.cs").read_text(encoding="utf-8")
+    assert "public static void Run()" in runner
+    assert "namespace AsteroidsGoneRogue.EditorTools" in runner
+    assert "SetEditorPump" in runner
+    assert "ConfirmFirstStart" in runner
+    assert "AcceptContinue" in runner
+    assert "TryBuy" in runner
+    assert "Random.InitState" in runner
+    assert "SkipTutorial" not in runner
+    assert "SkipFirstStart" not in runner
+    assert "SetDaily" not in runner
+    assert "CaptureWaveClear" not in runner
+    assert "PresentForCapture" not in runner
+    assert "InputSystem" not in runner
+    assert "public static void RestorePrefs()" in runner
+    assert "UnrestoredBackup" in runner
+    assert "LongRunPrefs.Capture" in runner
+    assert "LongRunPrefs.RestoreAndVerify" in runner
+    assert "PlayerPrefs.Set" not in runner
+    assert "PlayerPrefs.Delete" not in runner
+    assert "PlayerPrefs.Save" not in runner
+    assert "PlayerPrefs" not in guard
+    doc = (root / "Docs/LONGRUN.md").read_text(encoding="utf-8")
+    assert "LongRun.RestorePrefs" in doc
+    assert "prefs-unrestored.txt" in doc
+    assert "prefs-verify.txt" in doc
+    assert "RESULT MATCH" in doc
+    assert "Autopilot does not test human fun." in doc
+    assert "-executeMethod AsteroidsGoneRogue.EditorTools.LongRun.Run" in doc
+    assert "-nographics" in doc
+    assert "do not pass `-nographics`" in doc
+    assert "INCOMPLETE" in doc and "PASS" in doc and "FAIL" in doc
+    assert "manifest.txt" in doc
+
+    assert classify(False, False, False, True, True, False, False) == "PASS"
+    assert classify(False, False, False, False, True, False, False) == "INCOMPLETE"
+    assert classify(False, False, False, True, False, False, False) == "INCOMPLETE"
+    assert classify(False, False, False, True, True, True, False) == "INCOMPLETE"
+    assert classify(False, False, False, False, False, True, False) == "INCOMPLETE"
+    assert classify(False, False, False, True, True, False, True) == "INCOMPLETE"
+    assert classify(True, False, False, True, True, False, True) == "FAIL"
+    assert classify(False, True, False, False, False, True, False) == "FAIL"
+    assert classify(False, False, True, True, True, False, False) == "FAIL"
+    assert progressed(1) is False
+    assert progressed(MIN_WAVE_INDEX_FOR_PASS) is True
+
+    assert profile_isolated("", "/tmp/profile") is False
+    assert profile_isolated("/tmp/live", "/tmp/live") is False
+    assert profile_isolated("/tmp/live", "/tmp/live/profile") is False
+    assert profile_isolated("/tmp/live/profile", "/tmp/live") is False
+    assert profile_isolated("/tmp/live", "/tmp/longrun-profile") is True
+
+    with tempfile.TemporaryDirectory() as tmp:
+        live = Path(tmp) / "live"
+        backup = Path(tmp) / "backup"
+        live.mkdir()
+        payload = b'{"Version":7,"WaveIndex":2,"Credits":40}\n'
+        live_file = live / "run_save.json"
+        live_file.write_bytes(payload)
+        source_hash = copy_and_verify(str(live_file), str(backup / "run_save.json"))
+        assert source_hash == hash_file(str(live_file))
+        assert backup_verified(source_hash, hash_file(str(backup / "run_save.json")))
+        assert live_untouched(str(live_file), source_hash)
+        assert source_hash != ABSENT
+        (backup / "run_save.json").write_bytes(payload + b" ")
+        assert not backup_verified(source_hash, hash_file(str(backup / "run_save.json")))
+        live_file.write_bytes(payload + b"x")
+        assert not live_untouched(str(live_file), source_hash)
+        missing = live / "meta_save.json"
+        missing_hash = copy_and_verify(str(missing), str(backup / "meta_save.json"))
+        assert missing_hash == ABSENT
+        assert not (backup / "meta_save.json").exists()
+        assert live_untouched(str(missing), ABSENT)
+
+    assert classify_pref(False, False, 0, False, 0.0, False, "") == ("", "")
+    assert classify_pref(True, True, 7, False, 0.0, False, "") == ("int", "7")
+    kind, raw = classify_pref(True, False, 0, True, 1.5, False, "")
+    assert kind == "float"
+    kind, raw = classify_pref(True, False, 0, True, 1.0, False, "")
+    assert kind == "float"
+    assert classify_pref(True, False, 0, False, 0.0, True, "normal") == ("string", "normal")
+    assert classify_pref(True, True, 7, True, 7.0, True, "7.0")[0] == "float"
+    assert restore_action(False, "") == "delete"
+    assert restore_action(True, "float") == "set-float"
+    assert verify_pref(False, "", "", False, "", "") == "MATCH"
+    assert verify_pref(False, "", "", True, "int", "1") == "MISMATCH"
+    assert verify_pref(True, "int", "7", True, "int", "7") == "MATCH"
+    assert verify_pref(True, "float", "1", True, "int", "1") == "MISMATCH"
+    assert prefs_run_allowed(False) is True
+    assert prefs_run_allowed(True) is False
+    prefs = (editor / "LongRunPrefs.cs").read_text(encoding="utf-8")
+    assert "Flush(true)" in prefs
+    assert "public static void Classify(" in prefs
+    assert "\"I\\t" not in prefs
+    assert "PlayerPrefs.DeleteKey" in prefs
+    assert "RestoreAndVerify" in prefs
 
 
 def test_wave_entry_clearance_skips_inflight() -> None:
