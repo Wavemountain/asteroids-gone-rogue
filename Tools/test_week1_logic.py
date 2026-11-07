@@ -19369,6 +19369,16 @@ def test_longrun_harness() -> None:
     assert "Frame sum seconds" in summary
     assert "not display FPS" in summary
     assert "unscaledDeltaTime" not in frames
+    death = (editor / "LongRunDeathLog.cs").read_text(encoding="utf-8")
+    trace = (root / "Assets/Scripts/Core/LongRunTrace.cs").read_text(encoding="utf-8")
+    health = (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
+    assert trace.strip().startswith("#if UNITY_EDITOR")
+    assert "Capacity = 100" in death and "ThreatCap = 8" in death and "new Sample[Capacity]" in death
+    assert "RunRng.Unit" not in death and "Random.value" not in death and "Random.Range" not in death
+    assert "Random.state" in death
+    assert "if (!Armed || Write == null)" in trace
+    damage_at = health.index("LongRunTrace.Damage")
+    assert health.rfind("#if UNITY_EDITOR", 0, damage_at) > health.rfind("#endif", 0, damage_at)
     refused = []
     refused.append(("", "empty"))
     refused.append((render_prefs(whole) + '{"name":"agr.difficulty","exists":true,"type":"int","value":"1"', "truncated"))

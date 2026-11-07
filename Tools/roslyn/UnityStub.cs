@@ -327,6 +327,15 @@ namespace UnityEngine
         public static float value { get { return 0f; } }
         public static int Range(int min, int max) { return min; }
         public static float Range(float min, float max) { return min; }
+        public struct State
+        {
+            public int s0;
+            public int s1;
+            public int s2;
+            public int s3;
+        }
+
+        public static State state { get; set; }
         public static void InitState(int seed) { }
         public static Vector3 insideUnitSphere { get { return Vector3.zero; } }
     }

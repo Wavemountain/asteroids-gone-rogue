@@ -590,6 +590,7 @@ namespace AsteroidsGoneRogue.EditorTools
 
             LongRunPilot.Stick stick = LongRunPilot.Decide(pos.x, pos.z, fwd.x, fwd.z, Threats, count, edge);
             GamepadInput.SetEditorPump(true, stick.MoveX, stick.MoveY, stick.AimX, stick.AimY, stick.Fire);
+            LongRunDeathLog.NoteChosen(stick.MoveX, stick.MoveY, stick.AimX, stick.AimY, stick.Fire);
         }
 
         static int CollectAsteroids(Vector3 pos, int count)
@@ -708,6 +709,8 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static void EnsureProbe()
         {
+            LongRunTrace.Armed = true;
+            LongRunTrace.Write = LongRunDeathLog.Append;
             if (UnityEngine.Object.FindAnyObjectByType<LongRunFrameProbe>() != null)
             {
                 return;
@@ -716,6 +719,7 @@ namespace AsteroidsGoneRogue.EditorTools
             GameObject host = new GameObject("LongRunFrameProbe");
             host.hideFlags = HideFlags.HideAndDontSave;
             host.AddComponent<LongRunFrameProbe>();
+            host.AddComponent<LongRunDeathLog>();
         }
 
         static void Prepare(LongRunState state)
@@ -777,6 +781,8 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             _finishing = true;
+            LongRunTrace.Armed = false;
+            LongRunTrace.Write = null;
             GamepadInput.SetEditorPump(false, 0f, 0f, 0f, 0f, false);
             Environment.SetEnvironmentVariable(LongRunSaveGuard.EnvProfile, null);
             string saveDetail;

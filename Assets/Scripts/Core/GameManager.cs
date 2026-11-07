@@ -342,6 +342,9 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+#if UNITY_EDITOR
+            LongRunTrace.Life("extra-life-grant", _session.Lives - 1, _session.Lives);
+#endif
             _session.NoteExtraLife();
             if (AchievementCatalog.ShouldUnlockExtraLifeStreak(_session.ExtraLifeStreak))
             {
