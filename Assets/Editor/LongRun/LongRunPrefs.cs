@@ -323,13 +323,14 @@ namespace AsteroidsGoneRogue.EditorTools
         static string ToJson(PrefEntry[] entries)
         {
             StringBuilder builder = new StringBuilder();
-            builder.Append("{\"count\":");
+            builder.Append("[\n{\"count\":");
             builder.Append(entries.Length.ToString(CultureInfo.InvariantCulture));
             builder.Append(",\"checksum\":\"");
             builder.Append(Checksum(entries));
-            builder.Append("\"}\n");
+            builder.Append("\"}");
             for (int index = 0; index < entries.Length; index++)
             {
+                builder.Append(",\n");
                 PrefEntry entry = entries[index];
                 builder.Append("{\"name\":\"");
                 builder.Append(Escape(entry.Name));
@@ -339,9 +340,10 @@ namespace AsteroidsGoneRogue.EditorTools
                 builder.Append(Escape(entry.Type));
                 builder.Append("\",\"value\":\"");
                 builder.Append(Escape(entry.Value));
-                builder.Append("\"}\n");
+                builder.Append("\"}");
             }
 
+            builder.Append("\n]\n");
             return builder.ToString();
         }
 
@@ -383,12 +385,315 @@ namespace AsteroidsGoneRogue.EditorTools
             }
         }
 
+        static string SyntaxError(string json)
+        {
+            int index = 0;
+            string error = SkipValue(json, ref index);
+            if (error.Length > 0)
+            {
+                return error;
+            }
+
+            while (index < json.Length && char.IsWhiteSpace(json[index]))
+            {
+                index += 1;
+            }
+
+            if (index != json.Length)
+            {
+                return "truncated";
+            }
+
+            return string.Empty;
+        }
+
+        static string SkipValue(string json, ref int index)
+        {
+            SkipSpace(json, ref index);
+            if (index >= json.Length)
+            {
+                return "truncated";
+            }
+
+            char ch = json[index];
+            if (ch == '{')
+            {
+                return SkipObject(json, ref index);
+            }
+
+            if (ch == '[')
+            {
+                return SkipArray(json, ref index);
+            }
+
+            if (ch == '"')
+            {
+                return SkipString(json, ref index);
+            }
+
+            if (ch == 't')
+            {
+                return SkipLiteral(json, ref index, "true");
+            }
+
+            if (ch == 'f')
+            {
+                return SkipLiteral(json, ref index, "false");
+            }
+
+            if (ch == 'n')
+            {
+                return SkipLiteral(json, ref index, "null");
+            }
+
+            if (ch == '-' || (ch >= '0' && ch <= '9'))
+            {
+                return SkipNumber(json, ref index);
+            }
+
+            return "truncated";
+        }
+
+        static string SkipObject(string json, ref int index)
+        {
+            index += 1;
+            SkipSpace(json, ref index);
+            if (index < json.Length && json[index] == '}')
+            {
+                index += 1;
+                return string.Empty;
+            }
+
+            while (index < json.Length)
+            {
+                string keyError = SkipString(json, ref index);
+                if (keyError.Length > 0)
+                {
+                    return keyError;
+                }
+
+                SkipSpace(json, ref index);
+                if (index >= json.Length || json[index] != ':')
+                {
+                    return "truncated";
+                }
+
+                index += 1;
+                string valueError = SkipValue(json, ref index);
+                if (valueError.Length > 0)
+                {
+                    return valueError;
+                }
+
+                SkipSpace(json, ref index);
+                if (index >= json.Length)
+                {
+                    return "truncated";
+                }
+
+                if (json[index] == '}')
+                {
+                    index += 1;
+                    return string.Empty;
+                }
+
+                if (json[index] != ',')
+                {
+                    return "truncated";
+                }
+
+                index += 1;
+                SkipSpace(json, ref index);
+            }
+
+            return "truncated";
+        }
+
+        static string SkipArray(string json, ref int index)
+        {
+            index += 1;
+            SkipSpace(json, ref index);
+            if (index < json.Length && json[index] == ']')
+            {
+                index += 1;
+                return string.Empty;
+            }
+
+            while (index < json.Length)
+            {
+                string valueError = SkipValue(json, ref index);
+                if (valueError.Length > 0)
+                {
+                    return valueError;
+                }
+
+                SkipSpace(json, ref index);
+                if (index >= json.Length)
+                {
+                    return "truncated";
+                }
+
+                if (json[index] == ']')
+                {
+                    index += 1;
+                    return string.Empty;
+                }
+
+                if (json[index] != ',')
+                {
+                    return "truncated";
+                }
+
+                index += 1;
+                SkipSpace(json, ref index);
+            }
+
+            return "truncated";
+        }
+
+        static string SkipString(string json, ref int index)
+        {
+            SkipSpace(json, ref index);
+            if (index >= json.Length || json[index] != '"')
+            {
+                return "truncated";
+            }
+
+            index += 1;
+            while (index < json.Length)
+            {
+                char ch = json[index];
+                if (ch == '"')
+                {
+                    index += 1;
+                    return string.Empty;
+                }
+
+                if (ch == '\\')
+                {
+                    if (index + 1 >= json.Length)
+                    {
+                        return "truncated";
+                    }
+
+                    char escaped = json[index + 1];
+                    if (escaped == 'u')
+                    {
+                        if (index + 5 >= json.Length)
+                        {
+                            return "truncated";
+                        }
+
+                        index += 6;
+                        continue;
+                    }
+
+                    index += 2;
+                    continue;
+                }
+
+                index += 1;
+            }
+
+            return "truncated";
+        }
+
+        static string SkipLiteral(string json, ref int index, string literal)
+        {
+            if (index + literal.Length > json.Length)
+            {
+                return "truncated";
+            }
+
+            if (json.Substring(index, literal.Length) != literal)
+            {
+                return "truncated";
+            }
+
+            index += literal.Length;
+            return string.Empty;
+        }
+
+        static string SkipNumber(string json, ref int index)
+        {
+            if (json[index] == '-')
+            {
+                index += 1;
+            }
+
+            if (index >= json.Length || json[index] < '0' || json[index] > '9')
+            {
+                return "truncated";
+            }
+
+            if (json[index] == '0')
+            {
+                index += 1;
+            }
+            else
+            {
+                while (index < json.Length && json[index] >= '0' && json[index] <= '9')
+                {
+                    index += 1;
+                }
+            }
+
+            if (index < json.Length && json[index] == '.')
+            {
+                index += 1;
+                if (index >= json.Length || json[index] < '0' || json[index] > '9')
+                {
+                    return "truncated";
+                }
+
+                while (index < json.Length && json[index] >= '0' && json[index] <= '9')
+                {
+                    index += 1;
+                }
+            }
+
+            if (index < json.Length && (json[index] == 'e' || json[index] == 'E'))
+            {
+                index += 1;
+                if (index < json.Length && (json[index] == '+' || json[index] == '-'))
+                {
+                    index += 1;
+                }
+
+                if (index >= json.Length || json[index] < '0' || json[index] > '9')
+                {
+                    return "truncated";
+                }
+
+                while (index < json.Length && json[index] >= '0' && json[index] <= '9')
+                {
+                    index += 1;
+                }
+            }
+
+            return string.Empty;
+        }
+
+        static void SkipSpace(string json, ref int index)
+        {
+            while (index < json.Length && char.IsWhiteSpace(json[index]))
+            {
+                index += 1;
+            }
+        }
+
         static string RejectReason(string json, out List<PrefEntry> saved)
         {
             saved = new List<PrefEntry>();
             if (string.IsNullOrWhiteSpace(json))
             {
                 return "empty";
+            }
+
+            string syntax = SyntaxError(json);
+            if (syntax.Length > 0)
+            {
+                return syntax;
             }
 
             bool sawHeader = false;

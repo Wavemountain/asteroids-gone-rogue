@@ -135,19 +135,27 @@ def prefs_checksum(entries: list[tuple[str, bool, str, str]]) -> str:
 
 def render_prefs(entries: list[tuple[str, bool, str, str]]) -> str:
     header = '{"count":%d,"checksum":"%s"}' % (len(entries), prefs_checksum(entries))
-    lines = [header]
+    lines = ["[", header]
     for name, exists, kind, value in entries:
         lines.append(
             '{"name":"%s","exists":%s,"type":"%s","value":"%s"}'
             % (name, "true" if exists else "false", kind, value)
         )
-    return "\n".join(lines) + "\n"
+    body = lines[0] + "\n" + lines[1]
+    for line in lines[2:]:
+        body += ",\n" + line
+    return body + "\n]\n"
 
 
 def reject_prefs_backup(text: str, names: list[str]) -> str:
     """Empty string means the backup is complete. Any other code must not restore."""
     if text is None or text.strip() == "":
         return "empty"
+    import json
+    try:
+        json.loads(text)
+    except json.JSONDecodeError:
+        return "truncated"
     saved: list[tuple[str, bool, str, str]] = []
     saw_header = False
     declared = -1

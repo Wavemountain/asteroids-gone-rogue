@@ -19333,7 +19333,18 @@ def test_longrun_harness() -> None:
     names = re.findall(r'"([^"]+)"', prefs.split("static string[] KeyNames()")[1].split("struct PrefEntry")[0])
     assert len(names) == len(set(names)) and len(names) > 10
     whole = [(name, False, "", "") for name in names]
-    assert reject_prefs_backup(render_prefs(whole), names) == ""
+    valid_backup = render_prefs(whole)
+    assert valid_backup.rstrip("\n").endswith("]")
+    assert reject_prefs_backup(valid_backup, names) == ""
+    assert prefs_restore_plan("") == {"mutate": True, "match": True, "clear_marker": True}
+    missing_bracket = valid_backup.rstrip("\n")[:-1] + "\n"
+    missing_brace = valid_backup.rstrip("\n")
+    brace_at = missing_brace.rfind("}")
+    missing_brace = missing_brace[:brace_at] + missing_brace[brace_at + 1 :] + "\n"
+    for broken in (missing_bracket, missing_brace):
+        broken_reason = reject_prefs_backup(broken, names)
+        assert broken_reason == "truncated", broken_reason
+        assert prefs_restore_plan(broken_reason) == {"mutate": False, "match": False, "clear_marker": False}
     refused = []
     refused.append(("", "empty"))
     refused.append((render_prefs(whole) + '{"name":"agr.difficulty","exists":true,"type":"int","value":"1"', "truncated"))
