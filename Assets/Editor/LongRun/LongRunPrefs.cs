@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 using UnityEngine;
 
@@ -56,47 +57,44 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
-            if (floatStable && !intStable)
+            int stableCount = 0;
+            if (intStable)
             {
-                type = "float";
-                value = floatValue.ToString("R", CultureInfo.InvariantCulture);
+                stableCount += 1;
+            }
+
+            if (floatStable)
+            {
+                stableCount += 1;
+            }
+
+            if (stringStable)
+            {
+                stableCount += 1;
+            }
+
+            if (stableCount != 1)
+            {
+                type = "ambiguous";
                 return;
             }
 
-            if (intStable && !floatStable)
+            if (intStable)
             {
                 type = "int";
                 value = intValue.ToString(CultureInfo.InvariantCulture);
                 return;
             }
 
-            if (stringStable && !intStable && !floatStable)
+            if (floatStable)
             {
-                type = "string";
-                value = stringValue ?? string.Empty;
-                return;
-            }
-
-            if (floatStable && intStable)
-            {
-                bool integral = !float.IsNaN(floatValue)
-                    && !float.IsInfinity(floatValue)
-                    && floatValue == (float)Math.Round(floatValue);
-                bool fraction = FractionText(stringValue);
-                if (integral && (int)Math.Round(floatValue) == intValue && !fraction)
-                {
-                    type = "int";
-                    value = intValue.ToString(CultureInfo.InvariantCulture);
-                    return;
-                }
-
                 type = "float";
                 value = floatValue.ToString("R", CultureInfo.InvariantCulture);
                 return;
             }
 
             type = "string";
-            value = stringStable && stringValue != null ? stringValue : string.Empty;
+            value = stringValue ?? string.Empty;
         }
 
         public static string RestoreAction(bool exists, string kind)
@@ -137,6 +135,10 @@ namespace AsteroidsGoneRogue.EditorTools
             for (int index = 0; index < names.Length; index++)
             {
                 entries[index] = ReadKey(names[index]);
+                if (entries[index].Type == "ambiguous")
+                {
+                    throw new IOException("ambiguous PlayerPrefs type for " + names[index]);
+                }
             }
 
             WriteDurable(backupJson, ToJson(entries));
@@ -158,7 +160,14 @@ namespace AsteroidsGoneRogue.EditorTools
                 return false;
             }
 
-            List<PrefEntry> saved = Parse(File.ReadAllText(backupPath));
+            List<PrefEntry> saved;
+            string rejected = RejectReason(File.ReadAllText(backupPath), out saved);
+            if (rejected.Length > 0)
+            {
+                WriteDurable(reportPath, "RESULT MISMATCH\n" + rejected + "\n");
+                return false;
+            }
+
             for (int index = 0; index < saved.Count; index++)
             {
                 Apply(saved[index]);
@@ -314,7 +323,11 @@ namespace AsteroidsGoneRogue.EditorTools
         static string ToJson(PrefEntry[] entries)
         {
             StringBuilder builder = new StringBuilder();
-            builder.Append("[\n");
+            builder.Append("{\"count\":");
+            builder.Append(entries.Length.ToString(CultureInfo.InvariantCulture));
+            builder.Append(",\"checksum\":\"");
+            builder.Append(Checksum(entries));
+            builder.Append("\"}\n");
             for (int index = 0; index < entries.Length; index++)
             {
                 PrefEntry entry = entries[index];
@@ -326,44 +339,260 @@ namespace AsteroidsGoneRogue.EditorTools
                 builder.Append(Escape(entry.Type));
                 builder.Append("\",\"value\":\"");
                 builder.Append(Escape(entry.Value));
-                builder.Append("\"}");
-                if (index + 1 < entries.Length)
-                {
-                    builder.Append(',');
-                }
-
-                builder.Append('\n');
+                builder.Append("\"}\n");
             }
 
-            builder.Append("]\n");
             return builder.ToString();
         }
 
-        static List<PrefEntry> Parse(string json)
+        static string Checksum(PrefEntry[] entries)
         {
-            List<PrefEntry> list = new List<PrefEntry>();
-            if (string.IsNullOrEmpty(json))
+            StringBuilder builder = new StringBuilder();
+            for (int index = 0; index < entries.Length; index++)
             {
-                return list;
+                AppendCanonical(builder, entries[index]);
             }
 
+            return Sha256(builder.ToString());
+        }
+
+        static void AppendCanonical(StringBuilder builder, PrefEntry entry)
+        {
+            builder.Append(entry.Name ?? string.Empty);
+            builder.Append('\t');
+            builder.Append(entry.Exists ? "1" : "0");
+            builder.Append('\t');
+            builder.Append(entry.Type ?? string.Empty);
+            builder.Append('\t');
+            builder.Append(entry.Value ?? string.Empty);
+            builder.Append('\n');
+        }
+
+        static string Sha256(string text)
+        {
+            using (SHA256 sha = SHA256.Create())
+            {
+                byte[] hash = sha.ComputeHash(Encoding.UTF8.GetBytes(text ?? string.Empty));
+                StringBuilder hex = new StringBuilder(hash.Length * 2);
+                for (int index = 0; index < hash.Length; index++)
+                {
+                    hex.Append(hash[index].ToString("x2", CultureInfo.InvariantCulture));
+                }
+
+                return hex.ToString();
+            }
+        }
+
+        static string RejectReason(string json, out List<PrefEntry> saved)
+        {
+            saved = new List<PrefEntry>();
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return "empty";
+            }
+
+            bool sawHeader = false;
+            int declared = -1;
+            string declaredSum = string.Empty;
             string[] lines = json.Split('\n');
             for (int index = 0; index < lines.Length; index++)
             {
                 string line = lines[index].Trim().TrimEnd(',');
-                if (!line.StartsWith("{", StringComparison.Ordinal))
+                if (line.Length == 0 || line == "[" || line == "]")
                 {
                     continue;
                 }
 
-                PrefEntry entry;
-                if (TryObject(line, out entry))
+                if (!line.StartsWith("{", StringComparison.Ordinal) || !line.EndsWith("}", StringComparison.Ordinal))
                 {
-                    list.Add(entry);
+                    return "truncated";
+                }
+
+                int parsedCount;
+                string parsedSum;
+                if (TryHeader(line, out parsedCount, out parsedSum))
+                {
+                    if (sawHeader)
+                    {
+                        return "truncated";
+                    }
+
+                    sawHeader = true;
+                    declared = parsedCount;
+                    declaredSum = parsedSum;
+                    continue;
+                }
+
+                PrefEntry entry;
+                if (!TryObject(line, out entry))
+                {
+                    return "truncated";
+                }
+
+                saved.Add(entry);
+            }
+
+            if (!sawHeader || declaredSum.Length == 0)
+            {
+                return "empty";
+            }
+
+            string[] required = KeyNames();
+            for (int index = 0; index < saved.Count; index++)
+            {
+                string name = saved[index].Name;
+                for (int other = index + 1; other < saved.Count; other++)
+                {
+                    if (saved[other].Name == name)
+                    {
+                        return "duplicated";
+                    }
                 }
             }
 
-            return list;
+            for (int index = 0; index < required.Length; index++)
+            {
+                bool found = false;
+                for (int entryIndex = 0; entryIndex < saved.Count; entryIndex++)
+                {
+                    if (saved[entryIndex].Name == required[index])
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found)
+                {
+                    return "missing key";
+                }
+            }
+
+            if (declared != required.Length || saved.Count != required.Length)
+            {
+                return "count";
+            }
+
+            for (int index = 0; index < saved.Count; index++)
+            {
+                string typeError = TypeError(saved[index]);
+                if (typeError.Length > 0)
+                {
+                    return typeError;
+                }
+            }
+
+            PrefEntry[] ordered = new PrefEntry[required.Length];
+            for (int index = 0; index < required.Length; index++)
+            {
+                for (int entryIndex = 0; entryIndex < saved.Count; entryIndex++)
+                {
+                    if (saved[entryIndex].Name == required[index])
+                    {
+                        ordered[index] = saved[entryIndex];
+                        break;
+                    }
+                }
+            }
+
+            if (!string.Equals(Checksum(ordered), declaredSum, StringComparison.OrdinalIgnoreCase))
+            {
+                return "checksum";
+            }
+
+            return string.Empty;
+        }
+
+        static string TypeError(PrefEntry entry)
+        {
+            if (!entry.Exists)
+            {
+                if (entry.Type.Length != 0 || entry.Value.Length != 0)
+                {
+                    return "invalid type";
+                }
+
+                return string.Empty;
+            }
+
+            if (entry.Type == "ambiguous" || entry.Type.Length == 0)
+            {
+                return "ambiguous";
+            }
+
+            if (entry.Type == "int")
+            {
+                return IntExact(entry.Value) ? string.Empty : "invalid type";
+            }
+
+            if (entry.Type == "float")
+            {
+                return FloatExact(entry.Value) ? string.Empty : "invalid type";
+            }
+
+            if (entry.Type == "string")
+            {
+                return string.Empty;
+            }
+
+            return "invalid type";
+        }
+
+        static bool IntExact(string text)
+        {
+            int number;
+            if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out number))
+            {
+                return false;
+            }
+
+            return number.ToString(CultureInfo.InvariantCulture) == text;
+        }
+
+        static bool FloatExact(string text)
+        {
+            float number;
+            if (!float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out number))
+            {
+                return false;
+            }
+
+            return number.ToString("R", CultureInfo.InvariantCulture) == text;
+        }
+
+        static bool TryHeader(string line, out int count, out string checksum)
+        {
+            count = -1;
+            checksum = string.Empty;
+            if (line.IndexOf("\"name\"", StringComparison.Ordinal) >= 0)
+            {
+                return false;
+            }
+
+            int marker = line.IndexOf("\"count\":", StringComparison.Ordinal);
+            if (marker < 0)
+            {
+                return false;
+            }
+
+            int cursor = marker + "\"count\":".Length;
+            int end = cursor;
+            while (end < line.Length && line[end] >= '0' && line[end] <= '9')
+            {
+                end += 1;
+            }
+
+            if (end == cursor)
+            {
+                return false;
+            }
+
+            if (!int.TryParse(line.Substring(cursor, end - cursor), NumberStyles.Integer, CultureInfo.InvariantCulture, out count))
+            {
+                return false;
+            }
+
+            return TryField(line, "checksum", out checksum) && checksum.Length > 0;
         }
 
         static bool TryObject(string line, out PrefEntry entry)
@@ -377,10 +606,17 @@ namespace AsteroidsGoneRogue.EditorTools
                 return false;
             }
 
+            bool existsTrue = line.IndexOf("\"exists\":true", StringComparison.Ordinal) >= 0;
+            bool existsFalse = line.IndexOf("\"exists\":false", StringComparison.Ordinal) >= 0;
+            if (existsTrue == existsFalse)
+            {
+                return false;
+            }
+
             entry.Name = name;
             entry.Type = type;
             entry.Value = value;
-            entry.Exists = line.IndexOf("\"exists\":true", StringComparison.Ordinal) >= 0;
+            entry.Exists = existsTrue;
             return name.Length > 0;
         }
 
@@ -463,16 +699,6 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             return builder.ToString();
-        }
-
-        static bool FractionText(string text)
-        {
-            if (string.IsNullOrEmpty(text))
-            {
-                return false;
-            }
-
-            return text.IndexOf('.') >= 0 || text.IndexOf('e') >= 0 || text.IndexOf('E') >= 0;
         }
 
         static string[] KeyNames()

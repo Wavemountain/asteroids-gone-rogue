@@ -109,27 +109,161 @@ def classify_pref(
     string_stable: bool,
     string_value: str,
 ) -> tuple[str, str]:
-    """Type comes from which getter is stable, not from the key name."""
+    """Exactly one stable getter. Anything else is ambiguous and must not be stored."""
     if not exists:
         return "", ""
-    if float_stable and not int_stable:
-        return "float", repr(float_value)
-    if int_stable and not float_stable:
+    stable = int(int_stable) + int(float_stable) + int(string_stable)
+    if stable != 1:
+        return "ambiguous", ""
+    if int_stable:
         return "int", str(int_value)
-    if string_stable and not int_stable and not float_stable:
-        return "string", string_value
-    if float_stable and int_stable:
-        integral = float_value == float(round(float_value))
-        if integral and int(round(float_value)) == int_value and not _fraction_text(string_value):
-            return "int", str(int_value)
+    if float_stable:
         return "float", repr(float_value)
-    if string_stable:
-        return "string", string_value
-    return "string", ""
+    return "string", string_value
 
 
-def _fraction_text(text: str) -> bool:
-    return "." in text or "e" in text or "E" in text
+def prefs_checksum(entries: list[tuple[str, bool, str, str]]) -> str:
+    lines = [
+        f"{name}\t{1 if exists else 0}\t{kind}\t{value}"
+        for name, exists, kind, value in entries
+    ]
+    blob = "\n".join(lines)
+    if lines:
+        blob += "\n"
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def render_prefs(entries: list[tuple[str, bool, str, str]]) -> str:
+    header = '{"count":%d,"checksum":"%s"}' % (len(entries), prefs_checksum(entries))
+    lines = [header]
+    for name, exists, kind, value in entries:
+        lines.append(
+            '{"name":"%s","exists":%s,"type":"%s","value":"%s"}'
+            % (name, "true" if exists else "false", kind, value)
+        )
+    return "\n".join(lines) + "\n"
+
+
+def reject_prefs_backup(text: str, names: list[str]) -> str:
+    """Empty string means the backup is complete. Any other code must not restore."""
+    if text is None or text.strip() == "":
+        return "empty"
+    saved: list[tuple[str, bool, str, str]] = []
+    saw_header = False
+    declared = -1
+    declared_sum = ""
+    for raw in text.split("\n"):
+        line = raw.strip().rstrip(",")
+        if line == "" or line in ("[", "]"):
+            continue
+        if not line.startswith("{") or not line.endswith("}"):
+            return "truncated"
+        if '"name"' not in line and '"count"' in line:
+            if saw_header:
+                return "truncated"
+            count_match = __import__("re").search(r'"count":(\d+)', line)
+            sum_match = __import__("re").search(r'"checksum":"([0-9a-fA-F]+)"', line)
+            if count_match is None or sum_match is None:
+                return "truncated"
+            saw_header = True
+            declared = int(count_match.group(1))
+            declared_sum = sum_match.group(1)
+            continue
+        parsed = _parse_pref_line(line)
+        if parsed is None:
+            return "truncated"
+        saved.append(parsed)
+    if not saw_header or declared_sum == "":
+        return "empty"
+    seen: list[str] = []
+    for name, _exists, _kind, _value in saved:
+        if name in seen:
+            return "duplicated"
+        seen.append(name)
+    for name in names:
+        if name not in seen:
+            return "missing key"
+    if declared != len(names) or len(saved) != len(names):
+        return "count"
+    for name, exists, kind, value in saved:
+        error = _pref_type_error(exists, kind, value)
+        if error:
+            return error
+    by_name = {name: (name, exists, kind, value) for name, exists, kind, value in saved}
+    ordered = [by_name[name] for name in names]
+    if prefs_checksum(ordered).lower() != declared_sum.lower():
+        return "checksum"
+    return ""
+
+
+def prefs_restore_plan(reason: str) -> dict[str, bool]:
+    if reason:
+        return {"mutate": False, "match": False, "clear_marker": False}
+    return {"mutate": True, "match": True, "clear_marker": True}
+
+
+def _parse_pref_line(line: str) -> tuple[str, bool, str, str] | None:
+    if '"exists":true' in line and '"exists":false' in line:
+        return None
+    if '"exists":true' not in line and '"exists":false' not in line:
+        return None
+    name = _json_field(line, "name")
+    kind = _json_field(line, "type")
+    value = _json_field(line, "value")
+    if name is None or kind is None or value is None or name == "":
+        return None
+    return name, '"exists":true' in line, kind, value
+
+
+def _json_field(line: str, key: str) -> str | None:
+    token = f'"{key}":"'
+    start = line.find(token)
+    if start < 0:
+        return None
+    cursor = start + len(token)
+    chars: list[str] = []
+    while cursor < len(line):
+        ch = line[cursor]
+        if ch == '"':
+            return "".join(chars)
+        if ch == "\\" and cursor + 1 < len(line):
+            nxt = line[cursor + 1]
+            chars.append({"n": "\n", "r": "\r"}.get(nxt, nxt))
+            cursor += 2
+            continue
+        chars.append(ch)
+        cursor += 1
+    return None
+
+
+def _pref_type_error(exists: bool, kind: str, value: str) -> str:
+    if not exists:
+        if kind or value:
+            return "invalid type"
+        return ""
+    if kind in ("", "ambiguous"):
+        return "ambiguous"
+    if kind == "int":
+        if value.startswith("+") or (len(value) > 1 and value.startswith("0")) or (value.startswith("-0")):
+            return "invalid type"
+        try:
+            parsed = int(value, 10)
+        except ValueError:
+            return "invalid type"
+        if str(parsed) != value:
+            return "invalid type"
+        return ""
+    if kind == "float":
+        if value == "" or value != value.strip():
+            return "invalid type"
+        try:
+            float(value)
+        except ValueError:
+            return "invalid type"
+        return ""
+    if kind == "string":
+        return ""
+    return "invalid type"
 
 
 def restore_action(exists: bool, kind: str) -> str:

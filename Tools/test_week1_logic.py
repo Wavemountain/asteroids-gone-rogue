@@ -19169,9 +19169,12 @@ def test_longrun_harness() -> None:
         copy_and_verify,
         hash_file,
         live_untouched,
+        prefs_restore_plan,
         prefs_run_allowed,
         profile_isolated,
         progressed,
+        reject_prefs_backup,
+        render_prefs,
         restore_action,
         verify_pref,
     )
@@ -19305,7 +19308,8 @@ def test_longrun_harness() -> None:
     kind, raw = classify_pref(True, False, 0, True, 1.0, False, "")
     assert kind == "float"
     assert classify_pref(True, False, 0, False, 0.0, True, "normal") == ("string", "normal")
-    assert classify_pref(True, True, 7, True, 7.0, True, "7.0")[0] == "float"
+    assert classify_pref(True, True, 7, True, 7.0, True, "7.0") == ("ambiguous", "")
+    assert classify_pref(True, False, 0, True, 1.5, True, "1.5") == ("ambiguous", "")
     assert restore_action(False, "") == "delete"
     assert restore_action(True, "float") == "set-float"
     assert verify_pref(False, "", "", False, "", "") == "MATCH"
@@ -19320,6 +19324,34 @@ def test_longrun_harness() -> None:
     assert "\"I\\t" not in prefs
     assert "PlayerPrefs.DeleteKey" in prefs
     assert "RestoreAndVerify" in prefs
+    assert "stableCount != 1" in prefs
+    assert 'type = "ambiguous"' in prefs
+    restore_body = prefs.split("public static bool RestoreAndVerify")[1].split("static void Apply")[0]
+    assert restore_body.index("RejectReason") < restore_body.index("Apply(")
+    assert restore_body.index("return false") < restore_body.index("Apply(")
+    import re
+    names = re.findall(r'"([^"]+)"', prefs.split("static string[] KeyNames()")[1].split("struct PrefEntry")[0])
+    assert len(names) == len(set(names)) and len(names) > 10
+    whole = [(name, False, "", "") for name in names]
+    assert reject_prefs_backup(render_prefs(whole), names) == ""
+    refused = []
+    refused.append(("", "empty"))
+    refused.append((render_prefs(whole) + '{"name":"agr.difficulty","exists":true,"type":"int","value":"1"', "truncated"))
+    duplicated = list(whole)
+    duplicated.append(whole[0])
+    refused.append((render_prefs(duplicated), "duplicated"))
+    refused.append((render_prefs(whole[:-1]), "missing key"))
+    invalid = list(whole)
+    invalid[0] = (names[0], True, "bool", "1")
+    refused.append((render_prefs(invalid), "invalid type"))
+    ambiguous = list(whole)
+    ambiguous[0] = (names[0], True, "ambiguous", "")
+    refused.append((render_prefs(ambiguous), "ambiguous"))
+    for payload, expected in refused:
+        reason = reject_prefs_backup(payload, names)
+        assert reason == expected, (expected, reason)
+        plan = prefs_restore_plan(reason)
+        assert plan == {"mutate": False, "match": False, "clear_marker": False}
 
 
 def test_wave_entry_clearance_skips_inflight() -> None:
