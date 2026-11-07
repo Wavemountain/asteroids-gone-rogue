@@ -69,3 +69,4 @@ File saves: if Unity is killed before the summary, do not copy `<run>\profile` b
 - Shots are the world cameras. Screen-space UI is not composited.
 - `-seed` does not enable daily rules. Resume compares the saved fields, not the RNG cursor.
 - Screenshot cap is 200. Minutes cap is 720.
+- Frame time is `realtimeSinceStartup` while the phase is Playing. The summary lists Playing seconds and the sum of those samples in seconds, and avg/p95/p99/max in ms. Any frames/s line is the batchmode player loop, not display FPS.

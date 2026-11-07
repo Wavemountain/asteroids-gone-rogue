@@ -297,3 +297,15 @@ def verify_pref(
 
 def prefs_run_allowed(marker_exists: bool) -> bool:
     return not marker_exists
+
+
+def frame_account_ok(frame_sum_s: float, playing_s: float, avg_ms: float, count: int) -> bool:
+    """Frame samples are seconds. Their sum matches Playing time, and avg is that sum."""
+    if playing_s <= 0.0 or count <= 0 or frame_sum_s <= 0.0 or avg_ms <= 0.0:
+        return False
+    if abs(frame_sum_s - playing_s) > max(0.05, playing_s * 0.02):
+        return False
+    derived_s = (avg_ms * count) / 1000.0
+    if abs(derived_s - frame_sum_s) > max(0.05, frame_sum_s * 0.02):
+        return False
+    return True

@@ -849,8 +849,14 @@ namespace AsteroidsGoneRogue.EditorTools
             builder.Append("# Long run\n\n");
             builder.Append("- Verdict: ");
             builder.Append(verdict);
-            builder.Append("\n- Elapsed seconds: ");
+            builder.Append("\n- Elapsed seconds (harness wall clock): ");
             builder.Append(Elapsed(state).ToString("0.0", CultureInfo.InvariantCulture));
+            builder.Append("\n- Real elapsed seconds (realtimeSinceStartup): ");
+            builder.Append(LongRunFrames.RealElapsedSeconds.ToString("0.00", CultureInfo.InvariantCulture));
+            builder.Append("\n- Playing seconds (realtimeSinceStartup): ");
+            builder.Append(LongRunFrames.PlayingSeconds.ToString("0.00", CultureInfo.InvariantCulture));
+            builder.Append("\n- Frame sum seconds: ");
+            builder.Append(LongRunFrames.SumSeconds.ToString("0.00", CultureInfo.InvariantCulture));
             builder.Append("\n- Budget seconds: ");
             builder.Append((state.Minutes * 60).ToString(CultureInfo.InvariantCulture));
             builder.Append("\n- World: ");
@@ -904,6 +910,13 @@ namespace AsteroidsGoneRogue.EditorTools
             builder.Append(LongRunFrames.Hitches.ToString(CultureInfo.InvariantCulture));
             builder.Append("\n- Frames: ");
             builder.Append(LongRunFrames.Count.ToString(CultureInfo.InvariantCulture));
+            if (LongRunFrames.PlayingSeconds > 0.05 && LongRunFrames.Count > 0)
+            {
+                double rate = LongRunFrames.Count / LongRunFrames.PlayingSeconds;
+                builder.Append("\n- Batchmode player-loop rate: ");
+                builder.Append(rate.ToString("0.0", CultureInfo.InvariantCulture));
+                builder.Append(" frames/s (frames / Playing seconds; not display FPS)");
+            }
             builder.Append("\n- Exceptions and error logs: ");
             builder.Append((state.Exceptions + state.Errors).ToString(CultureInfo.InvariantCulture));
             builder.Append("\n- Log: ");

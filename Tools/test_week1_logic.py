@@ -19167,6 +19167,7 @@ def test_longrun_harness() -> None:
         classify,
         classify_pref,
         copy_and_verify,
+        frame_account_ok,
         hash_file,
         live_untouched,
         prefs_restore_plan,
@@ -19345,6 +19346,29 @@ def test_longrun_harness() -> None:
         broken_reason = reject_prefs_backup(broken, names)
         assert broken_reason == "truncated", broken_reason
         assert prefs_restore_plan(broken_reason) == {"mutate": False, "match": False, "clear_marker": False}
+
+    blob_src = (root / "Assets/Scripts/Content/ContactBlob.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    attach = blob_src.split("public static void Attach")[1].split("private void LateUpdate")[0]
+    assert "DestroyImmediate" not in attach
+    assert "CreatePrimitive" not in attach
+    assert "AddComponent<MeshFilter>" in attach
+    assert "AddComponent<Collider>" not in attach
+    assert "MeshCollider" not in attach
+    shadow = factory.split("private static void CastFormShadow")[1].split("private Material MakeShipRim")[0]
+    assert "DestroyImmediate" not in shadow
+    assert "ContactBlob.Attach" in shadow
+    asteroid = factory.split("private Asteroid CreateAsteroid")[1].split("public GameObject CreatePickup")[0]
+    assert "AddComponent<SphereCollider>" in asteroid
+    assert not frame_account_ok(1539063.5, 451.89, 68.58, 22441845)
+    assert frame_account_ok(451.9, 451.89, 20.0, 22595)
+    frames = (editor / "LongRunFrames.cs").read_text(encoding="utf-8")
+    summary = (editor / "LongRun.cs").read_text(encoding="utf-8")
+    assert "realtimeSinceStartup" in frames and "realtimeSinceStartup" in summary
+    assert "Playing seconds (realtimeSinceStartup)" in summary
+    assert "Frame sum seconds" in summary
+    assert "not display FPS" in summary
+    assert "unscaledDeltaTime" not in frames
     refused = []
     refused.append(("", "empty"))
     refused.append((render_prefs(whole) + '{"name":"agr.difficulty","exists":true,"type":"int","value":"1"', "truncated"))

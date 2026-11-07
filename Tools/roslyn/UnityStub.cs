@@ -454,6 +454,7 @@ namespace UnityEngine
         public static float timeScale { get; set; }
         public static float fixedDeltaTime { get { return 0.02f; } }
         public static float captureDeltaTime { get; set; }
+        public static float realtimeSinceStartup { get { return 0f; } }
     }
 
     public static class Debug

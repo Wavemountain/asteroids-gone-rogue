@@ -2,6 +2,7 @@ using System.Globalization;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
+using AsteroidsGoneRogue;
 
 namespace AsteroidsGoneRogue.EditorTools
 {
@@ -22,6 +23,10 @@ namespace AsteroidsGoneRogue.EditorTools
         static int _sinceFlush;
         static bool _ready;
         static string _dir = string.Empty;
+        static float _lastRealtime = -1f;
+        static bool _wasPlaying;
+        static double _playingSeconds;
+        static double _realElapsed;
 
         public static int Count
         {
@@ -32,9 +37,63 @@ namespace AsteroidsGoneRogue.EditorTools
             }
         }
 
-        public static void Note(float delta)
+        public static void NoteRealtime(float now, bool playing)
         {
             Ensure();
+            if (_lastRealtime < 0f)
+            {
+                _lastRealtime = now;
+                _wasPlaying = playing;
+                return;
+            }
+
+            float step = now - _lastRealtime;
+            _lastRealtime = now;
+            if (step <= 0f || step > 2f)
+            {
+                _wasPlaying = playing;
+                return;
+            }
+
+            _realElapsed += step;
+            if (playing && _wasPlaying)
+            {
+                _playingSeconds += step;
+                Note(step);
+            }
+
+            _wasPlaying = playing;
+        }
+
+        public static double PlayingSeconds
+        {
+            get
+            {
+                Ensure();
+                return _playingSeconds;
+            }
+        }
+
+        public static double RealElapsedSeconds
+        {
+            get
+            {
+                Ensure();
+                return _realElapsed;
+            }
+        }
+
+        public static double SumSeconds
+        {
+            get
+            {
+                Ensure();
+                return _sum;
+            }
+        }
+
+        static void Note(float delta)
+        {
             if (delta <= 0f)
             {
                 return;
@@ -242,6 +301,19 @@ namespace AsteroidsGoneRogue.EditorTools
             _sum = sum;
             _max = max;
             _hitches = hitches;
+            _playingSeconds = head.Length >= 6 ? ParseDouble(head[4]) : sum;
+            _realElapsed = head.Length >= 6 ? ParseDouble(head[5]) : sum;
+        }
+
+        static double ParseDouble(string text)
+        {
+            double number;
+            if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out number))
+            {
+                return 0.0;
+            }
+
+            return number;
         }
 
         static void Write()
@@ -260,6 +332,10 @@ namespace AsteroidsGoneRogue.EditorTools
             builder.Append(_max.ToString("R", CultureInfo.InvariantCulture));
             builder.Append(' ');
             builder.Append(_hitches.ToString(CultureInfo.InvariantCulture));
+            builder.Append(' ');
+            builder.Append(_playingSeconds.ToString("R", CultureInfo.InvariantCulture));
+            builder.Append(' ');
+            builder.Append(_realElapsed.ToString("R", CultureInfo.InvariantCulture));
             builder.Append('\n');
             for (int index = 0; index < BucketCount; index++)
             {
@@ -280,7 +356,14 @@ namespace AsteroidsGoneRogue.EditorTools
     {
         void Update()
         {
-            LongRunFrames.Note(Time.unscaledDeltaTime);
+            bool playing = false;
+            GameManager game = GameManager.Live;
+            if (game != null && game.Session != null && game.Session.Phase == GamePhase.Playing)
+            {
+                playing = true;
+            }
+
+            LongRunFrames.NoteRealtime(Time.realtimeSinceStartup, playing);
         }
     }
 }
