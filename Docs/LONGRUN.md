@@ -46,14 +46,26 @@ Resume compares world, wave, credits, lives, score, upgrade mask, Mk II mask, do
 
 Before play the harness hashes `run_save.json`, `meta_save.json`, and their `.bak` / `.tmp` siblings under `Application.persistentDataPath`, copies them into `<run>\backup\`, and checks the copy hash. It sets `AGR_LONGRUN_PROFILE` to `<run>\profile`. `RunSaveStore` reads that variable only inside `#if UNITY_EDITOR`, so a player build still uses the normal folder, and a normal editor session does not set the variable.
 
-After play it clears the variable and hashes the live files again. `summary.md` says `Save files: untouched` only when every hash matches. PlayerPrefs are snapshotted to `backup\prefs.txt` and restored on the way out; the summary says whether that restore matched.
+After play it clears the variable and hashes the live files again. `summary.md` says `Save files: untouched` only when every hash matches.
 
-If Unity is killed before the summary, do not copy `<run>\profile` back. Compare the live files with `backup\manifest.txt` (tab-separated name and SHA-256, or `ABSENT`). Restore prefs from `backup\prefs.txt` by putting those keys back, or run the harness again only after that check. A matching manifest means Wagge's save files were not written.
+PlayerPrefs are not redirected. There is no single prefs wrapper in the game, so before play the harness reads each watched key, detects int, float, or string from the value that stays stable, and fsyncs `<run>\backup\prefs.json` (`exists`, `type`, `value`). It then writes `Captures\LongRun\prefs-unrestored.txt`. The same `RestoreAndVerify` path runs at the end of a normal run: it writes the original values back, deletes keys that did not exist, re-reads them, and writes `<run>\backup\prefs-verify.txt` with `MATCH` or `MISMATCH` per key. The marker is removed only when every key is `MATCH`. `LongRun.Run` refuses to start while that marker exists.
+
+## Crash recovery
+
+Do not start another long run until prefs are restored. From the project folder:
+
+```
+"C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe" -batchmode -projectPath . -executeMethod AsteroidsGoneRogue.EditorTools.LongRun.RestorePrefs -logFile - -backup Captures\LongRun\<yyyyMMdd-HHmmss>\backup\prefs.json
+```
+
+Use the path stored in `Captures\LongRun\prefs-unrestored.txt`. Exit code 0 and `prefs-verify.txt` ending in `RESULT MATCH` means the keys match the backup. Exit code 1 leaves the marker in place.
+
+File saves: if Unity is killed before the summary, do not copy `<run>\profile` back. Compare the live files with `backup\manifest.txt` (tab-separated name and SHA-256, or `ABSENT`). A matching manifest means Wagge's save files were not written.
 
 ## Limits
 
 - Aim, fire, and evade are the harness policy. There is no older autopilot type on `a0abecd`. Sticks are written through `GamepadInput` (`Horizontal`, `Vertical`, `AimX`, `AimY`, Fire) because batch mode has no focused window. `InputManager.asset` is unchanged.
-- Unity has no PlayerPrefs path override, so those keys are snapshotted and restored. File saves are redirected and not written in the normal folder.
+- PlayerPrefs stay on the real store during the run. The fsync'd `prefs.json` plus `LongRun.RestorePrefs` put them back. File saves are redirected and not written in the normal folder.
 - Shots are the world cameras. Screen-space UI is not composited.
 - `-seed` does not enable daily rules. Resume compares the saved fields, not the RNG cursor.
 - Screenshot cap is 200. Minutes cap is 720.

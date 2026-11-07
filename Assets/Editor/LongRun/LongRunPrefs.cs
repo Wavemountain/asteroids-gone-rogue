@@ -29,7 +29,13 @@ namespace AsteroidsGoneRogue.EditorTools
                 return string.Empty;
             }
 
-            return File.ReadAllText(marker).Trim();
+            string recorded = File.ReadAllText(marker).Trim();
+            if (recorded.Length == 0)
+            {
+                return marker;
+            }
+
+            return recorded;
         }
 
         public static void Classify(

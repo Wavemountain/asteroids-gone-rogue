@@ -3,7 +3,6 @@ using System.Globalization;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using UnityEngine;
 
 namespace AsteroidsGoneRogue.EditorTools
 {
@@ -209,134 +208,6 @@ namespace AsteroidsGoneRogue.EditorTools
             return ok;
         }
 
-        public static string SnapshotPrefs(string path)
-        {
-            StringBuilder builder = new StringBuilder();
-            string[] rows = PrefRows();
-            for (int rowIndex = 0; rowIndex < rows.Length; rowIndex++)
-            {
-                string[] parts = rows[rowIndex].Split('\t');
-                string kind = parts[0];
-                string key = parts[1];
-                if (!PlayerPrefs.HasKey(key))
-                {
-                    builder.Append("M\t");
-                    builder.Append(key);
-                    builder.Append('\n');
-                    continue;
-                }
-
-                if (kind == "I")
-                {
-                    builder.Append("I\t");
-                    builder.Append(key);
-                    builder.Append('\t');
-                    builder.Append(PlayerPrefs.GetInt(key).ToString(CultureInfo.InvariantCulture));
-                    builder.Append('\n');
-                }
-                else if (kind == "F")
-                {
-                    builder.Append("F\t");
-                    builder.Append(key);
-                    builder.Append('\t');
-                    builder.Append(PlayerPrefs.GetFloat(key).ToString("R", CultureInfo.InvariantCulture));
-                    builder.Append('\n');
-                }
-                else
-                {
-                    string raw = PlayerPrefs.GetString(key, string.Empty);
-                    string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(raw));
-                    builder.Append("S\t");
-                    builder.Append(key);
-                    builder.Append('\t');
-                    builder.Append(encoded);
-                    builder.Append('\n');
-                }
-            }
-
-            string parent = Path.GetDirectoryName(path);
-            if (!string.IsNullOrEmpty(parent))
-            {
-                Directory.CreateDirectory(parent);
-            }
-
-            string text = builder.ToString();
-            File.WriteAllText(path, text);
-            string reread = File.ReadAllText(path);
-            if (!string.Equals(text, reread, StringComparison.Ordinal))
-            {
-                throw new IOException("prefs snapshot reread mismatch");
-            }
-
-            return HashBytes(Encoding.UTF8.GetBytes(reread));
-        }
-
-        public static void RestorePrefs(string path)
-        {
-            if (!File.Exists(path))
-            {
-                throw new FileNotFoundException("prefs snapshot missing", path);
-            }
-
-            string[] lines = File.ReadAllLines(path);
-            for (int lineIndex = 0; lineIndex < lines.Length; lineIndex++)
-            {
-                string line = lines[lineIndex];
-                if (line.Length == 0)
-                {
-                    continue;
-                }
-
-                string[] parts = line.Split('\t');
-                if (parts.Length < 2)
-                {
-                    continue;
-                }
-
-                string kind = parts[0];
-                string key = parts[1];
-                if (kind == "M")
-                {
-                    if (PlayerPrefs.HasKey(key))
-                    {
-                        PlayerPrefs.DeleteKey(key);
-                    }
-
-                    continue;
-                }
-
-                if (parts.Length < 3)
-                {
-                    continue;
-                }
-
-                string payload = parts[2];
-                if (kind == "I")
-                {
-                    int number;
-                    if (int.TryParse(payload, NumberStyles.Integer, CultureInfo.InvariantCulture, out number))
-                    {
-                        PlayerPrefs.SetInt(key, number);
-                    }
-                }
-                else if (kind == "F")
-                {
-                    float number;
-                    if (float.TryParse(payload, NumberStyles.Float, CultureInfo.InvariantCulture, out number))
-                    {
-                        PlayerPrefs.SetFloat(key, number);
-                    }
-                }
-                else if (kind == "S")
-                {
-                    byte[] bytes = Convert.FromBase64String(payload);
-                    PlayerPrefs.SetString(key, Encoding.UTF8.GetString(bytes));
-                }
-            }
-
-            PlayerPrefs.Save();
-        }
-
         static string Norm(string path)
         {
             string full = Path.GetFullPath(path);
@@ -359,50 +230,6 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             return builder.ToString();
-        }
-
-        static string[] PrefRows()
-        {
-            return new string[]
-            {
-                "I\tagr.settings.version",
-                "I\tagr.settings.screenShake",
-                "I\tagr.settings.hintMode",
-                "I\tagr.settings.hintSizeStep",
-                "I\tagr.settings.confirmRestartInPlay",
-                "I\tagr.settings.confirmRestartNewRun",
-                "I\tagr.settings.padNavSource",
-                "I\tagr.settings.assistMode",
-                "I\tagr.settings.reduceEffects",
-                "I\tagr.settings.windowMode",
-                "I\tagr.settings.resolutionW",
-                "I\tagr.settings.resolutionH",
-                "I\tagr.settings.vSync",
-                "I\tagr.settings.fpsCap",
-                "I\tagr.settings.promptScheme",
-                "I\tagr.settings.tutorialCards",
-                "I\tagr.settings.filmGrain",
-                "I\tagr.ui.firstHangarHint",
-                "I\tagr.ui.doctrineHint",
-                "I\tagr.audio.mute",
-                "I\tagr.audio.curve",
-                "I\tagr.daily.played",
-                "I\tagr.achievements.mask",
-                "I\tagr.hangar.medals",
-                "I\tagr.best.score",
-                "I\tagr.best.wave",
-                "I\tagr.best.world",
-                "I\tagr.wave.bestCombo",
-                "F\tagr.audio.sfx",
-                "F\tagr.audio.music",
-                "F\tagr.settings.turnSpeed",
-                "F\tagr.wave.bestSeconds",
-                "S\tagr.settings.bindings",
-                "S\tagr.ui.language",
-                "S\tagr.sink.profile",
-                "S\tagr.daily.board",
-                "S\tagr.difficulty",
-            };
         }
     }
 }

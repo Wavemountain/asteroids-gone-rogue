@@ -19238,7 +19238,19 @@ def test_longrun_harness() -> None:
     assert "CaptureWaveClear" not in runner
     assert "PresentForCapture" not in runner
     assert "InputSystem" not in runner
+    assert "public static void RestorePrefs()" in runner
+    assert "UnrestoredBackup" in runner
+    assert "LongRunPrefs.Capture" in runner
+    assert "LongRunPrefs.RestoreAndVerify" in runner
+    assert "PlayerPrefs.Set" not in runner
+    assert "PlayerPrefs.Delete" not in runner
+    assert "PlayerPrefs.Save" not in runner
+    assert "PlayerPrefs" not in guard
     doc = (root / "Docs/LONGRUN.md").read_text(encoding="utf-8")
+    assert "LongRun.RestorePrefs" in doc
+    assert "prefs-unrestored.txt" in doc
+    assert "prefs-verify.txt" in doc
+    assert "RESULT MATCH" in doc
     assert "Autopilot does not test human fun." in doc
     assert "-executeMethod AsteroidsGoneRogue.EditorTools.LongRun.Run" in doc
     assert "-nographics" in doc

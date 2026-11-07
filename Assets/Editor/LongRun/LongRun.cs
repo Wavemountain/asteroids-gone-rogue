@@ -37,8 +37,40 @@ namespace AsteroidsGoneRogue.EditorTools
             Hook();
         }
 
+        public static void RestorePrefs()
+        {
+            string backup;
+            if (!TryArg("-backup", out backup) || backup.Length == 0)
+            {
+                Debug.LogError("LongRun FAIL: -backup <path> is required");
+                EditorApplication.Exit(1);
+                return;
+            }
+
+            string report;
+            bool matched = LongRunPrefs.RestoreAndVerify(backup, out report);
+            Debug.Log("LongRun prefs verify=" + (matched ? "MATCH" : "MISMATCH") + " report=" + report);
+            if (!matched)
+            {
+                Debug.LogError("LongRun FAIL: PlayerPrefs restore mismatch. Report " + report);
+            }
+
+            EditorApplication.Exit(matched ? 0 : 1);
+        }
+
         public static void Run()
         {
+            string pending = LongRunPrefs.UnrestoredBackup();
+            if (pending.Length > 0)
+            {
+                Debug.LogError("LongRun FAIL: unrestored PlayerPrefs marker " + LongRunPrefs.MarkerPath());
+                Debug.LogError(
+                    "-executeMethod AsteroidsGoneRogue.EditorTools.LongRun.RestorePrefs -backup "
+                    + pending);
+                EditorApplication.Exit(1);
+                return;
+            }
+
             string error;
             LongRunState state = Parse(out error);
             if (state == null)
@@ -707,15 +739,7 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             LongRunSaveGuard.WriteManifest(Path.Combine(state.Backup, "manifest.txt"), LongRunSaveGuard.SaveNames, hashes);
-            string prefsPath = Path.Combine(state.Backup, "prefs.txt");
-            string prefsHash = LongRunSaveGuard.SnapshotPrefs(prefsPath);
-            File.WriteAllText(Path.Combine(state.Backup, "prefs.sha"), prefsHash + "\n");
-            string reread = LongRunSaveGuard.HashFile(prefsPath);
-            if (!LongRunSaveGuard.BackupVerified(prefsHash, reread))
-            {
-                throw new IOException("prefs snapshot hash mismatch");
-            }
-
+            LongRunPrefs.Capture(Path.Combine(state.Backup, "prefs.json"));
             Environment.SetEnvironmentVariable(LongRunSaveGuard.EnvProfile, state.Profile);
         }
 
@@ -727,12 +751,16 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
-            string prefsPath = Path.Combine(state.Backup, "prefs.txt");
+            string prefsPath = Path.Combine(state.Backup, "prefs.json");
             if (File.Exists(prefsPath))
             {
                 try
                 {
-                    LongRunSaveGuard.RestorePrefs(prefsPath);
+                    string bootReport;
+                    if (!LongRunPrefs.RestoreAndVerify(prefsPath, out bootReport))
+                    {
+                        Debug.LogError("LongRun prefs restore mismatch " + bootReport);
+                    }
                 }
                 catch (Exception restoreEx)
                 {
@@ -760,18 +788,9 @@ namespace AsteroidsGoneRogue.EditorTools
             string prefsDetail = string.Empty;
             try
             {
-                string prefsPath = Path.Combine(state.Backup, "prefs.txt");
-                LongRunSaveGuard.RestorePrefs(prefsPath);
-                string checkPath = Path.Combine(state.Backup, "prefs-check.txt");
-                LongRunSaveGuard.SnapshotPrefs(checkPath);
-                string before = File.ReadAllText(prefsPath);
-                string after = File.ReadAllText(checkPath);
-                File.Delete(checkPath);
-                prefsOk = string.Equals(before, after, StringComparison.Ordinal);
-                if (!prefsOk)
-                {
-                    prefsDetail = "restored prefs snapshot does not match the backup";
-                }
+                string prefsReport;
+                prefsOk = LongRunPrefs.RestoreAndVerify(Path.Combine(state.Backup, "prefs.json"), out prefsReport);
+                prefsDetail = prefsOk ? prefsReport : "MISMATCH " + prefsReport;
             }
             catch (Exception restoreEx)
             {
@@ -866,7 +885,7 @@ namespace AsteroidsGoneRogue.EditorTools
             builder.Append("\n- Save files: ");
             builder.Append(savesOk ? "untouched" : "CHANGED " + saveDetail);
             builder.Append("\n- PlayerPrefs restore: ");
-            builder.Append(prefsOk ? "matched backup hash" : "FAIL " + prefsDetail);
+            builder.Append(prefsOk ? "MATCH " + prefsDetail : "FAIL " + prefsDetail);
             builder.Append("\n- Live save dir: ");
             builder.Append(state.Live);
             builder.Append("\n- Test profile: ");
