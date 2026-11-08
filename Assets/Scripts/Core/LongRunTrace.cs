@@ -27,7 +27,11 @@ namespace AsteroidsGoneRogue
             }
 
             Write(
-                "damage applied=" + applied
+                "damage t=" + UnityEngine.Time.time.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)
+                + " frame=" + UnityEngine.Time.frameCount.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " step=" + EditorTools.LongRunDeathLog.Step.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " wave=" + EditorTools.LongRunDeathLog.Wave.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " applied=" + applied
                 + " cause=" + cause
                 + " kind=" + kind
                 + " elite=" + elite

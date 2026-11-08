@@ -19369,14 +19369,22 @@ def test_longrun_harness() -> None:
     assert "Frame sum seconds" in summary
     assert "not display FPS" in summary
     assert "unscaledDeltaTime" not in frames
-    death = (editor / "LongRunDeathLog.cs").read_text(encoding="utf-8")
+    assert not (editor / "LongRunDeathLog.cs").is_file()
+    death = (root / "Assets/Scripts/Core/LongRunDeathLog.cs").read_text(encoding="utf-8")
     trace = (root / "Assets/Scripts/Core/LongRunTrace.cs").read_text(encoding="utf-8")
     health = (root / "Assets/Scripts/Player/ShipHealth.cs").read_text(encoding="utf-8")
+    assert death.strip().startswith("#if UNITY_EDITOR")
     assert trace.strip().startswith("#if UNITY_EDITOR")
     assert "Capacity = 100" in death and "ThreatCap = 8" in death and "new Sample[Capacity]" in death
+    assert "public bool Recording" in death
     assert "RunRng.Unit" not in death and "Random.value" not in death and "Random.Range" not in death
     assert "Random.state" in death
     assert "if (!Armed || Write == null)" in trace
+    assert "Time.time" in trace and "frameCount" in trace and "step=" in trace and "wave=" in trace
+    assert "logMessageReceivedThreaded" in summary
+    assert "LongRun.ProbeTries" in summary
+    assert "death recorder did not attach" in summary
+    assert "Native errors:" in summary
     damage_at = health.index("LongRunTrace.Damage")
     assert health.rfind("#if UNITY_EDITOR", 0, damage_at) > health.rfind("#endif", 0, damage_at)
     refused = []

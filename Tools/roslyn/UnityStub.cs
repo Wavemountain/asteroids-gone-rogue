@@ -374,6 +374,7 @@ namespace UnityEngine
     {
         public delegate void LogCallback(string condition, string stackTrace, LogType type);
         public static event LogCallback logMessageReceived;
+        public static event LogCallback logMessageReceivedThreaded;
         public static string persistentDataPath { get { return "/tmp"; } }
         public static string dataPath { get { return "/tmp/Assets"; } }
         public static int targetFrameRate { get; set; }

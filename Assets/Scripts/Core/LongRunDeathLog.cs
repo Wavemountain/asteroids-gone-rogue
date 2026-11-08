@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -68,6 +69,27 @@ namespace AsteroidsGoneRogue.EditorTools
         static float _chosenAimX;
         static float _chosenAimY;
         static int _chosenFire;
+        static bool _recording;
+
+        public static int Step
+        {
+            get { return _step; }
+        }
+
+        public static int Wave
+        {
+            get { return _wave; }
+        }
+
+        public bool Recording
+        {
+            get { return _recording; }
+        }
+
+        void OnEnable()
+        {
+            _recording = true;
+        }
 
         public static void NoteChosen(float moveX, float moveY, float aimX, float aimY, bool fire)
         {
@@ -463,3 +485,4 @@ namespace AsteroidsGoneRogue.EditorTools
         }
     }
 }
+#endif

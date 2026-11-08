@@ -125,7 +125,53 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             Application.logMessageReceived += OnLog;
+            Application.logMessageReceivedThreaded += OnNativeLog;
             _logs = true;
+        }
+
+        const int UniqueCap = 16;
+        static int _nativeErrors;
+        static int _nativeExceptions;
+        static int _ourErrors;
+        static readonly System.Collections.Generic.List<string> _uniqueLogs = new System.Collections.Generic.List<string>();
+        static readonly System.Collections.Generic.HashSet<string> _seenLogs = new System.Collections.Generic.HashSet<string>();
+        static readonly object _logLock = new object();
+        static bool _probeFailed;
+
+        static void OnNativeLog(string condition, string stackTrace, LogType type)
+        {
+            if (type != LogType.Error && type != LogType.Exception && type != LogType.Assert)
+            {
+                return;
+            }
+
+            string message = condition ?? string.Empty;
+            string stack = stackTrace ?? string.Empty;
+            string key = type.ToString() + "\t" + message;
+            bool ours = message.IndexOf("LongRun", System.StringComparison.Ordinal) >= 0
+                || stack.IndexOf("LongRunDeathLog", System.StringComparison.Ordinal) >= 0
+                || stack.IndexOf("EnsureProbe", System.StringComparison.Ordinal) >= 0;
+            lock (_logLock)
+            {
+                if (type == LogType.Exception)
+                {
+                    _nativeExceptions += 1;
+                }
+                else
+                {
+                    _nativeErrors += 1;
+                }
+
+                if (ours)
+                {
+                    _ourErrors += 1;
+                }
+
+                if (_uniqueLogs.Count < UniqueCap && _seenLogs.Add(key))
+                {
+                    _uniqueLogs.Add(key);
+                }
+            }
         }
 
         static void OnLog(string condition, string stackTrace, LogType type)
@@ -210,7 +256,22 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
-            EnsureProbe();
+            if (!EnsureProbe())
+            {
+                if (!_probeFailed)
+                {
+                    _probeFailed = true;
+                    Debug.LogError("LongRun FAIL: death recorder did not attach");
+                }
+
+                state.HarnessFault = 1;
+                state.Fault = "death recorder did not attach";
+                state.Phase = "stop";
+                state.ExitAsked = 0;
+                Save(state);
+                return;
+            }
+
             EditorApplication.QueuePlayerLoopUpdate();
             GameManager game = GameManager.Live;
             GameSession session = game != null ? game.Session : null;
@@ -707,19 +768,64 @@ namespace AsteroidsGoneRogue.EditorTools
             UnityEngine.Random.InitState(state.Seed);
         }
 
-        static void EnsureProbe()
+        static bool EnsureProbe()
         {
-            LongRunTrace.Armed = true;
-            LongRunTrace.Write = LongRunDeathLog.Append;
-            if (UnityEngine.Object.FindAnyObjectByType<LongRunFrameProbe>() != null)
+            if (_probeFailed)
             {
-                return;
+                return false;
             }
 
-            GameObject host = new GameObject("LongRunFrameProbe");
-            host.hideFlags = HideFlags.HideAndDontSave;
-            host.AddComponent<LongRunFrameProbe>();
-            host.AddComponent<LongRunDeathLog>();
+            LongRunDeathLog existing = UnityEngine.Object.FindAnyObjectByType<LongRunDeathLog>();
+            if (existing != null && existing.Recording)
+            {
+                LongRunTrace.Armed = true;
+                LongRunTrace.Write = LongRunDeathLog.Append;
+                return true;
+            }
+
+            int tries = SessionState.GetInt("LongRun.ProbeTries", 0);
+            if (tries >= 2)
+            {
+                _probeFailed = true;
+                return false;
+            }
+
+            SessionState.SetInt("LongRun.ProbeTries", tries + 1);
+            try
+            {
+                GameObject host = UnityEngine.Object.FindAnyObjectByType<LongRunFrameProbe>() != null
+                    ? UnityEngine.Object.FindAnyObjectByType<LongRunFrameProbe>().gameObject
+                    : null;
+                if (host == null)
+                {
+                    host = new GameObject("LongRunFrameProbe");
+                    host.hideFlags = HideFlags.HideAndDontSave;
+                    host.AddComponent<LongRunFrameProbe>();
+                }
+
+                LongRunDeathLog log = host.GetComponent<LongRunDeathLog>();
+                if (log == null)
+                {
+                    log = host.AddComponent<LongRunDeathLog>();
+                }
+
+                if (log == null || !log.Recording)
+                {
+                    Debug.LogError("LongRun FAIL: death recorder did not attach");
+                    _probeFailed = true;
+                    return false;
+                }
+
+                LongRunTrace.Armed = true;
+                LongRunTrace.Write = LongRunDeathLog.Append;
+                return true;
+            }
+            catch (System.Exception attachEx)
+            {
+                Debug.LogError("LongRun FAIL: death recorder did not attach: " + attachEx.Message);
+                _probeFailed = true;
+                return false;
+            }
         }
 
         static void Prepare(LongRunState state)
@@ -810,6 +916,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 state.Fault = saveDetail + " " + prefsDetail;
             }
 
+            NoteDiagnostics(state);
             LongRunFrames.Flush();
             FlushLogs(state);
             string verdict = VerdictOf(state);
@@ -833,6 +940,25 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             EditorApplication.Exit(code);
+        }
+
+        static void NoteDiagnostics(LongRunState state)
+        {
+            int losses = state.Continues + state.Deaths;
+            int files = 0;
+            if (Directory.Exists(state.OutDir))
+            {
+                files = Directory.GetFiles(state.OutDir, "death-*.txt").Length;
+            }
+
+            if (_probeFailed || _ourErrors > 0 || (losses > 0 && files == 0))
+            {
+                state.HarnessFault = 1;
+                if (state.Fault.Length == 0)
+                {
+                    state.Fault = "diagnostics failed";
+                }
+            }
         }
 
         static string VerdictOf(LongRunState state)
@@ -925,6 +1051,17 @@ namespace AsteroidsGoneRogue.EditorTools
             }
             builder.Append("\n- Exceptions and error logs: ");
             builder.Append((state.Exceptions + state.Errors).ToString(CultureInfo.InvariantCulture));
+            builder.Append("\n- Native errors: ");
+            builder.Append(_nativeErrors.ToString(CultureInfo.InvariantCulture));
+            builder.Append("\n- Native exceptions: ");
+            builder.Append(_nativeExceptions.ToString(CultureInfo.InvariantCulture));
+            builder.Append("\n- Diagnostics errors: ");
+            builder.Append(_ourErrors.ToString(CultureInfo.InvariantCulture));
+            for (int nativeIndex = 0; nativeIndex < _uniqueLogs.Count; nativeIndex++)
+            {
+                builder.Append("\n- Native log: ");
+                builder.Append(_uniqueLogs[nativeIndex].Replace("\r", " ").Replace("\n", " "));
+            }
             builder.Append("\n- Log: ");
             builder.Append(Path.Combine(state.OutDir, "events.jsonl"));
             if (state.Fault.Length > 0 && verdict == "FAIL")
