@@ -19382,8 +19382,17 @@ def test_longrun_harness() -> None:
     assert "if (!Armed || Write == null)" in trace
     assert "Time.time" in trace and "frameCount" in trace and "step=" in trace and "wave=" in trace
     assert "logMessageReceivedThreaded" in summary
-    assert "LongRun.ProbeTries" in summary
-    assert "death recorder did not attach" in summary
+    assert 'SessionState.SetInt("LongRun.ProbeTries", 0)' in summary
+    assert "found=null" in summary
+    assert "found-not-recording" in summary
+    assert "addcomponent-null" in summary
+    assert "addcomponent-exception:" in summary
+    assert "budget-exhausted" in summary
+    assert "play not ready" in summary
+    probe = summary.split("static string EnsureProbe()")[1].split("static void ArmProbe()")[0]
+    assert "return false" not in probe
+    assert 'return "wait"' in probe
+    assert "LongRun death recorder recording" in summary
     assert "Native errors:" in summary
     damage_at = health.index("LongRunTrace.Damage")
     assert health.rfind("#if UNITY_EDITOR", 0, damage_at) > health.rfind("#endif", 0, damage_at)

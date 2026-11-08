@@ -99,6 +99,9 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
+            _probeFailed = false;
+            _probeLogged = false;
+            SessionState.SetInt("LongRun.ProbeTries", 0);
             SessionState.SetBool(KeyRunning, true);
             SessionState.SetString(KeyOut, state.OutDir);
             Save(state);
@@ -137,6 +140,7 @@ namespace AsteroidsGoneRogue.EditorTools
         static readonly System.Collections.Generic.HashSet<string> _seenLogs = new System.Collections.Generic.HashSet<string>();
         static readonly object _logLock = new object();
         static bool _probeFailed;
+        static bool _probeLogged;
 
         static void OnNativeLog(string condition, string stackTrace, LogType type)
         {
@@ -256,19 +260,31 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
-            if (!EnsureProbe())
+            string probe = EnsureProbe();
+            if (probe == "wait")
             {
-                if (!_probeFailed)
+                if (Since(state.WaitUtc) > BootLimitSeconds)
                 {
-                    _probeFailed = true;
-                    Debug.LogError("LongRun FAIL: death recorder did not attach");
+                    state.HarnessFault = 1;
+                    state.Fault = "play not ready";
+                    state.Phase = "stop";
+                    state.ExitAsked = 0;
+                    Save(state);
+                    Debug.LogError("LongRun FAIL: play not ready");
                 }
 
+                return;
+            }
+
+            if (probe.Length > 0)
+            {
+                _probeFailed = true;
                 state.HarnessFault = 1;
-                state.Fault = "death recorder did not attach";
+                state.Fault = probe;
                 state.Phase = "stop";
                 state.ExitAsked = 0;
                 Save(state);
+                Debug.LogError("LongRun FAIL: " + probe);
                 return;
             }
 
@@ -768,64 +784,102 @@ namespace AsteroidsGoneRogue.EditorTools
             UnityEngine.Random.InitState(state.Seed);
         }
 
-        static bool EnsureProbe()
+        static string EnsureProbe()
         {
-            if (_probeFailed)
+            if (!EditorApplication.isPlaying || Time.frameCount <= 0)
             {
-                return false;
+                return "wait";
+            }
+
+            UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            if (!scene.IsValid() || !scene.isLoaded)
+            {
+                return "wait";
             }
 
             LongRunDeathLog existing = UnityEngine.Object.FindAnyObjectByType<LongRunDeathLog>();
+            if (existing != null && !existing.Recording)
+            {
+                existing.enabled = false;
+                existing.enabled = true;
+            }
+
             if (existing != null && existing.Recording)
             {
-                LongRunTrace.Armed = true;
-                LongRunTrace.Write = LongRunDeathLog.Append;
-                return true;
+                ArmProbe();
+                return string.Empty;
             }
 
             int tries = SessionState.GetInt("LongRun.ProbeTries", 0);
             if (tries >= 2)
             {
-                _probeFailed = true;
-                return false;
+                return ProbeReason("budget-exhausted", tries);
             }
 
-            SessionState.SetInt("LongRun.ProbeTries", tries + 1);
+            int attempt = tries + 1;
+            SessionState.SetInt("LongRun.ProbeTries", attempt);
             try
             {
-                GameObject host = UnityEngine.Object.FindAnyObjectByType<LongRunFrameProbe>() != null
-                    ? UnityEngine.Object.FindAnyObjectByType<LongRunFrameProbe>().gameObject
-                    : null;
-                if (host == null)
+                if (existing == null)
                 {
-                    host = new GameObject("LongRunFrameProbe");
-                    host.hideFlags = HideFlags.HideAndDontSave;
-                    host.AddComponent<LongRunFrameProbe>();
+                    GameObject host = UnityEngine.Object.FindAnyObjectByType<LongRunFrameProbe>() != null
+                        ? UnityEngine.Object.FindAnyObjectByType<LongRunFrameProbe>().gameObject
+                        : null;
+                    if (host == null)
+                    {
+                        host = new GameObject("LongRunFrameProbe");
+                        host.hideFlags = HideFlags.HideAndDontSave;
+                        host.AddComponent<LongRunFrameProbe>();
+                    }
+
+                    if (host == null)
+                    {
+                        return ProbeReason("found=null", attempt);
+                    }
+
+                    existing = host.AddComponent<LongRunDeathLog>();
+                    if (existing == null)
+                    {
+                        return ProbeReason("addcomponent-null", attempt);
+                    }
                 }
 
-                LongRunDeathLog log = host.GetComponent<LongRunDeathLog>();
-                if (log == null)
+                if (!existing.Recording)
                 {
-                    log = host.AddComponent<LongRunDeathLog>();
+                    return ProbeReason("found-not-recording", attempt);
                 }
 
-                if (log == null || !log.Recording)
-                {
-                    Debug.LogError("LongRun FAIL: death recorder did not attach");
-                    _probeFailed = true;
-                    return false;
-                }
-
-                LongRunTrace.Armed = true;
-                LongRunTrace.Write = LongRunDeathLog.Append;
-                return true;
+                ArmProbe();
+                return string.Empty;
             }
             catch (System.Exception attachEx)
             {
-                Debug.LogError("LongRun FAIL: death recorder did not attach: " + attachEx.Message);
-                _probeFailed = true;
-                return false;
+                return ProbeReason("addcomponent-exception:" + attachEx.Message, attempt);
             }
+        }
+
+        static void ArmProbe()
+        {
+            LongRunTrace.Armed = true;
+            LongRunTrace.Write = LongRunDeathLog.Append;
+            if (_probeLogged)
+            {
+                return;
+            }
+
+            _probeLogged = true;
+            Debug.Log("LongRun death recorder recording " + ProbeReason("ok", SessionState.GetInt("LongRun.ProbeTries", 0)));
+        }
+
+        static string ProbeReason(string code, int attempt)
+        {
+            UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            bool sceneLoaded = scene.IsValid() && scene.isLoaded;
+            return code
+                + " attempt=" + attempt.ToString(CultureInfo.InvariantCulture)
+                + " isPlaying=" + EditorApplication.isPlaying.ToString()
+                + " frameCount=" + Time.frameCount.ToString(CultureInfo.InvariantCulture)
+                + " sceneLoaded=" + sceneLoaded.ToString();
         }
 
         static void Prepare(LongRunState state)

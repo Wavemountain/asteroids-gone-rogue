@@ -91,6 +91,11 @@ namespace AsteroidsGoneRogue.EditorTools
             _recording = true;
         }
 
+        void OnDisable()
+        {
+            _recording = false;
+        }
+
         public static void NoteChosen(float moveX, float moveY, float aimX, float aimY, bool fire)
         {
             _chosenX = moveX;
