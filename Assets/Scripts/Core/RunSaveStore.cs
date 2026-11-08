@@ -15,12 +15,29 @@ namespace AsteroidsGoneRogue
         public const string MetaFileName = "meta_save.json";
         public const string TempSuffix = ".tmp";
 
+        /// <summary>
+        /// Player builds and normal play use persistentDataPath. The long-run
+        /// harness sets AGR_LONGRUN_PROFILE so a batch session cannot write
+        /// Wagge's save files. The variable is unset unless that harness started.
+        /// </summary>
+        private static string SaveRoot()
+        {
+#if UNITY_EDITOR
+            string redirected = Environment.GetEnvironmentVariable("AGR_LONGRUN_PROFILE");
+            if (!string.IsNullOrEmpty(redirected))
+            {
+                return redirected;
+            }
+#endif
+            return Application.persistentDataPath;
+        }
+
         public static bool TryLoadRun(out RunSaveData data)
         {
             data = null;
             try
             {
-                string path = Path.Combine(Application.persistentDataPath, RunFileName);
+                string path = Path.Combine(SaveRoot(), RunFileName);
                 string backupPath = path + SaveFileChoice.BackupSuffix;
                 bool mainExists = File.Exists(path);
                 string mainText = mainExists ? File.ReadAllText(path) : null;
@@ -85,7 +102,7 @@ namespace AsteroidsGoneRogue
         {
             try
             {
-                string path = Path.Combine(Application.persistentDataPath, RunFileName);
+                string path = Path.Combine(SaveRoot(), RunFileName);
                 if (File.Exists(path))
                 {
                     File.Delete(path);
@@ -107,7 +124,7 @@ namespace AsteroidsGoneRogue
         {
             try
             {
-                string path = Path.Combine(Application.persistentDataPath, MetaFileName);
+                string path = Path.Combine(SaveRoot(), MetaFileName);
                 string backupPath = path + SaveFileChoice.BackupSuffix;
                 bool mainExists = File.Exists(path);
                 string mainText = mainExists ? File.ReadAllText(path) : null;
@@ -208,7 +225,7 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            string dest = Path.Combine(Application.persistentDataPath, fileName);
+            string dest = Path.Combine(SaveRoot(), fileName);
             string temp = dest + TempSuffix;
             File.WriteAllText(temp, json);
             string reread = File.ReadAllText(temp);

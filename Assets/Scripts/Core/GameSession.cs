@@ -232,6 +232,9 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+#if UNITY_EDITOR
+            LongRunTrace.Life("shop-extra-life", Lives - 1, Lives);
+#endif
             ExtraLifeWorld = worldNumber;
             return true;
         }
