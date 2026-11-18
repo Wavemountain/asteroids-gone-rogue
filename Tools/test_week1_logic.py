@@ -19233,9 +19233,12 @@ def test_longrun_harness() -> None:
     assert "public static void Run()" in runner
     assert "namespace AsteroidsGoneRogue.EditorTools" in runner
     assert "SetEditorPump" in runner
-    assert "ConfirmFirstStart" in runner
-    assert "AcceptContinue" in runner
-    assert "TryBuy" in runner
+    assert "game.ConfirmFirstStart" not in runner
+    assert "game.AcceptContinue" not in runner
+    assert "game.StartWave" not in runner
+    assert "TryBuy(" not in runner
+    assert "SetEditorMenu" in runner
+    assert "submitHandler" in runner
     assert "Random.InitState" in runner
     assert "SkipTutorial" not in runner
     assert "SkipFirstStart" not in runner
@@ -19270,7 +19273,14 @@ def test_longrun_harness() -> None:
     assert classify_campaign(False, False, False, False, 0, 0, True, True, False, False) == "PASS"
     pilot = (editor / "LongRunPilot.cs").read_text(encoding="utf-8")
     assert "ReactionSeconds = 0.22f" in pilot
-    assert "InputHoldSeconds = 0.08f" in pilot
+    assert "InputHoldSeconds = 0.20f" in pilot
+    assert "sidestep" in pilot
+    assert "stick.Utility = bodyThreat" in pilot
+    fail_run = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    fail_body = fail_run.split("private void FailRun(")[1].split("public void AcceptContinue()")[0]
+    assert "PendingContinue = null" in fail_body
+    assert "DeleteRun()" in fail_body
+    assert "FailRun sets PendingContinue null" in runner
     assert "dodge-projectile" in pilot
     assert "KindShot" in pilot
     assert "WatchdogSeconds = 60" in verdict

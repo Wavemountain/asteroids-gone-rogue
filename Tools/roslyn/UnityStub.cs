@@ -1215,7 +1215,27 @@ namespace UnityEngine.EventSystems
     }
 
     public enum EventTriggerType { PointerEnter, PointerExit, PointerDown, PointerUp, PointerClick, Drag, BeginDrag, EndDrag, Submit, Cancel }
-    public class BaseEventData { }
+    public class BaseEventData
+    {
+        public BaseEventData() { }
+        public BaseEventData(EventSystem eventSystem) { }
+    }
+
+    public interface IEventSystemHandler { }
+
+    public interface ISubmitHandler : IEventSystemHandler { }
+
+    public static class ExecuteEvents
+    {
+        public delegate void EventFunction<T>(T handler, BaseEventData eventData);
+
+        public static EventFunction<ISubmitHandler> submitHandler { get { return null; } }
+
+        public static bool Execute<T>(UnityEngine.GameObject target, BaseEventData eventData, EventFunction<T> functor) where T : IEventSystemHandler
+        {
+            return false;
+        }
+    }
     public class PointerEventData : BaseEventData { }
     public class EventTrigger : UnityEngine.MonoBehaviour
     {

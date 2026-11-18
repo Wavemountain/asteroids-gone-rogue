@@ -87,7 +87,7 @@ namespace AsteroidsGoneRogue
 #if UNITY_EDITOR
             if (EditorPumpEngaged)
             {
-                return false;
+                return EditorPumpUtility;
             }
 #endif
             BindingMap map = BindingMap.ActiveOrDefault();
@@ -144,6 +144,12 @@ namespace AsteroidsGoneRogue
 
         public static bool PausePressed()
         {
+#if UNITY_EDITOR
+            if (EditorPumpEngaged && EditorStart)
+            {
+                return true;
+            }
+#endif
             BindingMap map = BindingMap.ActiveOrDefault();
             if (map.UsesLegacyPause())
             {
@@ -155,6 +161,12 @@ namespace AsteroidsGoneRogue
 
         public static bool ConfirmPressed()
         {
+#if UNITY_EDITOR
+            if (EditorPumpEngaged && EditorConfirm)
+            {
+                return true;
+            }
+#endif
             BindingMap map = BindingMap.ActiveOrDefault();
             if (map.UsesLegacyConfirm())
             {
@@ -166,6 +178,12 @@ namespace AsteroidsGoneRogue
 
         public static bool CancelPressed()
         {
+#if UNITY_EDITOR
+            if (EditorPumpEngaged && EditorCancel)
+            {
+                return true;
+            }
+#endif
             BindingMap map = BindingMap.ActiveOrDefault();
             if (map.UsesLegacyCancel())
             {
@@ -192,6 +210,12 @@ namespace AsteroidsGoneRogue
         /// </summary>
         public static Vector2 UiNavDpad()
         {
+#if UNITY_EDITOR
+            if (EditorPumpEngaged && (EditorNavX != 0 || EditorNavY != 0))
+            {
+                return new Vector2(EditorNavX, EditorNavY);
+            }
+#endif
             float x = 0f;
             float y = 0f;
             if (ButtonHeld(DpadRight) || Input.GetKey(KeyCode.JoystickButton12))
@@ -473,6 +497,30 @@ namespace AsteroidsGoneRogue
         static float EditorPumpAimX;
         static float EditorPumpAimY;
         static bool EditorPumpFire;
+        static bool EditorPumpUtility;
+        static int EditorNavX;
+        static int EditorNavY;
+        static bool EditorConfirm;
+        static bool EditorCancel;
+        static bool EditorStart;
+
+        /// <summary>
+        /// One frame of the same menu buttons the hangar already reads:
+        /// d-pad nav, Confirm, Cancel, and Start. Player builds strip it.
+        /// </summary>
+        public static void SetEditorMenu(int navX, int navY, bool confirm, bool cancel, bool start)
+        {
+            EditorNavX = navX;
+            EditorNavY = navY;
+            EditorConfirm = confirm;
+            EditorCancel = cancel;
+            EditorStart = start;
+        }
+
+        public static void SetEditorUtility(bool held)
+        {
+            EditorPumpUtility = held;
+        }
 
         /// <summary>
         /// Batch sessions have no focused game view, so the long-run harness

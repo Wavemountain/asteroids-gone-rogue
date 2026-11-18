@@ -197,6 +197,8 @@ namespace AsteroidsGoneRogue.EditorTools
         static bool _lastNearestPerceived;
         static string _lastProjectile = "none";
         static float _lastProjectileSpeed;
+        static float _menuPulseAt = -1f;
+        static int _buyBefore;
 
         static void OnNativeLog(string condition, string stackTrace, LogType type)
         {
@@ -299,6 +301,8 @@ namespace AsteroidsGoneRogue.EditorTools
         static void TickBody(LongRunState state)
         {
             FlushLogs(state);
+            GamepadInput.SetEditorMenu(0, 0, false, false, false);
+            GamepadInput.SetEditorUtility(false);
             if (state.ProgressUtc <= 0)
             {
                 state.ProgressUtc = DateTime.UtcNow.Ticks;
@@ -509,7 +513,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
-            if (!game.HasContinueOffer)
+            if (!game.HasContinueOffer && state.Settle < 9)
             {
                 state.ResumeFailed = 1;
                 state.Fault = "continue offer missing";
@@ -520,7 +524,31 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
-            game.AcceptContinue();
+            if (game.HasContinueOffer)
+            {
+                if (state.Settle == 8)
+                {
+                    PulseMenu(0, 0, true, false, false, true);
+                    state.Settle = 9;
+                    state.StepUtc = DateTime.UtcNow.Ticks;
+                    Save(state);
+                    return;
+                }
+
+                if (Since(state.StepUtc) <= LongRunVerdict.StepTimeoutSeconds)
+                {
+                    return;
+                }
+
+                state.ResumeFailed = 1;
+                state.Fault = "continue confirm timed out";
+                LogEvent(state, "resume", "resume", WorldOf(session), WaveOf(session), CreditsOf(session), LivesOf(session), ",\"result\":\"FAIL\",\"mismatches\":\"continue confirm timed out\"");
+                state.Phase = "stop";
+                state.ExitAsked = 0;
+                Save(state);
+                return;
+            }
+
             session = game.Session;
             string mismatches = CompareCheckpoint(state, game, session);
             state.ResumeDone = 1;
@@ -545,28 +573,27 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static void OverContinue(LongRunState state, GameManager game, GameSession session)
         {
-            if (game.HasContinueOffer)
+            if (state.NewRunYes != 0)
             {
-                game.AcceptContinue();
-                session = game.Session;
-                string mismatches = CompareCheckpoint(state, game, session);
-                state.OverContinue = mismatches.Length == 0 ? 1 : 2;
-                LogEvent(state, "resume", "game-over-continue", WorldOf(session), WaveOf(session), CreditsOf(session), LivesOf(session), ",\"result\":\"" + (mismatches.Length == 0 ? "PASS" : "FAIL") + "\",\"mismatches\":\"" + Json(mismatches) + "\"");
-                state.Phase = "newRunNo";
-                state.StepUtc = DateTime.UtcNow.Ticks;
-                state.ProgressUtc = state.StepUtc;
+                state.Phase = "stop";
+                state.ExitAsked = 0;
                 Save(state);
                 return;
             }
 
-            if (Since(state.StepUtc) <= LongRunVerdict.StepTimeoutSeconds)
+            if (game.HasContinueOffer)
             {
+                state.Phase = "waitResume";
+                state.Settle = 7;
+                state.StepUtc = DateTime.UtcNow.Ticks;
+                Save(state);
                 return;
             }
 
             state.OverContinue = 3;
-            LogEvent(state, "resume", "game-over-continue", WorldOf(session), WaveOf(session), CreditsOf(session), LivesOf(session), ",\"result\":\"INCOMPLETE\",\"mismatches\":\"continue offer missing after game over\"");
+            LogEvent(state, "resume", "game-over-continue", WorldOf(session), WaveOf(session), CreditsOf(session), LivesOf(session), ",\"result\":\"INCOMPLETE\",\"mismatches\":\"FailRun sets PendingContinue null and deletes the run; Continue is not offered after game over\"");
             state.Phase = "newRunNo";
+            state.Settle = 0;
             state.StepUtc = DateTime.UtcNow.Ticks;
             state.ProgressUtc = state.StepUtc;
             Save(state);
@@ -576,10 +603,18 @@ namespace AsteroidsGoneRogue.EditorTools
         {
             int world = WorldOf(session);
             int wave = WaveOf(session);
+            float now = Time.realtimeSinceStartup;
+            if (now - _menuPulseAt < 0.35f)
+            {
+                return;
+            }
+
+            _menuPulseAt = now;
             if (!yes)
             {
+                PulseMenu(0, 0, false, true, false, false);
                 state.NewRunNo = 1;
-                LogEvent(state, "transition", "new-run", world, wave, CreditsOf(session), LivesOf(session), ",\"choice\":\"No\"");
+                LogEvent(state, "transition", "new-run", world, wave, CreditsOf(session), LivesOf(session), ",\"choice\":\"No\",\"input\":\"cancel\"");
                 state.Phase = "newRunYes";
                 state.StepUtc = DateTime.UtcNow.Ticks;
                 state.ProgressUtc = state.StepUtc;
@@ -587,25 +622,11 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
+            PulseMenu(0, 0, true, false, false, true);
             state.NewRunYes = 1;
-            LogEvent(state, "transition", "new-run", world, wave, CreditsOf(session), LivesOf(session), ",\"choice\":\"Yes\"");
-            if (state.MenuProbe != 0 && state.OverContinue == 3)
-            {
-                GameManager game = GameManager.Live;
-                if (game != null)
-                {
-                    game.StartWave();
-                }
-
-                state.Phase = "play";
-                state.Settle = 0;
-                state.ProgressUtc = DateTime.UtcNow.Ticks;
-                Save(state);
-                return;
-            }
-
-            state.Phase = "stop";
-            state.ExitAsked = 0;
+            LogEvent(state, "transition", "new-run", world, wave, CreditsOf(session), LivesOf(session), ",\"choice\":\"Yes\",\"input\":\"confirm\"");
+            state.Phase = "play";
+            state.Settle = 0;
             state.ProgressUtc = DateTime.UtcNow.Ticks;
             Save(state);
         }
@@ -700,6 +721,11 @@ namespace AsteroidsGoneRogue.EditorTools
                     NoteLife(state, session, "continue");
                 }
 
+                if (!first && wave < state.LastWave)
+                {
+                    state.ClearedWaves = 0;
+                }
+
                 if (!first && wave > state.LastWave && state.LastWave >= 1)
                 {
                     state.ClearedWaves = wave - 1;
@@ -740,9 +766,14 @@ namespace AsteroidsGoneRogue.EditorTools
                     return;
                 }
 
+                if (Time.realtimeSinceStartup - _menuPulseAt < 0.35f)
+                {
+                    return;
+                }
+
                 Seed(state);
-                game.ConfirmFirstStart(DifficultyGrade.Normal);
-                LogEvent(state, "transition", "hangar", WorldOf(session), WaveOf(session), session.Credits, session.Lives, ",\"choice\":\"normal\"");
+                PulseMenu(0, 0, false, false, true, false);
+                LogEvent(state, "transition", "hangar", WorldOf(session), WaveOf(session), session.Credits, session.Lives, ",\"choice\":\"normal\",\"input\":\"start\"");
                 state.Settle = 0;
                 return;
             }
@@ -759,8 +790,13 @@ namespace AsteroidsGoneRogue.EditorTools
                     return;
                 }
 
+                if (Time.realtimeSinceStartup - _menuPulseAt < 0.35f)
+                {
+                    return;
+                }
+
                 int offer = game.Boons != null ? game.Boons.OfferAt(0) : -1;
-                game.TryChooseBoon(0);
+                PulseMenu(0, 0, true, false, false, false);
                 state.BoonWave = session.WaveIndex;
                 LogEvent(
                     state,
@@ -780,10 +816,36 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
+            if (Time.realtimeSinceStartup - _menuPulseAt < 0.35f)
+            {
+                return;
+            }
+
             if (state.BoughtWave != session.WaveIndex)
             {
-                TryPurchase(state, session);
+                if (session.Credits > 0 && state.Settle == 15)
+                {
+                    _buyBefore = session.Credits;
+                    PulseMenu(0, -1, false, false, false, false);
+                    state.Settle = 16;
+                    return;
+                }
+
+                if (session.Credits > 0 && state.Settle == 16)
+                {
+                    PulseMenu(0, 0, true, false, false, true);
+                    state.Settle = 17;
+                    return;
+                }
+
+                if (_buyBefore > 0 && session.Credits < _buyBefore)
+                {
+                    NotePurchase(state, session, "focused-slot", _buyBefore);
+                }
+
+                _buyBefore = 0;
                 state.BoughtWave = session.WaveIndex;
+                state.Settle = session.Credits == 0 ? 20 : 18;
             }
 
             if (ReadyToResume(state, session))
@@ -793,6 +855,13 @@ namespace AsteroidsGoneRogue.EditorTools
                 state.ExitAsked = 0;
                 state.ResumeReached = 1;
                 LogEvent(state, "transition", "save", WorldOf(session), session.WaveIndex, session.Credits, session.Lives, "");
+                return;
+            }
+
+            if (state.Settle == 18)
+            {
+                PulseMenu(0, 1, false, false, false, false);
+                state.Settle = 20;
                 return;
             }
 
@@ -806,41 +875,38 @@ namespace AsteroidsGoneRogue.EditorTools
                 session.WaveIndex,
                 creditsNow,
                 session.Lives,
-                ",\"credits\":" + creditsNow.ToString(CultureInfo.InvariantCulture) + ",\"reachable\":true");
+                ",\"credits\":" + creditsNow.ToString(CultureInfo.InvariantCulture) + ",\"reachable\":true,\"input\":\"confirm\"");
             state.ContinueChecks += 1;
             if (creditsNow == 0)
             {
-                LogEvent(state, "transition", "zero-credits", WorldOf(session), session.WaveIndex, 0, session.Lives, ",\"reachable\":true");
+                LogEvent(state, "transition", "zero-credits", WorldOf(session), session.WaveIndex, 0, session.Lives, ",\"reachable\":true,\"input\":\"confirm\"");
             }
 
-            game.StartWave();
+            PulseMenu(0, 0, true, false, false, true);
             state.Settle = 0;
         }
 
-        static void TryPurchase(LongRunState state, GameSession session)
+        static void PulseMenu(int navX, int navY, bool confirm, bool cancel, bool start, bool submit)
         {
-            HangarShop shop = UnityEngine.Object.FindAnyObjectByType<HangarShop>();
-            if (shop == null || session.Phase == GamePhase.Failed)
+            _menuPulseAt = Time.realtimeSinceStartup;
+            GamepadInput.SetEditorPump(true, 0f, 0f, 0f, 0f, false);
+            GamepadInput.SetEditorMenu(navX, navY, confirm, cancel, start);
+            if (!submit || !confirm)
             {
                 return;
             }
 
-            int before = session.Credits;
-            if (session.Lives == 1 && shop.TryBuyExtraLife())
+            UnityEngine.EventSystems.EventSystem events = UnityEngine.EventSystems.EventSystem.current;
+            if (events == null || events.currentSelectedGameObject == null)
             {
-                NotePurchase(state, session, "ExtraLife", before);
                 return;
             }
 
-            UpgradeId[] ids = (UpgradeId[])Enum.GetValues(typeof(UpgradeId));
-            for (int index = 0; index < ids.Length; index++)
-            {
-                if (shop.TryBuy(ids[index]))
-                {
-                    NotePurchase(state, session, ids[index].ToString(), before);
-                    return;
-                }
-            }
+            UnityEngine.EventSystems.BaseEventData data = new UnityEngine.EventSystems.BaseEventData(events);
+            UnityEngine.EventSystems.ExecuteEvents.Execute(
+                events.currentSelectedGameObject,
+                data,
+                UnityEngine.EventSystems.ExecuteEvents.submitHandler);
         }
 
         static void NotePurchase(LongRunState state, GameSession session, string item, int before)
@@ -949,6 +1015,7 @@ namespace AsteroidsGoneRogue.EditorTools
 
             _held.Maneuver = stick.Maneuver;
             GamepadInput.SetEditorPump(true, stick.MoveX, stick.MoveY, stick.AimX, stick.AimY, stick.Fire);
+            GamepadInput.SetEditorUtility(stick.Utility);
             LongRunDeathLog.NoteChosen(stick.MoveX, stick.MoveY, stick.AimX, stick.AimY, stick.Fire);
             NoteNearest(pos);
         }
@@ -1814,7 +1881,7 @@ namespace AsteroidsGoneRogue.EditorTools
 
             string newRunResult = state.NewRunNo != 0 && state.NewRunYes != 0 ? "PASS" : "INCOMPLETE";
             string newRunReason = state.NewRunNo != 0 && state.NewRunYes != 0
-                ? "No logged, then Yes logged; Yes starts a wave only with -menuProbe when continue is absent"
+                ? "No is Cancel, Yes is Confirm on the focused control"
                 : "new run Yes/No not reached";
             bool first = true;
             Goal(json, text, ref first, "watchdog", state.Watchdog != 0 ? "FAIL" : "PASS", state.Watchdog != 0 ? "watchdog 60s" : "progress stayed inside 60s");

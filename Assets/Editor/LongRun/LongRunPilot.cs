@@ -18,7 +18,7 @@ namespace AsteroidsGoneRogue.EditorTools
         public const float FireAlign = 0.55f;
         public const float EdgePush = 8f;
         public const float ReactionSeconds = 0.22f;
-        public const float InputHoldSeconds = 0.08f;
+        public const float InputHoldSeconds = 0.20f;
         public const int KindBody = 0;
         public const int KindLarge = 1;
         public const int KindShot = 2;
@@ -40,6 +40,7 @@ namespace AsteroidsGoneRogue.EditorTools
             public float AimX;
             public float AimY;
             public bool Fire;
+            public bool Utility;
             public string Maneuver;
         }
 
@@ -77,6 +78,9 @@ namespace AsteroidsGoneRogue.EditorTools
             float evadeZ = 0f;
             bool shotThreat = false;
             bool bodyThreat = false;
+            float closeX = shipX;
+            float closeZ = shipZ;
+            float closeDist = 1000000f;
             for (int index = 0; index < count; index++)
             {
                 Threat threat = threats[index];
@@ -144,6 +148,12 @@ namespace AsteroidsGoneRogue.EditorTools
                 if (threat.Kind != KindShot && dist < keep)
                 {
                     bodyThreat = true;
+                    if (dist < closeDist)
+                    {
+                        closeDist = dist;
+                        closeX = threat.X;
+                        closeZ = threat.Z;
+                    }
                 }
 
                 if (dist < EvadeRadius)
@@ -159,10 +169,35 @@ namespace AsteroidsGoneRogue.EditorTools
                 }
             }
 
-            bool threatened = shotThreat || bodyThreat;
             float moveX = evadeX;
             float moveZ = evadeZ;
-            if (!threatened && haveAim && nearest < 1000000f && nearest > Standoff)
+            if (bodyThreat)
+            {
+                float awayX = shipX - closeX;
+                float awayZ = shipZ - closeZ;
+                float awayLen = (float)System.Math.Sqrt((awayX * awayX) + (awayZ * awayZ));
+                if (awayLen < 0.001f)
+                {
+                    awayLen = 0.001f;
+                }
+
+                awayX /= awayLen;
+                awayZ /= awayLen;
+                float sideX = -awayZ;
+                float sideZ = awayX;
+                float inwardX = -shipX;
+                float inwardZ = -shipZ;
+                float sideScore = (sideX * (inwardX + evadeX)) + (sideZ * (inwardZ + evadeZ));
+                if (sideScore < 0f)
+                {
+                    sideX = -sideX;
+                    sideZ = -sideZ;
+                }
+
+                moveX = (sideX * 1.2f) + (awayX * 0.2f);
+                moveZ = (sideZ * 1.2f) + (awayZ * 0.2f);
+            }
+            else if (!shotThreat && haveAim && nearest < 1000000f && nearest > Standoff)
             {
                 moveX += aimX * 0.35f;
                 moveZ += aimZ * 0.35f;
@@ -246,14 +281,15 @@ namespace AsteroidsGoneRogue.EditorTools
                 align = ((forwardX * stick.AimX) + (forwardZ * stick.AimY)) / forwardLen;
             }
 
-            stick.Fire = !threatened && nearest <= FireRange && align >= FireAlign;
+            stick.Fire = !shotThreat && nearest <= FireRange && align >= FireAlign;
+            stick.Utility = bodyThreat;
             if (shotThreat)
             {
                 stick.Maneuver = "dodge-projectile";
             }
             else if (bodyThreat)
             {
-                stick.Maneuver = "retreat";
+                stick.Maneuver = "sidestep";
             }
             else if (haveAim && nearest > Standoff)
             {
