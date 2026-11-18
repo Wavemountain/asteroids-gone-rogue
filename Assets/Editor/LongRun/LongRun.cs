@@ -205,7 +205,14 @@ namespace AsteroidsGoneRogue.EditorTools
         static int _hangarRepeats;
         static bool _awaitingBuy;
         static bool _hangarRecovery;
+        static int _startExits;
+        static string _focusPath = string.Empty;
+        static string _lastFocus = string.Empty;
         static string _lastHangarNote = string.Empty;
+        static int _creditLast;
+        static bool _creditSeen;
+        static float _lastNearestSpeed;
+        static float _lastShipSpeed;
 
         static void OnNativeLog(string condition, string stackTrace, LogType type)
         {
@@ -653,7 +660,8 @@ namespace AsteroidsGoneRogue.EditorTools
                 + " perceived=" + (_lastNearestPerceived ? "yes" : "no")
                 + " maneuver=" + maneuver
                 + " projectile=" + _lastProjectile
-                + " speed=" + _lastProjectileSpeed.ToString("0.00", CultureInfo.InvariantCulture)
+                + " speed=" + _lastNearestSpeed.ToString("0.00", CultureInfo.InvariantCulture)
+                + " shipSpeed=" + _lastShipSpeed.ToString("0.00", CultureInfo.InvariantCulture)
                 + " wave=" + WaveOf(session).ToString(CultureInfo.InvariantCulture);
             File.AppendAllText(Path.Combine(state.OutDir, "life-loss.txt"), line + "\n");
             LogEvent(
@@ -667,7 +675,8 @@ namespace AsteroidsGoneRogue.EditorTools
                 ",\"nearest\":\"" + Json(_lastNearest) + "\",\"distance\":" + _lastNearestDist.ToString("0.00", CultureInfo.InvariantCulture)
                 + ",\"perceived\":" + (_lastNearestPerceived ? "true" : "false")
                 + ",\"maneuver\":\"" + Json(maneuver) + "\",\"projectile\":\"" + Json(_lastProjectile)
-                + "\",\"speed\":" + _lastProjectileSpeed.ToString("0.00", CultureInfo.InvariantCulture));
+                + "\",\"speed\":" + _lastNearestSpeed.ToString("0.00", CultureInfo.InvariantCulture)
+                + ",\"shipSpeed\":" + _lastShipSpeed.ToString("0.00", CultureInfo.InvariantCulture));
         }
 
         static void Observe(LongRunState state, GameSession session)
@@ -750,6 +759,7 @@ namespace AsteroidsGoneRogue.EditorTools
             state.LastWave = wave;
             state.LastWorld = world;
             state.LastLives = lives;
+            NoteCredits(state, session, "session");
             if (state.TargetWave > 0 && state.ClearedWaves >= state.TargetWave && state.Diagnostic == 0)
             {
                 state.Phase = "stop";
@@ -832,6 +842,9 @@ namespace AsteroidsGoneRogue.EditorTools
                 _awaitingBuy = false;
                 _buyBefore = 0;
                 _hangarRecovery = false;
+                _startExits = 0;
+                _focusPath = string.Empty;
+                _lastFocus = string.Empty;
             }
 
             if (Time.realtimeSinceStartup - _menuPulseAt < 0.35f)
@@ -885,7 +898,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
-            if (focusName != "Primary" && _returnSteps < 8)
+            if (focusName != "Primary" && _returnSteps < 4 && !SideCycle(focusName))
             {
                 _returnSteps += 1;
                 PulseMenu(0, 1, false, false, false, false);
@@ -893,24 +906,22 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
-            if (_hangarRepeats >= 6 && !_hangarRecovery)
+            if (focusName != "Primary" || _hangarRepeats >= 2)
             {
-                _hangarRecovery = true;
-                NoteHangar(state, session, "recovery", focusName, control, panels, false);
-                int recoverY = focusName == "Primary" ? 0 : 1;
-                PulseMenu(0, recoverY, false, false, true, false);
-                return;
-            }
+                _startExits += 1;
+                PulseMenu(0, 0, false, false, true, false);
+                NoteHangar(state, session, "start-exit", focusName, control, panels, false);
+                if (_startExits >= 3)
+                {
+                    NoteHangar(state, session, "fail", focusName, control, panels, false);
+                    state.HarnessFault = 1;
+                    state.Fault = "hangar input repeated without a phase change";
+                    state.Phase = "stop";
+                    state.ExitAsked = 0;
+                    Save(state);
+                    Debug.LogError("LongRun FAIL: hangar input repeated without a phase change");
+                }
 
-            if (_hangarRepeats >= 8)
-            {
-                NoteHangar(state, session, "fail", focusName, control, panels, false);
-                state.HarnessFault = 1;
-                state.Fault = "hangar input repeated without a phase change";
-                state.Phase = "stop";
-                state.ExitAsked = 0;
-                Save(state);
-                Debug.LogError("LongRun FAIL: hangar input repeated without a phase change");
                 return;
             }
 
@@ -919,6 +930,7 @@ namespace AsteroidsGoneRogue.EditorTools
             _hangarRepeats += 1;
             state.ContinueChecks += 1;
             NoteHangar(state, session, "continue-reachable", focusName, control, panels, hit);
+            NoteCredits(state, session, focusName);
             if (session.Credits == 0 && state.ContinueChecks == 1)
             {
                 LogEvent(state, "transition", "zero-credits", WorldOf(session), session.WaveIndex, 0, session.Lives, ",\"reachable\":true,\"input\":\"confirm\"");
@@ -1043,9 +1055,21 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static void NoteHangar(LongRunState state, GameSession session, string action, string focusName, string control, string panels, bool handlerHit)
         {
+            if (_focusPath.Length == 0)
+            {
+                _focusPath = focusName;
+            }
+            else if (focusName != _lastFocus && _focusPath.Length < 180)
+            {
+                _focusPath = _focusPath + ">" + focusName;
+            }
+
+            _lastFocus = focusName;
+
             string line = "action=" + action
                 + " focus=" + focusName
                 + " control=" + control
+                + " path=" + _focusPath
                 + " panels=" + panels
                 + " phase=" + PhaseName(session.Phase)
                 + " handler=" + (handlerHit ? "hit" : "miss")
@@ -1059,6 +1083,42 @@ namespace AsteroidsGoneRogue.EditorTools
             _lastHangarNote = line;
             Debug.Log("LongRun hangar " + line);
             File.AppendAllText(Path.Combine(state.OutDir, "hangar-input.txt"), line + "\n");
+            NoteCredits(state, session, focusName);
+        }
+
+        static bool SideCycle(string focusName)
+        {
+            return focusName == "OpenCredits"
+                || focusName == "DiffEasy"
+                || focusName == "DiffNormal"
+                || focusName == "DiffHard";
+        }
+
+        static void NoteCredits(LongRunState state, GameSession session, string source)
+        {
+            if (session == null)
+            {
+                return;
+            }
+
+            int now = session.Credits;
+            if (_creditSeen && now != _creditLast)
+            {
+                LogEvent(
+                    state,
+                    "credits",
+                    source,
+                    WorldOf(session),
+                    session.WaveIndex,
+                    now,
+                    session.Lives,
+                    ",\"before\":" + _creditLast.ToString(CultureInfo.InvariantCulture)
+                    + ",\"after\":" + now.ToString(CultureInfo.InvariantCulture)
+                    + ",\"delta\":" + (now - _creditLast).ToString(CultureInfo.InvariantCulture));
+            }
+
+            _creditSeen = true;
+            _creditLast = now;
         }
 
         static void NotePurchase(LongRunState state, GameSession session, string item, int before)
@@ -1168,6 +1228,15 @@ namespace AsteroidsGoneRogue.EditorTools
             _held.Maneuver = stick.Maneuver;
             GamepadInput.SetEditorPump(true, stick.MoveX, stick.MoveY, stick.AimX, stick.AimY, stick.Fire);
             GamepadInput.SetEditorUtility(stick.Utility);
+            Rigidbody hull = ship.GetComponent<Rigidbody>();
+            if (hull != null)
+            {
+                float shipSpeed = hull.linearVelocity.magnitude;
+                if (shipSpeed > 0.05f)
+                {
+                    _lastShipSpeed = shipSpeed;
+                }
+            }
             LongRunDeathLog.NoteChosen(stick.MoveX, stick.MoveY, stick.AimX, stick.AimY, stick.Fire);
             NoteNearest(pos);
         }
@@ -1336,6 +1405,7 @@ namespace AsteroidsGoneRogue.EditorTools
             _lastNearestPerceived = false;
             _lastProjectile = "none";
             _lastProjectileSpeed = 0f;
+            _lastNearestSpeed = 0f;
             float best = 1000000f;
             float bestShot = 1000000f;
             for (int index = 0; index < _seenCount; index++)
@@ -1349,6 +1419,9 @@ namespace AsteroidsGoneRogue.EditorTools
                     _lastNearest = ThreatNames[index];
                     _lastNearestDist = dist;
                     _lastNearestPerceived = WasLatched(SeenIds[index]);
+                    float svx = Threats[index].Vx;
+                    float svz = Threats[index].Vz;
+                    _lastNearestSpeed = (float)System.Math.Sqrt((svx * svx) + (svz * svz));
                 }
 
                 if (Threats[index].Kind == LongRunPilot.KindShot && dist < bestShot)

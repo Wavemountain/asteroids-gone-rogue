@@ -19241,6 +19241,10 @@ def test_longrun_harness() -> None:
     assert "submitHandler" in runner
     assert "hangar input repeated without a phase change" in runner
     assert "hangar-input.txt" in runner
+    assert "start-exit" in runner
+    assert "path=" in runner
+    assert "shipSpeed" in runner
+    assert "\"credits\"" in runner
     assert "handler=" in runner
     assert "control=" in runner
     assert "Random.InitState" in runner
