@@ -19325,6 +19325,21 @@ def test_start_choice_editor() -> None:
     assert "internal static string ProfileRoot;" in store
     assert "MenuNavProbe.KeyDown" in start
     assert "TryConfirm" in probe and "Input.GetKeyDown" in probe
+    assert "while (" not in editor
+    assert "EnterPlaymode" not in editor
+    assert "EditorApplication.isPlaying = true" in editor
+    assert "QueuePlayerLoopUpdate" in editor
+    assert "CaseSeconds = 60" in editor and "TotalSeconds = 300" in editor
+    assert "DateTime.UtcNow" in editor and "Time.time" not in editor
+    assert "realtimeSinceStartup" in editor
+    assert "new Timer(" in editor
+    assert "StartChoice.ForcePanel = true" in editor
+    assert "start panel not shown (skipped?)" in editor
+    assert "phase " in editor and "wait " in editor
+    pose = (root / "Assets/Scripts/Hangar/HangarShipPreview.cs").read_text(encoding="utf-8")
+    mode = pose.split("private void PoseForMode")[1].split("private void RestoreBodyKinematic")[0]
+    assert mode.index("linearVelocity") < mode.index("isKinematic = true")
+    assert "if (!_body.isKinematic)" in mode
 
 
 def test_wave_entry_clearance_skips_inflight() -> None:

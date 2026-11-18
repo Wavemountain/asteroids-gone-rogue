@@ -199,9 +199,20 @@ namespace AsteroidsGoneRogue
                 StartChoice.SkipPanel = true;
             }
 
+            if (System.Environment.GetEnvironmentVariable(StartChoice.ForceEnv) == "1")
+            {
+                StartChoice.ForcePanel = true;
+            }
+
             bool capture = StartChoice.CaptureRunning || StartChoice.CaptureCommand(args);
             bool hasSave = _game != null && _game.HasContinueOffer;
-            if (StartChoice.ShouldSkip(Application.isBatchMode, capture))
+            bool batch = Application.isBatchMode;
+            bool skip = StartChoice.ShouldSkip(batch, capture);
+            Debug.Log(
+                "StartChoice present batch=" + batch
+                + " force=" + StartChoice.ForcePanel
+                + " skip=" + skip);
+            if (skip)
             {
                 _startResolved = true;
                 HideStartPanel();

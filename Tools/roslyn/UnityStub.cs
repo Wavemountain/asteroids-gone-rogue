@@ -360,6 +360,8 @@ namespace UnityEngine
         public static bool isPlaying { get { return false; } }
         public static bool isBatchMode { get { return false; } }
         public static event LogCallback logMessageReceived;
+        public static void SetStackTraceLogType(LogType logType, StackTraceLogType stackTraceType) { }
+        public static StackTraceLogType GetStackTraceLogType(LogType logType) { return StackTraceLogType.ScriptOnly; }
     }
 
     public enum LogType
@@ -369,6 +371,13 @@ namespace UnityEngine
         Warning = 2,
         Log = 3,
         Exception = 4,
+    }
+
+    public enum StackTraceLogType
+    {
+        None = 0,
+        ScriptOnly = 1,
+        Full = 2,
     }
 
     public delegate void LogCallback(string condition, string stackTrace, LogType type);
@@ -471,6 +480,7 @@ namespace UnityEngine
         public static float unscaledDeltaTime { get { return 0.016f; } }
         public static float unscaledTime { get { return 0f; } }
         public static float time { get { return 0f; } }
+        public static float realtimeSinceStartup { get { return 0f; } }
         public static float timeScale { get; set; }
         public static float fixedDeltaTime { get { return 0.02f; } }
         public static float captureDeltaTime { get; set; }

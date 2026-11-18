@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Threading;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -17,11 +18,12 @@ namespace AsteroidsGoneRogue.EditorTools
     ///
     /// "C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe" -batchmode -projectPath . -executeMethod AsteroidsGoneRogue.EditorTools.StartChoiceTest.Run -logFile -
     /// </summary>
+    [InitializeOnLoad]
     public static class StartChoiceTest
     {
         const string PlayScene = "Assets/Scenes/Play.unity";
-        const double TotalSeconds = 240.0;
-        const double CaseSeconds = 45.0;
+        const double TotalSeconds = 300.0;
+        const double CaseSeconds = 60.0;
         const double StepSeconds = 12.0;
 
         const int PhasePrepare = 0;
@@ -71,12 +73,52 @@ namespace AsteroidsGoneRogue.EditorTools
             "meta_save.json.tmp",
         };
 
+        static long _deadlineTicks;
+        static long _caseDeadlineTicks;
+        static string _watchOut = string.Empty;
+        static string _watchProfile = string.Empty;
+        static string _watchPhase = "prepare";
+        static string _watchCase = "run";
+        static int _exitPosted;
+        static int _bailed;
+        static Timer _watchdog;
+        static SynchronizationContext _main;
+        static double _lastWaitLog = -1.0;
+        static string _lastWaitWhat = string.Empty;
+        static StackTraceLogType _savedWarningTrace;
+        static bool _traceSaved;
+
         static StartChoiceTest()
         {
             EditorApplication.update -= Tick;
             EditorApplication.update += Tick;
             Application.logMessageReceived -= OnLog;
             Application.logMessageReceived += OnLog;
+            if (SessionState.GetBool(KeyRunning, false))
+            {
+                RefreshWatch();
+                ArmWatchdog();
+                Note("phase resume " + PhaseName(SessionState.GetInt(KeyPhase, PhasePrepare)) + " elapsed=" + Since(KeyStart).ToString("0.0", CultureInfo.InvariantCulture));
+            }
+        }
+
+        [InitializeOnEnterPlayMode]
+        static void ForcePanelBeforeScene(EnterPlayModeOptions options)
+        {
+            if (!SessionState.GetBool(KeyRunning, false))
+            {
+                return;
+            }
+
+            string profile = SessionState.GetString(KeyProfile, string.Empty);
+            if (profile.Length > 0)
+            {
+                RunSaveStore.ProfileRoot = profile;
+            }
+
+            StartChoice.ForcePanel = true;
+            Environment.SetEnvironmentVariable(StartChoice.ForceEnv, "1");
+            Note("force panel on batch override");
         }
 
         public static void Run()
@@ -115,7 +157,6 @@ namespace AsteroidsGoneRogue.EditorTools
             MenuNavProbe.Clear();
 
             SessionState.SetBool(KeyRunning, true);
-            SessionState.SetInt(KeyPhase, PhasePrepare);
             SessionState.SetInt(KeyCase, 0);
             SessionState.SetInt(KeyStep, 0);
             SessionState.SetInt(KeyBoot, 0);
@@ -124,14 +165,18 @@ namespace AsteroidsGoneRogue.EditorTools
             SessionState.SetString(KeyStart, Stamp());
             SessionState.SetString(KeyCaseStart, Stamp());
             SessionState.SetString(KeyStepStart, Stamp());
+            SetPhase(PhasePrepare);
             SessionState.SetInt(KeyEx, 0);
             SessionState.SetInt(KeyExCase, 0);
             SessionState.SetInt(KeyFailed, 0);
             SessionState.SetBool(KeyReboot, false);
             SessionState.SetBool(KeyEntering, false);
             SessionState.SetBool(KeyLeaving, false);
-            Debug.Log("StartChoiceTest profile " + profile);
-            Debug.Log("StartChoiceTest out " + outDir);
+            QuietWarnings();
+            RefreshWatch();
+            ArmWatchdog();
+            Note("profile " + profile);
+            Note("out " + outDir);
         }
 
         static void Tick()
@@ -143,13 +188,26 @@ namespace AsteroidsGoneRogue.EditorTools
 
             try
             {
+                if (EditorApplication.isPlaying)
+                {
+                    EditorApplication.QueuePlayerLoopUpdate();
+                }
+
+                RefreshWatch();
+                int phase = SessionState.GetInt(KeyPhase, PhasePrepare);
                 if (Since(KeyStart) > TotalSeconds)
                 {
-                    FailRun("timeout total");
+                    Timeout(PhaseName(phase), "timeout total");
                     return;
                 }
 
-                int phase = SessionState.GetInt(KeyPhase, PhasePrepare);
+                if ((phase == PhaseEnter || phase == PhasePlay) && Since(KeyCaseStart) > CaseSeconds)
+                {
+                    Timeout(PhaseName(phase), "timeout case");
+                    return;
+                }
+
+                NoteWait(PhaseName(phase));
                 if (phase == PhasePrepare)
                 {
                     Prepare();
@@ -203,7 +261,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 {
                     Record(id, false, "TrySaveRun rejected the wave 3 save");
                     SessionState.SetInt(KeyFailed, 1);
-                    SessionState.SetInt(KeyPhase, PhaseNext);
+                    SetPhase(PhaseNext);
                     return;
                 }
 
@@ -226,7 +284,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 {
                     Record(id, false, "run_save.json missing after TrySaveRun");
                     SessionState.SetInt(KeyFailed, 1);
-                    SessionState.SetInt(KeyPhase, PhaseNext);
+                    SetPhase(PhaseNext);
                     return;
                 }
             }
@@ -235,20 +293,22 @@ namespace AsteroidsGoneRogue.EditorTools
             SessionState.SetString(KeyStepStart, Stamp());
             SessionState.SetInt(KeyStep, 0);
             SessionState.SetBool(KeyEntering, false);
-            SessionState.SetInt(KeyPhase, PhaseEnter);
+            SetPhase(PhaseEnter);
         }
 
         static void Enter()
         {
+            EditorApplication.QueuePlayerLoopUpdate();
             if (SessionState.GetBool(KeyEntering, false))
             {
+                NoteWait("enter isPlaying=" + EditorApplication.isPlaying.ToString());
                 if (EditorApplication.isPlaying)
                 {
                     SessionState.SetBool(KeyEntering, false);
                     SessionState.SetInt(KeyExCase, SessionState.GetInt(KeyEx, 0));
                     SessionState.SetInt(KeyStep, 0);
                     SessionState.SetString(KeyStepStart, Stamp());
-                    SessionState.SetInt(KeyPhase, PhasePlay);
+                    SetPhase(PhasePlay);
                 }
 
                 return;
@@ -256,12 +316,15 @@ namespace AsteroidsGoneRogue.EditorTools
 
             if (EditorApplication.isPlaying || EditorApplication.isPlayingOrWillChangePlaymode)
             {
+                NoteWait("enter already changing");
                 return;
             }
 
             SessionState.SetBool(KeyEntering, true);
             EditorSceneManager.OpenScene(PlayScene);
-            EditorApplication.EnterPlaymode();
+            Note("phase enter request isPlaying=true");
+            EditorApplication.isPlaying = true;
+            EditorApplication.QueuePlayerLoopUpdate();
         }
 
         static void Play()
@@ -314,11 +377,11 @@ namespace AsteroidsGoneRogue.EditorTools
             {
                 SessionState.SetBool(KeyReboot, true);
                 SessionState.SetInt(KeyBoot, SessionState.GetInt(KeyBoot, 0) + 1);
-                SessionState.SetInt(KeyPhase, PhaseLeave);
+                SetPhase(PhaseLeave);
                 return;
             }
 
-            SessionState.SetInt(KeyPhase, PhaseLeave);
+            SetPhase(PhaseLeave);
         }
 
         static void Leave()
@@ -336,7 +399,7 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             SessionState.SetBool(KeyLeaving, false);
-            SessionState.SetInt(KeyPhase, PhaseNext);
+            SetPhase(PhaseNext);
         }
 
         static void Next()
@@ -345,21 +408,21 @@ namespace AsteroidsGoneRogue.EditorTools
             {
                 SessionState.SetBool(KeyReboot, false);
                 SessionState.SetInt(KeyStep, 0);
-                SessionState.SetInt(KeyPhase, PhasePrepare);
+                SetPhase(PhasePrepare);
                 return;
             }
 
             int index = SessionState.GetInt(KeyCase, 0) + 1;
             if (index >= CaseIds.Length)
             {
-                SessionState.SetInt(KeyPhase, PhaseRestore);
+                SetPhase(PhaseRestore);
                 return;
             }
 
             SessionState.SetInt(KeyCase, index);
             SessionState.SetInt(KeyBoot, 0);
             SessionState.SetInt(KeyStep, 0);
-            SessionState.SetInt(KeyPhase, PhasePrepare);
+            SetPhase(PhasePrepare);
         }
 
         static int CaseContinue()
@@ -906,6 +969,7 @@ namespace AsteroidsGoneRogue.EditorTools
 
             string outDir = SessionState.GetString(KeyOut, string.Empty);
             string persistent = Path.GetFullPath(Application.persistentDataPath);
+            RestoreWarnings();
             ClearEnv();
             RunSaveStore.ProfileRoot = null;
             StartChoice.ForcePanel = false;
@@ -983,12 +1047,12 @@ namespace AsteroidsGoneRogue.EditorTools
             if (EditorApplication.isPlaying || EditorApplication.isPlayingOrWillChangePlaymode)
             {
                 EditorApplication.isPlaying = false;
-                SessionState.SetInt(KeyPhase, PhaseLeave);
+                SetPhase(PhaseLeave);
                 SessionState.SetInt(KeyCase, CaseIds.Length);
                 return;
             }
 
-            SessionState.SetInt(KeyPhase, PhaseRestore);
+            SetPhase(PhaseRestore);
         }
 
         static bool WriteKnownSave()
@@ -1152,18 +1216,19 @@ namespace AsteroidsGoneRogue.EditorTools
             GameUi ui = FindUi();
             if (ui != null && PanelOpen(ui))
             {
+                Note("panel visible case=" + _watchCase);
                 return 1;
             }
 
             if (ui != null && PanelResolved(ui) && !PanelOpen(ui))
             {
-                fail = "start panel was skipped";
+                fail = "start panel not shown (skipped?)";
                 return -1;
             }
 
             if (StepTimedOut())
             {
-                fail = "timed out waiting for the start panel";
+                fail = "start panel not shown (skipped?)";
                 return -1;
             }
 
@@ -1337,13 +1402,8 @@ namespace AsteroidsGoneRogue.EditorTools
         {
             string line = "case " + id + " " + (pass ? "PASS" : "FAIL") + " " + reason;
             Debug.Log("StartChoiceTest " + line);
-            string outDir = SessionState.GetString(KeyOut, string.Empty);
-            if (outDir.Length == 0)
-            {
-                return;
-            }
-
-            File.AppendAllText(Path.Combine(outDir, "cases.txt"), line + "\n");
+            Console.Out.Flush();
+            AppendRaw(CurrentOut(), line);
         }
 
         static void OnLog(string condition, string stack, LogType type)
@@ -1616,19 +1676,278 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static string Stamp()
         {
-            return EditorApplication.timeSinceStartup.ToString("R", CultureInfo.InvariantCulture);
+            return DateTime.UtcNow.Ticks.ToString(CultureInfo.InvariantCulture);
         }
 
         static double Since(string key)
         {
             string startText = SessionState.GetString(key, string.Empty);
-            double start;
-            if (!double.TryParse(startText, NumberStyles.Float, CultureInfo.InvariantCulture, out start))
+            long start;
+            if (!long.TryParse(startText, NumberStyles.Integer, CultureInfo.InvariantCulture, out start) || start <= 0)
             {
                 return 0.0;
             }
 
-            return EditorApplication.timeSinceStartup - start;
+            return (DateTime.UtcNow.Ticks - start) / (double)TimeSpan.TicksPerSecond;
+        }
+
+        static void SetPhase(int phase)
+        {
+            int prior = SessionState.GetInt(KeyPhase, -1);
+            SessionState.SetInt(KeyPhase, phase);
+            if (prior != phase)
+            {
+                Note(
+                    "phase " + PhaseName(prior) + " -> " + PhaseName(phase)
+                    + " elapsed=" + Since(KeyStart).ToString("0.0", CultureInfo.InvariantCulture));
+            }
+
+            RefreshWatch();
+        }
+
+        static string PhaseName(int phase)
+        {
+            if (phase == PhasePrepare)
+            {
+                return "prepare";
+            }
+
+            if (phase == PhaseEnter)
+            {
+                return "enter";
+            }
+
+            if (phase == PhasePlay)
+            {
+                return "play";
+            }
+
+            if (phase == PhaseLeave)
+            {
+                return "leave";
+            }
+
+            if (phase == PhaseNext)
+            {
+                return "next";
+            }
+
+            if (phase == PhaseRestore)
+            {
+                return "restore";
+            }
+
+            return "unknown";
+        }
+
+        static void Note(string message)
+        {
+            string line = "StartChoiceTest " + message;
+            Debug.Log(line);
+            Console.Out.Flush();
+            AppendRaw(CurrentOut(), line);
+        }
+
+        static void NoteWait(string what)
+        {
+            double elapsed = Since(KeyStart);
+            if (what == _lastWaitWhat && elapsed - _lastWaitLog < 1.0)
+            {
+                return;
+            }
+
+            _lastWaitLog = elapsed;
+            _lastWaitWhat = what;
+            Note(
+                "wait " + what
+                + " phase=" + PhaseName(SessionState.GetInt(KeyPhase, PhasePrepare))
+                + " case=" + _watchCase
+                + " elapsed=" + elapsed.ToString("0.0", CultureInfo.InvariantCulture)
+                + " realtime=" + Time.realtimeSinceStartup.ToString("0.0", CultureInfo.InvariantCulture));
+        }
+
+        static string CurrentOut()
+        {
+            if (!string.IsNullOrEmpty(_watchOut))
+            {
+                return _watchOut;
+            }
+
+            return SessionState.GetString(KeyOut, string.Empty);
+        }
+
+        static void AppendRaw(string outDir, string line)
+        {
+            if (string.IsNullOrEmpty(outDir) || string.IsNullOrEmpty(line))
+            {
+                return;
+            }
+
+            string path = Path.Combine(outDir, "cases.txt");
+            using (FileStream stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite))
+            using (StreamWriter writer = new StreamWriter(stream))
+            {
+                writer.WriteLine(line);
+                writer.Flush();
+                stream.Flush(true);
+            }
+        }
+
+        static void RefreshWatch()
+        {
+            _watchOut = SessionState.GetString(KeyOut, string.Empty);
+            _watchProfile = SessionState.GetString(KeyProfile, string.Empty);
+            _watchPhase = PhaseName(SessionState.GetInt(KeyPhase, PhasePrepare));
+            int index = SessionState.GetInt(KeyCase, 0);
+            _watchCase = index >= 0 && index < CaseIds.Length ? CaseIds[index] : "run";
+            long start;
+            long.TryParse(SessionState.GetString(KeyStart, string.Empty), NumberStyles.Integer, CultureInfo.InvariantCulture, out start);
+            _deadlineTicks = start > 0 ? start + (long)(TotalSeconds * TimeSpan.TicksPerSecond) : 0;
+            long caseStart;
+            long.TryParse(SessionState.GetString(KeyCaseStart, string.Empty), NumberStyles.Integer, CultureInfo.InvariantCulture, out caseStart);
+            _caseDeadlineTicks = caseStart > 0 ? caseStart + (long)(CaseSeconds * TimeSpan.TicksPerSecond) : _deadlineTicks;
+        }
+
+        static void ArmWatchdog()
+        {
+            _main = SynchronizationContext.Current;
+            if (_watchdog != null)
+            {
+                return;
+            }
+
+            _watchdog = new Timer(OnWatchdog, null, 2000, 2000);
+        }
+
+        static void OnWatchdog(object state)
+        {
+            long now = DateTime.UtcNow.Ticks;
+            bool total = _deadlineTicks > 0 && now >= _deadlineTicks;
+            bool lateCase = _caseDeadlineTicks > 0 && now >= _caseDeadlineTicks;
+            if (!total && !lateCase)
+            {
+                return;
+            }
+
+            string why = total ? "timeout total" : "timeout case";
+            double elapsed = _deadlineTicks > 0
+                ? (now - (_deadlineTicks - (long)(TotalSeconds * TimeSpan.TicksPerSecond))) / (double)TimeSpan.TicksPerSecond
+                : 0.0;
+            string line = "case " + _watchCase + " FAIL " + why + " phase=" + _watchPhase
+                + " elapsed=" + elapsed.ToString("0.0", CultureInfo.InvariantCulture);
+            try
+            {
+                AppendRaw(_watchOut, line);
+                AppendRaw(_watchOut, "RESULT FAIL");
+            }
+            catch (Exception)
+            {
+            }
+
+            if (Interlocked.Exchange(ref _exitPosted, 1) == 1)
+            {
+                Environment.Exit(1);
+                return;
+            }
+
+            SynchronizationContext main = _main;
+            if (main != null)
+            {
+                main.Post(delegate { MainThreadBail(why); }, null);
+                return;
+            }
+
+            try
+            {
+                EditorApplication.delayCall += delegate { MainThreadBail(why); };
+            }
+            catch (Exception)
+            {
+                Environment.Exit(1);
+            }
+        }
+
+        static void Timeout(string phase, string why)
+        {
+            Note("case " + _watchCase + " FAIL " + why + " phase=" + phase + " elapsed=" + Since(KeyStart).ToString("0.0", CultureInfo.InvariantCulture));
+            MainThreadBail(why);
+        }
+
+        static void MainThreadBail(string why)
+        {
+            if (Interlocked.Exchange(ref _bailed, 1) == 1)
+            {
+                return;
+            }
+
+            try
+            {
+                RestoreWarnings();
+                string outDir = CurrentOut();
+                if (outDir.Length > 0 && File.Exists(Path.Combine(outDir, "prefs-before.txt")))
+                {
+                    WritePrefsText(File.ReadAllText(Path.Combine(outDir, "prefs-before.txt")));
+                }
+
+                ClearEnv();
+                RunSaveStore.ProfileRoot = null;
+                StartChoice.ForcePanel = false;
+                MenuNavProbe.Clear();
+                DeleteProfile(_watchProfile);
+                if (EditorApplication.isPlaying)
+                {
+                    EditorApplication.isPlaying = false;
+                }
+
+                Note("RESULT FAIL " + why);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("StartChoiceTest bail " + ex.Message);
+            }
+
+            SessionState.SetBool(KeyRunning, false);
+            if (_watchdog != null)
+            {
+                _watchdog.Dispose();
+                _watchdog = null;
+            }
+
+            EditorApplication.Exit(1);
+        }
+
+        static void DeleteProfile(string profile)
+        {
+            if (string.IsNullOrEmpty(profile) || !Directory.Exists(profile))
+            {
+                return;
+            }
+
+            string persistent = Path.GetFullPath(Application.persistentDataPath);
+            if (!ProfileOutsidePersistent(profile, persistent))
+            {
+                return;
+            }
+
+            Directory.Delete(profile, true);
+        }
+
+        static void QuietWarnings()
+        {
+            _savedWarningTrace = Application.GetStackTraceLogType(LogType.Warning);
+            _traceSaved = true;
+            Application.SetStackTraceLogType(LogType.Warning, StackTraceLogType.None);
+        }
+
+        static void RestoreWarnings()
+        {
+            if (!_traceSaved)
+            {
+                return;
+            }
+
+            Application.SetStackTraceLogType(LogType.Warning, _savedWarningTrace);
+            _traceSaved = false;
         }
 
         static void Quit(int code)

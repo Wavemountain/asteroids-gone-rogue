@@ -36,6 +36,12 @@ namespace AsteroidsGoneRogue
         [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void ApplyTestProfile()
         {
+            string force = System.Environment.GetEnvironmentVariable(StartChoice.ForceEnv);
+            if (force == "1")
+            {
+                StartChoice.ForcePanel = true;
+            }
+
             string root = System.Environment.GetEnvironmentVariable(ProfileEnv);
             if (string.IsNullOrEmpty(root))
             {
@@ -43,8 +49,6 @@ namespace AsteroidsGoneRogue
             }
 
             ProfileRoot = root;
-            string force = System.Environment.GetEnvironmentVariable(StartChoice.ForceEnv);
-            StartChoice.ForcePanel = force == "1";
         }
 
         public static bool TryLoadRun(out RunSaveData data)

@@ -2031,6 +2031,24 @@ def check_start_choice() -> None:
         err("StartChoiceTest must abort when the profile is inside persistentDataPath")
     if "if (string.IsNullOrEmpty(ProfileRoot))" not in store or "return Application.persistentDataPath;" not in store:
         err("RunSaveStore profile override must default to persistentDataPath")
+    if "while (" in editor:
+        err("StartChoiceTest must not busy-wait on the editor loop")
+    if "EnterPlaymode" in editor:
+        err("StartChoiceTest must enter play with isPlaying and QueuePlayerLoopUpdate")
+    if "EditorApplication.isPlaying = true" not in editor or "QueuePlayerLoopUpdate" not in editor:
+        err("StartChoiceTest must pump play mode from EditorApplication.update")
+    if "CaseSeconds = 60" not in editor or "TotalSeconds = 300" not in editor or "DateTime.UtcNow" not in editor:
+        err("StartChoiceTest needs a 60s case timeout and a 5 min wall-clock total")
+    if "Time.time" in editor:
+        err("StartChoiceTest must not time out on Time.time")
+    if "StartChoice.ForcePanel = true" not in editor or "start panel not shown (skipped?)" not in editor:
+        err("StartChoiceTest must force the panel on and fail if it was skipped")
+    if "phase " not in editor or "wait " not in editor or "new Timer(" not in editor:
+        err("StartChoiceTest must log phases and arm a watchdog timer")
+    preview = read(ROOT / "Assets/Scripts/Hangar/HangarShipPreview.cs")
+    mode = preview.split("private void PoseForMode")[1].split("private void RestoreBodyKinematic")[0]
+    if "linearVelocity" not in mode or mode.find("linearVelocity") > mode.find("isKinematic = true"):
+        err("HangarShipPreview must not set velocity on a kinematic body")
     for folder, pattern in ((ROOT / "Assets", "*.unity"), (ROOT / "Assets", "*.prefab")):
         for path in folder.rglob(pattern):
             blob = read(path)
