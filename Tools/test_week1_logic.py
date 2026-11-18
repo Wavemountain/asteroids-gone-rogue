@@ -19389,6 +19389,8 @@ def test_longrun_harness() -> None:
     assert "addcomponent-exception:" in summary
     assert "budget-exhausted" in summary
     assert "play not ready" in summary
+    assert "LongRun FAIL: play mode did not start" in summary
+    assert "LongRun FAIL: GameSession missing" in summary
     probe = summary.split("static string EnsureProbe()")[1].split("static void ArmProbe()")[0]
     assert "return false" not in probe
     assert 'return "wait"' in probe

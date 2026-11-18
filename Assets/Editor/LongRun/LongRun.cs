@@ -255,6 +255,7 @@ namespace AsteroidsGoneRogue.EditorTools
                     state.Fault = "play mode did not start";
                     state.Phase = "stop";
                     Save(state);
+                    Debug.LogError("LongRun FAIL: play mode did not start");
                 }
 
                 return;
@@ -299,6 +300,7 @@ namespace AsteroidsGoneRogue.EditorTools
                     state.Fault = "GameSession missing";
                     state.Phase = "stop";
                     Save(state);
+                    Debug.LogError("LongRun FAIL: GameSession missing");
                 }
 
                 return;

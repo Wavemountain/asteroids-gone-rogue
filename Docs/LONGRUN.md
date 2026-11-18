@@ -1,72 +1,91 @@
 # Long run (Speltest)
 
-Editor-only play of a real run. It does not ship in a player build. It does not skip waves, grant credits, or change balance. Autopilot does not test human fun.
+DO NOT MERGE. This is a test-only Editor harness. It is not a player build, and none of it has been verified by running Unity in this change. Autopilot does not test human fun.
 
 ## Command
 
-From the project folder, Unity 6000.6, with a GPU (do not pass `-nographics`):
+From the project folder, Unity 6000.6, with a GPU (do not pass `-nographics`).
 
 ```
-"C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe" -batchmode -projectPath . -executeMethod AsteroidsGoneRogue.EditorTools.LongRun.Run -logFile - -longRunMinutes 30 -seed 48048
+"C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe" -batchmode -projectPath . -executeMethod AsteroidsGoneRogue.EditorTools.LongRun.Run -logFile - -longRunMinutes 3 -seed 48048
 ```
 
-Flags:
+`-longRunMinutes` defaults to 30 and accepts 1–720. `-seed` calls `Random.InitState` before each wave start and does not make the run a daily. `-resumeAfterWorld` defaults to 1. `-resumeAfterMinutes` defaults to 0. `-longRunOut` is an optional parent; each run still writes `Captures\LongRun\<yyyyMMdd-HHmmss>\`.
 
-- `-longRunMinutes N` — wall-clock budget. Default 30. Range 1–720.
-- `-seed N` — optional. `Random.InitState` immediately before each normal wave start. It does not turn the run into a daily. Omit it to leave the engine stream alone.
-- `-resumeAfterWorld N` — save, quit, and resume after this world is cleared. Default 1. `0` turns the world trigger off.
-- `-resumeAfterMinutes N` — optional extra trigger, once the run has left wave 1 and is in the hangar or on a wave-clear. Default 0 (off).
-- `-longRunOut <dir>` — parent folder. Default `Captures\LongRun`. Each run writes `Captures\LongRun\<yyyyMMdd-HHmmss>\`.
+## OK line
 
-## Where the logs go
+A successful attach logs exactly one line of this form:
 
-`<run>\events.jsonl` — one JSON object per line: transitions (hangar, wave, world, shop, boon, death / continue, game over, save, resume), purchases (`item`, `cost`, `creditsBefore`, `creditsAfter`), credits and lives on every line, exceptions and error logs, and the screenshot path.
+```
+LongRun death recorder recording ok attempt=0 isPlaying=True frameCount=<n> sceneLoaded=True
+```
 
-`<run>\summary.md` — verdict, elapsed seconds, world, wave, purchases, deaths, resume, save check, frametime (avg, p95, p99, max, hitches over 50 ms).
+`attempt=0` means no failed attach was spent. Waiting for play mode, a loaded scene, and `frameCount > 0` does not spend an attempt. That wait is bounded by `BootLimitSeconds` (45).
 
-`<run>\shots\` — PNG at each transition and each error (cap 200).
+## Abort and fault strings
 
-`<run>\profile\` — the only place run saves are written.
+Each of these is logged as `LongRun FAIL: ...` and copied to `summary.md` `Fault` when the run ends.
 
-`<run>\backup\` — copies of Wagge's save files taken before play, plus `manifest.txt` and `prefs.txt`.
+| String | Meaning |
+| --- | --- |
+| `play not ready` | Still waiting for play mode, a loaded scene, or `frameCount > 0` when the 45 s boot limit expires. No attach was attempted. |
+| `play mode did not start` | Editor play mode never became active within 45 s. |
+| `GameSession missing` | Play mode is up, but `GameManager` or `GameSession` is still missing after 45 s. |
+| `found=null attempt=<n> isPlaying=<bool> frameCount=<n> sceneLoaded=<bool>` | No host object could be created for the recorder. |
+| `found-not-recording attempt=...` | A recorder exists, re-enable did not set `Recording`, or the new component is not recording. |
+| `addcomponent-null attempt=...` | `AddComponent<LongRunDeathLog>()` returned null. |
+| `addcomponent-exception:<message> attempt=...` | `AddComponent` threw. |
+| `budget-exhausted attempt=<n> ...` | Two failed attach attempts were already recorded. `ProbeTries` is reset only at `Run` start. |
+| `continue offer missing` | Save/quit/resume reloaded without a continue offer. |
+| `diagnostics failed` | A life was lost and no `death-*.txt` was written, or a native error came from this harness. |
+| `state file missing` | The harness state file disappeared. Exit 1. |
+| `-backup <path> is required` | `RestorePrefs` was started without `-backup`. |
+| `unrestored PlayerPrefs marker` | `Captures\LongRun\prefs-unrestored.txt` still exists, so `Run` refuses to start. |
+| `PlayerPrefs restore mismatch` | `RestorePrefs` re-read did not match the backup. |
+| `a long run is already active` | A second `Run` started while one is in progress. |
 
-The Unity log line is `LongRun verdict=PASS|FAIL|INCOMPLETE`.
+A resume field mismatch is also stored in `Fault` and logged as a resume `FAIL`. A save or prefs hash mismatch sets `Fault` from the hash detail. A tick exception stores the exception text.
 
-## PASS, FAIL, INCOMPLETE
+## Output files
 
-Exit code `0` PASS, `1` FAIL, `2` INCOMPLETE.
+`<run>\summary.md` — verdict, times, world, wave, purchases, deaths, resume, save and prefs result, frametime, native error counts, and `Fault`.
 
-- **PASS** — the budget elapsed, the run reached at least wave 2, it did not run out of lives early, the save/quit/resume fields matched, and the live save hashes still match the backup.
-- **FAIL** — the backup hash check failed, a live save or PlayerPrefs restore did not match, the resume comparison mismatched, or the harness threw.
-- **INCOMPLETE** — the run stopped before the time limit, never reached wave 2, ran out of lives first, or never reached the save/quit/resume point. An early death is never PASS.
+`<run>\events.jsonl` — transitions, purchases, credits, lives, and errors.
 
-Resume compares world, wave, credits, lives, score, upgrade mask, Mk II mask, doctrine, boon levels, run id, daily seed, and difficulty. A mismatch line is in `events.jsonl` (`kind` `resume`, `result` `FAIL`) and in the summary.
+`<run>\shots\` — PNG at each transition and error, cap 200. World cameras only.
 
-## Saves must stay untouched
+`<run>\profile\` — the only directory `RunSaveStore` writes during the run.
 
-Before play the harness hashes `run_save.json`, `meta_save.json`, and their `.bak` / `.tmp` siblings under `Application.persistentDataPath`, copies them into `<run>\backup\`, and checks the copy hash. It sets `AGR_LONGRUN_PROFILE` to `<run>\profile`. `RunSaveStore` reads that variable only inside `#if UNITY_EDITOR`, so a player build still uses the normal folder, and a normal editor session does not set the variable.
+`<run>\backup\manifest.txt` — SHA-256 of the live save files from before play (`ABSENT` if missing).
 
-After play it clears the variable and hashes the live files again. `summary.md` says `Save files: untouched` only when every hash matches.
+`<run>\backup\prefs.json` — full watched key set, including keys that were absent, plus `count` and `checksum`. One JSON array. A missing `]` or `}`, or trailing garbage, is rejected before any prefs write.
 
-PlayerPrefs are not redirected. There is no single prefs wrapper in the game. Before play the harness reads each watched key. A key is recorded only when exactly one of int, float, or string is unambiguous. Absent keys are stored as missing. The fsync'd `<run>\backup\prefs.json` is one JSON array carrying that full set plus `count` and `checksum`. A missing `]` or `}`, or any trailing garbage, is rejected before prefs are changed or the marker is removed. If any watched key is ambiguous, the run stops before the backup or the marker is written. Restore checks the file first. An empty, truncated, partial, duplicate, missing, invalid, or ambiguous backup writes `RESULT MISMATCH`, does not change prefs, and does not remove `Captures\LongRun\prefs-unrestored.txt`. A complete backup restores each saved type and deletes keys that were missing. `<run>\backup\prefs-verify.txt` then has `MATCH` or `MISMATCH` for every original key. The marker is removed only when every one of those lines is `MATCH`. `LongRun.Run` refuses to start while that marker exists.
+`<run>\backup\prefs-verify.txt` — `MATCH` or `MISMATCH` per key, then `RESULT MATCH` or `RESULT MISMATCH`.
 
-## Crash recovery
+`<run>\death-NN.txt` — last 100 physics steps and at most 8 threats, written on each life loss.
 
-Do not start another long run until prefs are restored. From the project folder:
+`<run>\damage.log` — each damage attempt with `t`, `frame`, `step`, and `wave`.
+
+`<run>\waves.txt` — build summary and a `Random.state` digest that does not draw.
+
+`Captures\LongRun\prefs-unrestored.txt` — crash marker. It holds the absolute path of `prefs.json`. It is removed only when every key is `MATCH`.
+
+## RestorePrefs
+
+Do not start another long run while the marker exists. From the project folder, pass the path inside the marker:
 
 ```
 "C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe" -batchmode -projectPath . -executeMethod AsteroidsGoneRogue.EditorTools.LongRun.RestorePrefs -logFile - -backup Captures\LongRun\<yyyyMMdd-HHmmss>\backup\prefs.json
 ```
 
-Use the path stored in `Captures\LongRun\prefs-unrestored.txt`. Exit code 0 and `prefs-verify.txt` ending in `RESULT MATCH` means the keys match the backup. Exit code 1 leaves the marker in place.
+Exit 0 and `RESULT MATCH` means the keys match the backup and the marker was removed. Exit 1 leaves the marker in place and does not treat the restore as done. Do not copy `<run>\profile` back over Wagge's saves. Compare the live `run_save.json` and `meta_save.json` files with `backup\manifest.txt`.
 
-File saves: if Unity is killed before the summary, do not copy `<run>\profile` back. Compare the live files with `backup\manifest.txt` (tab-separated name and SHA-256, or `ABSENT`). A matching manifest means Wagge's save files were not written.
+## Verdict
 
-## Limits
+Exit `0` PASS, `1` FAIL, `2` INCOMPLETE. The log line is `LongRun verdict=PASS|FAIL|INCOMPLETE`.
 
-- Aim, fire, and evade are the harness policy. There is no older autopilot type on `a0abecd`. Sticks are written through `GamepadInput` (`Horizontal`, `Vertical`, `AimX`, `AimY`, Fire) because batch mode has no focused window. `InputManager.asset` is unchanged.
-- PlayerPrefs stay on the real store during the run. The fsync'd `prefs.json` plus `LongRun.RestorePrefs` put them back. File saves are redirected and not written in the normal folder.
-- Shots are the world cameras. Screen-space UI is not composited.
-- `-seed` does not enable daily rules. Resume compares the saved fields, not the RNG cursor.
-- Screenshot cap is 200. Minutes cap is 720.
-- Frame time is `realtimeSinceStartup` while the phase is Playing. The summary lists Playing seconds and the sum of those samples in seconds, and avg/p95/p99/max in ms. Any frames/s line is the batchmode player loop, not display FPS.
+PASS requires the time budget, wave at least 2, no early game over, a completed resume with matching fields, untouched live save hashes, and a prefs `MATCH`. An early death is INCOMPLETE, never PASS. A diagnostics failure is FAIL.
+
+Frame samples use `realtimeSinceStartup` while the phase is Playing. `Playing seconds` and `Frame sum seconds` are both seconds. Avg, p95, p99, and max are milliseconds. A frames/s line is the batchmode player loop, not display FPS.
+
+None of this has been executed in Unity for this document update.
