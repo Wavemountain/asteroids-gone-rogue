@@ -2019,6 +2019,18 @@ def check_start_choice() -> None:
         err("the start panel must stay inside the HUD overlap gate")
     if "StartContinue x StartNew" not in gate or "StartChoiceScrim" not in gate:
         err("the layer gate must cover start-panel control overlap and the scrim")
+    editor = read(ROOT / "Assets/Editor/StartChoiceTest.cs")
+    store = read(ROOT / "Assets/Scripts/Core/RunSaveStore.cs")
+    if "class StartChoiceTest" not in editor or "public static void Run()" not in editor:
+        err("StartChoiceTest.Run must exist")
+    if "using UnityEditor" not in editor or not (ROOT / "Assets/Editor/StartChoiceTest.cs").is_file():
+        err("StartChoiceTest must be Editor-only")
+    if "StartChoiceTest" in ui or "StartChoiceTest" in start:
+        err("runtime UI must not reference StartChoiceTest")
+    if "ProfileOutsidePersistent" not in editor or "FAIL isolation profile is inside persistentDataPath" not in editor:
+        err("StartChoiceTest must abort when the profile is inside persistentDataPath")
+    if "if (string.IsNullOrEmpty(ProfileRoot))" not in store or "return Application.persistentDataPath;" not in store:
+        err("RunSaveStore profile override must default to persistentDataPath")
     for folder, pattern in ((ROOT / "Assets", "*.unity"), (ROOT / "Assets", "*.prefab")):
         for path in folder.rglob(pattern):
             blob = read(path)

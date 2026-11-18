@@ -359,6 +359,38 @@ namespace UnityEngine
         public static int targetFrameRate { get; set; }
         public static bool isPlaying { get { return false; } }
         public static bool isBatchMode { get { return false; } }
+        public static event LogCallback logMessageReceived;
+    }
+
+    public enum LogType
+    {
+        Error = 0,
+        Assert = 1,
+        Warning = 2,
+        Log = 3,
+        Exception = 4,
+    }
+
+    public delegate void LogCallback(string condition, string stackTrace, LogType type);
+
+    public enum RuntimeInitializeLoadType
+    {
+        AfterSceneLoad = 0,
+        BeforeSceneLoad = 1,
+        AfterAssembliesLoaded = 2,
+        BeforeSplashScreen = 3,
+        SubsystemRegistration = 4,
+    }
+
+    public sealed class RuntimeInitializeOnLoadMethodAttribute : Attribute
+    {
+        public RuntimeInitializeOnLoadMethodAttribute()
+        {
+        }
+
+        public RuntimeInitializeOnLoadMethodAttribute(RuntimeInitializeLoadType loadType)
+        {
+        }
     }
 
     public struct Resolution

@@ -74,6 +74,14 @@ namespace AsteroidsGoneRogue
         public const string SkipArg = "-skipStartPanel";
 
         /// <summary>
+        /// Editor test only. When the environment variable is "1", the batch
+        /// start-choice test shows the panel instead of auto-skipping.
+        /// </summary>
+        internal const string ForceEnv = "AGR_STARTCHOICE_FORCE";
+
+        internal static bool ForcePanel;
+
+        /// <summary>
         /// Explicit skip. LongRun will set this (or pass <see cref="SkipArg"/>).
         /// When the panel is skipped: no save enters the normal new run; a save
         /// keeps today's boot and is never deleted from this path.
@@ -101,6 +109,11 @@ namespace AsteroidsGoneRogue
 
         public static bool ShouldSkip(bool batchMode, bool captureRunning)
         {
+            if (ForcePanel)
+            {
+                return false;
+            }
+
             return batchMode || captureRunning || SkipPanel;
         }
 

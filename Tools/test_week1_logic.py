@@ -10146,6 +10146,7 @@ def main() -> int:
     test_hud_gate_measures_shown_panel()
     test_wave_entry_clearance_skips_inflight()
     test_start_choice()
+    test_start_choice_editor()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -19297,6 +19298,33 @@ def test_start_choice() -> None:
         blob = path.read_text(encoding="utf-8", errors="replace")
         assert "StartChoice" not in blob, path
         assert "StartChoiceCanvas" not in blob, path
+
+
+def test_start_choice_editor() -> None:
+    """The batch start-choice test is Editor-only and cannot touch the real profile."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    editor = (root / "Assets/Editor/StartChoiceTest.cs").read_text(encoding="utf-8")
+    store = (root / "Assets/Scripts/Core/RunSaveStore.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    start = (root / "Assets/Scripts/UI/GameUi.Start.cs").read_text(encoding="utf-8")
+    probe = (root / "Assets/Scripts/Core/MenuNavProbe.cs").read_text(encoding="utf-8")
+    assert "class StartChoiceTest" in editor and "public static void Run()" in editor
+    assert "using UnityEditor" in editor
+    assert "AsteroidsGoneRogue.EditorTools.StartChoiceTest.Run" in editor
+    assert not (root / "Assets/Scripts/Editor/StartChoiceTest.cs").exists()
+    assert "StartChoiceTest" not in ui and "StartChoiceTest" not in start
+    assert "ProfileOutsidePersistent" in editor
+    assert "FAIL isolation profile is inside persistentDataPath" in editor
+    assert "prefs MATCH" in editor and "persistent UNCHANGED" in editor
+    assert "MenuNavProbe.Pulse" in editor
+    assert "AcceptContinue()" not in editor and "AbandonSavedRun()" not in editor
+    assert "if (string.IsNullOrEmpty(ProfileRoot))" in store
+    assert "return Application.persistentDataPath;" in store
+    assert "internal static string ProfileRoot;" in store
+    assert "MenuNavProbe.KeyDown" in start
+    assert "TryConfirm" in probe and "Input.GetKeyDown" in probe
 
 
 def test_wave_entry_clearance_skips_inflight() -> None:

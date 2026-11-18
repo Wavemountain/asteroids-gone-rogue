@@ -445,22 +445,22 @@ namespace AsteroidsGoneRogue
             request.ConfirmFocus = _startConfirmFocus;
             request.ContinueEnabled = _startView.ContinueEnabled;
             request.HasSave = _startView.ConfirmOverwrite;
-            request.Escape = Input.GetKeyDown(KeyCode.Escape);
+            request.Escape = MenuNavProbe.KeyDown(KeyCode.Escape);
             request.Start = GamepadInput.PausePressed() && !request.Escape;
             request.Cancel = GamepadInput.CancelPressed() && !request.Escape;
             request.Submit = GamepadInput.ConfirmPressed()
-                || Input.GetKeyDown(KeyCode.Return)
-                || Input.GetKeyDown(KeyCode.KeypadEnter)
-                || Input.GetKeyDown(KeyCode.Space);
+                || MenuNavProbe.KeyDown(KeyCode.Return)
+                || MenuNavProbe.KeyDown(KeyCode.KeypadEnter)
+                || MenuNavProbe.KeyDown(KeyCode.Space);
             Vector2 stick = GamepadInput.UiNavCombined(PadNavSource.Both);
             int delta = HangarPadNav.DominantStep(stick.x, stick.y, HangarPadNav.Flick);
             if (delta == 0)
             {
-                if (Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.A))
+                if (MenuNavProbe.KeyDown(KeyCode.LeftArrow) || MenuNavProbe.KeyDown(KeyCode.A))
                 {
                     delta = -1;
                 }
-                else if (Input.GetKeyDown(KeyCode.RightArrow) || Input.GetKeyDown(KeyCode.D))
+                else if (MenuNavProbe.KeyDown(KeyCode.RightArrow) || MenuNavProbe.KeyDown(KeyCode.D))
                 {
                     delta = 1;
                 }
