@@ -1973,6 +1973,59 @@ def check_shader_warmup_guard(scripts: list[Path]) -> None:
             err("ContentFactory.BuildArena must guard ShaderWarmup.WarmShots")
 
 
+def check_start_choice() -> None:
+    """Boot Continue / Start new stays out of scenes and off the hangar primary."""
+    choice = read(ROOT / "Assets/Scripts/Core/StartChoice.cs")
+    start = read(ROOT / "Assets/Scripts/UI/GameUi.Start.cs")
+    ui = read(ROOT / "Assets/Scripts/UI/GameUi.cs")
+    boot = read(ROOT / "Assets/Scripts/Content/GameBootstrap.cs")
+    capture = read(ROOT / "Assets/Editor/AgrCapture.cs")
+    gate = read(ROOT / "Assets/Scripts/Core/LayerGate.cs")
+    if "class StartChoice" not in choice or "view.ContinueEnabled = hasSave;" not in choice:
+        err("StartChoice must disable Continue when there is no save")
+    if "view.ConfirmOverwrite = hasSave;" not in choice:
+        err("StartChoice must require overwrite confirm whenever a save exists")
+    if "return batchMode || captureRunning || SkipPanel;" not in choice:
+        err("StartChoice must skip the panel in batch mode, capture, or SkipPanel")
+    if 'SkipArg = "-skipStartPanel"' not in choice or "public static bool SkipPanel;" not in choice:
+        err("StartChoice must expose SkipPanel and -skipStartPanel")
+    if "return StartSkip.KeepSave;" not in choice:
+        err("a skipped boot with a save must keep the save")
+    if "ConfirmRestartNewRun" in choice or "ConfirmRestartNewRun" in start:
+        err("the start panel must not read ConfirmRestartNewRun")
+    if "PresentStartChoice" not in boot or boot.find("EnterHangar()") > boot.find("PresentStartChoice()"):
+        err("GameBootstrap must present the start choice after EnterHangar")
+    caption = ui.split("private void ApplyPrimaryCaption")[1].split("private bool BoonModalOpen")[0]
+    if "ContinueRunLabel" in caption or "AcceptContinue" in caption:
+        err("the hangar primary button must not offer Continue")
+    primary = ui.split("private void OnPrimary()")[1].split("private void OnBuy")[0]
+    if "AcceptContinue" in primary:
+        err("the hangar primary action must not call AcceptContinue")
+    apply = start.split("private void ApplyStartAction")[1]
+    no = apply.split("StartAction.OverwriteNo")[1].split("StartAction.OverwriteYes")[0]
+    yes = apply.split("StartAction.OverwriteYes")[1]
+    if "DeleteRun" in no or "AbandonSavedRun" in no:
+        err("overwrite No must not delete the save")
+    if "AbandonSavedRun()" not in yes:
+        err("overwrite Yes must call AbandonSavedRun")
+    if "DeleteRun" in yes:
+        err("overwrite Yes must go through AbandonSavedRun, not DeleteRun")
+    present = start.split("public void PresentStartChoice()")[1].split("public void CaptureStartPanel")[0]
+    if "Application.isBatchMode" not in present or "DeleteRun" in present or "AbandonSavedRun" in present:
+        err("batch skip must not delete the save")
+    if "start_nosave" not in capture or "start_save" not in capture or "start_confirm" not in capture:
+        err("AgrCapture must shoot the start panel with no save, a save, and the confirm open")
+    if "StartChoiceCanvas" in capture.split("static bool HudUnderModal")[1].split("static bool HudLaidOut")[0]:
+        err("the start panel must stay inside the HUD overlap gate")
+    if "StartContinue x StartNew" not in gate or "StartChoiceScrim" not in gate:
+        err("the layer gate must cover start-panel control overlap and the scrim")
+    for folder, pattern in ((ROOT / "Assets", "*.unity"), (ROOT / "Assets", "*.prefab")):
+        for path in folder.rglob(pattern):
+            blob = read(path)
+            if "StartChoice" in blob or "StartChoiceCanvas" in blob:
+                err(f"start panel must be built in code, not saved in {path.relative_to(ROOT)}")
+
+
 def main() -> int:
     require(ROOT / "Packages/manifest.json")
     require(ROOT / "ProjectSettings/ProjectVersion.txt")
@@ -2535,6 +2588,7 @@ def main() -> int:
             err(f"Packages/packages-lock.json must not list {blocked}")
 
     check_input_prompts()
+    check_start_choice()
 
     if ERRORS:
         print("Week 1 validation FAILED:")

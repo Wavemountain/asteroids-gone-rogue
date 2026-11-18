@@ -32,7 +32,10 @@ namespace AsteroidsGoneRogue.EditorTools
     {
         static int Width = 1920;
         static int Height = 1080;
-        const int ShotCount = 7;
+        const int ShotCount = 10;
+        const int ShotStartClear = 7;
+        const int ShotStartSave = 8;
+        const int ShotStartConfirm = 9;
         const int SettleFrames = 60;
         const int GameplaySettleFrames = 24;
         const int CardFrames = 3;
@@ -92,6 +95,7 @@ namespace AsteroidsGoneRogue.EditorTools
         static bool _loggedGameplay;
         static string _backupPath = string.Empty;
         static GameObject _posedLook;
+        static readonly System.Collections.Generic.List<GameObject> IsolatedCanvases = new System.Collections.Generic.List<GameObject>();
 
         static AgrCapture()
         {
@@ -107,7 +111,8 @@ namespace AsteroidsGoneRogue.EditorTools
         [InitializeOnEnterPlayMode]
         static void OnEnterPlayMode(EnterPlayModeOptions options)
         {
-            if (!SessionState.GetBool(KeyRunning, false))
+            StartChoice.CaptureRunning = SessionState.GetBool(KeyRunning, false);
+            if (!StartChoice.CaptureRunning)
             {
                 return;
             }
@@ -189,7 +194,8 @@ namespace AsteroidsGoneRogue.EditorTools
                     + " seed=" + seed.ToString()
                     + " res=" + Width.ToString() + "x" + Height.ToString()
                     + " backup=" + backup
-                    + " W1=wave 1, W3=world 3 wave 11, W4=world 4 wave 16, death=wave 1, waveclear=wave 1, chooser=hangar");
+                    + " W1=wave 1, W3=world 3 wave 11, W4=world 4 wave 16, death=wave 1, waveclear=wave 1, chooser=hangar"
+                    + ", start=clear/save/confirm");
                 LogPlayModeSettings();
                 HookLifecycle();
                 EnsureHook();
@@ -443,7 +449,7 @@ namespace AsteroidsGoneRogue.EditorTools
 
                 int shot = SessionState.GetInt(KeyShot, 0);
                 HoldForShot(shot);
-                if (shot != 0 && shot != 6)
+                if (shot != 0 && shot != 6 && !StartPanelShot(shot))
                 {
                     PinShip();
                     KeepShipAlive();
@@ -571,6 +577,8 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static void StageCurrent()
         {
+            RestoreIsolatedCanvases();
+            CloseStartPanel();
             if (HudSetOn())
             {
                 return;
@@ -637,6 +645,38 @@ namespace AsteroidsGoneRogue.EditorTools
                 }
 
                 IsolateChooserCanvas();
+                return;
+            }
+
+            if (StartPanelShot(shot))
+            {
+                StageStartSave(game, shot != ShotStartClear);
+                if (!InvokeZero(game, "EnterHangar"))
+                {
+                    Fail("EnterHangar missing");
+                    return;
+                }
+
+                SnapHangar();
+                HoldForShot(0);
+                Component startUi = FindComponent("GameUi");
+                int startMode = 1;
+                if (shot == ShotStartSave)
+                {
+                    startMode = 2;
+                }
+                else if (shot == ShotStartConfirm)
+                {
+                    startMode = 3;
+                }
+
+                if (!InvokeInts(startUi, "CaptureStartPanel", new int[] { startMode }))
+                {
+                    Fail("CaptureStartPanel missing");
+                    return;
+                }
+
+                IsolateCanvas("StartChoiceCanvas");
                 return;
             }
 
@@ -740,6 +780,11 @@ namespace AsteroidsGoneRogue.EditorTools
                 HoldForShot(0);
                 IsolateChooserCanvas();
                 CheckChooserLanguages();
+            }
+            else if (StartPanelShot(shot))
+            {
+                HoldForShot(0);
+                IsolateCanvas("StartChoiceCanvas");
             }
             else if (shot != 0)
             {
@@ -872,8 +917,85 @@ namespace AsteroidsGoneRogue.EditorTools
             }
         }
 
+        static bool StartPanelShot(int shot)
+        {
+            return shot == ShotStartClear || shot == ShotStartSave || shot == ShotStartConfirm;
+        }
+
+        static void CloseStartPanel()
+        {
+            Component ui = FindComponent("GameUi");
+            if (ui == null)
+            {
+                return;
+            }
+
+            InvokeInts(ui, "CaptureStartPanel", new int[] { 0 });
+        }
+
+        static void StageStartSave(object game, bool keep)
+        {
+            if (!keep)
+            {
+                SetProp(game, "PendingContinue", null);
+                return;
+            }
+
+            System.Type saveType = FindType("RunSaveData");
+            if (saveType == null)
+            {
+                Fail("RunSaveData missing");
+                return;
+            }
+
+            object data = System.Activator.CreateInstance(saveType);
+            SetSaveField(saveType, data, "Version", 7);
+            SetSaveField(saveType, data, "WaveIndex", 3);
+            SetSaveField(saveType, data, "Lives", 3);
+            SetSaveField(saveType, data, "WaveInProgress", 0);
+            SetSaveField(saveType, data, "RunId", 1);
+            if (!SetProp(game, "PendingContinue", data))
+            {
+                Fail("PendingContinue missing");
+            }
+        }
+
+        static void SetSaveField(System.Type type, object target, string name, int value)
+        {
+            if (type == null || target == null)
+            {
+                return;
+            }
+
+            System.Reflection.FieldInfo field = type.GetField(name, Flags);
+            if (field != null)
+            {
+                field.SetValue(target, value);
+            }
+        }
+
+        static void RestoreIsolatedCanvases()
+        {
+            for (int index = 0; index < IsolatedCanvases.Count; index++)
+            {
+                GameObject canvasObject = IsolatedCanvases[index];
+                if (canvasObject != null)
+                {
+                    canvasObject.SetActive(true);
+                }
+            }
+
+            IsolatedCanvases.Clear();
+        }
+
         static void IsolateChooserCanvas()
         {
+            IsolateCanvas("RunSetupCanvas");
+        }
+
+        static void IsolateCanvas(string keepName)
+        {
+            RestoreIsolatedCanvases();
             Canvas[] canvases = UnityEngine.Object.FindObjectsByType<Canvas>();
             if (canvases == null)
             {
@@ -888,13 +1010,24 @@ namespace AsteroidsGoneRogue.EditorTools
                     continue;
                 }
 
-                if (canvas.gameObject.name == "RunSetupCanvas")
+                if (canvas.transform.parent != null && canvas.transform.parent.GetComponentInParent<Canvas>() != null)
+                {
+                    continue;
+                }
+
+                if (canvas.gameObject.name == keepName)
                 {
                     canvas.gameObject.SetActive(true);
                     continue;
                 }
 
+                if (!canvas.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
                 canvas.gameObject.SetActive(false);
+                IsolatedCanvases.Add(canvas.gameObject);
             }
         }
 
@@ -1015,7 +1148,7 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static void HoldForShot(int shot)
         {
-            if (shot == 0 || shot == 6)
+            if (shot == 0 || shot == 6 || StartPanelShot(shot))
             {
                 HoldCamera(new Vector3(0f, 31f, -19f), new Vector3(0.25f, 0.4f, 0f), 54f);
                 return;
@@ -2478,6 +2611,18 @@ namespace AsteroidsGoneRogue.EditorTools
             else if (shot == 6)
             {
                 sceneName = "chooser";
+            }
+            else if (shot == ShotStartClear)
+            {
+                sceneName = "start_nosave";
+            }
+            else if (shot == ShotStartSave)
+            {
+                sceneName = "start_save";
+            }
+            else if (shot == ShotStartConfirm)
+            {
+                sceneName = "start_confirm";
             }
 
             string flag = "off";
@@ -4791,7 +4936,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 return "waveclear";
             }
 
-            if (shot == 6)
+            if (shot == 6 || StartPanelShot(shot))
             {
                 return "hangar";
             }

@@ -96,6 +96,7 @@ namespace AsteroidsGoneRogue
 
             follow.SetTarget(ship.transform);
             game.EnterHangar();
+            ui.PresentStartChoice();
             ui.EnsureHangarPreview(ship);
             StoreCaptureDirector.Ensure();
         }

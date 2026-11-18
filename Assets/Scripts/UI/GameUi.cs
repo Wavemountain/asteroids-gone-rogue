@@ -979,6 +979,7 @@ namespace AsteroidsGoneRogue
             BuildShipPreviewFrame(display);
             BuildSettingsPanel(display, body);
             BuildConfirmDialog(display, body);
+            BuildStartPanel(display, body);
             BuildPromptCard(body);
             BuildFirstStart(display, body);
             BuildTutorialPlayChrome(display);
@@ -1081,7 +1082,7 @@ namespace AsteroidsGoneRogue
 
         private void OnNewRunButton()
         {
-            if (_setupOpen || _confirmOpen || _settingsOpen || _sinkOpen)
+            if (_setupOpen || _confirmOpen || _settingsOpen || _sinkOpen || StartPanelOpen())
             {
                 return;
             }
@@ -1676,7 +1677,7 @@ namespace AsteroidsGoneRogue
             bool playing = _session != null && _session.Phase == GamePhase.Playing;
             bool offer = !playing && _game != null && _game.HasContinueOffer;
             bool dailyEntry = ShowDailyEntry(playing, offer);
-            bool blockRunButton = _creditsVisible || FirstStartOpen() || _setupOpen;
+            bool blockRunButton = _creditsVisible || FirstStartOpen() || _setupOpen || StartPanelOpen();
             if (_newRunButton != null)
             {
                 _newRunButton.gameObject.SetActive((offer || dailyEntry) && !blockRunButton);
@@ -2761,7 +2762,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (FirstStartOpen())
+            if (FirstStartOpen() || StartPanelOpen())
             {
                 return;
             }
@@ -2822,7 +2823,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (FirstStartOpen())
+            if (FirstStartOpen() || StartPanelOpen())
             {
                 return;
             }
@@ -2850,12 +2851,6 @@ namespace AsteroidsGoneRogue
                 {
                     AudioCues.Instance.PlayUiConfirm();
                 }
-            }
-
-            if (_game.HasContinueOffer)
-            {
-                _game.AcceptContinue();
-                return;
             }
 
             _game.StartWave();
@@ -4991,6 +4986,8 @@ namespace AsteroidsGoneRogue
                     }
                 }
             }
+
+            RefreshStartCopy();
         }
 
         private void ApplyPrimaryCaption(GamePhase phase, int worldCleared, int upcomingWave)
@@ -5002,17 +4999,6 @@ namespace AsteroidsGoneRogue
 
             _primaryLabel.fontSize = RunSummary.PrimaryFont;
             _primaryLabel.fontStyle = FontStyle.Normal;
-            if (_game != null && _game.HasContinueOffer && _game.PendingContinue != null)
-            {
-                RunSaveData pending = _game.PendingContinue;
-                int savedWorld = WorldCatalog.NumberForWave(pending.WaveIndex);
-                _primaryLabel.text = RunSummary.ContinueRunLabel(savedWorld, pending.WaveIndex);
-                _primaryLabel.lineSpacing = 1f;
-                _primaryLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
-                _primaryLabel.verticalOverflow = VerticalWrapMode.Truncate;
-                return;
-            }
-
             int nextNumber = WorldCatalog.NumberForWave(upcomingWave);
             string actionLabel = RunSummary.PrimaryActionLabel(phase, worldCleared, nextNumber);
             string nextSubtitle = string.Empty;
@@ -5491,6 +5477,10 @@ namespace AsteroidsGoneRogue
             {
                 TickBoonChoice();
             }
+            else if (StartPanelOpen())
+            {
+                TickStartPanel();
+            }
             else
             {
             bool skipLiveTutorial = ConsumeTutorialSkip();
@@ -5894,7 +5884,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (FirstStartOpen())
+            if (FirstStartOpen() || StartPanelOpen())
             {
                 return;
             }
@@ -10596,7 +10586,7 @@ namespace AsteroidsGoneRogue
 
         private void OpenSettings()
         {
-            if (_settingsOpen)
+            if (_settingsOpen || StartPanelOpen())
             {
                 return;
             }
@@ -11179,7 +11169,8 @@ namespace AsteroidsGoneRogue
             return _game != null
                 && _game.ShowDifficultyChooser
                 && _session != null
-                && _session.Phase != GamePhase.Playing;
+                && _session.Phase != GamePhase.Playing
+                && !StartPanelOpen();
         }
 
         private bool FirstStartSlotLive(int slot)
