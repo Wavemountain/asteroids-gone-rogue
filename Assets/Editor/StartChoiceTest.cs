@@ -43,6 +43,7 @@ namespace AsteroidsGoneRogue.EditorTools
         const int Doctrine = 1;
         const int Shield = 2;
         const int Wave = 3;
+        const int OldRunId = 7;
 
         const string KeyRunning = "StartChoiceTest.Running";
         const string KeyPhase = "StartChoiceTest.Phase";
@@ -85,6 +86,7 @@ namespace AsteroidsGoneRogue.EditorTools
         static SynchronizationContext _main;
         static double _lastWaitLog = -1.0;
         static string _lastWaitWhat = string.Empty;
+        static double _lastOverwriteLog = -1.0;
         static StackTraceLogType _savedWarningTrace;
         static bool _traceSaved;
 
@@ -250,10 +252,14 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             RunSaveStore.ProfileRoot = profile;
-            ClearProfileSaves(profile);
             int index = SessionState.GetInt(KeyCase, 0);
             int boot = SessionState.GetInt(KeyBoot, 0);
             string id = CaseIds[index];
+            // The reboot must see the files Yes left. Clearing them would hide a fresh wave-1 save.
+            if (!(id == "4" && boot == 1))
+            {
+                ClearProfileSaves(profile);
+            }
             bool wrote = false;
             if (id == "2" || (id == "4" && boot == 0) || (id == "5" && boot == 0) || id == "6a")
             {
@@ -594,16 +600,22 @@ namespace AsteroidsGoneRogue.EditorTools
                     return Wait;
                 }
 
-                if (WaveIndex() != 1 || SaveExists() || BakExists())
+                LogOverwriteProbe();
+                if (!OldRunReplaced())
                 {
                     if (StepTimedOut())
                     {
-                        FinishCase(false, "Yes did not reach wave 1 with both save files gone");
+                        _lastOverwriteLog = -1.0;
+                        LogOverwriteProbe();
+                        FinishCase(false, "Yes did not reach wave 1 with the old save gone or replaced");
                         return Failed;
                     }
 
                     return Wait;
                 }
+
+                _lastOverwriteLog = -1.0;
+                LogOverwriteProbe();
 
                 if (ExceptionsThisCase())
                 {
@@ -627,10 +639,42 @@ namespace AsteroidsGoneRogue.EditorTools
                 return Failed;
             }
 
-            if (ContinueEnabled() || ContinueInteractable())
+            _lastOverwriteLog = -1.0;
+            LogOverwriteProbe();
+            if (!FileIsFresh(MainPath()) || !FileIsFresh(BakPath()))
             {
-                FinishCase(false, "Continue still enabled after overwrite");
+                FinishCase(false, "old save still present after reboot");
                 return Failed;
+            }
+
+            bool freshFile = File.Exists(MainPath()) || File.Exists(BakPath());
+            if (!freshFile)
+            {
+                if (ContinueEnabled() || ContinueInteractable())
+                {
+                    FinishCase(false, "Continue still enabled after overwrite");
+                    return Failed;
+                }
+            }
+            else
+            {
+                GameManager game = UnityEngine.Object.FindAnyObjectByType<GameManager>();
+                RunSaveData pending = game != null ? game.PendingContinue : null;
+                if (!ContinueEnabled()
+                    || pending == null
+                    || pending.WaveIndex != 1
+                    || pending.RunId == OldRunId)
+                {
+                    int offered = pending == null ? -1 : pending.WaveIndex;
+                    int runId = pending == null ? -1 : pending.RunId;
+                    FinishCase(
+                        false,
+                        "reboot did not offer the fresh wave 1 run wave "
+                        + offered.ToString(CultureInfo.InvariantCulture)
+                        + " run "
+                        + runId.ToString(CultureInfo.InvariantCulture));
+                    return Failed;
+                }
             }
 
             if (ExceptionsThisCase())
@@ -639,7 +683,21 @@ namespace AsteroidsGoneRogue.EditorTools
                 return Failed;
             }
 
-            FinishCase(true, "wave 1 saves deleted continue disabled after reboot");
+            if (!freshFile)
+            {
+                FinishCase(true, "wave 1 old save gone continue disabled after reboot");
+            }
+            else
+            {
+                GameManager game = UnityEngine.Object.FindAnyObjectByType<GameManager>();
+                int runId = game != null && game.PendingContinue != null ? game.PendingContinue.RunId : -1;
+                FinishCase(
+                    true,
+                    "wave 1 old run replaced by run "
+                    + runId.ToString(CultureInfo.InvariantCulture)
+                    + " continue offers wave 1");
+            }
+
             return Done;
         }
 
@@ -1071,7 +1129,7 @@ namespace AsteroidsGoneRogue.EditorTools
             data.PrimaryMode = 0;
             data.UtilityMode = 0;
             data.HasUtility = 0;
-            data.RunId = 7;
+            data.RunId = OldRunId;
             data.LastResolvedWave = 2;
             data.LastRunScore = 40;
             data.LastCreditsAwarded = 0;
@@ -1358,14 +1416,131 @@ namespace AsteroidsGoneRogue.EditorTools
             return state != null && state.Owns(id);
         }
 
-        static bool SaveExists()
+        static string ProfilePath()
         {
-            return File.Exists(Path.Combine(SessionState.GetString(KeyProfile, string.Empty), RunSaveStore.RunFileName));
+            string profile = SessionState.GetString(KeyProfile, string.Empty);
+            if (profile.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            return Path.GetFullPath(profile);
         }
 
-        static bool BakExists()
+        static string MainPath()
         {
-            return File.Exists(Path.Combine(SessionState.GetString(KeyProfile, string.Empty), RunSaveStore.RunFileName + ".bak"));
+            return Path.Combine(ProfilePath(), RunSaveStore.RunFileName);
+        }
+
+        static string BakPath()
+        {
+            return MainPath() + ".bak";
+        }
+
+        static string SessionPhase()
+        {
+            GameManager game = UnityEngine.Object.FindAnyObjectByType<GameManager>();
+            if (game == null || game.Session == null)
+            {
+                return "none";
+            }
+
+            return game.Session.Phase.ToString();
+        }
+
+        static bool TryReadSave(string path, out RunSaveData data)
+        {
+            data = null;
+            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            {
+                return false;
+            }
+
+            try
+            {
+                return RunSaveCodec.TryParse(File.ReadAllText(path), out data) && data != null;
+            }
+            catch (Exception)
+            {
+                data = null;
+                return false;
+            }
+        }
+
+        static string DescribeSave(string path)
+        {
+            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            {
+                return "runId=none fileWave=none";
+            }
+
+            RunSaveData data;
+            if (!TryReadSave(path, out data))
+            {
+                return "runId=unreadable fileWave=unreadable";
+            }
+
+            return "runId=" + data.RunId.ToString(CultureInfo.InvariantCulture)
+                + " fileWave=" + data.WaveIndex.ToString(CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>
+        /// Missing, or a wave-1 file whose run id is not the fixture's.
+        /// Yes deletes the old run. The hangar writer then saves the fresh
+        /// run, and its .bak, when that run has credits or a purchase.
+        /// A starting shield from the untouched prefs counts. Absence still passes.
+        /// </summary>
+        static bool FileIsFresh(string path)
+        {
+            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            {
+                return true;
+            }
+
+            RunSaveData data;
+            if (!TryReadSave(path, out data))
+            {
+                return false;
+            }
+
+            return data.WaveIndex == 1 && data.RunId != OldRunId;
+        }
+
+        static bool OldRunReplaced()
+        {
+            return WaveIndex() == 1 && FileIsFresh(MainPath()) && FileIsFresh(BakPath());
+        }
+
+        static void LogOverwriteProbe()
+        {
+            double elapsed = Since(KeyStart);
+            if (elapsed - _lastOverwriteLog < 1.0)
+            {
+                return;
+            }
+
+            _lastOverwriteLog = elapsed;
+            string main = MainPath();
+            string bak = BakPath();
+            Note(
+                "case 4 wave 1 reached=" + (WaveIndex() == 1).ToString()
+                + " wave=" + WaveIndex().ToString(CultureInfo.InvariantCulture)
+                + " phase=" + SessionPhase()
+                + " credits=" + CreditsNow().ToString(CultureInfo.InvariantCulture)
+                + " shield=" + ShieldNow().ToString(CultureInfo.InvariantCulture));
+            Note(
+                "case 4 main save file gone=" + (!File.Exists(main)).ToString()
+                + " path=" + main
+                + " " + DescribeSave(main));
+            Note(
+                "case 4 bak save file gone=" + (!File.Exists(bak)).ToString()
+                + " path=" + bak
+                + " " + DescribeSave(bak));
+        }
+
+        static bool SaveExists()
+        {
+            return File.Exists(MainPath());
         }
 
         static bool ExceptionsThisCase()

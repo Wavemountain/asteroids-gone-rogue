@@ -19336,6 +19336,10 @@ def test_start_choice_editor() -> None:
     assert "StartChoice.ForcePanel = true" in editor
     assert "start panel not shown (skipped?)" in editor
     assert "phase " in editor and "wait " in editor
+    assert "case 4 wave 1 reached=" in editor
+    assert "case 4 main save file gone=" in editor
+    assert "case 4 bak save file gone=" in editor
+    assert "OldRunId" in editor and "FileIsFresh" in editor
     pose = (root / "Assets/Scripts/Hangar/HangarShipPreview.cs").read_text(encoding="utf-8")
     mode = pose.split("private void PoseForMode")[1].split("private void RestoreBodyKinematic")[0]
     assert mode.index("linearVelocity") < mode.index("isKinematic = true")

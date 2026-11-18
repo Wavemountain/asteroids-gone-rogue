@@ -2045,6 +2045,10 @@ def check_start_choice() -> None:
         err("StartChoiceTest must force the panel on and fail if it was skipped")
     if "phase " not in editor or "wait " not in editor or "new Timer(" not in editor:
         err("StartChoiceTest must log phases and arm a watchdog timer")
+    if "case 4 wave 1 reached=" not in editor or "case 4 main save file gone=" not in editor or "case 4 bak save file gone=" not in editor:
+        err("StartChoiceTest must log wave, main save, and bak separately")
+    if "OldRunId" not in editor or "FileIsFresh" not in editor:
+        err("StartChoiceTest must accept a replaced wave-1 save, not only file absence")
     preview = read(ROOT / "Assets/Scripts/Hangar/HangarShipPreview.cs")
     mode = preview.split("private void PoseForMode")[1].split("private void RestoreBodyKinematic")[0]
     if "linearVelocity" not in mode or mode.find("linearVelocity") > mode.find("isKinematic = true"):
