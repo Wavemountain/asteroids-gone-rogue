@@ -45,6 +45,46 @@ def progressed(max_wave_index: int) -> bool:
     return max_wave_index >= MIN_WAVE_INDEX_FOR_PASS
 
 
+REACTION_SECONDS = 0.22
+INPUT_HOLD_SECONDS = 0.08
+WATCHDOG_SECONDS = 60
+LOG_CAP_BYTES = 20 * 1024 * 1024
+TARGET_MINUTES_WHEN_UNSPECIFIED = 90
+STEP_TIMEOUT_SECONDS = 20
+
+
+def classify_campaign(
+    save_failed: bool,
+    resume_failed: bool,
+    harness_fault: bool,
+    diagnostic: bool,
+    target_wave: int,
+    cleared_waves: int,
+    ran_full_time: bool,
+    progressed_run: bool,
+    died_early: bool,
+    resume_not_run: bool = False,
+) -> str:
+    """A labelled diagnostic is never PASS. A target wave does not need the clock."""
+    if save_failed or resume_failed or harness_fault:
+        return "FAIL"
+    if diagnostic:
+        return "DIAGNOSTIC"
+    if target_wave > 0:
+        if cleared_waves >= target_wave:
+            return "PASS"
+        return "INCOMPLETE"
+    return classify(
+        save_failed,
+        resume_failed,
+        harness_fault,
+        ran_full_time,
+        progressed_run,
+        died_early,
+        resume_not_run,
+    )
+
+
 def profile_isolated(live_dir: str, profile_dir: str) -> bool:
     if not live_dir or not profile_dir:
         return False

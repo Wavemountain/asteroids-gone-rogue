@@ -19165,6 +19165,7 @@ def test_longrun_harness() -> None:
         SAVE_NAMES,
         backup_verified,
         classify,
+        classify_campaign,
         classify_pref,
         copy_and_verify,
         frame_account_ok,
@@ -19262,6 +19263,30 @@ def test_longrun_harness() -> None:
     assert "INCOMPLETE" in doc and "PASS" in doc and "FAIL" in doc
     assert "manifest.txt" in doc
 
+    assert classify_campaign(False, False, False, True, 10, 10, False, True, False, False) == "DIAGNOSTIC"
+    assert classify_campaign(False, False, False, False, 10, 10, False, True, False, False) == "PASS"
+    assert classify_campaign(False, False, False, False, 10, 9, True, True, False, False) == "INCOMPLETE"
+    assert classify_campaign(True, False, False, False, 10, 10, True, True, False, False) == "FAIL"
+    assert classify_campaign(False, False, False, False, 0, 0, True, True, False, False) == "PASS"
+    pilot = (editor / "LongRunPilot.cs").read_text(encoding="utf-8")
+    assert "ReactionSeconds = 0.22f" in pilot
+    assert "InputHoldSeconds = 0.08f" in pilot
+    assert "dodge-projectile" in pilot
+    assert "KindShot" in pilot
+    assert "WatchdogSeconds = 60" in verdict
+    assert "LogCapBytes = 20 * 1024 * 1024" in verdict
+    assert "summary.json" in runner
+    assert "-targetWave" in runner
+    assert "-diagnosticInvulnerable" in runner
+    assert "-startWorld" in runner
+    assert "WorldToViewportPoint" in runner
+    assert "life-loss.txt" in runner
+    assert "continue-reachable" in runner
+    assert "zero-credits" in runner
+    assert "SetHull" not in runner
+    assert "watchdog 60s" in doc
+    assert "summary.json" in doc
+    assert "-targetWave 10" in doc
     assert classify(False, False, False, True, True, False, False) == "PASS"
     assert classify(False, False, False, False, True, False, False) == "INCOMPLETE"
     assert classify(False, False, False, True, False, False, False) == "INCOMPLETE"

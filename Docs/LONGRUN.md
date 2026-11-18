@@ -10,7 +10,37 @@ From the project folder, Unity 6000.6, with a GPU (do not pass `-nographics`).
 "C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe" -batchmode -projectPath . -executeMethod AsteroidsGoneRogue.EditorTools.LongRun.Run -logFile - -longRunMinutes 3 -seed 48048
 ```
 
-`-longRunMinutes` defaults to 30 and accepts 1–720. `-seed` calls `Random.InitState` before each wave start and does not make the run a daily. `-resumeAfterWorld` defaults to 1. `-resumeAfterMinutes` defaults to 0. `-longRunOut` is an optional parent; each run still writes `Captures\LongRun\<yyyyMMdd-HHmmss>\`.
+`-longRunMinutes` defaults to 30 and accepts 1–720. With `-targetWave` and no `-longRunMinutes`, the budget is 90 minutes. `-seed` calls `Random.InitState` before each wave start and does not make the run a daily. `-resumeAfterWorld` defaults to 1. `-resumeAfterMinutes` defaults to 0. `-longRunOut` is an optional parent; each run still writes `Captures\LongRun\<yyyyMMdd-HHmmss>\`.
+
+`-targetWave 10` ends when 10 waves have been cleared through normal transitions (the wave index advances past 10). That result can be PASS before the clock ends. It is not PASS if a diagnostic flag is set.
+
+`-diagnosticInvulnerable` is a labelled diagnostic. The harness does not write hull, shield, or invulnerability. The verdict is `DIAGNOSTIC` (exit 3), never PASS.
+
+`-startWorld N -startWave M -loadout <preset>` marks the run as skipped start. This branch has no start-at-wave control (PR #163 is not included), so the request is recorded and not applied. The verdict says `skipped start` and is `DIAGNOSTIC`, never PASS. A run without those flags says `natural`.
+
+`-menuProbe` is the only path that calls `StartWave` after game over, and only when continue is absent. The level-10 command does not pass it.
+
+The autopilot flies only through the existing move, aim, and fire axes. It sees objects inside the gameplay camera viewport and uses their observed motion. Perception delay is 220 ms. A new stick is held for at least 80 ms. It does not write transforms, bodies, health, or credits.
+
+## Level 10 command
+
+```
+"C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe" -batchmode -projectPath . -executeMethod AsteroidsGoneRogue.EditorTools.LongRun.Run -logFile - -targetWave 10 -seed 48048
+```
+
+Diagnostic commands, not balance runs:
+
+```
+"C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe" -batchmode -projectPath . -executeMethod AsteroidsGoneRogue.EditorTools.LongRun.Run -logFile - -diagnosticInvulnerable -longRunMinutes 3 -seed 48048
+```
+
+```
+"C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe" -batchmode -projectPath . -executeMethod AsteroidsGoneRogue.EditorTools.LongRun.Run -logFile - -startWorld 1 -startWave 10 -loadout starter -longRunMinutes 3 -seed 48048
+```
+
+```
+"C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe" -batchmode -projectPath . -executeMethod AsteroidsGoneRogue.EditorTools.LongRun.Run -logFile - -menuProbe -longRunMinutes 3 -seed 48048
+```
 
 ## OK line
 
@@ -49,12 +79,20 @@ Each of these is logged as `LongRun FAIL: ...` and copied to `summary.md` `Fault
 | `unrestored PlayerPrefs marker` | `Captures\LongRun\prefs-unrestored.txt` still exists, so `Run` refuses to start. |
 | `PlayerPrefs restore mismatch` | `RestorePrefs` re-read did not match the backup. |
 | `a long run is already active` | A second `Run` started while one is in progress. |
+| `watchdog 60s` | No wave, phase, life, credit, purchase, or visible ship movement for 60 s. `log-tail.txt` is written and Unity exits non-zero. |
+| `continue offer missing after game over` | The game-over continue step waited out its 20 s timeout. |
 
 A resume field mismatch is also stored in `Fault` and logged as a resume `FAIL`. A save or prefs hash mismatch sets `Fault` from the hash detail. A tick exception stores the exception text.
 
 ## Output files
 
-`<run>\summary.md` — verdict, times, world, wave, purchases, deaths, resume, save and prefs result, frametime, native error counts, and `Fault`.
+`<run>\summary.md` — verdict, times, world, wave, purchases, deaths, resume, save and prefs result, frametime, native error counts, progression (`natural` or `skipped start`), and `Fault`.
+
+`<run>\summary.json` and `<run>\summary.txt` — the same verdict plus one row per sub-goal: `watchdog`, `level-10`, `life-loss`, `invulnerable`, `skipped-start`, `resume`, `game-over-continue`, `new-run`, `purchases`, `prefs`. Each row is `PASS`, `FAIL`, `INCOMPLETE`, or `DIAGNOSTIC`, and a reason. `DIAGNOSTIC` is never a balance PASS.
+
+`<run>\life-loss.txt` — one line per life loss: nearest threat, distance, whether that threat was in the delayed perception buffer, maneuver, projectile name, and observed speed.
+
+`<run>\log-tail.txt` — last 64 KB of `events.jsonl`, written when the 60 s watchdog trips. Repeated error lines are dropped for 2 s. `events.jsonl` stops growing at 20 MB.
 
 `<run>\events.jsonl` — transitions, purchases, credits, lives, and errors.
 
@@ -88,7 +126,9 @@ Exit 0 and `RESULT MATCH` means the keys match the backup and the marker was rem
 
 ## Verdict
 
-Exit `0` PASS, `1` FAIL, `2` INCOMPLETE. The log line is `LongRun verdict=PASS|FAIL|INCOMPLETE`.
+Exit `0` PASS, `1` FAIL, `2` INCOMPLETE, `3` DIAGNOSTIC. The log line is `LongRun verdict=PASS|FAIL|INCOMPLETE|DIAGNOSTIC`.
+
+A `-targetWave` run can PASS when that many waves are cleared, the resume and prefs checks pass, and no diagnostic flag is set. The 30 minute clock rule still applies when `-targetWave` is omitted. An early death is INCOMPLETE, never PASS. A diagnostics failure or a watchdog is FAIL. Invulnerable mode and skipped start are DIAGNOSTIC, never PASS.
 
 PASS requires the time budget, wave at least 2, no early game over, a completed resume with matching fields, untouched live save hashes, and a prefs `MATCH`. An early death is INCOMPLETE, never PASS. A diagnostics failure is FAIL.
 

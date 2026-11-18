@@ -27,6 +27,14 @@ namespace AsteroidsGoneRogue.EditorTools
         const double BootLimitSeconds = 45.0;
 
         static readonly LongRunPilot.Threat[] Threats = new LongRunPilot.Threat[LongRunPilot.ThreatCap];
+        static readonly LongRunPilot.Threat[] Latched = new LongRunPilot.Threat[LongRunPilot.ThreatCap];
+        static readonly UnityEngine.EntityId[] SeenIds = new UnityEngine.EntityId[LongRunPilot.ThreatCap];
+        static readonly UnityEngine.EntityId[] LatchIds = new UnityEngine.EntityId[LongRunPilot.ThreatCap];
+        static readonly float[] PrevX = new float[LongRunPilot.ThreatCap];
+        static readonly float[] PrevZ = new float[LongRunPilot.ThreatCap];
+        static readonly UnityEngine.EntityId[] PrevIds = new UnityEngine.EntityId[LongRunPilot.ThreatCap];
+        static readonly string[] ThreatNames = new string[LongRunPilot.ThreatCap];
+        static readonly string[] LatchNames = new string[LongRunPilot.ThreatCap];
         static readonly List<string> PendingLogs = new List<string>();
         static bool _logs;
         static bool _finishing;
@@ -124,7 +132,21 @@ namespace AsteroidsGoneRogue.EditorTools
                 + " seed=" + state.Seed.ToString(CultureInfo.InvariantCulture)
                 + " resumeWorld=" + state.ResumeWorld.ToString(CultureInfo.InvariantCulture)
                 + " resumeMinutes=" + state.ResumeMinutes.ToString(CultureInfo.InvariantCulture)
+                + " targetWave=" + state.TargetWave.ToString(CultureInfo.InvariantCulture)
+                + " progression=" + (state.Skipped != 0 ? "skipped-start" : "natural")
                 + " profile=" + state.Profile);
+            if (state.Skipped != 0)
+            {
+                Debug.Log("LongRun DIAGNOSTIC skipped start requested world=" + state.StartWorld.ToString(CultureInfo.InvariantCulture)
+                    + " wave=" + state.StartWaveArg.ToString(CultureInfo.InvariantCulture)
+                    + " loadout=" + state.Loadout
+                    + " not applied; this branch has no start-at-wave control. PR #163 is not included.");
+            }
+
+            if (state.Invulnerable != 0)
+            {
+                Debug.Log("LongRun DIAGNOSTIC invulnerable requested. The harness does not write hull, shield, or invulnerability. This run cannot PASS.");
+            }
             EditorApplication.EnterPlaymode();
         }
 
@@ -160,6 +182,21 @@ namespace AsteroidsGoneRogue.EditorTools
         static string _sceneName = string.Empty;
         static string _lastDiag = string.Empty;
         static int _diagCount;
+        static int _seenCount;
+        static int _latchedCount;
+        static int _prevCount;
+        static float _latchAt = -1f;
+        static float _prevAt = -1f;
+        static float _holdAt = -1f;
+        static float _senseAt = -1f;
+        static LongRunPilot.Stick _held;
+        static string _lastError = string.Empty;
+        static long _lastErrorUtc;
+        static string _lastNearest = string.Empty;
+        static float _lastNearestDist;
+        static bool _lastNearestPerceived;
+        static string _lastProjectile = "none";
+        static float _lastProjectileSpeed;
 
         static void OnNativeLog(string condition, string stackTrace, LogType type)
         {
@@ -216,6 +253,14 @@ namespace AsteroidsGoneRogue.EditorTools
 
             string message = condition == null ? string.Empty : condition;
             string stack = stackTrace == null ? string.Empty : stackTrace;
+            long nowTicks = DateTime.UtcNow.Ticks;
+            if (message == _lastError && (nowTicks - _lastErrorUtc) < 2L * TimeSpan.TicksPerSecond)
+            {
+                return;
+            }
+
+            _lastError = message;
+            _lastErrorUtc = nowTicks;
             PendingLogs.Add(type.ToString() + "\n" + message + "\n" + stack);
         }
 
@@ -254,6 +299,23 @@ namespace AsteroidsGoneRogue.EditorTools
         static void TickBody(LongRunState state)
         {
             FlushLogs(state);
+            if (state.ProgressUtc <= 0)
+            {
+                state.ProgressUtc = DateTime.UtcNow.Ticks;
+            }
+
+            if (state.Watchdog == 0 && Since(state.ProgressUtc) > LongRunVerdict.WatchdogSeconds)
+            {
+                state.Watchdog = 1;
+                state.HarnessFault = 1;
+                state.Fault = "watchdog 60s";
+                WriteLogTail(state);
+                state.Phase = "stop";
+                state.ExitAsked = 0;
+                Save(state);
+                Debug.LogError("LongRun FAIL: watchdog 60s");
+            }
+
             if (state.Phase == "stop")
             {
                 Stop(state);
@@ -331,6 +393,24 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
+            if (state.Phase == "overContinue")
+            {
+                OverContinue(state, game, session);
+                return;
+            }
+
+            if (state.Phase == "newRunNo")
+            {
+                NewRunAnswer(state, session, false);
+                return;
+            }
+
+            if (state.Phase == "newRunYes")
+            {
+                NewRunAnswer(state, session, true);
+                return;
+            }
+
             if (state.Phase == "wait")
             {
                 state.Phase = "play";
@@ -354,7 +434,7 @@ namespace AsteroidsGoneRogue.EditorTools
 
             if (state.Phase == "play" && session.Phase == GamePhase.Playing)
             {
-                Steer();
+                Steer(state);
             }
             else if (state.Phase == "play")
             {
@@ -456,10 +536,110 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             LogEvent(state, "resume", "resume", WorldOf(session), WaveOf(session), CreditsOf(session), LivesOf(session), ",\"result\":\"PASS\",\"mismatches\":\"\"");
+            state.ProgressUtc = DateTime.UtcNow.Ticks;
             state.Phase = "play";
             state.Settle = 0;
             state.LastPhase = string.Empty;
             Save(state);
+        }
+
+        static void OverContinue(LongRunState state, GameManager game, GameSession session)
+        {
+            if (game.HasContinueOffer)
+            {
+                game.AcceptContinue();
+                session = game.Session;
+                string mismatches = CompareCheckpoint(state, game, session);
+                state.OverContinue = mismatches.Length == 0 ? 1 : 2;
+                LogEvent(state, "resume", "game-over-continue", WorldOf(session), WaveOf(session), CreditsOf(session), LivesOf(session), ",\"result\":\"" + (mismatches.Length == 0 ? "PASS" : "FAIL") + "\",\"mismatches\":\"" + Json(mismatches) + "\"");
+                state.Phase = "newRunNo";
+                state.StepUtc = DateTime.UtcNow.Ticks;
+                state.ProgressUtc = state.StepUtc;
+                Save(state);
+                return;
+            }
+
+            if (Since(state.StepUtc) <= LongRunVerdict.StepTimeoutSeconds)
+            {
+                return;
+            }
+
+            state.OverContinue = 3;
+            LogEvent(state, "resume", "game-over-continue", WorldOf(session), WaveOf(session), CreditsOf(session), LivesOf(session), ",\"result\":\"INCOMPLETE\",\"mismatches\":\"continue offer missing after game over\"");
+            state.Phase = "newRunNo";
+            state.StepUtc = DateTime.UtcNow.Ticks;
+            state.ProgressUtc = state.StepUtc;
+            Save(state);
+        }
+
+        static void NewRunAnswer(LongRunState state, GameSession session, bool yes)
+        {
+            int world = WorldOf(session);
+            int wave = WaveOf(session);
+            if (!yes)
+            {
+                state.NewRunNo = 1;
+                LogEvent(state, "transition", "new-run", world, wave, CreditsOf(session), LivesOf(session), ",\"choice\":\"No\"");
+                state.Phase = "newRunYes";
+                state.StepUtc = DateTime.UtcNow.Ticks;
+                state.ProgressUtc = state.StepUtc;
+                Save(state);
+                return;
+            }
+
+            state.NewRunYes = 1;
+            LogEvent(state, "transition", "new-run", world, wave, CreditsOf(session), LivesOf(session), ",\"choice\":\"Yes\"");
+            if (state.MenuProbe != 0 && state.OverContinue == 3)
+            {
+                GameManager game = GameManager.Live;
+                if (game != null)
+                {
+                    game.StartWave();
+                }
+
+                state.Phase = "play";
+                state.Settle = 0;
+                state.ProgressUtc = DateTime.UtcNow.Ticks;
+                Save(state);
+                return;
+            }
+
+            state.Phase = "stop";
+            state.ExitAsked = 0;
+            state.ProgressUtc = DateTime.UtcNow.Ticks;
+            Save(state);
+        }
+
+        static void NoteLife(LongRunState state, GameSession session, string source)
+        {
+            state.LifeLogs += 1;
+            string maneuver = _held.Maneuver;
+            if (string.IsNullOrEmpty(maneuver))
+            {
+                maneuver = "hold";
+            }
+
+            string line = "source=" + source
+                + " nearest=" + _lastNearest
+                + " distance=" + _lastNearestDist.ToString("0.00", CultureInfo.InvariantCulture)
+                + " perceived=" + (_lastNearestPerceived ? "yes" : "no")
+                + " maneuver=" + maneuver
+                + " projectile=" + _lastProjectile
+                + " speed=" + _lastProjectileSpeed.ToString("0.00", CultureInfo.InvariantCulture)
+                + " wave=" + WaveOf(session).ToString(CultureInfo.InvariantCulture);
+            File.AppendAllText(Path.Combine(state.OutDir, "life-loss.txt"), line + "\n");
+            LogEvent(
+                state,
+                "life",
+                source,
+                WorldOf(session),
+                WaveOf(session),
+                CreditsOf(session),
+                LivesOf(session),
+                ",\"nearest\":\"" + Json(_lastNearest) + "\",\"distance\":" + _lastNearestDist.ToString("0.00", CultureInfo.InvariantCulture)
+                + ",\"perceived\":" + (_lastNearestPerceived ? "true" : "false")
+                + ",\"maneuver\":\"" + Json(maneuver) + "\",\"projectile\":\"" + Json(_lastProjectile)
+                + "\",\"speed\":" + _lastProjectileSpeed.ToString("0.00", CultureInfo.InvariantCulture));
         }
 
         static void Observe(LongRunState state, GameSession session)
@@ -490,12 +670,19 @@ namespace AsteroidsGoneRogue.EditorTools
                 {
                     name = "game over";
                     state.Deaths += 1;
-                    if (Elapsed(state) < state.Minutes * 60.0)
+                    if (Elapsed(state) < state.Minutes * 60.0 && state.TargetWave <= 0)
                     {
                         state.DiedEarly = 1;
                     }
 
-                    state.Phase = "stop";
+                    if (state.TargetWave > 0 && state.ClearedWaves < state.TargetWave)
+                    {
+                        state.DiedEarly = 1;
+                    }
+
+                    NoteLife(state, session, "game over");
+                    state.Phase = "overContinue";
+                    state.StepUtc = DateTime.UtcNow.Ticks;
                     state.ExitAsked = 0;
                 }
                 else if (!first && worldChanged)
@@ -510,9 +697,16 @@ namespace AsteroidsGoneRogue.EditorTools
                 {
                     name = "continue";
                     state.Continues += 1;
+                    NoteLife(state, session, "continue");
+                }
+
+                if (!first && wave > state.LastWave && state.LastWave >= 1)
+                {
+                    state.ClearedWaves = wave - 1;
                 }
 
                 LogEvent(state, "transition", name, world, wave, session.Credits, lives, "");
+                state.ProgressUtc = DateTime.UtcNow.Ticks;
                 if (phaseChanged || waveChanged)
                 {
                     state.Settle = 0;
@@ -523,6 +717,12 @@ namespace AsteroidsGoneRogue.EditorTools
             state.LastWave = wave;
             state.LastWorld = world;
             state.LastLives = lives;
+            if (state.TargetWave > 0 && state.ClearedWaves >= state.TargetWave && state.Diagnostic == 0)
+            {
+                state.Phase = "stop";
+                state.ExitAsked = 0;
+                LogEvent(state, "transition", "target-wave", world, wave, session.Credits, lives, "");
+            }
         }
 
         static void Menu(LongRunState state, GameManager game, GameSession session)
@@ -597,6 +797,22 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             Seed(state);
+            int creditsNow = session.Credits;
+            LogEvent(
+                state,
+                "transition",
+                "continue-reachable",
+                WorldOf(session),
+                session.WaveIndex,
+                creditsNow,
+                session.Lives,
+                ",\"credits\":" + creditsNow.ToString(CultureInfo.InvariantCulture) + ",\"reachable\":true");
+            state.ContinueChecks += 1;
+            if (creditsNow == 0)
+            {
+                LogEvent(state, "transition", "zero-credits", WorldOf(session), session.WaveIndex, 0, session.Lives, ",\"reachable\":true");
+            }
+
             game.StartWave();
             state.Settle = 0;
         }
@@ -640,8 +856,10 @@ namespace AsteroidsGoneRogue.EditorTools
                 after,
                 session.Lives,
                 ",\"item\":\"" + Json(item) + "\",\"cost\":" + (before - after).ToString(CultureInfo.InvariantCulture)
+                + ",\"price\":" + (before - after).ToString(CultureInfo.InvariantCulture)
                 + ",\"creditsBefore\":" + before.ToString(CultureInfo.InvariantCulture)
                 + ",\"creditsAfter\":" + after.ToString(CultureInfo.InvariantCulture));
+            state.ProgressUtc = DateTime.UtcNow.Ticks;
         }
 
         static bool ReadyToResume(LongRunState state, GameSession session)
@@ -664,7 +882,7 @@ namespace AsteroidsGoneRogue.EditorTools
             return worldHit || timeHit;
         }
 
-        static void Steer()
+        static void Steer(LongRunState state)
         {
             ShipController ship = UnityEngine.Object.FindAnyObjectByType<ShipController>();
             if (ship == null)
@@ -674,24 +892,68 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             Vector3 pos = ship.transform.position;
-            Vector3 fwd = ship.transform.forward;
-            int count = 0;
-            count = CollectAsteroids(pos, count);
-            count = CollectEnemies(pos, count);
-            count = CollectBolts(pos, count);
-            float edge = 30f;
-            ArenaShape shape = ArenaShapeCatalog.Active;
-            if (shape != null)
+            float now = Time.realtimeSinceStartup;
+            if (state != null)
             {
-                edge = shape.DistanceToEdge(pos.x, pos.z);
+                float movedX = pos.x - state.LastShipX;
+                float movedZ = pos.z - state.LastShipZ;
+                if ((movedX * movedX) + (movedZ * movedZ) > 0.25f || state.LastShipX > 100000f)
+                {
+                    state.LastShipX = pos.x;
+                    state.LastShipZ = pos.z;
+                    state.ProgressUtc = DateTime.UtcNow.Ticks;
+                }
             }
 
-            LongRunPilot.Stick stick = LongRunPilot.Decide(pos.x, pos.z, fwd.x, fwd.z, Threats, count, edge);
+            Vector3 fwd = ship.transform.forward;
+            Camera camera = PlayCamera();
+            _seenCount = 0;
+            _seenCount = CollectAsteroids(camera, pos, _seenCount, now);
+            _seenCount = CollectEnemies(camera, pos, _seenCount, now);
+            _seenCount = CollectBolts(camera, pos, _seenCount, now);
+            RememberMotion(now);
+            if (_senseAt < 0f)
+            {
+                _senseAt = now;
+            }
+
+            if (_latchAt < 0f || now - _latchAt >= LongRunPilot.ReactionSeconds)
+            {
+                if (now - _senseAt >= LongRunPilot.ReactionSeconds)
+                {
+                    _latchedCount = _seenCount;
+                    for (int index = 0; index < _seenCount; index++)
+                    {
+                        Latched[index] = Threats[index];
+                        LatchIds[index] = SeenIds[index];
+                    }
+
+                    _latchAt = now;
+                }
+            }
+
+            float edge = VisibleEdge(camera, pos);
+            bool hold = _latchAt < 0f || now - _holdAt < LongRunPilot.InputHoldSeconds;
+            LongRunPilot.Stick stick = _held;
+            if (!hold)
+            {
+                stick = LongRunPilot.Decide(pos.x, pos.z, fwd.x, fwd.z, Latched, _latchedCount, edge);
+                _held = stick;
+                _holdAt = now;
+            }
+
+            if (string.IsNullOrEmpty(stick.Maneuver))
+            {
+                stick.Maneuver = "hold";
+            }
+
+            _held.Maneuver = stick.Maneuver;
             GamepadInput.SetEditorPump(true, stick.MoveX, stick.MoveY, stick.AimX, stick.AimY, stick.Fire);
             LongRunDeathLog.NoteChosen(stick.MoveX, stick.MoveY, stick.AimX, stick.AimY, stick.Fire);
+            NoteNearest(pos);
         }
 
-        static int CollectAsteroids(Vector3 pos, int count)
+        static int CollectAsteroids(Camera camera, Vector3 pos, int count, float now)
         {
             Asteroid[] found = UnityEngine.Object.FindObjectsByType<Asteroid>();
             if (found == null)
@@ -702,19 +964,21 @@ namespace AsteroidsGoneRogue.EditorTools
             for (int index = 0; index < found.Length; index++)
             {
                 Asteroid rock = found[index];
-                if (rock == null)
+                if (rock == null || !OnScreen(camera, rock.transform.position))
                 {
                     continue;
                 }
 
                 Vector3 at = rock.transform.position;
-                count = Keep(pos, at.x, at.z, count);
+                float radius = VisibleRadius(rock);
+                int kind = radius >= 2.2f ? LongRunPilot.KindLarge : LongRunPilot.KindBody;
+                count = Keep(pos, at.x, at.z, 0f, 0f, radius, kind, rock.GetEntityId(), rock.name, count, now);
             }
 
             return count;
         }
 
-        static int CollectEnemies(Vector3 pos, int count)
+        static int CollectEnemies(Camera camera, Vector3 pos, int count, float now)
         {
             EnemySeeker[] found = UnityEngine.Object.FindObjectsByType<EnemySeeker>();
             if (found == null)
@@ -725,19 +989,21 @@ namespace AsteroidsGoneRogue.EditorTools
             for (int index = 0; index < found.Length; index++)
             {
                 EnemySeeker enemy = found[index];
-                if (enemy == null)
+                if (enemy == null || !OnScreen(camera, enemy.transform.position))
                 {
                     continue;
                 }
 
                 Vector3 at = enemy.transform.position;
-                count = Keep(pos, at.x, at.z, count);
+                float radius = VisibleRadius(enemy);
+                int kind = radius >= 1.6f ? LongRunPilot.KindLarge : LongRunPilot.KindBody;
+                count = Keep(pos, at.x, at.z, 0f, 0f, radius, kind, enemy.GetEntityId(), enemy.name, count, now);
             }
 
             return count;
         }
 
-        static int CollectBolts(Vector3 pos, int count)
+        static int CollectBolts(Camera camera, Vector3 pos, int count, float now)
         {
             Projectile[] found = UnityEngine.Object.FindObjectsByType<Projectile>();
             if (found == null)
@@ -748,24 +1014,30 @@ namespace AsteroidsGoneRogue.EditorTools
             for (int index = 0; index < found.Length; index++)
             {
                 Projectile bolt = found[index];
-                if (bolt == null || !bolt.Hostile)
+                if (bolt == null || !bolt.Hostile || !OnScreen(camera, bolt.transform.position))
                 {
                     continue;
                 }
 
                 Vector3 at = bolt.transform.position;
-                count = Keep(pos, at.x, at.z, count);
+                count = Keep(pos, at.x, at.z, 0f, 0f, 0.4f, LongRunPilot.KindShot, bolt.GetEntityId(), bolt.name, count, now);
             }
 
             return count;
         }
 
-        static int Keep(Vector3 pos, float x, float z, int count)
+        static int Keep(Vector3 pos, float x, float z, float vx, float vz, float radius, int kind, UnityEngine.EntityId id, string name, int count, float now)
         {
             if (count < LongRunPilot.ThreatCap)
             {
                 Threats[count].X = x;
                 Threats[count].Z = z;
+                Threats[count].Vx = vx;
+                Threats[count].Vz = vz;
+                Threats[count].Radius = radius;
+                Threats[count].Kind = kind;
+                SeenIds[count] = id;
+                ThreatNames[count] = name ?? string.Empty;
                 return count + 1;
             }
 
@@ -790,9 +1062,187 @@ namespace AsteroidsGoneRogue.EditorTools
             {
                 Threats[farthest].X = x;
                 Threats[farthest].Z = z;
+                Threats[farthest].Vx = vx;
+                Threats[farthest].Vz = vz;
+                Threats[farthest].Radius = radius;
+                Threats[farthest].Kind = kind;
+                SeenIds[farthest] = id;
+                ThreatNames[farthest] = name ?? string.Empty;
             }
 
             return count;
+        }
+
+        static void RememberMotion(float now)
+        {
+            float dt = now - _prevAt;
+            if (dt < 0.001f)
+            {
+                dt = 0.001f;
+            }
+
+            if (_prevAt >= 0f)
+            {
+                for (int index = 0; index < _seenCount; index++)
+                {
+                    for (int prev = 0; prev < _prevCount; prev++)
+                    {
+                        if (!SeenIds[index].Equals(PrevIds[prev]))
+                        {
+                            continue;
+                        }
+
+                        Threats[index].Vx = (Threats[index].X - PrevX[prev]) / dt;
+                        Threats[index].Vz = (Threats[index].Z - PrevZ[prev]) / dt;
+                        break;
+                    }
+                }
+            }
+
+            _prevCount = _seenCount;
+            for (int copy = 0; copy < _seenCount; copy++)
+            {
+                PrevIds[copy] = SeenIds[copy];
+                PrevX[copy] = Threats[copy].X;
+                PrevZ[copy] = Threats[copy].Z;
+            }
+
+            _prevAt = now;
+        }
+
+        static void NoteNearest(Vector3 pos)
+        {
+            _lastNearest = "none";
+            _lastNearestDist = -1f;
+            _lastNearestPerceived = false;
+            _lastProjectile = "none";
+            _lastProjectileSpeed = 0f;
+            float best = 1000000f;
+            float bestShot = 1000000f;
+            for (int index = 0; index < _seenCount; index++)
+            {
+                float dx = Threats[index].X - pos.x;
+                float dz = Threats[index].Z - pos.z;
+                float dist = (float)System.Math.Sqrt((dx * dx) + (dz * dz));
+                if (dist < best)
+                {
+                    best = dist;
+                    _lastNearest = ThreatNames[index];
+                    _lastNearestDist = dist;
+                    _lastNearestPerceived = WasLatched(SeenIds[index]);
+                }
+
+                if (Threats[index].Kind == LongRunPilot.KindShot && dist < bestShot)
+                {
+                    bestShot = dist;
+                    _lastProjectile = ThreatNames[index];
+                    _lastProjectileSpeed = (float)System.Math.Sqrt((Threats[index].Vx * Threats[index].Vx) + (Threats[index].Vz * Threats[index].Vz));
+                }
+            }
+        }
+
+        static bool WasLatched(UnityEngine.EntityId id)
+        {
+            for (int index = 0; index < _latchedCount; index++)
+            {
+                if (LatchIds[index].Equals(id))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        static Camera PlayCamera()
+        {
+            Camera main = Camera.main;
+            if (main != null)
+            {
+                return main;
+            }
+
+            Camera[] cameras = Camera.allCameras;
+            if (cameras == null)
+            {
+                return null;
+            }
+
+            for (int index = 0; index < cameras.Length; index++)
+            {
+                Camera camera = cameras[index];
+                if (camera != null && camera.enabled && camera.name != "DecorCamera")
+                {
+                    return camera;
+                }
+            }
+
+            return null;
+        }
+
+        static bool OnScreen(Camera camera, Vector3 world)
+        {
+            if (camera == null)
+            {
+                return false;
+            }
+
+            Vector3 view = camera.WorldToViewportPoint(world);
+            return view.z > 0f && view.x >= 0f && view.x <= 1f && view.y >= 0f && view.y <= 1f;
+        }
+
+        static float VisibleRadius(Component body)
+        {
+            Collider collider = body.GetComponent<Collider>();
+            if (collider == null)
+            {
+                return 0.6f;
+            }
+
+            Vector3 extents = collider.bounds.extents;
+            float radius = extents.x > extents.z ? extents.x : extents.z;
+            if (radius < 0.2f)
+            {
+                radius = 0.2f;
+            }
+
+            return radius;
+        }
+
+        static float VisibleEdge(Camera camera, Vector3 pos)
+        {
+            if (camera == null)
+            {
+                return 30f;
+            }
+
+            Vector3 view = camera.WorldToViewportPoint(pos);
+            float left = view.x;
+            float right = 1f - view.x;
+            float down = view.y;
+            float up = 1f - view.y;
+            float margin = left;
+            if (right < margin)
+            {
+                margin = right;
+            }
+
+            if (down < margin)
+            {
+                margin = down;
+            }
+
+            if (up < margin)
+            {
+                margin = up;
+            }
+
+            if (margin < 0f)
+            {
+                margin = 0f;
+            }
+
+            return margin * 20f;
         }
 
         static void Seed(LongRunState state)
@@ -1134,6 +1584,7 @@ namespace AsteroidsGoneRogue.EditorTools
             string verdict = VerdictOf(state);
             string summaryPath = Path.Combine(state.OutDir, "summary.md");
             File.WriteAllText(summaryPath, Summary(state, verdict, savesOk, saveDetail, prefsOk, prefsDetail));
+            WriteMachineSummary(state, verdict, savesOk, prefsOk);
             SessionState.SetBool(KeyRunning, false);
             Debug.Log("LongRun verdict=" + verdict + " summary=" + summaryPath + " elapsed=" + Elapsed(state).ToString("0.0", CultureInfo.InvariantCulture));
             if (verdict != "PASS")
@@ -1149,6 +1600,10 @@ namespace AsteroidsGoneRogue.EditorTools
             else if (verdict == "INCOMPLETE")
             {
                 code = 2;
+            }
+            else if (verdict == "DIAGNOSTIC")
+            {
+                code = 3;
             }
 
             EditorApplication.Exit(code);
@@ -1177,10 +1632,13 @@ namespace AsteroidsGoneRogue.EditorTools
         {
             bool resumeConfigured = state.ResumeWorld > 0 || state.ResumeMinutes > 0;
             bool resumeNotRun = resumeConfigured && state.ResumeReached == 0;
-            return LongRunVerdict.Classify(
+            return LongRunVerdict.ClassifyCampaign(
                 state.SaveFailed != 0,
                 state.ResumeFailed != 0,
                 state.HarnessFault != 0,
+                state.Diagnostic != 0,
+                state.TargetWave,
+                state.ClearedWaves,
                 Elapsed(state) + 0.05 >= state.Minutes * 60.0,
                 LongRunVerdict.Progressed(state.MaxWave),
                 state.DiedEarly != 0,
@@ -1201,6 +1659,12 @@ namespace AsteroidsGoneRogue.EditorTools
             builder.Append(LongRunFrames.PlayingSeconds.ToString("0.00", CultureInfo.InvariantCulture));
             builder.Append("\n- Frame sum seconds: ");
             builder.Append(LongRunFrames.SumSeconds.ToString("0.00", CultureInfo.InvariantCulture));
+            builder.Append("\n- Progression: ");
+            builder.Append(state.Skipped != 0 ? "skipped start (diagnostic, not applied)" : "natural");
+            builder.Append("\n- Target wave: ");
+            builder.Append(state.TargetWave.ToString(CultureInfo.InvariantCulture));
+            builder.Append("\n- Cleared waves: ");
+            builder.Append(state.ClearedWaves.ToString(CultureInfo.InvariantCulture));
             builder.Append("\n- Budget seconds: ");
             builder.Append((state.Minutes * 60).ToString(CultureInfo.InvariantCulture));
             builder.Append("\n- World: ");
@@ -1286,6 +1750,118 @@ namespace AsteroidsGoneRogue.EditorTools
             return builder.ToString();
         }
 
+        static void WriteMachineSummary(LongRunState state, string verdict, bool savesOk, bool prefsOk)
+        {
+            StringBuilder json = new StringBuilder();
+            StringBuilder text = new StringBuilder();
+            json.Append("{\n  \"verdict\": \"");
+            json.Append(verdict);
+            json.Append("\",\n  \"progression\": \"");
+            json.Append(state.Skipped != 0 ? "skipped start" : "natural");
+            json.Append("\",\n  \"goals\": [\n");
+            text.Append("verdict ");
+            text.Append(verdict);
+            text.Append("\nprogression ");
+            text.Append(state.Skipped != 0 ? "skipped start" : "natural");
+            text.Append('\n');
+            int losses = state.Continues + state.Deaths;
+            string lifeResult = "INCOMPLETE";
+            string lifeReason = "no life loss";
+            if (losses > 0 && state.LifeLogs >= losses)
+            {
+                lifeResult = "PASS";
+                lifeReason = "nearest threat, perception, maneuver, projectile, and speed logged";
+            }
+            else if (losses > 0)
+            {
+                lifeResult = "FAIL";
+                lifeReason = "a life loss was not logged";
+            }
+
+            string levelResult = "INCOMPLETE";
+            string levelReason = "no -targetWave";
+            if (state.TargetWave > 0 && state.Diagnostic != 0)
+            {
+                levelResult = "DIAGNOSTIC";
+                levelReason = "diagnostic flags cannot PASS";
+            }
+            else if (state.TargetWave > 0 && state.ClearedWaves >= state.TargetWave)
+            {
+                levelResult = "PASS";
+                levelReason = "cleared " + state.ClearedWaves.ToString(CultureInfo.InvariantCulture) + " waves";
+            }
+            else if (state.TargetWave > 0)
+            {
+                levelReason = "cleared " + state.ClearedWaves.ToString(CultureInfo.InvariantCulture) + " of " + state.TargetWave.ToString(CultureInfo.InvariantCulture);
+            }
+
+            string overResult = "INCOMPLETE";
+            string overReason = "game over not reached";
+            if (state.OverContinue == 1)
+            {
+                overResult = "PASS";
+                overReason = "continue after game over matched";
+            }
+            else if (state.OverContinue == 2)
+            {
+                overResult = "FAIL";
+                overReason = "continue after game over mismatched";
+            }
+            else if (state.OverContinue == 3)
+            {
+                overReason = "continue offer missing after game over";
+            }
+
+            string newRunResult = state.NewRunNo != 0 && state.NewRunYes != 0 ? "PASS" : "INCOMPLETE";
+            string newRunReason = state.NewRunNo != 0 && state.NewRunYes != 0
+                ? "No logged, then Yes logged; Yes starts a wave only with -menuProbe when continue is absent"
+                : "new run Yes/No not reached";
+            bool first = true;
+            Goal(json, text, ref first, "watchdog", state.Watchdog != 0 ? "FAIL" : "PASS", state.Watchdog != 0 ? "watchdog 60s" : "progress stayed inside 60s");
+            Goal(json, text, ref first, "level-10", levelResult, levelReason);
+            Goal(json, text, ref first, "life-loss", lifeResult, lifeReason);
+            Goal(json, text, ref first, "invulnerable", state.Invulnerable != 0 ? "DIAGNOSTIC" : "PASS", state.Invulnerable != 0 ? "flag set; hull and shield were not written" : "not used");
+            Goal(json, text, ref first, "skipped-start", state.Skipped != 0 ? "DIAGNOSTIC" : "PASS", state.Skipped != 0 ? "requested and not applied; PR #163 is not on this branch" : "natural progression");
+            Goal(json, text, ref first, "resume", state.ResumeFailed != 0 ? "FAIL" : (state.ResumeDone != 0 ? "PASS" : "INCOMPLETE"), state.ResumeDone != 0 ? "world, wave, lives, credits, upgrades, hull, shield, seed compared" : "resume not run");
+            Goal(json, text, ref first, "game-over-continue", overResult, overReason);
+            Goal(json, text, ref first, "new-run", newRunResult, newRunReason);
+            Goal(json, text, ref first, "purchases", state.ContinueChecks > 0 ? "PASS" : "INCOMPLETE", state.ContinueChecks > 0 ? "price and credits logged; continue reachable at 0 credits" : "no hangar continue");
+            Goal(json, text, ref first, "prefs", savesOk && prefsOk ? "PASS" : "FAIL", savesOk && prefsOk ? "MATCH" : "save or prefs mismatch");
+            json.Append("\n  ]\n}\n");
+            text.Append("logCapBytes ");
+            text.Append(LongRunVerdict.LogCapBytes.ToString(CultureInfo.InvariantCulture));
+            text.Append("\nperceptionSeconds ");
+            text.Append(LongRunPilot.ReactionSeconds.ToString("0.00", CultureInfo.InvariantCulture));
+            text.Append("\ninputHoldSeconds ");
+            text.Append(LongRunPilot.InputHoldSeconds.ToString("0.00", CultureInfo.InvariantCulture));
+            text.Append('\n');
+            File.WriteAllText(Path.Combine(state.OutDir, "summary.json"), json.ToString());
+            File.WriteAllText(Path.Combine(state.OutDir, "summary.txt"), text.ToString());
+        }
+
+        static void Goal(StringBuilder json, StringBuilder text, ref bool first, string id, string result, string reason)
+        {
+            if (!first)
+            {
+                json.Append(",\n");
+            }
+
+            first = false;
+            json.Append("    {\"id\": \"");
+            json.Append(id);
+            json.Append("\", \"result\": \"");
+            json.Append(result);
+            json.Append("\", \"reason\": \"");
+            json.Append(Json(reason));
+            json.Append("\"}");
+            text.Append(id);
+            text.Append(' ');
+            text.Append(result);
+            text.Append(' ');
+            text.Append(reason);
+            text.Append('\n');
+        }
+
         static void FlushLogs(LongRunState state)
         {
             if (PendingLogs.Count == 0 || state == null || state.OutDir.Length == 0)
@@ -1359,7 +1935,48 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             builder.Append("}\n");
-            File.AppendAllText(Path.Combine(state.OutDir, "events.jsonl"), builder.ToString());
+            string line = builder.ToString();
+            int bytes = Encoding.UTF8.GetByteCount(line);
+            if (state.LogBytes > LongRunVerdict.LogCapBytes - bytes)
+            {
+                if (state.LogCapped == 0)
+                {
+                    state.LogCapped = 1;
+                    Debug.Log("LongRun log cap " + LongRunVerdict.LogCapBytes.ToString(CultureInfo.InvariantCulture));
+                }
+
+                return;
+            }
+
+            state.LogBytes += bytes;
+            File.AppendAllText(Path.Combine(state.OutDir, "events.jsonl"), line);
+        }
+
+        static void WriteLogTail(LongRunState state)
+        {
+            string source = Path.Combine(state.OutDir, "events.jsonl");
+            string tail = string.Empty;
+            if (File.Exists(source))
+            {
+                using (FileStream stream = File.Open(source, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                {
+                    int keep = 65536;
+                    if (stream.Length < keep)
+                    {
+                        keep = (int)stream.Length;
+                    }
+
+                    if (keep > 0)
+                    {
+                        stream.Seek(-keep, SeekOrigin.End);
+                        byte[] buffer = new byte[keep];
+                        int read = stream.Read(buffer, 0, keep);
+                        tail = Encoding.UTF8.GetString(buffer, 0, read);
+                    }
+                }
+            }
+
+            File.WriteAllText(Path.Combine(state.OutDir, "log-tail.txt"), tail);
         }
 
         static string TakeShot(LongRunState state)
@@ -1503,6 +2120,9 @@ namespace AsteroidsGoneRogue.EditorTools
             AppendField(builder, "runId", game != null ? game.ActiveRunId.ToString(CultureInfo.InvariantCulture) : "0");
             AppendField(builder, "dailySeed", game != null ? game.ActiveDailySeed.ToString(CultureInfo.InvariantCulture) : "0");
             AppendField(builder, "difficulty", ((int)DifficultySettings.Current).ToString(CultureInfo.InvariantCulture));
+            ShipHealth health = UnityEngine.Object.FindAnyObjectByType<ShipHealth>();
+            AppendField(builder, "hull", health != null ? health.Hull.ToString(CultureInfo.InvariantCulture) : "-1");
+            AppendField(builder, "shield", health != null ? health.Shield.ToString(CultureInfo.InvariantCulture) : "-1");
             return builder.ToString();
         }
 
@@ -1647,6 +2267,9 @@ namespace AsteroidsGoneRogue.EditorTools
             state.Seed = -1;
             state.ResumeWorld = 1;
             state.ResumeMinutes = 0;
+            state.LastShipX = 100001f;
+            state.LastShipZ = 100001f;
+            bool minutesGiven = false;
             string minutesText;
             if (TryArg("-longRunMinutes", out minutesText))
             {
@@ -1658,6 +2281,74 @@ namespace AsteroidsGoneRogue.EditorTools
                 }
 
                 state.Minutes = minutes;
+                minutesGiven = true;
+            }
+
+            string targetText;
+            if (TryArg("-targetWave", out targetText))
+            {
+                int targetWave;
+                if (!int.TryParse(targetText, NumberStyles.Integer, CultureInfo.InvariantCulture, out targetWave) || targetWave < 1 || targetWave > 80)
+                {
+                    error = "-targetWave needs an integer from 1 to 80";
+                    return null;
+                }
+
+                state.TargetWave = targetWave;
+            }
+
+            if (state.TargetWave > 0 && !minutesGiven)
+            {
+                state.Minutes = LongRunVerdict.TargetMinutesWhenUnspecified;
+            }
+
+            if (HasArg("-diagnosticInvulnerable"))
+            {
+                state.Invulnerable = 1;
+                state.Diagnostic = 1;
+            }
+
+            string startWorldText;
+            if (TryArg("-startWorld", out startWorldText))
+            {
+                int startWorld;
+                if (!int.TryParse(startWorldText, NumberStyles.Integer, CultureInfo.InvariantCulture, out startWorld) || startWorld < 1 || startWorld > 7)
+                {
+                    error = "-startWorld needs an integer from 1 to 7";
+                    return null;
+                }
+
+                state.StartWorld = startWorld;
+                state.Skipped = 1;
+                state.Diagnostic = 1;
+            }
+
+            string startWaveText;
+            if (TryArg("-startWave", out startWaveText))
+            {
+                int startWave;
+                if (!int.TryParse(startWaveText, NumberStyles.Integer, CultureInfo.InvariantCulture, out startWave) || startWave < 1 || startWave > 80)
+                {
+                    error = "-startWave needs an integer from 1 to 80";
+                    return null;
+                }
+
+                state.StartWaveArg = startWave;
+                state.Skipped = 1;
+                state.Diagnostic = 1;
+            }
+
+            string loadout;
+            if (TryArg("-loadout", out loadout))
+            {
+                state.Loadout = loadout;
+                state.Skipped = 1;
+                state.Diagnostic = 1;
+            }
+
+            if (HasArg("-menuProbe"))
+            {
+                state.MenuProbe = 1;
             }
 
             string seedText;
@@ -1745,6 +2436,20 @@ namespace AsteroidsGoneRogue.EditorTools
             return false;
         }
 
+        static bool HasArg(string flag)
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            for (int index = 0; index < args.Length; index++)
+            {
+                if (args[index] == flag)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         static double Elapsed(LongRunState state)
         {
             if (state.StartUtc <= 0)
@@ -1813,6 +2518,27 @@ namespace AsteroidsGoneRogue.EditorTools
             AppendField(builder, "errors", state.Errors.ToString(CultureInfo.InvariantCulture));
             AppendField(builder, "shot", state.Shot.ToString(CultureInfo.InvariantCulture));
             AppendField(builder, "exitAsked", state.ExitAsked.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "targetWave", state.TargetWave.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "diagnostic", state.Diagnostic.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "invulnerable", state.Invulnerable.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "skipped", state.Skipped.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "startWorld", state.StartWorld.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "startWaveArg", state.StartWaveArg.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "loadout", state.Loadout);
+            AppendField(builder, "menuProbe", state.MenuProbe.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "watchdog", state.Watchdog.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "progressUtc", state.ProgressUtc.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "stepUtc", state.StepUtc.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "logBytes", state.LogBytes.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "logCapped", state.LogCapped.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "lifeLogs", state.LifeLogs.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "continueChecks", state.ContinueChecks.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "clearedWaves", state.ClearedWaves.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "overContinue", state.OverContinue.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "newRunNo", state.NewRunNo.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "newRunYes", state.NewRunYes.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "lastShipX", state.LastShipX.ToString("0.00", CultureInfo.InvariantCulture));
+            AppendField(builder, "lastShipZ", state.LastShipZ.ToString("0.00", CultureInfo.InvariantCulture));
             File.WriteAllText(Path.Combine(state.OutDir, "state.txt"), builder.ToString());
         }
 
@@ -1988,6 +2714,101 @@ namespace AsteroidsGoneRogue.EditorTools
             {
                 state.ExitAsked = ParseInt(value);
             }
+            else if (key == "targetWave")
+            {
+                state.TargetWave = ParseInt(value);
+            }
+            else if (key == "diagnostic")
+            {
+                state.Diagnostic = ParseInt(value);
+            }
+            else if (key == "invulnerable")
+            {
+                state.Invulnerable = ParseInt(value);
+            }
+            else if (key == "skipped")
+            {
+                state.Skipped = ParseInt(value);
+            }
+            else if (key == "startWorld")
+            {
+                state.StartWorld = ParseInt(value);
+            }
+            else if (key == "startWaveArg")
+            {
+                state.StartWaveArg = ParseInt(value);
+            }
+            else if (key == "loadout")
+            {
+                state.Loadout = value;
+            }
+            else if (key == "menuProbe")
+            {
+                state.MenuProbe = ParseInt(value);
+            }
+            else if (key == "watchdog")
+            {
+                state.Watchdog = ParseInt(value);
+            }
+            else if (key == "progressUtc")
+            {
+                state.ProgressUtc = ParseLong(value);
+            }
+            else if (key == "stepUtc")
+            {
+                state.StepUtc = ParseLong(value);
+            }
+            else if (key == "logBytes")
+            {
+                state.LogBytes = ParseInt(value);
+            }
+            else if (key == "logCapped")
+            {
+                state.LogCapped = ParseInt(value);
+            }
+            else if (key == "lifeLogs")
+            {
+                state.LifeLogs = ParseInt(value);
+            }
+            else if (key == "continueChecks")
+            {
+                state.ContinueChecks = ParseInt(value);
+            }
+            else if (key == "clearedWaves")
+            {
+                state.ClearedWaves = ParseInt(value);
+            }
+            else if (key == "overContinue")
+            {
+                state.OverContinue = ParseInt(value);
+            }
+            else if (key == "newRunNo")
+            {
+                state.NewRunNo = ParseInt(value);
+            }
+            else if (key == "newRunYes")
+            {
+                state.NewRunYes = ParseInt(value);
+            }
+            else if (key == "lastShipX")
+            {
+                state.LastShipX = ParseFloat(value);
+            }
+            else if (key == "lastShipZ")
+            {
+                state.LastShipZ = ParseFloat(value);
+            }
+        }
+
+        static float ParseFloat(string value)
+        {
+            float number;
+            if (!float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out number))
+            {
+                return 0f;
+            }
+
+            return number;
         }
 
         static int ParseInt(string value)
@@ -2049,5 +2870,26 @@ namespace AsteroidsGoneRogue.EditorTools
         public int Errors;
         public int Shot;
         public int ExitAsked;
+        public int TargetWave;
+        public int Diagnostic;
+        public int Invulnerable;
+        public int Skipped;
+        public int StartWorld;
+        public int StartWaveArg;
+        public string Loadout = string.Empty;
+        public int MenuProbe;
+        public int Watchdog;
+        public long ProgressUtc;
+        public long StepUtc;
+        public int LogBytes;
+        public int LogCapped;
+        public int LifeLogs;
+        public int ContinueChecks;
+        public int ClearedWaves;
+        public int OverContinue;
+        public int NewRunNo;
+        public int NewRunYes;
+        public float LastShipX = 100001f;
+        public float LastShipZ = 100001f;
     }
 }
