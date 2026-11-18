@@ -101,7 +101,17 @@ namespace AsteroidsGoneRogue.EditorTools
 
             _probeFailed = false;
             _probeLogged = false;
+            _enterFrame = -1;
+            _probe = null;
+            _probeHost = null;
+            _hostKnown = false;
+            _gen = 0;
+            _sceneName = string.Empty;
+            _lastDiag = string.Empty;
+            _diagCount = 0;
             SessionState.SetInt("LongRun.ProbeTries", 0);
+            SessionState.SetBool("LongRun.ProbeArmed", false);
+            SessionState.SetInt("LongRun.ProbeGen", 0);
             SessionState.SetBool(KeyRunning, true);
             SessionState.SetString(KeyOut, state.OutDir);
             Save(state);
@@ -141,6 +151,15 @@ namespace AsteroidsGoneRogue.EditorTools
         static readonly object _logLock = new object();
         static bool _probeFailed;
         static bool _probeLogged;
+        static LongRunDeathLog _probe;
+        static GameObject _probeHost;
+        static UnityEngine.EntityId _hostId;
+        static bool _hostKnown;
+        static int _enterFrame = -1;
+        static int _gen;
+        static string _sceneName = string.Empty;
+        static string _lastDiag = string.Empty;
+        static int _diagCount;
 
         static void OnNativeLog(string condition, string stackTrace, LogType type)
         {
@@ -788,79 +807,216 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static string EnsureProbe()
         {
-            if (!EditorApplication.isPlaying || Time.frameCount <= 0)
+            if (!ProbeReady())
             {
                 return "wait";
+            }
+
+            string why = InspectProbe();
+            if (why.Length == 0)
+            {
+                ArmProbe(SessionState.GetInt("LongRun.ProbeTries", 0) + 1);
+                return string.Empty;
+            }
+
+            bool armed = SessionState.GetBool("LongRun.ProbeArmed", false);
+            if (armed || why != "component null")
+            {
+                Diag(why);
+            }
+
+            bool free = armed
+                || why == "domain reload occurred"
+                || why == "active scene changed"
+                || why == "host object changed"
+                || why == "destroyed (Unity-null but C# ref alive)";
+            return AttachProbe(!free);
+        }
+
+        static bool ProbeReady()
+        {
+            if (!EditorApplication.isPlaying)
+            {
+                return false;
+            }
+
+            if (_enterFrame < 0)
+            {
+                _enterFrame = Time.frameCount;
+            }
+
+            if (Time.frameCount < _enterFrame + 10)
+            {
+                return false;
             }
 
             UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
             if (!scene.IsValid() || !scene.isLoaded)
             {
-                return "wait";
+                return false;
             }
 
-            LongRunDeathLog existing = UnityEngine.Object.FindAnyObjectByType<LongRunDeathLog>();
-            if (existing != null && !existing.Recording)
+            GameManager game = GameManager.Live;
+            if (game == null || game.Session == null)
             {
-                existing.enabled = false;
-                existing.enabled = true;
+                return false;
             }
 
-            if (existing != null && existing.Recording)
+            GamePhase phase = game.Session.Phase;
+            return phase == GamePhase.Hangar
+                || phase == GamePhase.Playing
+                || phase == GamePhase.WaveClear
+                || phase == GamePhase.Failed
+                || phase == GamePhase.CampaignClear;
+        }
+
+        static string InspectProbe()
+        {
+            int savedGen = SessionState.GetInt("LongRun.ProbeGen", 0);
+            if (savedGen > 0 && _gen == 0)
             {
-                ArmProbe();
-                return string.Empty;
+                _gen = savedGen;
+                _probe = null;
+                _probeHost = null;
+                _hostKnown = false;
+                return "domain reload occurred";
             }
 
-            int tries = SessionState.GetInt("LongRun.ProbeTries", 0);
-            if (tries >= 2)
+            if (ReferenceEquals(_probe, null))
             {
-                return ProbeReason("budget-exhausted", tries);
+                return "component null";
             }
 
-            int attempt = tries + 1;
-            SessionState.SetInt("LongRun.ProbeTries", attempt);
-            try
+            if (_probe == null)
             {
-                if (existing == null)
+                return "destroyed (Unity-null but C# ref alive)";
+            }
+
+            UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            if (_sceneName.Length > 0 && scene.name != _sceneName)
+            {
+                _sceneName = scene.name;
+                return "active scene changed";
+            }
+
+            if (_hostKnown && !_probe.gameObject.GetEntityId().Equals(_hostId))
+            {
+                return "host object changed";
+            }
+
+            if (!_probe.Recording)
+            {
+                _probe.enabled = false;
+                _probe.enabled = true;
+                if (_probe.Recording)
                 {
-                    GameObject host = UnityEngine.Object.FindAnyObjectByType<LongRunFrameProbe>() != null
-                        ? UnityEngine.Object.FindAnyObjectByType<LongRunFrameProbe>().gameObject
-                        : null;
-                    if (host == null)
-                    {
-                        host = new GameObject("LongRunFrameProbe");
-                        host.hideFlags = HideFlags.HideAndDontSave;
-                        host.AddComponent<LongRunFrameProbe>();
-                    }
-
-                    if (host == null)
-                    {
-                        return ProbeReason("found=null", attempt);
-                    }
-
-                    existing = host.AddComponent<LongRunDeathLog>();
-                    if (existing == null)
-                    {
-                        return ProbeReason("addcomponent-null", attempt);
-                    }
+                    return string.Empty;
                 }
 
-                if (!existing.Recording)
+                return "Recording=false";
+            }
+
+            return string.Empty;
+        }
+
+        static string AttachProbe(bool countFailure)
+        {
+            int fails = SessionState.GetInt("LongRun.ProbeTries", 0);
+            if (countFailure && fails >= 2)
+            {
+                return ProbeReason("budget-exhausted", fails);
+            }
+
+            int attempt = fails + 1;
+            try
+            {
+                if (ReferenceEquals(_probeHost, null) || _probeHost == null)
                 {
+                    _probeHost = new GameObject("LongRunFrameProbe");
+                    _probeHost.hideFlags = HideFlags.HideInHierarchy;
+                    UnityEngine.Object.DontDestroyOnLoad(_probeHost);
+                }
+
+                if (_probeHost == null)
+                {
+                    if (countFailure)
+                    {
+                        SessionState.SetInt("LongRun.ProbeTries", attempt);
+                    }
+
+                    return ProbeReason("found=null", attempt);
+                }
+
+                if (_probeHost.GetComponent<LongRunFrameProbe>() == null)
+                {
+                    _probeHost.AddComponent<LongRunFrameProbe>();
+                }
+
+                _probe = _probeHost.GetComponent<LongRunDeathLog>();
+                if (_probe == null)
+                {
+                    _probe = _probeHost.AddComponent<LongRunDeathLog>();
+                }
+
+                if (_probe == null)
+                {
+                    if (countFailure)
+                    {
+                        SessionState.SetInt("LongRun.ProbeTries", attempt);
+                    }
+
+                    return ProbeReason("addcomponent-null", attempt);
+                }
+
+                if (!_probe.Recording)
+                {
+                    _probe.enabled = false;
+                    _probe.enabled = true;
+                }
+
+                if (!_probe.Recording)
+                {
+                    if (countFailure)
+                    {
+                        SessionState.SetInt("LongRun.ProbeTries", attempt);
+                    }
+
                     return ProbeReason("found-not-recording", attempt);
                 }
 
-                ArmProbe();
+                _sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+                _hostId = _probeHost.GetEntityId();
+                _hostKnown = true;
+                _gen = 1;
+                SessionState.SetInt("LongRun.ProbeGen", 1);
+                SessionState.SetBool("LongRun.ProbeArmed", true);
+                ArmProbe(attempt);
                 return string.Empty;
             }
             catch (System.Exception attachEx)
             {
+                if (countFailure)
+                {
+                    SessionState.SetInt("LongRun.ProbeTries", attempt);
+                }
+
                 return ProbeReason("addcomponent-exception:" + attachEx.Message, attempt);
             }
         }
 
-        static void ArmProbe()
+        static void Diag(string why)
+        {
+            if (why == _lastDiag || _diagCount >= 8)
+            {
+                return;
+            }
+
+            _lastDiag = why;
+            _diagCount += 1;
+            Debug.Log("LongRun recorder diag " + why);
+        }
+
+        static void ArmProbe(int attempt)
         {
             LongRunTrace.Armed = true;
             LongRunTrace.Write = LongRunDeathLog.Append;
@@ -870,7 +1026,7 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             _probeLogged = true;
-            Debug.Log("LongRun death recorder recording " + ProbeReason("ok", SessionState.GetInt("LongRun.ProbeTries", 0)));
+            Debug.Log("LongRun death recorder recording " + ProbeReason("ok", attempt));
         }
 
         static string ProbeReason(string code, int attempt)

@@ -17,10 +17,10 @@ From the project folder, Unity 6000.6, with a GPU (do not pass `-nographics`).
 A successful attach logs exactly one line of this form:
 
 ```
-LongRun death recorder recording ok attempt=0 isPlaying=True frameCount=<n> sceneLoaded=True
+LongRun death recorder recording ok attempt=1 isPlaying=True frameCount=<n> sceneLoaded=True
 ```
 
-`attempt=0` means no failed attach was spent. Waiting for play mode, a loaded scene, and `frameCount > 0` does not spend an attempt. That wait is bounded by `BootLimitSeconds` (45).
+`attempt=1` is the first real attach. `frameCount` is at least 10 frames after play mode began. Waiting for play mode, a loaded scene, `GameSession`, and those frames does not spend an attempt. That wait is bounded by `BootLimitSeconds` (45) and faults as `play not ready`. There must be no `budget-exhausted` line after this OK line.
 
 ## Abort and fault strings
 
@@ -28,7 +28,13 @@ Each of these is logged as `LongRun FAIL: ...` and copied to `summary.md` `Fault
 
 | String | Meaning |
 | --- | --- |
-| `play not ready` | Still waiting for play mode, a loaded scene, or `frameCount > 0` when the 45 s boot limit expires. No attach was attempted. |
+| `play not ready` | Still waiting for play mode, a loaded scene, `GameSession`, or 10 frames after play began when the 45 s boot limit expires. No attach was attempted. |
+| `LongRun recorder diag component null` | Cached recorder reference is missing. Logged once. |
+| `LongRun recorder diag destroyed (Unity-null but C# ref alive)` | The cached Unity object was destroyed. |
+| `LongRun recorder diag Recording=false` | The recorder exists but `OnEnable` has not marked it recording, even after a disable/enable. |
+| `LongRun recorder diag host object changed` | The recorder's game object is not the cached host. |
+| `LongRun recorder diag active scene changed` | The active scene name changed. Re-arm does not spend an attempt. |
+| `LongRun recorder diag domain reload occurred` | The static generation counter reset while the saved generation did not. Re-arm does not spend an attempt. |
 | `play mode did not start` | Editor play mode never became active within 45 s. |
 | `GameSession missing` | Play mode is up, but `GameManager` or `GameSession` is still missing after 45 s. |
 | `found=null attempt=<n> isPlaying=<bool> frameCount=<n> sceneLoaded=<bool>` | No host object could be created for the recorder. |

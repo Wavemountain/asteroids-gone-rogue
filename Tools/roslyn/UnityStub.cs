@@ -38,6 +38,7 @@ namespace UnityEngine
         public static void Destroy(Object obj) { }
         public static void Destroy(Object obj, float delay) { }
         public static void DestroyImmediate(Object obj) { }
+        public static void DontDestroyOnLoad(Object target) { }
         public static T FindAnyObjectByType<T>() where T : Object { return null; }
         public static T FindAnyObjectByType<T>(FindObjectsInactive findObjectsInactive) where T : Object { return null; }
         public static Object FindAnyObjectByType(Type type, FindObjectsInactive findObjectsInactive) { return null; }

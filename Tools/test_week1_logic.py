@@ -19391,10 +19391,21 @@ def test_longrun_harness() -> None:
     assert "play not ready" in summary
     assert "LongRun FAIL: play mode did not start" in summary
     assert "LongRun FAIL: GameSession missing" in summary
-    probe = summary.split("static string EnsureProbe()")[1].split("static void ArmProbe()")[0]
+    probe = summary.split("static string EnsureProbe()")[1].split("static bool ProbeReady()")[0]
     assert "return false" not in probe
     assert 'return "wait"' in probe
     assert "LongRun death recorder recording" in summary
+    assert "FindAnyObjectByType<LongRunDeathLog>" not in summary
+    assert "DontDestroyOnLoad" in summary
+    assert "_probeHost" in summary
+    assert "_enterFrame + 10" in summary
+    assert "component null" in summary
+    assert "destroyed (Unity-null but C# ref alive)" in summary
+    assert "Recording=false" in summary
+    assert "host object changed" in summary
+    assert "active scene changed" in summary
+    assert "domain reload occurred" in summary
+    assert summary.index('return "wait"') < summary.index('SessionState.SetInt("LongRun.ProbeTries", attempt)')
     assert "Native errors:" in summary
     damage_at = health.index("LongRunTrace.Damage")
     assert health.rfind("#if UNITY_EDITOR", 0, damage_at) > health.rfind("#endif", 0, damage_at)
