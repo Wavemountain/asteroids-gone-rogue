@@ -206,6 +206,7 @@ namespace AsteroidsGoneRogue.EditorTools
         static bool _awaitingBuy;
         static bool _hangarRecovery;
         static int _startExits;
+        static int _startHold;
         static string _focusPath = string.Empty;
         static string _lastFocus = string.Empty;
         static string _lastHangarNote = string.Empty;
@@ -317,6 +318,12 @@ namespace AsteroidsGoneRogue.EditorTools
             FlushLogs(state);
             GamepadInput.SetEditorMenu(0, 0, false, false, false);
             GamepadInput.SetEditorUtility(false);
+            if (_startHold > 0)
+            {
+                _startHold -= 1;
+                GamepadInput.SetEditorPump(true, 0f, 0f, 0f, 0f, false);
+                GamepadInput.SetEditorMenu(0, 0, false, false, true);
+            }
             if (state.ProgressUtc <= 0)
             {
                 state.ProgressUtc = DateTime.UtcNow.Ticks;
@@ -898,20 +905,14 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
-            if (focusName != "Primary" && _returnSteps < 4 && !SideCycle(focusName))
-            {
-                _returnSteps += 1;
-                PulseMenu(0, 1, false, false, false, false);
-                NoteHangar(state, session, "nav-up", focusName, control, panels, false);
-                return;
-            }
-
-            if (focusName != "Primary" || _hangarRepeats >= 2)
+            if (focusName != "Primary")
             {
                 _startExits += 1;
-                PulseMenu(0, 0, false, false, true, false);
+                int towardPrimary = SideCycle(focusName) ? -1 : 1;
+                PulseMenu(0, towardPrimary, false, false, true, false);
+                _startHold = 8;
                 NoteHangar(state, session, "start-exit", focusName, control, panels, false);
-                if (_startExits >= 3)
+                if (_startExits >= 6)
                 {
                     NoteHangar(state, session, "fail", focusName, control, panels, false);
                     state.HarnessFault = 1;
@@ -942,6 +943,10 @@ namespace AsteroidsGoneRogue.EditorTools
             _menuPulseAt = Time.realtimeSinceStartup;
             GamepadInput.SetEditorPump(true, 0f, 0f, 0f, 0f, false);
             GamepadInput.SetEditorMenu(navX, navY, confirm, cancel, start);
+            if (start)
+            {
+                _startHold = 8;
+            }
             if (!submit || !confirm)
             {
                 return false;
