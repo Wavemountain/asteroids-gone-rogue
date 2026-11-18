@@ -135,7 +135,7 @@ namespace AsteroidsGoneRogue
             BindingMap map = BindingMap.ActiveOrDefault();
             if (map.UsesLegacyPause())
             {
-                return Input.GetKeyDown(KeyCode.Escape) || ButtonDown(Pause);
+                return MenuNavProbe.KeyDown(KeyCode.Escape) || ButtonDown(Pause);
             }
 
             return BoundInput.Down(BindAction.Pause, Live);
@@ -143,6 +143,12 @@ namespace AsteroidsGoneRogue
 
         public static bool ConfirmPressed()
         {
+            bool probed;
+            if (MenuNavProbe.TryConfirm(out probed))
+            {
+                return probed;
+            }
+
             BindingMap map = BindingMap.ActiveOrDefault();
             if (map.UsesLegacyConfirm())
             {
@@ -154,10 +160,16 @@ namespace AsteroidsGoneRogue
 
         public static bool CancelPressed()
         {
+            bool probed;
+            if (MenuNavProbe.TryCancel(out probed))
+            {
+                return probed;
+            }
+
             BindingMap map = BindingMap.ActiveOrDefault();
             if (map.UsesLegacyCancel())
             {
-                return Input.GetButtonDown("Cancel") || Input.GetKeyDown(KeyCode.Escape);
+                return Input.GetButtonDown("Cancel") || MenuNavProbe.KeyDown(KeyCode.Escape);
             }
 
             return BoundInput.Down(BindAction.Cancel, Live);
@@ -260,6 +272,12 @@ namespace AsteroidsGoneRogue
 
         private static float Axis(string name)
         {
+            float probed;
+            if (MenuNavProbe.TryAxis(name, out probed))
+            {
+                return probed;
+            }
+
             try
             {
                 return Input.GetAxisRaw(name);
@@ -272,6 +290,12 @@ namespace AsteroidsGoneRogue
 
         private static bool ButtonHeld(string name)
         {
+            bool probed;
+            if (MenuNavProbe.TryButton(name, false, out probed))
+            {
+                return probed;
+            }
+
             try
             {
                 return Input.GetButton(name);
@@ -284,6 +308,12 @@ namespace AsteroidsGoneRogue
 
         private static bool ButtonDown(string name)
         {
+            bool probed;
+            if (MenuNavProbe.TryButton(name, true, out probed))
+            {
+                return probed;
+            }
+
             try
             {
                 return Input.GetButtonDown(name);

@@ -10145,6 +10145,8 @@ def main() -> int:
     test_shader_warmup_cannot_block_boot()
     test_hud_gate_measures_shown_panel()
     test_wave_entry_clearance_skips_inflight()
+    test_start_choice()
+    test_start_choice_editor()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -17626,6 +17628,7 @@ def test_capture_048_clearance_hud() -> None:
     shutil.copyfile(root / "Assets/Scripts/Core/EffectScale.cs", work / "EffectScale.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/PromptLayout.cs", work / "PromptLayout.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/CaptureContinue.cs", work / "CaptureContinue.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/StartChoice.cs", work / "StartChoice.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/LayerGate.cs", work / "LayerGate.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/ArenaShape.cs", work / "ArenaShape.cs")
     shutil.copyfile(root / "Assets/Scripts/Core/ArenaShapeCatalog.cs", work / "ArenaShapeCatalog.cs")
@@ -17668,6 +17671,7 @@ class Program
         if (!AsteroidsGoneRogue.PremiumLook.SelfCheck()) throw new Exception("look");
         if (!AsteroidsGoneRogue.PromptLayout.SelfCheck()) throw new Exception("prompt fit");
         if (!AsteroidsGoneRogue.CaptureContinue.SelfCheck()) throw new Exception("capture continue");
+        if (!AsteroidsGoneRogue.StartChoice.SelfCheck()) throw new Exception("start choice");
         if (!AsteroidsGoneRogue.LayerGate.SelfCheck()) throw new Exception("layer gate");
         if (!AsteroidsGoneRogue.DecorDepthRules.SelfCheck()) throw new Exception("decor depth");
         if (!AsteroidsGoneRogue.WorldFloorExposure.SelfCheck()) throw new Exception("w2 floor");
@@ -17697,6 +17701,7 @@ class Program
                 '    <Compile Include="EffectScale.cs" />',
                 '    <Compile Include="PromptLayout.cs" />',
                 '    <Compile Include="CaptureContinue.cs" />',
+                '    <Compile Include="StartChoice.cs" />',
                 '    <Compile Include="LayerGate.cs" />',
                 '    <Compile Include="ArenaShape.cs" />',
                 '    <Compile Include="ArenaShapeCatalog.cs" />',
@@ -19148,6 +19153,197 @@ def test_edge_decor_050() -> None:
     ):
         assert (root / "Assets/Art/Import/Textures" / tex_name).is_file()
         assert (root / "Assets/Resources/Art/Import/Textures" / tex_name).is_file()
+
+
+def test_start_choice() -> None:
+    """Boot Continue / Start new. Hangar no longer offers Continue. Batch skips the panel."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    choice = (root / "Assets/Scripts/Core/StartChoice.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    start = (root / "Assets/Scripts/UI/GameUi.Start.cs").read_text(encoding="utf-8")
+    boot = (root / "Assets/Scripts/Content/GameBootstrap.cs").read_text(encoding="utf-8")
+    capture = (root / "Assets/Editor/AgrCapture.cs").read_text(encoding="utf-8")
+    gate = (root / "Assets/Scripts/Core/LayerGate.cs").read_text(encoding="utf-8")
+    summary = (root / "Assets/Scripts/Core/RunSummary.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+
+    def decide(has_save: bool, world: int, wave: int) -> dict:
+        world = 1 if world < 1 else world
+        wave = 1 if wave < 1 else wave
+        return {
+            "continue": has_save,
+            "confirm": has_save,
+            "focus": 0 if has_save else 1,
+            "world": world,
+            "wave": wave,
+        }
+
+    empty = decide(False, 0, 0)
+    assert empty["continue"] is False and empty["confirm"] is False and empty["focus"] == 1
+    saved = decide(True, 2, 8)
+    assert saved["continue"] is True and saved["confirm"] is True and saved["focus"] == 0
+    assert saved["world"] == 2 and saved["wave"] == 8
+    assert "view.ContinueEnabled = hasSave;" in choice
+    assert "view.ConfirmOverwrite = hasSave;" in choice
+    assert "view.Focus = hasSave ? FocusContinue : FocusNew;" in choice
+    assert "return batchMode || captureRunning || SkipPanel;" in choice
+    assert "return StartSkip.KeepSave;" in choice
+    assert 'public const string SkipArg = "-skipStartPanel";' in choice
+    assert "public static bool SkipPanel;" in choice
+    assert "ConfirmRestartNewRun" not in choice and "ConfirmRestartNewRun" not in start
+
+    def route(confirm: bool, focus: int, **flags: bool) -> str:
+        if confirm:
+            if flags.get("escape") or flags.get("scrim") or flags.get("no"):
+                return "no"
+            if flags.get("yes") or (flags.get("submit") and focus == 1):
+                return "yes"
+            if flags.get("submit"):
+                return "no"
+            return "blocked"
+        if flags.get("continue") and not flags.get("enabled", True):
+            return "blocked"
+        if flags.get("new") and flags.get("save"):
+            return "ask"
+        if flags.get("new"):
+            return "begin"
+        return "blocked"
+
+    assert route(False, 1, **{"continue": True, "enabled": False}) == "blocked"
+    assert route(False, 1, new=True, save=False) == "begin"
+    assert route(False, 1, new=True, save=True) == "ask"
+    assert route(True, 0, submit=True) == "no"
+    assert route(True, 0, escape=True) == "no"
+    assert route(True, 0, scrim=True) == "no"
+    assert route(True, 0, no=True) == "no"
+    assert route(True, 1, submit=True) == "yes"
+    assert route(True, 1, yes=True) == "yes"
+
+    apply = start.split("private void ApplyStartAction")[1]
+    no = apply.split("StartAction.OverwriteNo")[1].split("StartAction.OverwriteYes")[0]
+    yes = apply.split("StartAction.OverwriteYes")[1]
+    assert "DeleteRun" not in no and "AbandonSavedRun" not in no
+    assert "AbandonSavedRun()" in yes and "DeleteRun" not in yes
+    cont = apply.split("StartAction.Continue")[1].split("StartAction.AskOverwrite")[0]
+    assert "AcceptContinue()" in cont
+    present = start.split("public void PresentStartChoice()")[1].split("public void CaptureStartPanel")[0]
+    assert "Application.isBatchMode" in present
+    assert "StartChoice.ShouldSkip" in present
+    assert "StartChoice.WhenSkipped" in present
+    assert "ReadsSkipArg" in present
+    assert "DeleteRun" not in present and "AbandonSavedRun" not in present
+    assert "StartSkip.KeepSave" in present
+    assert "CaptureStartPanel" in start
+    assert 'Loc.T("ui.start.title", "Choose a run")' in start
+    assert 'Loc.T("ui.start.new", "Start new")' in start
+    assert 'Loc.Tf(\n                    "ui.start.overwrite",\n                    "Overwrite saved run - World {0} Wave {1}?"' in start
+    assert "RunSummary.ContinueRunLabel" in start
+    assert "UiNavCombined(PadNavSource.Both)" in start
+    assert "KeyCode.LeftArrow" in start and "KeyCode.RightArrow" in start
+    assert "KeyCode.Return" in start and "KeyCode.Space" in start
+    assert "interactable = enabled" in start
+    assert '{ "ui.start.title", "Välj runda" }' in loc
+    assert '{ "ui.start.new", "Starta ny" }' in loc
+    assert '{ "ui.start.overwrite", "Skriv över sparad runda - värld {0} våg {1}?" }' in loc
+    assert "ContinueRunLabel" in summary
+
+    caption = ui.split("private void ApplyPrimaryCaption")[1].split("private bool BoonModalOpen")[0]
+    assert "ContinueRunLabel" not in caption
+    assert "AcceptContinue" not in caption
+    primary = ui.split("private void OnPrimary()")[1].split("private void OnBuy")[0]
+    assert "AcceptContinue" not in primary
+    assert "StartWave()" in primary
+    assert "else if (StartPanelOpen())" in ui
+    assert "TickStartPanel()" in ui
+    assert boot.index("EnterHangar()") < boot.index("PresentStartChoice()")
+
+    assert "ShotCount = 10" in capture
+    assert "start_nosave" in capture and "start_save" in capture and "start_confirm" in capture
+    assert "CaptureStartPanel" in capture
+    assert "StartChoice.CaptureRunning" in capture
+    assert 'IsolateCanvas("StartChoiceCanvas")' in capture
+    modal = capture.split("static bool HudUnderModal")[1].split("static bool HudLaidOut")[0]
+    assert "StartChoiceCanvas" not in modal
+    assert "CheckHudLayout" in capture and "CheckLayer(" in capture
+    assert 'pair.IndexOf("StartChoiceScrim"' in gate
+    assert '"StartContinue x StartNew"' in gate
+    assert 'return pair == "Hint x HintScrim" || pair == "HintScrim x Hint";' in gate
+
+    continue_box = (0.22, 0.36, 0.48, 0.52)
+    new_box = (0.52, 0.36, 0.78, 0.52)
+    title_box = (0.22, 0.60, 0.78, 0.70)
+    question_box = (0.22, 0.58, 0.78, 0.70)
+    yes_box = (0.22, 0.36, 0.48, 0.52)
+    no_box = (0.52, 0.36, 0.78, 0.52)
+    assert not _overlap(continue_box, new_box)
+    assert not _overlap(title_box, continue_box)
+    assert not _overlap(title_box, new_box)
+    assert not _overlap(yes_box, no_box)
+    assert not _overlap(question_box, yes_box)
+    assert "ContinueMinX = 0.22f" in choice and "NewMinX = 0.52f" in choice
+    for width, height in ((1280, 800), (1920, 1080), (3440, 1440)):
+        scale = _canvas_scale(width, height)
+        button_w = (0.48 - 0.22) * (width / scale)
+        question_w = (0.78 - 0.22) * (width / scale)
+        for label in ("Continue W7 wave 35", "Fortsätt V7 våg 35", "Start new", "Starta ny"):
+            assert _estimate_width(label, 18) <= button_w, (width, label, button_w)
+        question = "Overwrite saved run - World 7 Wave 35?"
+        question_sv = "Skriv över sparad runda - värld 7 våg 35?"
+        assert _estimate_width(question, 18) <= question_w, (width, question_w)
+        assert _estimate_width(question_sv, 18) <= question_w, (width, question_w)
+
+    for path in list((root / "Assets").rglob("*.unity")) + list((root / "Assets").rglob("*.prefab")):
+        blob = path.read_text(encoding="utf-8", errors="replace")
+        assert "StartChoice" not in blob, path
+        assert "StartChoiceCanvas" not in blob, path
+
+
+def test_start_choice_editor() -> None:
+    """The batch start-choice test is Editor-only and cannot touch the real profile."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    editor = (root / "Assets/Editor/StartChoiceTest.cs").read_text(encoding="utf-8")
+    store = (root / "Assets/Scripts/Core/RunSaveStore.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    start = (root / "Assets/Scripts/UI/GameUi.Start.cs").read_text(encoding="utf-8")
+    probe = (root / "Assets/Scripts/Core/MenuNavProbe.cs").read_text(encoding="utf-8")
+    assert "class StartChoiceTest" in editor and "public static void Run()" in editor
+    assert "using UnityEditor" in editor
+    assert "AsteroidsGoneRogue.EditorTools.StartChoiceTest.Run" in editor
+    assert not (root / "Assets/Scripts/Editor/StartChoiceTest.cs").exists()
+    assert "StartChoiceTest" not in ui and "StartChoiceTest" not in start
+    assert "ProfileOutsidePersistent" in editor
+    assert "FAIL isolation profile is inside persistentDataPath" in editor
+    assert "prefs MATCH" in editor and "persistent UNCHANGED" in editor
+    assert "MenuNavProbe.Pulse" in editor
+    assert "AcceptContinue()" not in editor and "AbandonSavedRun()" not in editor
+    assert "if (string.IsNullOrEmpty(ProfileRoot))" in store
+    assert "return Application.persistentDataPath;" in store
+    assert "internal static string ProfileRoot;" in store
+    assert "MenuNavProbe.KeyDown" in start
+    assert "TryConfirm" in probe and "Input.GetKeyDown" in probe
+    assert "while (" not in editor
+    assert "EnterPlaymode" not in editor
+    assert "EditorApplication.isPlaying = true" in editor
+    assert "QueuePlayerLoopUpdate" in editor
+    assert "CaseSeconds = 60" in editor and "TotalSeconds = 300" in editor
+    assert "DateTime.UtcNow" in editor and "Time.time" not in editor
+    assert "realtimeSinceStartup" in editor
+    assert "new Timer(" in editor
+    assert "StartChoice.ForcePanel = true" in editor
+    assert "start panel not shown (skipped?)" in editor
+    assert "phase " in editor and "wait " in editor
+    assert "case 4 wave 1 reached=" in editor
+    assert "case 4 main save file gone=" in editor
+    assert "case 4 bak save file gone=" in editor
+    assert "OldRunId" in editor and "FileIsFresh" in editor
+    pose = (root / "Assets/Scripts/Hangar/HangarShipPreview.cs").read_text(encoding="utf-8")
+    mode = pose.split("private void PoseForMode")[1].split("private void RestoreBodyKinematic")[0]
+    assert mode.index("linearVelocity") < mode.index("isKinematic = true")
+    assert "if (!_body.isKinematic)" in mode
 
 
 def test_wave_entry_clearance_skips_inflight() -> None:

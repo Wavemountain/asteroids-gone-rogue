@@ -38,6 +38,7 @@ BUTTON_KEYS = {
     "ui.continue_world",
     "ui.continue_run",
     "ui.continue",
+    "ui.start.new",
     "ui.abort",
     "ui.credits",
     "ui.got_it",

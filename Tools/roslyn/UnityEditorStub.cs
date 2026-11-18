@@ -45,6 +45,7 @@ namespace UnityEditor
     {
         public delegate void CallbackFunction();
         public static event CallbackFunction update;
+        public static event CallbackFunction delayCall;
         public static event Action quitting;
         public static event Action<PlayModeStateChange> playModeStateChanged;
         public static bool isPlaying { get; set; }

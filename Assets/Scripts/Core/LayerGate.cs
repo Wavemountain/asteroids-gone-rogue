@@ -135,6 +135,11 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
+            if (pair.IndexOf("StartChoiceScrim", System.StringComparison.Ordinal) >= 0)
+            {
+                return true;
+            }
+
             return pair == "Hint x HintScrim" || pair == "HintScrim x Hint";
         }
 
@@ -1005,6 +1010,16 @@ namespace AsteroidsGoneRogue
             }
 
             if (Expect("ui-overlap", Evaluate("hangar", rules, null, null, new string[] { "HintScrim x Hint" }, null)))
+            {
+                return false;
+            }
+
+            if (!Expect("ui-overlap", Evaluate("hangar", rules, null, null, new string[] { "StartContinue x StartNew" }, null)))
+            {
+                return false;
+            }
+
+            if (Expect("ui-overlap", Evaluate("hangar", rules, null, null, new string[] { "StartChoiceScrim x StartContinue" }, null)))
             {
                 return false;
             }

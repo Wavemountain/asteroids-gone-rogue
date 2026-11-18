@@ -245,13 +245,13 @@ namespace AsteroidsGoneRogue
             {
                 if (!_body.isKinematic)
                 {
-                    _savedKinematic = _body.isKinematic;
+                    _savedKinematic = false;
+                    _body.linearVelocity = Vector3.zero;
+                    _body.angularVelocity = Vector3.zero;
                     _body.isKinematic = true;
                 }
 
                 _body.interpolation = RigidbodyInterpolation.None;
-                _body.linearVelocity = Vector3.zero;
-                _body.angularVelocity = Vector3.zero;
                 _body.position = pos;
                 _body.rotation = Quaternion.identity;
             }

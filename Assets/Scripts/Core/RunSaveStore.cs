@@ -15,12 +15,48 @@ namespace AsteroidsGoneRogue
         public const string MetaFileName = "meta_save.json";
         public const string TempSuffix = ".tmp";
 
+        /// <summary>
+        /// Test-only profile root. Empty means Application.persistentDataPath.
+        /// The editor start-choice test sets this. The game never writes a profile of its own.
+        /// </summary>
+        internal const string ProfileEnv = "AGR_STARTCHOICE_PROFILE";
+
+        internal static string ProfileRoot;
+
+        internal static string RootPath()
+        {
+            if (string.IsNullOrEmpty(ProfileRoot))
+            {
+                return Application.persistentDataPath;
+            }
+
+            return ProfileRoot;
+        }
+
+        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void ApplyTestProfile()
+        {
+            string force = System.Environment.GetEnvironmentVariable(StartChoice.ForceEnv);
+            if (force == "1")
+            {
+                StartChoice.ForcePanel = true;
+            }
+
+            string root = System.Environment.GetEnvironmentVariable(ProfileEnv);
+            if (string.IsNullOrEmpty(root))
+            {
+                return;
+            }
+
+            ProfileRoot = root;
+        }
+
         public static bool TryLoadRun(out RunSaveData data)
         {
             data = null;
             try
             {
-                string path = Path.Combine(Application.persistentDataPath, RunFileName);
+                string path = Path.Combine(RootPath(), RunFileName);
                 string backupPath = path + SaveFileChoice.BackupSuffix;
                 bool mainExists = File.Exists(path);
                 string mainText = mainExists ? File.ReadAllText(path) : null;
@@ -85,7 +121,7 @@ namespace AsteroidsGoneRogue
         {
             try
             {
-                string path = Path.Combine(Application.persistentDataPath, RunFileName);
+                string path = Path.Combine(RootPath(), RunFileName);
                 if (File.Exists(path))
                 {
                     File.Delete(path);
@@ -107,7 +143,7 @@ namespace AsteroidsGoneRogue
         {
             try
             {
-                string path = Path.Combine(Application.persistentDataPath, MetaFileName);
+                string path = Path.Combine(RootPath(), MetaFileName);
                 string backupPath = path + SaveFileChoice.BackupSuffix;
                 bool mainExists = File.Exists(path);
                 string mainText = mainExists ? File.ReadAllText(path) : null;
@@ -208,7 +244,7 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            string dest = Path.Combine(Application.persistentDataPath, fileName);
+            string dest = Path.Combine(RootPath(), fileName);
             string temp = dest + TempSuffix;
             File.WriteAllText(temp, json);
             string reread = File.ReadAllText(temp);
