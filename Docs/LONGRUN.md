@@ -84,6 +84,7 @@ Each of these is logged as `LongRun FAIL: ...` and copied to `summary.md` `Fault
 | `PlayerPrefs restore mismatch` | `RestorePrefs` re-read did not match the backup. |
 | `a long run is already active` | A second `Run` started while one is in progress. |
 | `watchdog 60s` | No wave, phase, life, credit, purchase, or visible ship movement for 60 s. `log-tail.txt` is written and Unity exits non-zero. |
+| `hangar input repeated without a phase change` | The same hangar Confirm did not change phase. `hangar-input.txt` has the focused control, open panels, and whether submit hit a handler. The harness navigates toward Next Wave and then stops. |
 | `continue offer missing after game over` | The game-over continue step waited out its 20 s timeout. |
 
 A resume field mismatch is also stored in `Fault` and logged as a resume `FAIL`. A save or prefs hash mismatch sets `Fault` from the hash detail. A tick exception stores the exception text.

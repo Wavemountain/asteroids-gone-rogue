@@ -199,6 +199,13 @@ namespace AsteroidsGoneRogue.EditorTools
         static float _lastProjectileSpeed;
         static float _menuPulseAt = -1f;
         static int _buyBefore;
+        static int _menuWave = -1;
+        static int _shopSteps;
+        static int _returnSteps;
+        static int _hangarRepeats;
+        static bool _awaitingBuy;
+        static bool _hangarRecovery;
+        static string _lastHangarNote = string.Empty;
 
         static void OnNativeLog(string condition, string stackTrace, LogType type)
         {
@@ -811,9 +818,20 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
-            if (state.Settle < 15)
+            if (state.Settle < 12)
             {
                 return;
+            }
+
+            if (_menuWave != session.WaveIndex)
+            {
+                _menuWave = session.WaveIndex;
+                _shopSteps = 0;
+                _returnSteps = 0;
+                _hangarRepeats = 0;
+                _awaitingBuy = false;
+                _buyBefore = 0;
+                _hangarRecovery = false;
             }
 
             if (Time.realtimeSinceStartup - _menuPulseAt < 0.35f)
@@ -821,31 +839,40 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
-            if (state.BoughtWave != session.WaveIndex)
+            if (_awaitingBuy && _buyBefore > 0 && session.Credits < _buyBefore)
             {
-                if (session.Credits > 0 && state.Settle == 15)
-                {
-                    _buyBefore = session.Credits;
-                    PulseMenu(0, -1, false, false, false, false);
-                    state.Settle = 16;
-                    return;
-                }
-
-                if (session.Credits > 0 && state.Settle == 16)
-                {
-                    PulseMenu(0, 0, true, false, false, true);
-                    state.Settle = 17;
-                    return;
-                }
-
-                if (_buyBefore > 0 && session.Credits < _buyBefore)
-                {
-                    NotePurchase(state, session, "focused-slot", _buyBefore);
-                }
-
+                NotePurchase(state, session, "focused-slot", _buyBefore);
+                _awaitingBuy = false;
                 _buyBefore = 0;
                 state.BoughtWave = session.WaveIndex;
-                state.Settle = session.Credits == 0 ? 20 : 18;
+            }
+
+            string focusName = FocusName();
+            string control = HangarControl(focusName);
+            string panels = OpenPanels(game);
+            if (state.BoughtWave != session.WaveIndex && session.Credits > 0 && _shopSteps < 8)
+            {
+                _shopSteps += 1;
+                if (focusName.StartsWith("Buy_", System.StringComparison.Ordinal) && !_awaitingBuy)
+                {
+                    _buyBefore = session.Credits;
+                    _awaitingBuy = true;
+                    bool bought = PulseMenu(0, 0, true, false, false, true);
+                    NoteHangar(state, session, "confirm-buy", focusName, control, panels, bought);
+                    return;
+                }
+
+                _awaitingBuy = false;
+                int navX = (_shopSteps % 2) == 0 ? 1 : 0;
+                int navY = navX == 0 ? -1 : 0;
+                PulseMenu(navX, navY, false, false, false, false);
+                NoteHangar(state, session, navX == 0 ? "nav-down" : "nav-right", focusName, control, panels, false);
+                return;
+            }
+
+            if (state.BoughtWave != session.WaveIndex)
+            {
+                state.BoughtWave = session.WaveIndex;
             }
 
             if (ReadyToResume(state, session))
@@ -858,55 +885,180 @@ namespace AsteroidsGoneRogue.EditorTools
                 return;
             }
 
-            if (state.Settle == 18)
+            if (focusName != "Primary" && _returnSteps < 8)
             {
+                _returnSteps += 1;
                 PulseMenu(0, 1, false, false, false, false);
-                state.Settle = 20;
+                NoteHangar(state, session, "nav-up", focusName, control, panels, false);
+                return;
+            }
+
+            if (_hangarRepeats >= 6 && !_hangarRecovery)
+            {
+                _hangarRecovery = true;
+                NoteHangar(state, session, "recovery", focusName, control, panels, false);
+                int recoverY = focusName == "Primary" ? 0 : 1;
+                PulseMenu(0, recoverY, false, false, true, false);
+                return;
+            }
+
+            if (_hangarRepeats >= 8)
+            {
+                NoteHangar(state, session, "fail", focusName, control, panels, false);
+                state.HarnessFault = 1;
+                state.Fault = "hangar input repeated without a phase change";
+                state.Phase = "stop";
+                state.ExitAsked = 0;
+                Save(state);
+                Debug.LogError("LongRun FAIL: hangar input repeated without a phase change");
                 return;
             }
 
             Seed(state);
-            int creditsNow = session.Credits;
-            LogEvent(
-                state,
-                "transition",
-                "continue-reachable",
-                WorldOf(session),
-                session.WaveIndex,
-                creditsNow,
-                session.Lives,
-                ",\"credits\":" + creditsNow.ToString(CultureInfo.InvariantCulture) + ",\"reachable\":true,\"input\":\"confirm\"");
+            bool hit = PulseMenu(0, 0, true, false, false, true);
+            _hangarRepeats += 1;
             state.ContinueChecks += 1;
-            if (creditsNow == 0)
+            NoteHangar(state, session, "continue-reachable", focusName, control, panels, hit);
+            if (session.Credits == 0 && state.ContinueChecks == 1)
             {
                 LogEvent(state, "transition", "zero-credits", WorldOf(session), session.WaveIndex, 0, session.Lives, ",\"reachable\":true,\"input\":\"confirm\"");
             }
-
-            PulseMenu(0, 0, true, false, false, true);
-            state.Settle = 0;
         }
 
-        static void PulseMenu(int navX, int navY, bool confirm, bool cancel, bool start, bool submit)
+        static bool PulseMenu(int navX, int navY, bool confirm, bool cancel, bool start, bool submit)
         {
             _menuPulseAt = Time.realtimeSinceStartup;
             GamepadInput.SetEditorPump(true, 0f, 0f, 0f, 0f, false);
             GamepadInput.SetEditorMenu(navX, navY, confirm, cancel, start);
             if (!submit || !confirm)
             {
-                return;
+                return false;
             }
 
             UnityEngine.EventSystems.EventSystem events = UnityEngine.EventSystems.EventSystem.current;
             if (events == null || events.currentSelectedGameObject == null)
             {
-                return;
+                return false;
             }
 
             UnityEngine.EventSystems.BaseEventData data = new UnityEngine.EventSystems.BaseEventData(events);
-            UnityEngine.EventSystems.ExecuteEvents.Execute(
+            return UnityEngine.EventSystems.ExecuteEvents.Execute(
                 events.currentSelectedGameObject,
                 data,
                 UnityEngine.EventSystems.ExecuteEvents.submitHandler);
+        }
+
+        static string FocusName()
+        {
+            UnityEngine.EventSystems.EventSystem events = UnityEngine.EventSystems.EventSystem.current;
+            if (events == null || events.currentSelectedGameObject == null)
+            {
+                return "null";
+            }
+
+            return events.currentSelectedGameObject.name;
+        }
+
+        static string HangarControl(string focusName)
+        {
+            if (focusName == "null")
+            {
+                return "none";
+            }
+
+            if (focusName == "Primary")
+            {
+                return "next-wave";
+            }
+
+            if (focusName.StartsWith("Buy_", System.StringComparison.Ordinal))
+            {
+                return "shop";
+            }
+
+            if (focusName == "ExtraLife" || focusName == "HullRepair" || focusName == "ShieldRefill" || focusName == "Bank")
+            {
+                return "service";
+            }
+
+            if (focusName == "NewRun")
+            {
+                return "new-run";
+            }
+
+            return "other";
+        }
+
+        static string OpenPanels(GameManager game)
+        {
+            StringBuilder panels = new StringBuilder();
+            if (game != null && game.BoonChoiceOpen)
+            {
+                panels.Append("boon ");
+            }
+
+            if (game != null && game.ShowDifficultyChooser)
+            {
+                panels.Append("difficulty ");
+            }
+
+            if (game != null && game.TutorialActive)
+            {
+                panels.Append("tutorial ");
+            }
+
+            if (PanelActive("ConfirmRoot"))
+            {
+                panels.Append("confirm ");
+            }
+
+            if (PanelActive("SettingsRoot"))
+            {
+                panels.Append("settings ");
+            }
+
+            if (PanelActive("RunSetupCanvas"))
+            {
+                panels.Append("setup ");
+            }
+
+            if (PanelActive("BoonRoot"))
+            {
+                panels.Append("boon-root ");
+            }
+
+            if (panels.Length == 0)
+            {
+                return "none";
+            }
+
+            return panels.ToString().Trim();
+        }
+
+        static bool PanelActive(string name)
+        {
+            GameObject panel = GameObject.Find(name);
+            return panel != null && panel.activeInHierarchy;
+        }
+
+        static void NoteHangar(LongRunState state, GameSession session, string action, string focusName, string control, string panels, bool handlerHit)
+        {
+            string line = "action=" + action
+                + " focus=" + focusName
+                + " control=" + control
+                + " panels=" + panels
+                + " phase=" + PhaseName(session.Phase)
+                + " handler=" + (handlerHit ? "hit" : "miss")
+                + " credits=" + session.Credits.ToString(CultureInfo.InvariantCulture)
+                + " wave=" + session.WaveIndex.ToString(CultureInfo.InvariantCulture);
+            if (line == _lastHangarNote)
+            {
+                return;
+            }
+
+            _lastHangarNote = line;
+            Debug.Log("LongRun hangar " + line);
+            File.AppendAllText(Path.Combine(state.OutDir, "hangar-input.txt"), line + "\n");
         }
 
         static void NotePurchase(LongRunState state, GameSession session, string item, int before)

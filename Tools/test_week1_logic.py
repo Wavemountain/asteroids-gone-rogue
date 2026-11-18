@@ -19239,6 +19239,10 @@ def test_longrun_harness() -> None:
     assert "TryBuy(" not in runner
     assert "SetEditorMenu" in runner
     assert "submitHandler" in runner
+    assert "hangar input repeated without a phase change" in runner
+    assert "hangar-input.txt" in runner
+    assert "handler=" in runner
+    assert "control=" in runner
     assert "Random.InitState" in runner
     assert "SkipTutorial" not in runner
     assert "SkipFirstStart" not in runner
