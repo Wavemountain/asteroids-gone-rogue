@@ -19242,6 +19242,8 @@ def test_longrun_harness() -> None:
     assert "hangar input repeated without a phase change" in runner
     assert "hangar-input.txt" in runner
     assert "start-exit" in runner
+    assert "LongRun play phase=Playing" in runner
+    assert "timeScale=" in runner
     assert "path=" in runner
     assert "shipSpeed" in runner
     assert "\"credits\"" in runner

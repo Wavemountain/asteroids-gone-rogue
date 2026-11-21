@@ -214,6 +214,7 @@ namespace AsteroidsGoneRogue.EditorTools
         static bool _creditSeen;
         static float _lastNearestSpeed;
         static float _lastShipSpeed;
+        static float _playLogAt = -1f;
 
         static void OnNativeLog(string condition, string stackTrace, LogType type)
         {
@@ -320,9 +321,23 @@ namespace AsteroidsGoneRogue.EditorTools
             GamepadInput.SetEditorUtility(false);
             if (_startHold > 0)
             {
-                _startHold -= 1;
-                GamepadInput.SetEditorPump(true, 0f, 0f, 0f, 0f, false);
-                GamepadInput.SetEditorMenu(0, 0, false, false, true);
+                GamePhase heldPhase = GamePhase.Hangar;
+                GameManager heldGame = GameManager.Live;
+                if (heldGame != null && heldGame.Session != null)
+                {
+                    heldPhase = heldGame.Session.Phase;
+                }
+
+                if (heldPhase == GamePhase.Playing || heldPhase == GamePhase.Failed)
+                {
+                    _startHold = 0;
+                }
+                else
+                {
+                    _startHold -= 1;
+                    GamepadInput.SetEditorPump(true, 0f, 0f, 0f, 0f, false);
+                    GamepadInput.SetEditorMenu(0, 0, false, false, true);
+                }
             }
             if (state.ProgressUtc <= 0)
             {
@@ -965,6 +980,37 @@ namespace AsteroidsGoneRogue.EditorTools
                 UnityEngine.EventSystems.ExecuteEvents.submitHandler);
         }
 
+        static void NotePlay(LongRunState state, ShipController ship, float moveX, float moveY, bool fire)
+        {
+            float now = Time.realtimeSinceStartup;
+            if (now - _playLogAt < 1f)
+            {
+                return;
+            }
+
+            _playLogAt = now;
+            string id = "null";
+            string pos = "?,?";
+            if (ship != null)
+            {
+                id = ship.GetEntityId().ToString();
+                Vector3 at = ship.transform.position;
+                pos = at.x.ToString("0.0", CultureInfo.InvariantCulture) + "," + at.z.ToString("0.0", CultureInfo.InvariantCulture);
+            }
+
+            string line = "LongRun play phase=Playing ship=" + id
+                + " input=" + moveX.ToString("0.00", CultureInfo.InvariantCulture)
+                + "," + moveY.ToString("0.00", CultureInfo.InvariantCulture)
+                + " fire=" + (fire ? "1" : "0")
+                + " timeScale=" + Time.timeScale.ToString("0.00", CultureInfo.InvariantCulture)
+                + " pos=" + pos;
+            Debug.Log(line);
+            if (state != null && state.OutDir.Length > 0)
+            {
+                File.AppendAllText(Path.Combine(state.OutDir, "play-input.txt"), line + "\n");
+            }
+        }
+
         static string FocusName()
         {
             UnityEngine.EventSystems.EventSystem events = UnityEngine.EventSystems.EventSystem.current;
@@ -1171,6 +1217,7 @@ namespace AsteroidsGoneRogue.EditorTools
             if (ship == null)
             {
                 GamepadInput.SetEditorPump(true, 0f, 0f, 0f, 0f, false);
+                NotePlay(state, null, 0f, 0f, false);
                 return;
             }
 
@@ -1233,6 +1280,7 @@ namespace AsteroidsGoneRogue.EditorTools
             _held.Maneuver = stick.Maneuver;
             GamepadInput.SetEditorPump(true, stick.MoveX, stick.MoveY, stick.AimX, stick.AimY, stick.Fire);
             GamepadInput.SetEditorUtility(stick.Utility);
+            NotePlay(state, ship, stick.MoveX, stick.MoveY, stick.Fire);
             Rigidbody hull = ship.GetComponent<Rigidbody>();
             if (hull != null)
             {
