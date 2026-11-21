@@ -215,6 +215,10 @@ namespace AsteroidsGoneRogue.EditorTools
         static float _lastNearestSpeed;
         static float _lastShipSpeed;
         static float _playLogAt = -1f;
+        static int _boonOffer = -1;
+        static string _lastBoonNote = string.Empty;
+        static string _lastUiNote = string.Empty;
+        static float _uiLogAt = -1f;
 
         static void OnNativeLog(string condition, string stackTrace, LogType type)
         {
@@ -467,6 +471,7 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             Observe(state, session);
+            NoteUnknownUi(state, game, session);
             if (state.Phase == "play")
             {
                 Menu(state, game, session);
@@ -824,7 +829,7 @@ namespace AsteroidsGoneRogue.EditorTools
 
             if (game.BoonChoiceOpen)
             {
-                if (state.Settle < 5 || state.BoonWave == session.WaveIndex)
+                if (state.Settle < 8)
                 {
                     return;
                 }
@@ -834,9 +839,20 @@ namespace AsteroidsGoneRogue.EditorTools
                     return;
                 }
 
-                int offer = game.Boons != null ? game.Boons.OfferAt(0) : -1;
-                PulseMenu(0, 0, true, false, false, false);
-                state.BoonWave = session.WaveIndex;
+                if (_boonOffer < 0 && game.Boons != null)
+                {
+                    _boonOffer = game.Boons.OfferAt(0);
+                }
+
+                string boonFocus = FocusName();
+                bool boonHit = PulseMenu(0, 0, true, false, false, false);
+                NoteBoon(state, session, "confirm-left", boonFocus, OpenPanels(game), boonHit, _boonOffer);
+                return;
+            }
+
+            if (_boonOffer >= 0)
+            {
+                NoteBoon(state, session, "chosen", "BoonCard0", "none", true, _boonOffer);
                 LogEvent(
                     state,
                     "transition",
@@ -845,9 +861,9 @@ namespace AsteroidsGoneRogue.EditorTools
                     session.WaveIndex,
                     session.Credits,
                     session.Lives,
-                    ",\"offer\":" + offer.ToString(CultureInfo.InvariantCulture));
-                state.Settle = 0;
-                return;
+                    ",\"offer\":" + _boonOffer.ToString(CultureInfo.InvariantCulture) + ",\"pick\":0");
+                state.BoonWave = session.WaveIndex;
+                _boonOffer = -1;
             }
 
             if (state.Settle < 12)
@@ -1090,6 +1106,16 @@ namespace AsteroidsGoneRogue.EditorTools
                 panels.Append("boon-root ");
             }
 
+            if (PanelActive("DoctrineIntro"))
+            {
+                panels.Append("doctrine-intro ");
+            }
+
+            if (PanelActive("FirstHangarHint"))
+            {
+                panels.Append("hangar-hint ");
+            }
+
             if (panels.Length == 0)
             {
                 return "none";
@@ -1102,6 +1128,73 @@ namespace AsteroidsGoneRogue.EditorTools
         {
             GameObject panel = GameObject.Find(name);
             return panel != null && panel.activeInHierarchy;
+        }
+
+        static void NoteBoon(LongRunState state, GameSession session, string action, string focusName, string panels, bool handlerHit, int offer)
+        {
+            string line = "action=" + action
+                + " focus=" + focusName
+                + " control=boon"
+                + " panels=" + panels
+                + " phase=" + PhaseName(session.Phase)
+                + " handler=" + (handlerHit ? "hit" : "miss")
+                + " credits=" + session.Credits.ToString(CultureInfo.InvariantCulture)
+                + " wave=" + session.WaveIndex.ToString(CultureInfo.InvariantCulture)
+                + " world=" + WorldOf(session).ToString(CultureInfo.InvariantCulture)
+                + " offer=" + offer.ToString(CultureInfo.InvariantCulture)
+                + " pick=0";
+            if (line == _lastBoonNote)
+            {
+                return;
+            }
+
+            _lastBoonNote = line;
+            Debug.Log("LongRun boon " + line);
+            if (state.OutDir.Length > 0)
+            {
+                File.AppendAllText(Path.Combine(state.OutDir, "boon-input.txt"), line + "\n");
+            }
+        }
+
+        static void NoteUnknownUi(LongRunState state, GameManager game, GameSession session)
+        {
+            if (session == null || session.Phase == GamePhase.Playing)
+            {
+                return;
+            }
+
+            float now = Time.realtimeSinceStartup;
+            if (now - _uiLogAt < 2f)
+            {
+                return;
+            }
+
+            _uiLogAt = now;
+            string focusName = FocusName();
+            string panels = game != null ? OpenPanels(game) : "none";
+            string control = HangarControl(focusName);
+            bool named = panels != "none" || control == "next-wave" || control == "shop" || control == "service";
+            string action = named ? "ui" : "unknown-panel";
+            string line = "action=" + action
+                + " focus=" + focusName
+                + " control=" + (named ? control : "unknown")
+                + " panels=" + panels
+                + " phase=" + PhaseName(session.Phase)
+                + " handler=miss"
+                + " credits=" + session.Credits.ToString(CultureInfo.InvariantCulture)
+                + " wave=" + session.WaveIndex.ToString(CultureInfo.InvariantCulture)
+                + " world=" + WorldOf(session).ToString(CultureInfo.InvariantCulture);
+            if (line == _lastUiNote)
+            {
+                return;
+            }
+
+            _lastUiNote = line;
+            Debug.Log("LongRun ui " + line);
+            if (state.OutDir.Length > 0)
+            {
+                File.AppendAllText(Path.Combine(state.OutDir, "ui-state.txt"), line + "\n");
+            }
         }
 
         static void NoteHangar(LongRunState state, GameSession session, string action, string focusName, string control, string panels, bool handlerHit)

@@ -19243,6 +19243,9 @@ def test_longrun_harness() -> None:
     assert "hangar-input.txt" in runner
     assert "start-exit" in runner
     assert "LongRun play phase=Playing" in runner
+    assert "boon-input.txt" in runner
+    assert "LongRun boon " in runner
+    assert "unknown-panel" in runner
     assert "timeScale=" in runner
     assert "path=" in runner
     assert "shipSpeed" in runner
