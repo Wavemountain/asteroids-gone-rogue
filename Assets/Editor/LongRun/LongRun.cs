@@ -130,6 +130,19 @@ namespace AsteroidsGoneRogue.EditorTools
             SessionState.SetInt("LongRun.ProbeTries", 0);
             SessionState.SetBool("LongRun.ProbeArmed", false);
             SessionState.SetInt("LongRun.ProbeGen", 0);
+            if (!Application.isBatchMode)
+            {
+                string project = Directory.GetParent(Application.dataPath).FullName;
+                string preflight = Path.Combine(project, "Captures", "Preflight");
+                Directory.CreateDirectory(preflight);
+                string stamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+                state.VisualLog = Path.Combine(preflight, "longrun10_latest.log");
+                state.VisualLogCopy = Path.Combine(preflight, "longrun10_" + stamp + ".log");
+                string header = "LongRun visual out=" + state.OutDir + "\n";
+                File.WriteAllText(state.VisualLog, header);
+                File.WriteAllText(state.VisualLogCopy, header);
+            }
+
             SessionState.SetBool(KeyRunning, true);
             SessionState.SetString(KeyOut, state.OutDir);
             Save(state);
@@ -262,6 +275,9 @@ namespace AsteroidsGoneRogue.EditorTools
         static string _evadeMode = "hold";
         static float _standoffDist = -1f;
         static string _prio = "none";
+        static float _prioScore;
+        static string _prioRunner = "none";
+        static float _prioRunnerScore;
         static string _threatLine = "none";
         static readonly float[] _evadeAt = new float[12];
         static readonly string[] _evadeModeRing = new string[12];
@@ -1258,6 +1274,9 @@ namespace AsteroidsGoneRogue.EditorTools
             _evadeMode = string.IsNullOrEmpty(stick.Maneuver) ? "hold" : stick.Maneuver;
             _standoffDist = stick.StandoffDist;
             _prio = string.IsNullOrEmpty(stick.Prio) ? "none" : stick.Prio;
+            _prioScore = stick.Score;
+            _prioRunner = string.IsNullOrEmpty(stick.Runner) ? "none" : stick.Runner;
+            _prioRunnerScore = stick.RunnerScore;
             _evadeAt[_evadeWrite] = Time.realtimeSinceStartup;
             _evadeModeRing[_evadeWrite] = _evadeMode;
             _evadeStandoff[_evadeWrite] = _standoffDist;
@@ -1307,12 +1326,16 @@ namespace AsteroidsGoneRogue.EditorTools
                 + " threat=" + _threatLine
                 + " evade=" + _evadeMode
                 + " standoff=" + _standoffDist.ToString("0.0", CultureInfo.InvariantCulture)
-                + " prio=" + _prio;
+                + " prio=" + _prio
+                + " score=" + _prioScore.ToString("0.0", CultureInfo.InvariantCulture)
+                + " runner=" + _prioRunner + ":" + _prioRunnerScore.ToString("0.0", CultureInfo.InvariantCulture);
             Debug.Log(line);
             if (state != null && state.OutDir.Length > 0)
             {
                 File.AppendAllText(Path.Combine(state.OutDir, "play-input.txt"), line + "\n");
             }
+
+            MirrorVisual(state, line);
         }
 
         static string FocusName()
@@ -1623,6 +1646,7 @@ namespace AsteroidsGoneRogue.EditorTools
             _seenCount = CollectEnemies(camera, pos, _seenCount, now);
             _seenCount = CollectBolts(camera, pos, _seenCount, now);
             RememberMotion(now);
+            LongRunPilot.FillBoltVelocity(Threats, _seenCount, pos.x, pos.z);
             if (_senseAt < 0f)
             {
                 _senseAt = now;
@@ -1674,6 +1698,7 @@ namespace AsteroidsGoneRogue.EditorTools
             }
             LongRunDeathLog.NoteChosen(stick.MoveX, stick.MoveY, stick.AimX, stick.AimY, stick.Fire);
             NoteNearest(pos);
+            NoteGlance(state, ship, pos);
         }
 
         static int CollectAsteroids(Camera camera, Vector3 pos, int count, float now)
@@ -2320,7 +2345,9 @@ namespace AsteroidsGoneRogue.EditorTools
             FlushLogs(state);
             string verdict = VerdictOf(state);
             string summaryPath = Path.Combine(state.OutDir, "summary.md");
-            File.WriteAllText(summaryPath, Summary(state, verdict, savesOk, saveDetail, prefsOk, prefsDetail));
+            string summaryText = Summary(state, verdict, savesOk, saveDetail, prefsOk, prefsDetail);
+            File.WriteAllText(summaryPath, summaryText);
+            MirrorVisual(state, summaryText);
             WriteMachineSummary(state, verdict, savesOk, prefsOk);
             SessionState.SetBool(KeyRunning, false);
             Debug.Log("LongRun verdict=" + verdict + " summary=" + summaryPath + " elapsed=" + Elapsed(state).ToString("0.0", CultureInfo.InvariantCulture));
@@ -2501,6 +2528,13 @@ namespace AsteroidsGoneRogue.EditorTools
             }
             builder.Append("\n- Log: ");
             builder.Append(Path.Combine(state.OutDir, "events.jsonl"));
+            if (state.VisualLog.Length > 0)
+            {
+                builder.Append("\n- Visual log: ");
+                builder.Append(state.VisualLog);
+                builder.Append("\n- Visual log copy: ");
+                builder.Append(state.VisualLogCopy);
+            }
             if (state.Fault.Length > 0 && verdict == "FAIL")
             {
                 builder.Append("\n- Fault: ");
@@ -2752,6 +2786,208 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             File.WriteAllText(Path.Combine(state.OutDir, "log-tail.txt"), tail);
+        }
+
+        static void MirrorVisual(LongRunState state, string line)
+        {
+            if (state == null || state.VisualLog == null || state.VisualLog.Length == 0 || line == null)
+            {
+                return;
+            }
+
+            try
+            {
+                File.AppendAllText(state.VisualLog, line + "\n");
+                if (state.VisualLogCopy != null && state.VisualLogCopy.Length > 0)
+                {
+                    File.AppendAllText(state.VisualLogCopy, line + "\n");
+                }
+            }
+            catch (Exception mirrorEx)
+            {
+                Debug.LogWarning("LongRun visual log failed: " + mirrorEx.Message);
+            }
+        }
+
+        const float GlanceSeconds = 10f;
+        const float GlanceInterval = 0.4f;
+        const int GlanceCap = 100;
+        const float JumpMetres = 6f;
+        const int JumpSlots = 96;
+        static int _glanceWave = -999;
+        static float _glanceUntil = -1f;
+        static float _glanceNext = -1f;
+        static int _glanceCount;
+        static int _jumpStamp = 1;
+        static readonly UnityEngine.EntityId[] _jumpId = new UnityEngine.EntityId[JumpSlots];
+        static readonly float[] _jumpX = new float[JumpSlots];
+        static readonly float[] _jumpY = new float[JumpSlots];
+        static readonly float[] _jumpZ = new float[JumpSlots];
+        static readonly int[] _jumpGen = new int[JumpSlots];
+
+        static void NoteGlance(LongRunState state, ShipController ship, Vector3 pos)
+        {
+            if (state == null || ship == null || state.OutDir.Length == 0)
+            {
+                return;
+            }
+
+            float now = Time.realtimeSinceStartup;
+            if (state.LastWave != _glanceWave)
+            {
+                _glanceWave = state.LastWave;
+                _glanceUntil = now + GlanceSeconds;
+                _glanceNext = now;
+            }
+
+            if (now > _glanceUntil)
+            {
+                return;
+            }
+
+            Camera camera = PlayCamera();
+            string cam = "none";
+            if (camera != null)
+            {
+                Vector3 at = camera.transform.position;
+                cam = at.x.ToString("0.00", CultureInfo.InvariantCulture)
+                    + "," + at.y.ToString("0.00", CultureInfo.InvariantCulture)
+                    + "," + at.z.ToString("0.00", CultureInfo.InvariantCulture);
+                NoteJump(state, "Camera", camera.GetEntityId(), at.x, at.y, at.z);
+            }
+
+            string motion = "t=" + now.ToString("0.00", CultureInfo.InvariantCulture)
+                + " wave=" + state.LastWave.ToString(CultureInfo.InvariantCulture)
+                + " frame=" + Time.frameCount.ToString(CultureInfo.InvariantCulture)
+                + " cam=" + cam
+                + " ship=" + pos.x.ToString("0.00", CultureInfo.InvariantCulture)
+                + "," + pos.z.ToString("0.00", CultureInfo.InvariantCulture);
+            AppendGlance(state, motion);
+            NoteJump(state, ship.name, ship.GetEntityId(), pos.x, pos.y, pos.z);
+            Asteroid[] rocks = UnityEngine.Object.FindObjectsByType<Asteroid>();
+            if (rocks != null)
+            {
+                for (int index = 0; index < rocks.Length; index++)
+                {
+                    if (rocks[index] == null)
+                    {
+                        continue;
+                    }
+
+                    Vector3 at = rocks[index].transform.position;
+                    NoteJump(state, rocks[index].name, rocks[index].GetEntityId(), at.x, at.y, at.z);
+                }
+            }
+
+            EnemySeeker[] enemies = UnityEngine.Object.FindObjectsByType<EnemySeeker>();
+            if (enemies != null)
+            {
+                for (int index = 0; index < enemies.Length; index++)
+                {
+                    if (enemies[index] == null)
+                    {
+                        continue;
+                    }
+
+                    Vector3 at = enemies[index].transform.position;
+                    NoteJump(state, enemies[index].name, enemies[index].GetEntityId(), at.x, at.y, at.z);
+                }
+            }
+
+            Projectile[] bolts = UnityEngine.Object.FindObjectsByType<Projectile>();
+            if (bolts != null)
+            {
+                for (int index = 0; index < bolts.Length; index++)
+                {
+                    if (bolts[index] == null)
+                    {
+                        continue;
+                    }
+
+                    Vector3 at = bolts[index].transform.position;
+                    NoteJump(state, bolts[index].name, bolts[index].GetEntityId(), at.x, at.y, at.z);
+                }
+            }
+
+            if (_glanceCount >= GlanceCap || now < _glanceNext)
+            {
+                return;
+            }
+
+            _glanceNext = now + GlanceInterval;
+            _glanceCount += 1;
+            string folder = Path.Combine(state.OutDir, "frames");
+            Directory.CreateDirectory(folder);
+            string file = "t" + Elapsed(state).ToString("0.00", CultureInfo.InvariantCulture)
+                + "_w" + state.LastWave.ToString(CultureInfo.InvariantCulture)
+                + "_f" + Time.frameCount.ToString(CultureInfo.InvariantCulture)
+                + ".png";
+            string path = Path.Combine(folder, file);
+            if (!Application.isBatchMode)
+            {
+                ScreenCapture.CaptureScreenshot(path);
+            }
+            else if (!WritePng(path))
+            {
+                Debug.LogWarning("LongRun frame capture failed " + file);
+            }
+        }
+
+        static void NoteJump(LongRunState state, string name, UnityEngine.EntityId id, float x, float y, float z)
+        {
+            int free = -1;
+            for (int index = 0; index < JumpSlots; index++)
+            {
+                if (_jumpGen[index] == _jumpStamp && _jumpId[index].Equals(id))
+                {
+                    float fromX = _jumpX[index];
+                    float fromY = _jumpY[index];
+                    float fromZ = _jumpZ[index];
+                    float dx = x - fromX;
+                    float dy = y - fromY;
+                    float dz = z - fromZ;
+                    float dist = (float)System.Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+                    _jumpX[index] = x;
+                    _jumpY[index] = y;
+                    _jumpZ[index] = z;
+                    if (dist > JumpMetres)
+                    {
+                        AppendGlance(
+                            state,
+                            "jump name=" + (name == null ? "body" : name)
+                            + " from=" + fromX.ToString("0.00", CultureInfo.InvariantCulture)
+                            + "," + fromY.ToString("0.00", CultureInfo.InvariantCulture)
+                            + "," + fromZ.ToString("0.00", CultureInfo.InvariantCulture)
+                            + " to=" + x.ToString("0.00", CultureInfo.InvariantCulture)
+                            + "," + y.ToString("0.00", CultureInfo.InvariantCulture)
+                            + "," + z.ToString("0.00", CultureInfo.InvariantCulture)
+                            + " dist=" + dist.ToString("0.0", CultureInfo.InvariantCulture));
+                    }
+
+                    return;
+                }
+
+                if (free < 0 && _jumpGen[index] != _jumpStamp)
+                {
+                    free = index;
+                }
+            }
+
+            if (free < 0)
+            {
+                free = 0;
+            }
+
+            _jumpId[free] = id;
+            _jumpX[free] = x;
+            _jumpY[free] = y;
+            _jumpZ[free] = z;
+            _jumpGen[free] = _jumpStamp;
+        }
+
+        static void AppendGlance(LongRunState state, string line)
+        {
+            File.AppendAllText(Path.Combine(state.OutDir, "motion.txt"), line + "\n");
         }
 
         static string TakeShot(LongRunState state)
@@ -3330,6 +3566,8 @@ namespace AsteroidsGoneRogue.EditorTools
             AppendField(builder, "newRunYes", state.NewRunYes.ToString(CultureInfo.InvariantCulture));
             AppendField(builder, "lastShipX", state.LastShipX.ToString("0.00", CultureInfo.InvariantCulture));
             AppendField(builder, "lastShipZ", state.LastShipZ.ToString("0.00", CultureInfo.InvariantCulture));
+            AppendField(builder, "visualLog", state.VisualLog);
+            AppendField(builder, "visualLogCopy", state.VisualLogCopy);
             File.WriteAllText(Path.Combine(state.OutDir, "state.txt"), builder.ToString());
         }
 
@@ -3593,6 +3831,14 @@ namespace AsteroidsGoneRogue.EditorTools
             {
                 state.LastShipZ = ParseFloat(value);
             }
+            else if (key == "visualLog")
+            {
+                state.VisualLog = value;
+            }
+            else if (key == "visualLogCopy")
+            {
+                state.VisualLogCopy = value;
+            }
         }
 
         static float ParseFloat(string value)
@@ -3687,5 +3933,7 @@ namespace AsteroidsGoneRogue.EditorTools
         public int NewRunYes;
         public float LastShipX = 100001f;
         public float LastShipZ = 100001f;
+        public string VisualLog = string.Empty;
+        public string VisualLogCopy = string.Empty;
     }
 }

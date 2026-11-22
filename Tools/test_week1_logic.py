@@ -19302,6 +19302,12 @@ def test_longrun_harness() -> None:
     assert "Highest wave reached" in runner
     assert "Tools/LongRun/Run L10 Visual" in runner
     assert "best cleared" in runner
+    assert "longrun10_latest.log" in runner
+    assert "ScreenCapture.CaptureScreenshot" in runner
+    assert "score=" in runner
+    assert "runner=" in runner
+    assert "FillBoltVelocity" in (editor / "LongRunPilot.cs").read_text(encoding="utf-8")
+    assert "longrun10_latest.log" in (root / "Docs/LONGRUN.md").read_text(encoding="utf-8")
     probe = _run_pilot_self_check(root)
     assert probe == "", probe
     assert "prio=" in runner
