@@ -446,6 +446,36 @@ namespace AsteroidsGoneRogue
 
         private Transform _host;
         private static Material _shared;
+        private static Mesh _quad;
+
+        static Mesh SharedQuad()
+        {
+            if (_quad != null)
+            {
+                return _quad;
+            }
+
+            Mesh quad = new Mesh();
+            quad.name = "ContactBlobQuad";
+            quad.hideFlags = HideFlags.HideAndDontSave;
+            quad.vertices = new Vector3[]
+            {
+                new Vector3(-0.5f, -0.5f, 0f),
+                new Vector3(0.5f, -0.5f, 0f),
+                new Vector3(-0.5f, 0.5f, 0f),
+                new Vector3(0.5f, 0.5f, 0f),
+            };
+            quad.uv = new Vector2[]
+            {
+                new Vector2(0f, 0f),
+                new Vector2(1f, 0f),
+                new Vector2(0f, 1f),
+                new Vector2(1f, 1f),
+            };
+            quad.triangles = new int[] { 0, 2, 1, 2, 3, 1 };
+            _quad = quad;
+            return _quad;
+        }
 
         public static void Attach(Transform host)
         {
@@ -454,24 +484,12 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            GameObject quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            if (quad == null)
-            {
-                return;
-            }
-
-            quad.name = "ContactBlob";
+            GameObject quad = new GameObject("ContactBlob");
             quad.layer = DecorCameraStack.LayerIndex();
             quad.transform.SetParent(host, false);
-            Collider collider = quad.GetComponent<Collider>();
-            if (collider != null)
-            {
-                // CreatePrimitive adds a concave MeshCollider. Destroy is deferred,
-                // so the next physics step logs the error under the body's Rigidbody.
-                DestroyImmediate(collider);
-            }
-
-            Renderer renderer = quad.GetComponent<Renderer>();
+            MeshFilter filter = quad.AddComponent<MeshFilter>();
+            filter.sharedMesh = SharedQuad();
+            MeshRenderer renderer = quad.AddComponent<MeshRenderer>();
             if (renderer != null)
             {
                 renderer.sharedMaterial = SharedMaterial();

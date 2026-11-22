@@ -38,6 +38,7 @@ namespace UnityEngine
         public static void Destroy(Object obj) { }
         public static void Destroy(Object obj, float delay) { }
         public static void DestroyImmediate(Object obj) { }
+        public static void DontDestroyOnLoad(Object target) { }
         public static T FindAnyObjectByType<T>() where T : Object { return null; }
         public static T FindAnyObjectByType<T>(FindObjectsInactive findObjectsInactive) where T : Object { return null; }
         public static Object FindAnyObjectByType(Type type, FindObjectsInactive findObjectsInactive) { return null; }
@@ -327,6 +328,15 @@ namespace UnityEngine
         public static float value { get { return 0f; } }
         public static int Range(int min, int max) { return min; }
         public static float Range(float min, float max) { return min; }
+        public struct State
+        {
+            public int s0;
+            public int s1;
+            public int s2;
+            public int s3;
+        }
+
+        public static State state { get; set; }
         public static void InitState(int seed) { }
         public static Vector3 insideUnitSphere { get { return Vector3.zero; } }
     }
@@ -352,13 +362,26 @@ namespace UnityEngine
         public static string ToJson(object value) { return ""; }
     }
 
+    public enum LogType
+    {
+        Error,
+        Assert,
+        Warning,
+        Log,
+        Exception,
+    }
+
     public static class Application
     {
+        public delegate void LogCallback(string condition, string stackTrace, LogType type);
+        public static event LogCallback logMessageReceived;
+        public static event LogCallback logMessageReceivedThreaded;
         public static string persistentDataPath { get { return "/tmp"; } }
         public static string dataPath { get { return "/tmp/Assets"; } }
         public static int targetFrameRate { get; set; }
         public static bool isPlaying { get { return false; } }
         public static bool isBatchMode { get { return false; } }
+        public static bool runInBackground { get; set; }
     }
 
     public struct Resolution
@@ -442,6 +465,7 @@ namespace UnityEngine
         public static float timeScale { get; set; }
         public static float fixedDeltaTime { get { return 0.02f; } }
         public static float captureDeltaTime { get; set; }
+        public static float realtimeSinceStartup { get { return 0f; } }
     }
 
     public static class Debug
@@ -1191,7 +1215,27 @@ namespace UnityEngine.EventSystems
     }
 
     public enum EventTriggerType { PointerEnter, PointerExit, PointerDown, PointerUp, PointerClick, Drag, BeginDrag, EndDrag, Submit, Cancel }
-    public class BaseEventData { }
+    public class BaseEventData
+    {
+        public BaseEventData() { }
+        public BaseEventData(EventSystem eventSystem) { }
+    }
+
+    public interface IEventSystemHandler { }
+
+    public interface ISubmitHandler : IEventSystemHandler { }
+
+    public static class ExecuteEvents
+    {
+        public delegate void EventFunction<T>(T handler, BaseEventData eventData);
+
+        public static EventFunction<ISubmitHandler> submitHandler { get { return null; } }
+
+        public static bool Execute<T>(UnityEngine.GameObject target, BaseEventData eventData, EventFunction<T> functor) where T : IEventSystemHandler
+        {
+            return false;
+        }
+    }
     public class PointerEventData : BaseEventData { }
     public class EventTrigger : UnityEngine.MonoBehaviour
     {
