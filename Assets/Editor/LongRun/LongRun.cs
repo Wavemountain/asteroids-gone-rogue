@@ -228,6 +228,7 @@ namespace AsteroidsGoneRogue.EditorTools
         static int _pendingSpawns;
         static int _enemiesAll;
         static string _search = "engage";
+        static int _shotsSeen;
         static string _evadeMode = "hold";
         static float _standoffDist = -1f;
         static string _prio = "none";
@@ -1168,17 +1169,10 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             _aimError = (float)System.Math.Acos(dot) * 57.2958f;
-            bool seenShip = false;
             float bestShot = 1000000f;
             _threatLine = "none";
             for (int shotIndex = 0; shotIndex < _seenCount; shotIndex++)
             {
-                string bodyName = ThreatNames[shotIndex] != null ? ThreatNames[shotIndex] : string.Empty;
-                if (Threats[shotIndex].Role == LongRunPilot.RoleShooter || Threats[shotIndex].Role == LongRunPilot.RoleEnemy)
-                {
-                    seenShip = true;
-                }
-
                 if (Threats[shotIndex].Kind != LongRunPilot.KindShot)
                 {
                     continue;
@@ -1200,7 +1194,17 @@ namespace AsteroidsGoneRogue.EditorTools
                     + "/" + tti.ToString("0.00", CultureInfo.InvariantCulture);
             }
 
-            _search = seenShip ? "engage" : "patrol";
+            _search = stick.Maneuver == "patrol" ? "patrol" : "engage";
+            int shotCount = 0;
+            for (int countShot = 0; countShot < _seenCount; countShot++)
+            {
+                if (Threats[countShot].Kind == LongRunPilot.KindShot)
+                {
+                    shotCount += 1;
+                }
+            }
+
+            _shotsSeen = shotCount;
             _evadeMode = string.IsNullOrEmpty(stick.Maneuver) ? "hold" : stick.Maneuver;
             _standoffDist = stick.StandoffDist;
             _prio = string.IsNullOrEmpty(stick.Prio) ? "none" : stick.Prio;
@@ -1243,6 +1247,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 + " waveRemaining=" + _waveRemaining.ToString(CultureInfo.InvariantCulture)
                 + " pendingSpawns=" + _pendingSpawns.ToString(CultureInfo.InvariantCulture)
                 + " search=" + _search
+                + " shots=" + _shotsSeen.ToString(CultureInfo.InvariantCulture)
                 + " near=" + _nearKind + ":" + _nearDist.ToString("0.0", CultureInfo.InvariantCulture)
                 + " target=" + _targetId + ":" + _targetKind
                 + " aimErr=" + _aimError.ToString("0", CultureInfo.InvariantCulture)

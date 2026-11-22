@@ -4,7 +4,7 @@ namespace AsteroidsGoneRogue.EditorTools
     /// Stick policy for the long-run harness. The harness applies it only by
     /// writing the axes ShipController already reads. Perception numbers, owned
     /// by the caller: samples are 220 ms old (inside the 200–250 ms human
-    /// window) and a new stick is held for at least 80 ms.
+    /// window) and a new stick is held for at least 200 ms.
     /// Kind 0 is a body, 1 is a large body (boss or big rock), 2 is a shot.
     /// Velocity is observed motion, not a private projectile field.
     /// </summary>
@@ -66,12 +66,17 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             if (name.IndexOf("Scout", System.StringComparison.Ordinal) >= 0
-                || name.IndexOf("Drone", System.StringComparison.Ordinal) >= 0)
+                || name.IndexOf("Drone", System.StringComparison.Ordinal) >= 0
+                || name.IndexOf("Gunner", System.StringComparison.Ordinal) >= 0
+                || name.IndexOf("Bomber", System.StringComparison.Ordinal) >= 0
+                || name.IndexOf("Sniper", System.StringComparison.Ordinal) >= 0)
             {
                 return RoleShooter;
             }
 
-            if (name.StartsWith("Enemy", System.StringComparison.Ordinal) || name.StartsWith("Brute", System.StringComparison.Ordinal))
+            if (name.StartsWith("Enemy", System.StringComparison.Ordinal)
+                || name.IndexOf("Brute", System.StringComparison.Ordinal) >= 0
+                || name.IndexOf("Swarm", System.StringComparison.Ordinal) >= 0)
             {
                 return RoleEnemy;
             }
@@ -81,24 +86,29 @@ namespace AsteroidsGoneRogue.EditorTools
 
         static int AimRank(int role, float dist)
         {
-            if (role == RoleShooter)
+            if (dist < 6f)
             {
                 return 0;
             }
 
-            if (role == RoleEnemy)
+            if (role == RoleShooter)
             {
                 return 1;
             }
 
-            if (role == RoleRock && dist < EvadeRadius)
+            if (role == RoleEnemy)
             {
                 return 2;
             }
 
-            if (role == RoleGuardian && dist < 10f)
+            if (role == RoleRock)
             {
                 return 3;
+            }
+
+            if (role == RoleGuardian)
+            {
+                return 4;
             }
 
             return 99;
@@ -147,10 +157,13 @@ namespace AsteroidsGoneRogue.EditorTools
             float closeDist = 1000000f;
             int closeRole = RoleRock;
             int aimRank = 99;
-            bool seenShip = false;
+            bool anyBody = false;
+            float dodgeTti = 99f;
             float shooterX = shipX;
             float shooterZ = shipZ;
             float shooterDist = 1000000f;
+            float closeVx = 0f;
+            float closeVz = 0f;
             bool haveDodge = false;
             float dodgeVx = 0f;
             float dodgeVz = 1f;
@@ -201,23 +214,19 @@ namespace AsteroidsGoneRogue.EditorTools
                         float missX = (threat.X + (threat.Vx * time)) - shipX;
                         float missZ = (threat.Z + (threat.Vz * time)) - shipZ;
                         float miss = (float)System.Math.Sqrt((missX * missX) + (missZ * missZ));
-                        float hitRadius = threat.Radius + 1.1f;
-                        if (hitRadius < 1.6f)
-                        {
-                            hitRadius = 1.6f;
-                        }
-
-                        if (miss < hitRadius && time < 1.2f)
+                        float tti = dist / (float)System.Math.Sqrt(speedSq);
+                        if (closing > 0f && tti < 0.8f && miss < 4f)
                         {
                             shotThreat = true;
-                            if (time < 0.25f)
+                            if (tti < 0.45f)
                             {
                                 imminent = true;
                             }
 
-                            if (!haveDodge || time < 0.35f)
+                            if (!haveDodge || tti < dodgeTti)
                             {
                                 haveDodge = true;
+                                dodgeTti = tti;
                                 dodgeVx = threat.Vx;
                                 dodgeVz = threat.Vz;
                                 dodgeSpeed = (float)System.Math.Sqrt(speedSq);
@@ -228,6 +237,7 @@ namespace AsteroidsGoneRogue.EditorTools
 
                 if (threat.Kind != KindShot)
                 {
+                    anyBody = true;
                     int rank = AimRank(threat.Role, dist);
                     if (rank < aimRank || (rank == aimRank && dist < nearest))
                     {
@@ -238,25 +248,29 @@ namespace AsteroidsGoneRogue.EditorTools
                         haveAim = true;
                         if (rank == 0)
                         {
-                            stick.Prio = "shooter";
+                            stick.Prio = "contact";
                         }
                         else if (rank == 1)
                         {
-                            stick.Prio = "enemy";
+                            stick.Prio = "shooter";
                         }
                         else if (rank == 2)
                         {
-                            stick.Prio = "rock";
+                            stick.Prio = "enemy";
                         }
                         else if (rank == 3)
+                        {
+                            stick.Prio = "rock";
+                        }
+                        else if (rank == 4)
                         {
                             stick.Prio = "guardian";
                         }
                     }
 
-                    if (threat.Role == RoleShooter || threat.Role == RoleEnemy)
+                    if (stick.StandoffDist < 0f || dist < stick.StandoffDist)
                     {
-                        seenShip = true;
+                        stick.StandoffDist = dist;
                     }
 
                     if (threat.Role == RoleShooter && dist < shooterDist)
@@ -264,7 +278,6 @@ namespace AsteroidsGoneRogue.EditorTools
                         shooterDist = dist;
                         shooterX = threat.X;
                         shooterZ = threat.Z;
-                        stick.StandoffDist = dist;
                     }
                 }
 
@@ -276,6 +289,8 @@ namespace AsteroidsGoneRogue.EditorTools
                         closeDist = dist;
                         closeX = threat.X;
                         closeZ = threat.Z;
+                        closeVx = threat.Vx;
+                        closeVz = threat.Vz;
                         closeRole = threat.Role;
                     }
                 }
@@ -309,9 +324,18 @@ namespace AsteroidsGoneRogue.EditorTools
                 awayZ /= awayLen;
                 float sideX = -awayZ;
                 float sideZ = awayX;
+                float closeSpeedSq = (closeVx * closeVx) + (closeVz * closeVz);
+                float closing = ((shipX - closeX) * closeVx) + ((shipZ - closeZ) * closeVz);
+                if (closing > 0.5f && closeSpeedSq > 0.25f)
+                {
+                    float closeSpeed = (float)System.Math.Sqrt(closeSpeedSq);
+                    sideX = closeVz / closeSpeed;
+                    sideZ = -closeVx / closeSpeed;
+                }
+
                 float inwardX = -shipX;
                 float inwardZ = -shipZ;
-                float sideScore = (sideX * (inwardX + evadeX)) + (sideZ * (inwardZ + evadeZ));
+                float sideScore = (sideX * (awayX + inwardX)) + (sideZ * (awayZ + inwardZ));
                 if (sideScore < 0f)
                 {
                     sideX = -sideX;
@@ -322,7 +346,6 @@ namespace AsteroidsGoneRogue.EditorTools
                 float sideWeight = closeDist < 6f || closeRole == RoleShooter ? 0.4f : 1.1f;
                 moveX = (sideX * sideWeight) + (awayX * awayWeight);
                 moveZ = (sideZ * sideWeight) + (awayZ * awayWeight);
-                stick.Maneuver = closeRole == RoleShooter ? "standoff" : "sidestep";
             }
 
             if (haveDodge && dodgeSpeed > 0.1f)
@@ -350,10 +373,6 @@ namespace AsteroidsGoneRogue.EditorTools
 
                 moveX += sideX * 3.2f;
                 moveZ += sideZ * 3.2f;
-                if (stick.Maneuver == "hold" || stick.Maneuver == "sidestep")
-                {
-                    stick.Maneuver = "sidestep-shot";
-                }
             }
             else if (!shotThreat && haveAim && nearest < 1000000f && nearest > Standoff)
             {
@@ -362,7 +381,7 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             float originSq = (shipX * shipX) + (shipZ * shipZ);
-            if (!seenShip)
+            if (!anyBody)
             {
                 if (originSq > 0.25f)
                 {
@@ -382,10 +401,6 @@ namespace AsteroidsGoneRogue.EditorTools
                     moveX += 1f;
                 }
 
-                if (stick.Maneuver == "hold" || stick.Maneuver == "approach" || stick.Maneuver == "space")
-                {
-                    stick.Maneuver = "patrol";
-                }
             }
             else if (distanceToEdge < EdgePush && originSq > 0.25f)
             {
@@ -470,13 +485,29 @@ namespace AsteroidsGoneRogue.EditorTools
 
             stick.Fire = stick.FireReason == "ok";
             stick.Utility = bodyThreat;
-            if (shotThreat)
+            if (haveDodge)
             {
-                stick.Maneuver = "dodge-projectile";
+                stick.Maneuver = "sidestep-shot";
+                stick.Prio = "projectile";
+            }
+            else if (bodyThreat && closeDist < 6f)
+            {
+                stick.Maneuver = "contact";
+                stick.Prio = "contact";
+            }
+            else if (bodyThreat && closeRole == RoleShooter)
+            {
+                stick.Maneuver = "standoff";
+                stick.Prio = "shooter";
             }
             else if (bodyThreat)
             {
                 stick.Maneuver = "sidestep";
+            }
+            else if (!anyBody)
+            {
+                stick.Maneuver = "patrol";
+                stick.Prio = "patrol";
             }
             else if (haveAim && nearest > Standoff)
             {
@@ -488,6 +519,55 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             return stick;
+        }
+
+        public static string SelfCheck()
+        {
+            Threat[] scout = new Threat[1];
+            scout[0].X = 0f;
+            scout[0].Z = 9f;
+            scout[0].Kind = KindBody;
+            scout[0].Role = RoleShooter;
+            scout[0].Radius = 0.5f;
+            Stick standoff = Decide(0f, 0f, 0f, 1f, scout, 1, 30f);
+            if (standoff.Maneuver != "standoff" || standoff.Prio != "shooter")
+            {
+                return "standoff " + standoff.Maneuver + " " + standoff.Prio;
+            }
+
+            Threat[] shot = new Threat[1];
+            shot[0].X = 0f;
+            shot[0].Z = 8f;
+            shot[0].Vx = 0f;
+            shot[0].Vz = -16f;
+            shot[0].Kind = KindShot;
+            shot[0].Radius = 0.4f;
+            Stick dodge = Decide(0f, 0f, 0f, 1f, shot, 1, 30f);
+            if (dodge.Maneuver != "sidestep-shot" || dodge.Prio != "projectile")
+            {
+                return "sidestep-shot " + dodge.Maneuver + " " + dodge.Prio;
+            }
+
+            Threat[] brute = new Threat[1];
+            brute[0].X = 0f;
+            brute[0].Z = 2.1f;
+            brute[0].Vz = -6f;
+            brute[0].Kind = KindLarge;
+            brute[0].Role = RoleEnemy;
+            brute[0].Radius = 1.2f;
+            Stick contact = Decide(0f, 0f, 0f, 1f, brute, 1, 30f);
+            if (contact.Maneuver != "contact" || contact.Prio != "contact")
+            {
+                return "contact " + contact.Maneuver + " " + contact.Prio;
+            }
+
+            Stick patrol = Decide(0f, 0f, 0f, 1f, null, 0, 30f);
+            if (patrol.Maneuver != "patrol" || patrol.Prio != "patrol")
+            {
+                return "patrol " + patrol.Maneuver + " " + patrol.Prio;
+            }
+
+            return string.Empty;
         }
     }
 }

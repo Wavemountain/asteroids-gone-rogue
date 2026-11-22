@@ -20,7 +20,7 @@ From the project folder, Unity 6000.6, with a GPU (do not pass `-nographics`).
 
 `-menuProbe` is the only path that calls `StartWave` after game over, and only when continue is absent. The level-10 command does not pass it.
 
-The autopilot flies only through the existing move, aim, and fire axes, plus the utility button while it is sidestepping a body it cannot outrun. It sees objects inside the gameplay camera viewport and uses their observed motion. Perception delay is 220 ms. A new stick is held for at least 200 ms. Close contact steps sideways, perpendicular to the approach, and keeps firing. It does not write transforms, bodies, health, or credits.
+The autopilot flies only through the existing move, aim, and fire axes, plus the utility button while a body is inside its keep distance. It sees objects inside the gameplay camera viewport and uses their observed motion. Perception delay is 220 ms. A new stick is held for at least 200 ms. One ladder picks the stick: an incoming shot (sidestep across its path), then a body inside 6 m (back away and strafe across its approach), then a shooter inside 12 m (standoff), then any other body inside its keep, then approach, and patrol only when the viewport has no body and no incoming shot. Close bodies outrank distant shooters for aim. It does not write transforms, bodies, health, or credits.
 
 Hangar purchases, Continue, and New run Yes/No are Confirm, Cancel, Start, and d-pad nav through `GamepadInput`, the same reads the hangar already uses. A Confirm that should press the focused button also sends the EventSystem submit, because batch mode cannot toggle the Input Manager `Submit` button. The harness does not call `ConfirmFirstStart`, `TryBuy`, `StartWave`, or `AcceptContinue`.
 

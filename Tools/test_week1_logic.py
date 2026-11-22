@@ -19151,6 +19151,48 @@ def test_edge_decor_050() -> None:
         assert (root / "Assets/Resources/Art/Import/Textures" / tex_name).is_file()
 
 
+def _run_pilot_self_check(root) -> str:
+    import os
+    import subprocess
+    import tempfile
+    from pathlib import Path
+
+    from roslyn_core_check import find_dotnet
+
+    dotnet = find_dotnet()
+    if not dotnet:
+        return "dotnet missing"
+    pilot = Path(root) / "Assets/Editor/LongRun/LongRunPilot.cs"
+    with tempfile.TemporaryDirectory() as folder:
+        work = Path(folder)
+        (work / "LongRunPilot.cs").write_text(pilot.read_text(encoding="utf-8"), encoding="utf-8")
+        (work / "Program.cs").write_text(
+            "var reason = AsteroidsGoneRogue.EditorTools.LongRunPilot.SelfCheck();\n"
+            "if (reason.Length > 0) { System.Console.Error.WriteLine(reason); return 1; }\n"
+            "return 0;\n",
+            encoding="utf-8",
+        )
+        (work / "probe.csproj").write_text(
+            "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><OutputType>Exe</OutputType>"
+            "<TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings>"
+            "</PropertyGroup></Project>\n",
+            encoding="utf-8",
+        )
+        env = dict(os.environ)
+        env["DOTNET_ROOT"] = str(Path(dotnet).resolve().parent)
+        env["PATH"] = str(Path(dotnet).resolve().parent) + os.pathsep + env.get("PATH", "")
+        run = subprocess.run(
+            [dotnet, "run", "--project", str(work / "probe.csproj"), "-v", "q"],
+            cwd=work,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        if run.returncode != 0:
+            return (run.stdout + run.stderr).strip()
+    return ""
+
+
 def test_longrun_harness() -> None:
     """Editor long-run: player builds exclude it, save backup hashes, INCOMPLETE vs PASS."""
     import tempfile
@@ -19255,6 +19297,9 @@ def test_longrun_harness() -> None:
     assert "ShooterStandoff" in (editor / "LongRunPilot.cs").read_text(encoding="utf-8")
     assert "menus within 60s and combat within 90s" in runner
     assert "evade=" in runner
+    assert "shots=" in runner
+    probe = _run_pilot_self_check(root)
+    assert probe == "", probe
     assert "prio=" in runner
     assert "no-combat-progress 90s" in runner
     assert "CombatWatchdogSeconds = 90" in verdict
@@ -19306,7 +19351,9 @@ def test_longrun_harness() -> None:
     assert "PendingContinue = null" in fail_body
     assert "DeleteRun()" in fail_body
     assert "FailRun sets PendingContinue null" in runner
-    assert "dodge-projectile" in pilot
+    assert "sidestep-shot" in pilot
+    assert "\"standoff\"" in pilot
+    assert "\"contact\"" in pilot
     assert "KindShot" in pilot
     assert "WatchdogSeconds = 60" in verdict
     assert "LogCapBytes = 20 * 1024 * 1024" in verdict
