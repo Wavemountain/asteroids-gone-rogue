@@ -228,6 +228,14 @@ namespace AsteroidsGoneRogue.EditorTools
         static int _pendingSpawns;
         static int _enemiesAll;
         static string _search = "engage";
+        static string _evadeMode = "hold";
+        static float _standoffDist = -1f;
+        static string _prio = "none";
+        static string _threatLine = "none";
+        static readonly float[] _evadeAt = new float[12];
+        static readonly string[] _evadeModeRing = new string[12];
+        static readonly float[] _evadeStandoff = new float[12];
+        static int _evadeWrite;
         static int _boonOffer = -1;
         static string _lastBoonNote = string.Empty;
         static string _lastUiNote = string.Empty;
@@ -714,8 +722,26 @@ namespace AsteroidsGoneRogue.EditorTools
                 + " projectile=" + _lastProjectile
                 + " speed=" + _lastNearestSpeed.ToString("0.00", CultureInfo.InvariantCulture)
                 + " shipSpeed=" + _lastShipSpeed.ToString("0.00", CultureInfo.InvariantCulture)
-                + " wave=" + WaveOf(session).ToString(CultureInfo.InvariantCulture);
+                + " wave=" + WaveOf(session).ToString(CultureInfo.InvariantCulture)
+                + " killer=" + _lastNearest
+                + " evade=" + maneuver
+                + " standoff=" + _standoffDist.ToString("0.0", CultureInfo.InvariantCulture);
             File.AppendAllText(Path.Combine(state.OutDir, "life-loss.txt"), line + "\n");
+            float lifeNow = Time.realtimeSinceStartup;
+            for (int evadeIndex = 0; evadeIndex < _evadeAt.Length; evadeIndex++)
+            {
+                if (_evadeAt[evadeIndex] <= 0f || lifeNow - _evadeAt[evadeIndex] > 1f)
+                {
+                    continue;
+                }
+
+                File.AppendAllText(
+                    Path.Combine(state.OutDir, "life-loss.txt"),
+                    " recent t=" + _evadeAt[evadeIndex].ToString("0.00", CultureInfo.InvariantCulture)
+                    + " evade=" + _evadeModeRing[evadeIndex]
+                    + " standoff=" + _evadeStandoff[evadeIndex].ToString("0.0", CultureInfo.InvariantCulture)
+                    + "\n");
+            }
             LogEvent(
                 state,
                 "life",
@@ -1142,9 +1168,49 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             _aimError = (float)System.Math.Acos(dot) * 57.2958f;
-            if (_nearKind == "none")
+            bool seenShip = false;
+            float bestShot = 1000000f;
+            _threatLine = "none";
+            for (int shotIndex = 0; shotIndex < _seenCount; shotIndex++)
             {
-                _search = "patrol";
+                string bodyName = ThreatNames[shotIndex] != null ? ThreatNames[shotIndex] : string.Empty;
+                if (Threats[shotIndex].Role == LongRunPilot.RoleShooter || Threats[shotIndex].Role == LongRunPilot.RoleEnemy)
+                {
+                    seenShip = true;
+                }
+
+                if (Threats[shotIndex].Kind != LongRunPilot.KindShot)
+                {
+                    continue;
+                }
+
+                float sdx = Threats[shotIndex].X - pos.x;
+                float sdz = Threats[shotIndex].Z - pos.z;
+                float sdist = (float)System.Math.Sqrt((sdx * sdx) + (sdz * sdz));
+                if (sdist >= bestShot)
+                {
+                    continue;
+                }
+
+                bestShot = sdist;
+                float speedSq = (Threats[shotIndex].Vx * Threats[shotIndex].Vx) + (Threats[shotIndex].Vz * Threats[shotIndex].Vz);
+                float tti = speedSq > 0.25f ? sdist / (float)System.Math.Sqrt(speedSq) : -1f;
+                _threatLine = SeenIds[shotIndex].ToString()
+                    + "/" + sdist.ToString("0.0", CultureInfo.InvariantCulture)
+                    + "/" + tti.ToString("0.00", CultureInfo.InvariantCulture);
+            }
+
+            _search = seenShip ? "engage" : "patrol";
+            _evadeMode = string.IsNullOrEmpty(stick.Maneuver) ? "hold" : stick.Maneuver;
+            _standoffDist = stick.StandoffDist;
+            _prio = string.IsNullOrEmpty(stick.Prio) ? "none" : stick.Prio;
+            _evadeAt[_evadeWrite] = Time.realtimeSinceStartup;
+            _evadeModeRing[_evadeWrite] = _evadeMode;
+            _evadeStandoff[_evadeWrite] = _standoffDist;
+            _evadeWrite += 1;
+            if (_evadeWrite >= _evadeAt.Length)
+            {
+                _evadeWrite = 0;
             }
         }
 
@@ -1180,7 +1246,11 @@ namespace AsteroidsGoneRogue.EditorTools
                 + " near=" + _nearKind + ":" + _nearDist.ToString("0.0", CultureInfo.InvariantCulture)
                 + " target=" + _targetId + ":" + _targetKind
                 + " aimErr=" + _aimError.ToString("0", CultureInfo.InvariantCulture)
-                + " fireReason=" + _fireReason;
+                + " fireReason=" + _fireReason
+                + " threat=" + _threatLine
+                + " evade=" + _evadeMode
+                + " standoff=" + _standoffDist.ToString("0.0", CultureInfo.InvariantCulture)
+                + " prio=" + _prio;
             Debug.Log(line);
             if (state != null && state.OutDir.Length > 0)
             {
@@ -1632,6 +1702,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 Threats[count].Vz = vz;
                 Threats[count].Radius = radius;
                 Threats[count].Kind = kind;
+                Threats[count].Role = LongRunPilot.RoleOf(name, kind);
                 SeenIds[count] = id;
                 ThreatNames[count] = name ?? string.Empty;
                 return count + 1;
@@ -1662,6 +1733,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 Threats[farthest].Vz = vz;
                 Threats[farthest].Radius = radius;
                 Threats[farthest].Kind = kind;
+                Threats[farthest].Role = LongRunPilot.RoleOf(name, kind);
                 SeenIds[farthest] = id;
                 ThreatNames[farthest] = name ?? string.Empty;
             }
@@ -2339,7 +2411,18 @@ namespace AsteroidsGoneRogue.EditorTools
                 builder.Append(_uniqueLogs[nativeIndex].Replace("\r", " ").Replace("\n", " "));
             }
             builder.Append("\n- Watchdog: ");
-            builder.Append(state.Watchdog != 0 ? state.Fault : "none");
+            if (state.Watchdog != 0 && state.Fault.IndexOf("no-combat-progress", System.StringComparison.Ordinal) >= 0)
+            {
+                builder.Append("watchdog no-combat-progress 90s");
+            }
+            else if (state.Watchdog != 0)
+            {
+                builder.Append(state.Fault.Length == 0 ? "watchdog 60s" : state.Fault);
+            }
+            else
+            {
+                builder.Append("menus within 60s and combat within 90s");
+            }
             builder.Append("\n- Log: ");
             builder.Append(Path.Combine(state.OutDir, "events.jsonl"));
             if (state.Fault.Length > 0 && verdict == "FAIL")
@@ -2419,7 +2502,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 ? "No is Cancel, Yes is Confirm on the focused control"
                 : "new run Yes/No not reached";
             bool first = true;
-            string watchReason = "progress stayed inside 60s";
+            string watchReason = "menus within 60s and combat within 90s";
             if (state.Watchdog != 0)
             {
                 watchReason = state.Fault;

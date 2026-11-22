@@ -19252,6 +19252,10 @@ def test_longrun_harness() -> None:
     assert "pendingSpawns=" in runner
     assert "enemiesAll=" in runner
     assert "search=" in runner
+    assert "ShooterStandoff" in (editor / "LongRunPilot.cs").read_text(encoding="utf-8")
+    assert "menus within 60s and combat within 90s" in runner
+    assert "evade=" in runner
+    assert "prio=" in runner
     assert "no-combat-progress 90s" in runner
     assert "CombatWatchdogSeconds = 90" in verdict
     assert "timeScale=" in runner
