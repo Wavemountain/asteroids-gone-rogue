@@ -42,6 +42,7 @@ namespace AsteroidsGoneRogue.EditorTools
             public bool Fire;
             public bool Utility;
             public string Maneuver;
+            public string FireReason;
         }
 
         public static Stick Decide(
@@ -55,6 +56,7 @@ namespace AsteroidsGoneRogue.EditorTools
         {
             Stick stick = new Stick();
             stick.Maneuver = "hold";
+            stick.FireReason = "no-target";
             int count = threatCount;
             if (threats == null)
             {
@@ -77,6 +79,7 @@ namespace AsteroidsGoneRogue.EditorTools
             float evadeX = 0f;
             float evadeZ = 0f;
             bool shotThreat = false;
+            bool imminent = false;
             bool bodyThreat = false;
             float closeX = shipX;
             float closeZ = shipZ;
@@ -128,6 +131,10 @@ namespace AsteroidsGoneRogue.EditorTools
                         if (miss < hitRadius && time < 1.2f)
                         {
                             shotThreat = true;
+                            if (time < 0.25f)
+                            {
+                                imminent = true;
+                            }
                             float side = (threat.Vz * dx) - (threat.Vx * dz);
                             float sign = side >= 0f ? 1f : -1f;
                             float speed = (float)System.Math.Sqrt(speedSq);
@@ -216,13 +223,13 @@ namespace AsteroidsGoneRogue.EditorTools
                 moveX -= (shipX / origin) * (1.6f * push);
                 moveZ -= (shipZ / origin) * (1.6f * push);
             }
-            else if (!haveAim || count == 0)
+            else if (nearest >= 1000000f)
             {
-                if (originSq > 1f)
+                if (originSq > 0.25f)
                 {
                     float origin = (float)System.Math.Sqrt(originSq);
-                    moveX -= shipX / origin;
-                    moveZ -= shipZ / origin;
+                    moveX += shipX / origin;
+                    moveZ += shipZ / origin;
                 }
                 else
                 {
@@ -281,7 +288,24 @@ namespace AsteroidsGoneRogue.EditorTools
                 align = ((forwardX * stick.AimX) + (forwardZ * stick.AimY)) / forwardLen;
             }
 
-            stick.Fire = !shotThreat && nearest <= FireRange && align >= FireAlign;
+            if (nearest > FireRange)
+            {
+                stick.FireReason = "no-target";
+            }
+            else if (align < FireAlign)
+            {
+                stick.FireReason = "align";
+            }
+            else if (imminent)
+            {
+                stick.FireReason = "imminent-shot";
+            }
+            else
+            {
+                stick.FireReason = "ok";
+            }
+
+            stick.Fire = stick.FireReason == "ok";
             stick.Utility = bodyThreat;
             if (shotThreat)
             {

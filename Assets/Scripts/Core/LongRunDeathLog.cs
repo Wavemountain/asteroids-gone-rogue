@@ -88,7 +88,13 @@ namespace AsteroidsGoneRogue.EditorTools
 
         void OnEnable()
         {
+            bool carried = _lives >= 0;
             _recording = true;
+            _lives = -1;
+            if (carried)
+            {
+                UnityEngine.Debug.Log("LongRun death baseline after enable");
+            }
         }
 
         void OnDisable()

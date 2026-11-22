@@ -11,6 +11,7 @@ namespace AsteroidsGoneRogue.EditorTools
         public const int DefaultMinutes = 30;
         public const float HitchSeconds = 0.05f;
         public const int WatchdogSeconds = 60;
+        public const int CombatWatchdogSeconds = 90;
         public const int LogCapBytes = 20 * 1024 * 1024;
         public const int StepTimeoutSeconds = 20;
         public const int TargetMinutesWhenUnspecified = 90;

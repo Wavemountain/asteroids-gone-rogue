@@ -83,7 +83,8 @@ Each of these is logged as `LongRun FAIL: ...` and copied to `summary.md` `Fault
 | `unrestored PlayerPrefs marker` | `Captures\LongRun\prefs-unrestored.txt` still exists, so `Run` refuses to start. |
 | `PlayerPrefs restore mismatch` | `RestorePrefs` re-read did not match the backup. |
 | `a long run is already active` | A second `Run` started while one is in progress. |
-| `watchdog 60s` | No wave, phase, life, credit, purchase, or visible ship movement for 60 s. `log-tail.txt` is written and Unity exits non-zero. |
+| `watchdog 60s` | A menu or hangar made no phase, credit, or focus progress for 60 s. |
+| `watchdog no-combat-progress` | Playing for 90 s with no wave change, enemy or asteroid count change, or hull or shield change. Ship movement alone does not count. |
 | `hangar input repeated without a phase change` | Confirm did not leave the hangar. `hangar-input.txt` lists the focus path. Start is pressed before this failure. A `credits` event records every credit change and the focused control. |
 | `continue offer missing after game over` | The game-over continue step waited out its 20 s timeout. |
 

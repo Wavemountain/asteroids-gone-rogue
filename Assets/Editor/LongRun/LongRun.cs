@@ -215,6 +215,15 @@ namespace AsteroidsGoneRogue.EditorTools
         static float _lastNearestSpeed;
         static float _lastShipSpeed;
         static float _playLogAt = -1f;
+        static int _combatSig = int.MinValue;
+        static long _combatUtc;
+        static int _seenEnemies;
+        static string _nearKind = "none";
+        static float _nearDist = -1f;
+        static string _targetId = "none";
+        static string _targetKind = "none";
+        static float _aimError;
+        static string _fireReason = "none";
         static int _boonOffer = -1;
         static string _lastBoonNote = string.Empty;
         static string _lastUiNote = string.Empty;
@@ -348,7 +357,19 @@ namespace AsteroidsGoneRogue.EditorTools
                 state.ProgressUtc = DateTime.UtcNow.Ticks;
             }
 
-            if (state.Watchdog == 0 && Since(state.ProgressUtc) > LongRunVerdict.WatchdogSeconds)
+            GameSession earlySession = GameManager.Live != null ? GameManager.Live.Session : null;
+            bool waveLive = EditorApplication.isPlaying && earlySession != null && earlySession.Phase == GamePhase.Playing;
+            if (waveLive)
+            {
+                NoteCombat(state, earlySession);
+            }
+            else
+            {
+                _combatSig = int.MinValue;
+                _combatUtc = 0L;
+            }
+
+            if (!waveLive && state.Watchdog == 0 && Since(state.ProgressUtc) > LongRunVerdict.WatchdogSeconds)
             {
                 state.Watchdog = 1;
                 state.HarnessFault = 1;
@@ -996,6 +1017,112 @@ namespace AsteroidsGoneRogue.EditorTools
                 UnityEngine.EventSystems.ExecuteEvents.submitHandler);
         }
 
+        static void NoteCombat(LongRunState state, GameSession session)
+        {
+            if (state.Watchdog != 0)
+            {
+                return;
+            }
+
+            int enemies = 0;
+            EnemySeeker[] seekers = UnityEngine.Object.FindObjectsByType<EnemySeeker>();
+            if (seekers != null)
+            {
+                enemies = seekers.Length;
+            }
+
+            int rocks = 0;
+            Asteroid[] stones = UnityEngine.Object.FindObjectsByType<Asteroid>();
+            if (stones != null)
+            {
+                rocks = stones.Length;
+            }
+
+            ShipHealth health = UnityEngine.Object.FindAnyObjectByType<ShipHealth>();
+            int hull = health != null ? health.Hull : 0;
+            int shield = health != null ? health.Shield : 0;
+            int sig = session.WaveIndex * 100000 + enemies * 1000 + rocks + hull * 13 + shield * 17;
+            long now = DateTime.UtcNow.Ticks;
+            if (sig != _combatSig || _combatUtc <= 0L)
+            {
+                _combatSig = sig;
+                _combatUtc = now;
+            }
+
+            if (Since(_combatUtc) <= LongRunVerdict.CombatWatchdogSeconds)
+            {
+                return;
+            }
+
+            state.Watchdog = 1;
+            state.HarnessFault = 1;
+            state.Fault = "watchdog no-combat-progress";
+            WriteLogTail(state);
+            state.Phase = "stop";
+            state.ExitAsked = 0;
+            Save(state);
+            Debug.LogError("LongRun FAIL: watchdog no-combat-progress");
+        }
+
+        static void RememberAim(ShipController ship, LongRunPilot.Stick stick)
+        {
+            _fireReason = string.IsNullOrEmpty(stick.FireReason) ? "none" : stick.FireReason;
+            _seenEnemies = 0;
+            _nearKind = "none";
+            _nearDist = -1f;
+            _targetId = "none";
+            _targetKind = "none";
+            Vector3 pos = ship.transform.position;
+            float best = 1000000f;
+            for (int index = 0; index < _seenCount; index++)
+            {
+                if (Threats[index].Kind == LongRunPilot.KindShot)
+                {
+                    continue;
+                }
+
+                string name = ThreatNames[index] != null ? ThreatNames[index] : string.Empty;
+                if (name.StartsWith("Enemy", System.StringComparison.Ordinal) || name.StartsWith("Brute", System.StringComparison.Ordinal))
+                {
+                    _seenEnemies += 1;
+                }
+
+                float dx = Threats[index].X - pos.x;
+                float dz = Threats[index].Z - pos.z;
+                float dist = (float)System.Math.Sqrt((dx * dx) + (dz * dz));
+                if (dist >= best)
+                {
+                    continue;
+                }
+
+                best = dist;
+                _nearDist = dist;
+                _nearKind = name.Length == 0 ? "body" : name;
+                _targetId = SeenIds[index].ToString();
+                _targetKind = Threats[index].Kind == LongRunPilot.KindLarge ? "large" : "body";
+            }
+
+            Vector3 fwd = ship.transform.forward;
+            float forwardLen = (float)System.Math.Sqrt((fwd.x * fwd.x) + (fwd.z * fwd.z));
+            float dot = 1f;
+            if (forwardLen > 0.01f)
+            {
+                dot = ((fwd.x * stick.AimX) + (fwd.z * stick.AimY)) / forwardLen;
+            }
+
+            if (dot > 1f)
+            {
+                dot = 1f;
+            }
+
+            if (dot < -1f)
+            {
+                dot = -1f;
+            }
+
+            _aimError = (float)System.Math.Acos(dot) * 57.2958f;
+        }
+
         static void NotePlay(LongRunState state, ShipController ship, float moveX, float moveY, bool fire)
         {
             float now = Time.realtimeSinceStartup;
@@ -1019,7 +1146,12 @@ namespace AsteroidsGoneRogue.EditorTools
                 + "," + moveY.ToString("0.00", CultureInfo.InvariantCulture)
                 + " fire=" + (fire ? "1" : "0")
                 + " timeScale=" + Time.timeScale.ToString("0.00", CultureInfo.InvariantCulture)
-                + " pos=" + pos;
+                + " pos=" + pos
+                + " enemies=" + _seenEnemies.ToString(CultureInfo.InvariantCulture)
+                + " near=" + _nearKind + ":" + _nearDist.ToString("0.0", CultureInfo.InvariantCulture)
+                + " target=" + _targetId + ":" + _targetKind
+                + " aimErr=" + _aimError.ToString("0", CultureInfo.InvariantCulture)
+                + " fireReason=" + _fireReason;
             Debug.Log(line);
             if (state != null && state.OutDir.Length > 0)
             {
@@ -1373,6 +1505,7 @@ namespace AsteroidsGoneRogue.EditorTools
             _held.Maneuver = stick.Maneuver;
             GamepadInput.SetEditorPump(true, stick.MoveX, stick.MoveY, stick.AimX, stick.AimY, stick.Fire);
             GamepadInput.SetEditorUtility(stick.Utility);
+            RememberAim(ship, stick);
             NotePlay(state, ship, stick.MoveX, stick.MoveY, stick.Fire);
             Rigidbody hull = ship.GetComponent<Rigidbody>();
             if (hull != null)

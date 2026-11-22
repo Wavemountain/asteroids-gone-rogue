@@ -19246,6 +19246,9 @@ def test_longrun_harness() -> None:
     assert "boon-input.txt" in runner
     assert "LongRun boon " in runner
     assert "unknown-panel" in runner
+    assert "watchdog no-combat-progress" in runner
+    assert "fireReason=" in runner
+    assert "CombatWatchdogSeconds = 90" in verdict
     assert "timeScale=" in runner
     assert "path=" in runner
     assert "shipSpeed" in runner
