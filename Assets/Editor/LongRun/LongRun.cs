@@ -224,6 +224,10 @@ namespace AsteroidsGoneRogue.EditorTools
         static string _targetKind = "none";
         static float _aimError;
         static string _fireReason = "none";
+        static int _waveRemaining = -1;
+        static int _pendingSpawns;
+        static int _enemiesAll;
+        static string _search = "engage";
         static int _boonOffer = -1;
         static string _lastBoonNote = string.Empty;
         static string _lastUiNote = string.Empty;
@@ -1041,7 +1045,23 @@ namespace AsteroidsGoneRogue.EditorTools
             ShipHealth health = UnityEngine.Object.FindAnyObjectByType<ShipHealth>();
             int hull = health != null ? health.Hull : 0;
             int shield = health != null ? health.Shield : 0;
-            int sig = session.WaveIndex * 100000 + enemies * 1000 + rocks + hull * 13 + shield * 17;
+            _enemiesAll = enemies;
+            WaveManager waves = UnityEngine.Object.FindAnyObjectByType<WaveManager>();
+            _waveRemaining = waves != null ? waves.RemainingThreats : -1;
+            int entering = 0;
+            if (seekers != null)
+            {
+                for (int seekerIndex = 0; seekerIndex < seekers.Length; seekerIndex++)
+                {
+                    if (seekers[seekerIndex] != null && seekers[seekerIndex].IsEntering)
+                    {
+                        entering += 1;
+                    }
+                }
+            }
+
+            _pendingSpawns = entering;
+            int sig = session.WaveIndex * 100000 + _waveRemaining * 1000 + enemies * 50 + rocks + hull * 13 + shield * 17 + entering;
             long now = DateTime.UtcNow.Ticks;
             if (sig != _combatSig || _combatUtc <= 0L)
             {
@@ -1067,6 +1087,7 @@ namespace AsteroidsGoneRogue.EditorTools
         static void RememberAim(ShipController ship, LongRunPilot.Stick stick)
         {
             _fireReason = string.IsNullOrEmpty(stick.FireReason) ? "none" : stick.FireReason;
+            _search = "engage";
             _seenEnemies = 0;
             _nearKind = "none";
             _nearDist = -1f;
@@ -1121,6 +1142,10 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             _aimError = (float)System.Math.Acos(dot) * 57.2958f;
+            if (_nearKind == "none")
+            {
+                _search = "patrol";
+            }
         }
 
         static void NotePlay(LongRunState state, ShipController ship, float moveX, float moveY, bool fire)
@@ -1148,6 +1173,10 @@ namespace AsteroidsGoneRogue.EditorTools
                 + " timeScale=" + Time.timeScale.ToString("0.00", CultureInfo.InvariantCulture)
                 + " pos=" + pos
                 + " enemies=" + _seenEnemies.ToString(CultureInfo.InvariantCulture)
+                + " enemiesAll=" + _enemiesAll.ToString(CultureInfo.InvariantCulture)
+                + " waveRemaining=" + _waveRemaining.ToString(CultureInfo.InvariantCulture)
+                + " pendingSpawns=" + _pendingSpawns.ToString(CultureInfo.InvariantCulture)
+                + " search=" + _search
                 + " near=" + _nearKind + ":" + _nearDist.ToString("0.0", CultureInfo.InvariantCulture)
                 + " target=" + _targetId + ":" + _targetKind
                 + " aimErr=" + _aimError.ToString("0", CultureInfo.InvariantCulture)
@@ -2309,6 +2338,8 @@ namespace AsteroidsGoneRogue.EditorTools
                 builder.Append("\n- Native log: ");
                 builder.Append(_uniqueLogs[nativeIndex].Replace("\r", " ").Replace("\n", " "));
             }
+            builder.Append("\n- Watchdog: ");
+            builder.Append(state.Watchdog != 0 ? state.Fault : "none");
             builder.Append("\n- Log: ");
             builder.Append(Path.Combine(state.OutDir, "events.jsonl"));
             if (state.Fault.Length > 0 && verdict == "FAIL")
@@ -2388,7 +2419,21 @@ namespace AsteroidsGoneRogue.EditorTools
                 ? "No is Cancel, Yes is Confirm on the focused control"
                 : "new run Yes/No not reached";
             bool first = true;
-            Goal(json, text, ref first, "watchdog", state.Watchdog != 0 ? "FAIL" : "PASS", state.Watchdog != 0 ? "watchdog 60s" : "progress stayed inside 60s");
+            string watchReason = "progress stayed inside 60s";
+            if (state.Watchdog != 0)
+            {
+                watchReason = state.Fault;
+                if (watchReason.IndexOf("no-combat-progress", System.StringComparison.Ordinal) >= 0)
+                {
+                    watchReason = "watchdog no-combat-progress 90s";
+                }
+                else if (watchReason.Length == 0)
+                {
+                    watchReason = "watchdog 60s";
+                }
+            }
+
+            Goal(json, text, ref first, "watchdog", state.Watchdog != 0 ? "FAIL" : "PASS", watchReason);
             Goal(json, text, ref first, "level-10", levelResult, levelReason);
             Goal(json, text, ref first, "life-loss", lifeResult, lifeReason);
             Goal(json, text, ref first, "invulnerable", state.Invulnerable != 0 ? "DIAGNOSTIC" : "PASS", state.Invulnerable != 0 ? "flag set; hull and shield were not written" : "not used");

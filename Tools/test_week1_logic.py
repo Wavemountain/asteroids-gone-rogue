@@ -19248,6 +19248,11 @@ def test_longrun_harness() -> None:
     assert "unknown-panel" in runner
     assert "watchdog no-combat-progress" in runner
     assert "fireReason=" in runner
+    assert "waveRemaining=" in runner
+    assert "pendingSpawns=" in runner
+    assert "enemiesAll=" in runner
+    assert "search=" in runner
+    assert "no-combat-progress 90s" in runner
     assert "CombatWatchdogSeconds = 90" in verdict
     assert "timeScale=" in runner
     assert "path=" in runner

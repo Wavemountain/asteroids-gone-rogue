@@ -211,7 +211,27 @@ namespace AsteroidsGoneRogue.EditorTools
             }
 
             float originSq = (shipX * shipX) + (shipZ * shipZ);
-            if (distanceToEdge < EdgePush && originSq > 0.25f)
+            if (nearest >= 1000000f)
+            {
+                if (originSq > 0.25f)
+                {
+                    float origin = (float)System.Math.Sqrt(originSq);
+                    float outX = shipX / origin;
+                    float outZ = shipZ / origin;
+                    moveX += -outZ;
+                    moveZ += outX;
+                    if (distanceToEdge < EdgePush)
+                    {
+                        moveX -= outX;
+                        moveZ -= outZ;
+                    }
+                }
+                else
+                {
+                    moveX += 1f;
+                }
+            }
+            else if (distanceToEdge < EdgePush && originSq > 0.25f)
             {
                 float origin = (float)System.Math.Sqrt(originSq);
                 float push = (EdgePush - distanceToEdge) / EdgePush;
@@ -222,19 +242,6 @@ namespace AsteroidsGoneRogue.EditorTools
 
                 moveX -= (shipX / origin) * (1.6f * push);
                 moveZ -= (shipZ / origin) * (1.6f * push);
-            }
-            else if (nearest >= 1000000f)
-            {
-                if (originSq > 0.25f)
-                {
-                    float origin = (float)System.Math.Sqrt(originSq);
-                    moveX += shipX / origin;
-                    moveZ += shipZ / origin;
-                }
-                else
-                {
-                    moveX += 1f;
-                }
             }
 
             float moveSq = (moveX * moveX) + (moveZ * moveZ);
