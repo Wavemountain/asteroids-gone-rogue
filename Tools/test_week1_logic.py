@@ -19298,6 +19298,10 @@ def test_longrun_harness() -> None:
     assert "menus within 60s and combat within 90s" in runner
     assert "evade=" in runner
     assert "shots=" in runner
+    assert "metric=surface" in runner
+    assert "Highest wave reached" in runner
+    assert "Tools/LongRun/Run L10 Visual" in runner
+    assert "best cleared" in runner
     probe = _run_pilot_self_check(root)
     assert probe == "", probe
     assert "prio=" in runner

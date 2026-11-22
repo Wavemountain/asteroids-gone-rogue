@@ -20,7 +20,9 @@ From the project folder, Unity 6000.6, with a GPU (do not pass `-nographics`).
 
 `-menuProbe` is the only path that calls `StartWave` after game over, and only when continue is absent. The level-10 command does not pass it.
 
-The autopilot flies only through the existing move, aim, and fire axes, plus the utility button while a body is inside its keep distance. It sees objects inside the gameplay camera viewport and uses their observed motion. Perception delay is 220 ms. A new stick is held for at least 200 ms. One ladder picks the stick: an incoming shot (sidestep across its path), then a body inside 6 m (back away and strafe across its approach), then a shooter inside 12 m (standoff), then any other body inside its keep, then approach, and patrol only when the viewport has no body and no incoming shot. Close bodies outrank distant shooters for aim. It does not write transforms, bodies, health, or credits.
+The autopilot flies only through the existing move, aim, and fire axes, plus the utility button while a body is inside its keep distance. It sees objects inside the gameplay camera viewport and uses their observed motion. Perception delay is 220 ms. A new stick is held for at least 200 ms. Distances on the stick are surface gaps: center distance on the XZ plane minus the visible collider radius. The play line says `metric=surface` and also logs `center=`. A shot that is closing still sidesteps, including while a shooter is inside the standoff. The sidestep direction is the one that does not move toward a body or into that body's predicted path, and it is added to body repulsion and rim repulsion. If a body is inside contact range and the shot is not imminent, contact wins the label. Contact range is a 6 m surface gap, wider for a large body or a WorldGuardian by its radius plus its observed speed. Shooter standoff is 16 m, one second of a 16 m/s Scout or Drone bolt (those bolts live 2.7 s and outrange the arena). Inside that band the ship strafes across the firing line and keeps opening the range. Patrol runs only when the viewport has no body and no incoming shot. It does not write transforms, bodies, health, or credits.
+
+`Cleared waves` on a previous build was the current attempt only. A new run after game over sets the wave index back to 1, so the counter dropped even though the highest wave reached stayed at 9. The summary now prints highest wave reached, waves cleared this attempt, and waves cleared best. The level line says all three. Best cleared is what `-targetWave` compares.
 
 Hangar purchases, Continue, and New run Yes/No are Confirm, Cancel, Start, and d-pad nav through `GamepadInput`, the same reads the hangar already uses. A Confirm that should press the focused button also sends the EventSystem submit, because batch mode cannot toggle the Input Manager `Submit` button. The harness does not call `ConfirmFirstStart`, `TryBuy`, `StartWave`, or `AcceptContinue`.
 
@@ -31,6 +33,14 @@ Game over does not offer Continue. `FailRun` sets `PendingContinue = null` and d
 ```
 "C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe" -batchmode -projectPath . -executeMethod AsteroidsGoneRogue.EditorTools.LongRun.Run -logFile - -targetWave 10 -seed 48048
 ```
+
+To watch the same run in a window, omit `-batchmode` and do not pass `-nographics`. The autopilot, logs, and `-targetWave` / `-seed` handling are the same. Unity quits when the summary is written.
+
+```
+"C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe" -projectPath . -executeMethod AsteroidsGoneRogue.EditorTools.LongRun.Run -logFile - -targetWave 10 -seed 48048
+```
+
+From an open Editor, the menu `Tools/LongRun/Run L10 Visual` enters Play mode on `Play.unity` with target wave 10 and seed 48048. It exits Play mode at the end and leaves the Editor open with the summary on disk. It does not change `timeScale` and it does not hide the gameplay camera.
 
 Diagnostic commands, not balance runs:
 

@@ -21,6 +21,8 @@ namespace AsteroidsGoneRogue.EditorTools
         const string PlayScene = "Assets/Scenes/Play.unity";
         const string KeyRunning = "LongRun.Running";
         const string KeyOut = "LongRun.Out";
+        const string KeyStay = "LongRun.StayOpen";
+        const string KeyVisualDefaults = "LongRun.VisualDefaults";
         const int ShotCap = 200;
         const int Width = 1920;
         const int Height = 1080;
@@ -66,6 +68,14 @@ namespace AsteroidsGoneRogue.EditorTools
             EditorApplication.Exit(matched ? 0 : 1);
         }
 
+        [MenuItem("Tools/LongRun/Run L10 Visual")]
+        public static void RunL10Visual()
+        {
+            SessionState.SetBool(KeyStay, true);
+            SessionState.SetBool(KeyVisualDefaults, true);
+            Run();
+        }
+
         public static void Run()
         {
             string pending = LongRunPrefs.UnrestoredBackup();
@@ -75,7 +85,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 Debug.LogError(
                     "-executeMethod AsteroidsGoneRogue.EditorTools.LongRun.RestorePrefs -backup "
                     + pending);
-                EditorApplication.Exit(1);
+                FinishProcess(1);
                 return;
             }
 
@@ -84,14 +94,14 @@ namespace AsteroidsGoneRogue.EditorTools
             if (state == null)
             {
                 Debug.LogError("LongRun FAIL: " + error);
-                EditorApplication.Exit(1);
+                FinishProcess(1);
                 return;
             }
 
             if (SessionState.GetBool(KeyRunning, false))
             {
                 Debug.LogError("LongRun FAIL: a long run is already active");
-                EditorApplication.Exit(1);
+                FinishProcess(1);
                 return;
             }
 
@@ -103,7 +113,7 @@ namespace AsteroidsGoneRogue.EditorTools
             {
                 Debug.LogError("LongRun FAIL: " + bootEx.Message);
                 SafeRelease(state);
-                EditorApplication.Exit(1);
+                FinishProcess(1);
                 return;
             }
 
@@ -147,7 +157,25 @@ namespace AsteroidsGoneRogue.EditorTools
             {
                 Debug.Log("LongRun DIAGNOSTIC invulnerable requested. The harness does not write hull, shield, or invulnerability. This run cannot PASS.");
             }
+            if (!Application.isBatchMode)
+            {
+                EditorApplication.ExecuteMenuItem("Window/General/Game");
+                Debug.Log("LongRun visual window scene=" + PlayScene + " targetWave=" + state.TargetWave.ToString(CultureInfo.InvariantCulture) + " seed=" + state.Seed.ToString(CultureInfo.InvariantCulture));
+            }
+
             EditorApplication.EnterPlaymode();
+        }
+
+        static void FinishProcess(int code)
+        {
+            if (SessionState.GetBool(KeyStay, false))
+            {
+                SessionState.SetBool(KeyStay, false);
+                Debug.Log("LongRun visual stay code=" + code.ToString(CultureInfo.InvariantCulture));
+                return;
+            }
+
+            EditorApplication.Exit(code);
         }
 
         static void Hook()
@@ -194,6 +222,7 @@ namespace AsteroidsGoneRogue.EditorTools
         static long _lastErrorUtc;
         static string _lastNearest = string.Empty;
         static float _lastNearestDist;
+        static float _lastNearestGap = -1f;
         static bool _lastNearestPerceived;
         static string _lastProjectile = "none";
         static float _lastProjectileSpeed;
@@ -220,6 +249,7 @@ namespace AsteroidsGoneRogue.EditorTools
         static int _seenEnemies;
         static string _nearKind = "none";
         static float _nearDist = -1f;
+        static float _nearCenter = -1f;
         static string _targetId = "none";
         static string _targetKind = "none";
         static float _aimError;
@@ -321,7 +351,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 _finishing = true;
                 SessionState.SetBool(KeyRunning, false);
                 Debug.LogError("LongRun FAIL: state file missing");
-                EditorApplication.Exit(1);
+                FinishProcess(1);
                 return;
             }
 
@@ -718,6 +748,8 @@ namespace AsteroidsGoneRogue.EditorTools
             string line = "source=" + source
                 + " nearest=" + _lastNearest
                 + " distance=" + _lastNearestDist.ToString("0.00", CultureInfo.InvariantCulture)
+                + " gap=" + _lastNearestGap.ToString("0.00", CultureInfo.InvariantCulture)
+                + " metric=surface"
                 + " perceived=" + (_lastNearestPerceived ? "yes" : "no")
                 + " maneuver=" + maneuver
                 + " projectile=" + _lastProjectile
@@ -818,12 +850,21 @@ namespace AsteroidsGoneRogue.EditorTools
 
                 if (!first && wave < state.LastWave)
                 {
+                    if (state.ClearedWaves > state.BestCleared)
+                    {
+                        state.BestCleared = state.ClearedWaves;
+                    }
+
                     state.ClearedWaves = 0;
                 }
 
                 if (!first && wave > state.LastWave && state.LastWave >= 1)
                 {
                     state.ClearedWaves = wave - 1;
+                    if (state.ClearedWaves > state.BestCleared)
+                    {
+                        state.BestCleared = state.ClearedWaves;
+                    }
                 }
 
                 LogEvent(state, "transition", name, world, wave, session.Credits, lives, "");
@@ -1118,6 +1159,7 @@ namespace AsteroidsGoneRogue.EditorTools
             _seenEnemies = 0;
             _nearKind = "none";
             _nearDist = -1f;
+            _nearCenter = -1f;
             _targetId = "none";
             _targetKind = "none";
             Vector3 pos = ship.transform.position;
@@ -1138,13 +1180,21 @@ namespace AsteroidsGoneRogue.EditorTools
                 float dx = Threats[index].X - pos.x;
                 float dz = Threats[index].Z - pos.z;
                 float dist = (float)System.Math.Sqrt((dx * dx) + (dz * dz));
-                if (dist >= best)
+                float radius = Threats[index].Radius > 0f ? Threats[index].Radius : 0f;
+                float gap = dist - radius;
+                if (gap < 0f)
+                {
+                    gap = 0f;
+                }
+
+                if (gap >= best)
                 {
                     continue;
                 }
 
-                best = dist;
-                _nearDist = dist;
+                best = gap;
+                _nearDist = gap;
+                _nearCenter = dist;
                 _nearKind = name.Length == 0 ? "body" : name;
                 _targetId = SeenIds[index].ToString();
                 _targetKind = Threats[index].Kind == LongRunPilot.KindLarge ? "large" : "body";
@@ -1249,6 +1299,8 @@ namespace AsteroidsGoneRogue.EditorTools
                 + " search=" + _search
                 + " shots=" + _shotsSeen.ToString(CultureInfo.InvariantCulture)
                 + " near=" + _nearKind + ":" + _nearDist.ToString("0.0", CultureInfo.InvariantCulture)
+                + " center=" + _nearCenter.ToString("0.0", CultureInfo.InvariantCulture)
+                + " metric=surface"
                 + " target=" + _targetId + ":" + _targetKind
                 + " aimErr=" + _aimError.ToString("0", CultureInfo.InvariantCulture)
                 + " fireReason=" + _fireReason
@@ -1787,6 +1839,7 @@ namespace AsteroidsGoneRogue.EditorTools
         {
             _lastNearest = "none";
             _lastNearestDist = -1f;
+            _lastNearestGap = -1f;
             _lastNearestPerceived = false;
             _lastProjectile = "none";
             _lastProjectileSpeed = 0f;
@@ -1803,6 +1856,13 @@ namespace AsteroidsGoneRogue.EditorTools
                     best = dist;
                     _lastNearest = ThreatNames[index];
                     _lastNearestDist = dist;
+                    float bodyRadius = Threats[index].Radius > 0f ? Threats[index].Radius : 0f;
+                    _lastNearestGap = dist - bodyRadius;
+                    if (_lastNearestGap < 0f)
+                    {
+                        _lastNearestGap = 0f;
+                    }
+
                     _lastNearestPerceived = WasLatched(SeenIds[index]);
                     float svx = Threats[index].Vx;
                     float svz = Threats[index].Vz;
@@ -2283,7 +2343,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 code = 3;
             }
 
-            EditorApplication.Exit(code);
+            FinishProcess(code);
         }
 
         static void NoteDiagnostics(LongRunState state)
@@ -2305,6 +2365,15 @@ namespace AsteroidsGoneRogue.EditorTools
             }
         }
 
+        static string WaveProgress(LongRunState state)
+        {
+            int best = state.BestCleared > state.ClearedWaves ? state.BestCleared : state.ClearedWaves;
+            return "this attempt cleared " + state.ClearedWaves.ToString(CultureInfo.InvariantCulture)
+                + " of " + state.TargetWave.ToString(CultureInfo.InvariantCulture)
+                + "; best cleared " + best.ToString(CultureInfo.InvariantCulture)
+                + "; highest wave reached " + state.MaxWave.ToString(CultureInfo.InvariantCulture);
+        }
+
         static string VerdictOf(LongRunState state)
         {
             bool resumeConfigured = state.ResumeWorld > 0 || state.ResumeMinutes > 0;
@@ -2315,7 +2384,7 @@ namespace AsteroidsGoneRogue.EditorTools
                 state.HarnessFault != 0,
                 state.Diagnostic != 0,
                 state.TargetWave,
-                state.ClearedWaves,
+                state.BestCleared > state.ClearedWaves ? state.BestCleared : state.ClearedWaves,
                 Elapsed(state) + 0.05 >= state.Minutes * 60.0,
                 LongRunVerdict.Progressed(state.MaxWave),
                 state.DiedEarly != 0,
@@ -2340,14 +2409,16 @@ namespace AsteroidsGoneRogue.EditorTools
             builder.Append(state.Skipped != 0 ? "skipped start (diagnostic, not applied)" : "natural");
             builder.Append("\n- Target wave: ");
             builder.Append(state.TargetWave.ToString(CultureInfo.InvariantCulture));
-            builder.Append("\n- Cleared waves: ");
+            builder.Append("\n- Highest wave reached: ");
+            builder.Append(state.MaxWave.ToString(CultureInfo.InvariantCulture));
+            builder.Append("\n- Waves cleared this attempt: ");
             builder.Append(state.ClearedWaves.ToString(CultureInfo.InvariantCulture));
+            builder.Append("\n- Waves cleared best: ");
+            builder.Append(state.BestCleared.ToString(CultureInfo.InvariantCulture));
             builder.Append("\n- Budget seconds: ");
             builder.Append((state.Minutes * 60).ToString(CultureInfo.InvariantCulture));
             builder.Append("\n- World: ");
             builder.Append(state.MaxWorld.ToString(CultureInfo.InvariantCulture));
-            builder.Append("\n- Wave: ");
-            builder.Append(state.MaxWave.ToString(CultureInfo.InvariantCulture));
             builder.Append("\n- Purchases: ");
             builder.Append(state.Purchases.ToString(CultureInfo.InvariantCulture));
             builder.Append("\n- Deaths: ");
@@ -2475,14 +2546,14 @@ namespace AsteroidsGoneRogue.EditorTools
                 levelResult = "DIAGNOSTIC";
                 levelReason = "diagnostic flags cannot PASS";
             }
-            else if (state.TargetWave > 0 && state.ClearedWaves >= state.TargetWave)
+            else if (state.TargetWave > 0 && (state.BestCleared >= state.TargetWave || state.ClearedWaves >= state.TargetWave))
             {
                 levelResult = "PASS";
-                levelReason = "cleared " + state.ClearedWaves.ToString(CultureInfo.InvariantCulture) + " waves";
+                levelReason = WaveProgress(state);
             }
             else if (state.TargetWave > 0)
             {
-                levelReason = "cleared " + state.ClearedWaves.ToString(CultureInfo.InvariantCulture) + " of " + state.TargetWave.ToString(CultureInfo.InvariantCulture);
+                levelReason = WaveProgress(state);
             }
 
             string overResult = "INCOMPLETE";
@@ -3001,6 +3072,16 @@ namespace AsteroidsGoneRogue.EditorTools
                 state.TargetWave = targetWave;
             }
 
+            bool visualDefaults = SessionState.GetBool(KeyVisualDefaults, false);
+            if (visualDefaults)
+            {
+                SessionState.SetBool(KeyVisualDefaults, false);
+                if (state.TargetWave <= 0)
+                {
+                    state.TargetWave = 10;
+                }
+            }
+
             if (state.TargetWave > 0 && !minutesGiven)
             {
                 state.Minutes = LongRunVerdict.TargetMinutesWhenUnspecified;
@@ -3066,6 +3147,11 @@ namespace AsteroidsGoneRogue.EditorTools
                 }
 
                 state.Seed = seed;
+            }
+
+            if (visualDefaults && state.Seed < 0)
+            {
+                state.Seed = 48048;
             }
 
             string worldText;
@@ -3238,6 +3324,7 @@ namespace AsteroidsGoneRogue.EditorTools
             AppendField(builder, "lifeLogs", state.LifeLogs.ToString(CultureInfo.InvariantCulture));
             AppendField(builder, "continueChecks", state.ContinueChecks.ToString(CultureInfo.InvariantCulture));
             AppendField(builder, "clearedWaves", state.ClearedWaves.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "bestCleared", state.BestCleared.ToString(CultureInfo.InvariantCulture));
             AppendField(builder, "overContinue", state.OverContinue.ToString(CultureInfo.InvariantCulture));
             AppendField(builder, "newRunNo", state.NewRunNo.ToString(CultureInfo.InvariantCulture));
             AppendField(builder, "newRunYes", state.NewRunYes.ToString(CultureInfo.InvariantCulture));
@@ -3482,6 +3569,10 @@ namespace AsteroidsGoneRogue.EditorTools
             {
                 state.ClearedWaves = ParseInt(value);
             }
+            else if (key == "bestCleared")
+            {
+                state.BestCleared = ParseInt(value);
+            }
             else if (key == "overContinue")
             {
                 state.OverContinue = ParseInt(value);
@@ -3590,6 +3681,7 @@ namespace AsteroidsGoneRogue.EditorTools
         public int LifeLogs;
         public int ContinueChecks;
         public int ClearedWaves;
+        public int BestCleared;
         public int OverContinue;
         public int NewRunNo;
         public int NewRunYes;
