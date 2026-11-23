@@ -45,20 +45,33 @@ namespace AsteroidsGoneRogue
         public void PrepareReuse(Vector3 origin)
         {
             _retired = false;
+            SilenceTrail();
             transform.position = origin;
+            SilenceTrail();
+            gameObject.SetActive(true);
+            SilenceTrail();
+        }
+
+        /// <summary>
+        /// Drop trail points before a park or relaunch teleport. Emitting stays
+        /// off for the launch frame and the next one so the renderer cannot
+        /// connect the old point to the new one.
+        /// </summary>
+        public void SilenceTrail()
+        {
             if (_trail == null)
             {
                 _trail = GetComponent<TrailRenderer>();
             }
 
-            if (_trail != null)
+            if (_trail == null)
             {
-                _trail.Clear();
-                _trail.emitting = false;
-                _trailMute = 1;
+                return;
             }
 
-            gameObject.SetActive(true);
+            _trail.emitting = false;
+            _trail.Clear();
+            _trailMute = 2;
         }
 
         public void Retire()
@@ -83,10 +96,11 @@ namespace AsteroidsGoneRogue
                 _railShooter = null;
             }
 
+            SilenceTrail();
+            gameObject.SetActive(false);
             if (_pool != null)
             {
                 _pool.Reclaim(this);
-                gameObject.SetActive(false);
                 return;
             }
 

@@ -10145,6 +10145,7 @@ def main() -> int:
     test_shader_warmup_cannot_block_boot()
     test_hud_gate_measures_shown_panel()
     test_wave_entry_clearance_skips_inflight()
+    test_wave_start_pose_and_trail_clear()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -19167,6 +19168,167 @@ def test_wave_entry_clearance_skips_inflight() -> None:
     assert "EntryFlight.Resolve" in create
     assert "Vector3.zero" not in create
     assert "CreateEnemy(spawn," in create
+
+
+def _vector3_tokens(src: str, field: str) -> list[str]:
+    import re
+
+    match = re.search(rf"(?<![A-Za-z]){field} = new Vector3\(([^)]+)\)", src)
+    assert match, field
+    return [part.strip() for part in match.group(1).split(",")]
+
+
+def test_wave_start_pose_and_trail_clear() -> None:
+    """Wave start places the play pose before the frame renders, and pooled bolts clear trails."""
+    import os
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    follow = (root / "Assets/Scripts/Player/FollowCamera.cs").read_text(encoding="utf-8")
+    manager = (root / "Assets/Scripts/Core/GameManager.cs").read_text(encoding="utf-8")
+    feel = (root / "Assets/Scripts/Core/CameraFeel.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    projectile = (root / "Assets/Scripts/Player/Projectile.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+
+    framing = follow.split("public void SetHangarFraming")[1].split("public void AddShake")[0]
+    assert "bool leaving = _hangarFraming && !hangar" in framing
+    assert "if (leaving && !_captureHold)" in framing
+    assert framing.index("PlacePlayPose()") > framing.index("if (leaving && !_captureHold)")
+    place = follow.split("private void PlacePlayPose()")[1].split("private void SeedSpring")[0]
+    assert "SeedSpring(desired)" in place
+    assert "ClearShake()" in place
+    assert "transform.position = desired" in place
+    assert place.index("SeedSpring(desired)") < place.index("transform.position = desired")
+    seed = follow.split("private void SeedSpring")[1].split("private void DesiredPlay")[0]
+    assert "_springReady = true" in seed
+    assert "_springVx = 0f" in seed
+
+    start = manager.split("public void StartWave()")[1].split("public void ContinueFromResults()")[0]
+    assert start.index("_ship.ResetForWave(") < start.index("RaiseStateChanged()")
+    assert "SetHangarFraming(hangar)" in manager
+
+    assert "WaveStartPoseLimit" in feel and "PoseGap(" in feel and "WaveStartPoseHeld(" in feel
+
+    reclaim = factory.split("public void Reclaim(")[1].split("private Projectile Relaunch")[0]
+    assert reclaim.count("SilenceTrail()") >= 2
+    assert reclaim.index("SilenceTrail()") < reclaim.index("new Vector3(0f, -80f, 0f)")
+    assert reclaim.rindex("SilenceTrail()") > reclaim.index("new Vector3(0f, -80f, 0f)")
+    relaunch = factory.split("private Projectile Relaunch(")[1].split("private void StyleShot")[0]
+    before_reuse = relaunch.split("PrepareReuse(")[0]
+    assert "SetActive(true)" not in before_reuse
+    assert before_reuse.index("SetActive(false)") < before_reuse.index("root.transform.position = origin")
+    assert before_reuse.index("SilenceTrail()") < before_reuse.index("root.transform.position = origin")
+
+    prepare = projectile.split("public void PrepareReuse")[1].split("public void SilenceTrail")[0]
+    assert prepare.index("transform.position = origin") < prepare.index("SetActive(true)")
+    assert prepare.rindex("SilenceTrail()") > prepare.index("SetActive(true)")
+    silence = projectile.split("public void SilenceTrail()")[1].split("public void Retire()")[0]
+    assert "trail.Clear()" in silence
+    assert "_trail.emitting = false" in silence
+    assert "_trailMute = 2" in silence
+    retire = projectile.split("public void Retire()")[1].split("public void Launch(")[0]
+    assert retire.index("SilenceTrail()") < retire.index("SetActive(false)")
+    assert retire.index("SetActive(false)") < retire.index("Reclaim(")
+
+    spawn_boss = waves.split("private void SpawnBoss")[1].split("private void SpawnElitePickup")[0]
+    assert spawn_boss.index("localScale") < spawn_boss.index("ConfigureBoss(")
+
+    look = _vector3_tokens(follow, "HangarLook")
+    hangar_offset = _vector3_tokens(follow, "HangarOffset")
+    play_offset = _vector3_tokens(follow, "Offset")
+    hx = f"({look[0]}) + ({hangar_offset[0]})"
+    hy = f"({look[1]}) + ({hangar_offset[1]})"
+    hz = f"({look[2]}) + ({hangar_offset[2]})"
+    px = f"(0f) + ({play_offset[0]})"
+    py = f"(0.4f) + ({play_offset[1]})"
+    pz = f"(0f) + ({play_offset[2]})"
+
+    from roslyn_core_check import find_dotnet
+
+    dotnet = find_dotnet()
+    assert dotnet, "wave-start pose test needs dotnet"
+    work = Path(os.environ.get("TMPDIR", "/tmp")) / "agr-wave-start-pose"
+    if work.exists():
+        shutil.rmtree(work)
+    work.mkdir(parents=True)
+    shutil.copyfile(root / "Assets/Scripts/Core/CameraFeel.cs", work / "CameraFeel.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/EffectScale.cs", work / "EffectScale.cs")
+    program = f"""
+using System;
+namespace AsteroidsGoneRogue
+{{
+    public static class HitFlashLimiter
+    {{
+        public const float MaxAlpha = 0.34f;
+        public const float MinGapSeconds = 0.12f;
+        public const float DefaultDecay = 0.18f;
+    }}
+}}
+class Program
+{{
+    static void Need(bool ok, string message)
+    {{
+        if (!ok) throw new Exception(message);
+    }}
+
+    static void Main()
+    {{
+        float hx = {hx};
+        float hy = {hy};
+        float hz = {hz};
+        float px = {px};
+        float py = {py};
+        float pz = {pz};
+        float gap = AsteroidsGoneRogue.CameraFeel.PoseGap(hx, hy, hz, px, py, pz);
+        Need(gap > AsteroidsGoneRogue.CameraFeel.MaxLag, "hangar shot exceeds spring lag cap");
+        Need(!AsteroidsGoneRogue.CameraFeel.WaveStartPoseHeld(hx, hy, hz, px, py, pz), "near pose must not count as settled");
+        Need(AsteroidsGoneRogue.CameraFeel.WaveStartPoseHeld(px, py, pz, px, py, pz), "play pose is within the wave-start limit");
+        Need(AsteroidsGoneRogue.CameraFeel.PoseGap(px, py, pz, px, py, pz) <= AsteroidsGoneRogue.CameraFeel.WaveStartPoseLimit, "settled gap");
+        Console.WriteLine("wave-start-pose-ok");
+    }}
+}}
+"""
+    (work / "Program.cs").write_text(program, encoding="utf-8")
+    (work / "pose.csproj").write_text(
+        "\n".join(
+            (
+                '<Project Sdk="Microsoft.NET.Sdk">',
+                "  <PropertyGroup>",
+                "    <OutputType>Exe</OutputType>",
+                "    <TargetFramework>net8.0</TargetFramework>",
+                "    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>",
+                "    <Nullable>disable</Nullable>",
+                "    <ImplicitUsings>disable</ImplicitUsings>",
+                "  </PropertyGroup>",
+                "  <ItemGroup>",
+                '    <Compile Include="CameraFeel.cs" />',
+                '    <Compile Include="EffectScale.cs" />',
+                '    <Compile Include="Program.cs" />',
+                "  </ItemGroup>",
+                "</Project>",
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
+    env["DOTNET_NOLOGO"] = "1"
+    env["DOTNET_ROOT"] = str(Path(dotnet).resolve().parent)
+    result = subprocess.run(
+        [dotnet, "run", "--project", str(work / "pose.csproj"), "-v", "q"],
+        cwd=work,
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout
+    assert "wave-start-pose-ok" in result.stdout
 
 
 if __name__ == "__main__":

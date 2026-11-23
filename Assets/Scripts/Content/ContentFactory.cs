@@ -4075,7 +4075,9 @@ namespace AsteroidsGoneRogue
             }
 
             _projectiles.Remove(shot);
+            shot.SilenceTrail();
             shot.transform.position = new Vector3(0f, -80f, 0f);
+            shot.SilenceTrail();
             List<Projectile> pool = shot.Hostile ? _enemyFree : _playerFree;
             if (!pool.Contains(shot))
             {
@@ -4096,8 +4098,10 @@ namespace AsteroidsGoneRogue
             bool boss)
         {
             GameObject root = shot.gameObject;
-            root.SetActive(true);
+            shot.SilenceTrail();
+            root.SetActive(false);
             root.transform.position = origin;
+            shot.SilenceTrail();
             bool spread = !hostile && style == FireMode.Spread;
             bool seeker = !hostile && style == FireMode.Seeker;
             bool ricochet = !hostile && style == FireMode.Ricochet;
