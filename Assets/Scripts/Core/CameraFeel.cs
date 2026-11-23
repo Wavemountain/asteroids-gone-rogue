@@ -378,5 +378,25 @@ namespace AsteroidsGoneRogue
                 vz *= scale;
             }
         }
+
+        /// <summary>
+        /// A wave-start camera is settled when it is already on the play pose.
+        /// The hangar shot sits farther away than <see cref="MaxLag"/>, so the
+        /// follow spring cannot ease across that gap without a hard clamp.
+        /// </summary>
+        public const float WaveStartPoseLimit = 0.05f;
+
+        public static float PoseGap(float ax, float ay, float az, float bx, float by, float bz)
+        {
+            float dx = ax - bx;
+            float dy = ay - by;
+            float dz = az - bz;
+            return (float)System.Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+        }
+
+        public static bool WaveStartPoseHeld(float camX, float camY, float camZ, float playX, float playY, float playZ)
+        {
+            return PoseGap(camX, camY, camZ, playX, playY, playZ) <= WaveStartPoseLimit;
+        }
     }
 }
