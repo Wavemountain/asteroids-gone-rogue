@@ -19229,6 +19229,17 @@ def test_wave_start_pose_and_trail_clear() -> None:
     assert "trail.Clear()" in silence
     assert "_trail.emitting = false" in silence
     assert "_trailMute = 2" in silence
+    assert silence.index("_trail.time = 0f") < silence.index("_trail.time = time")
+    swap = factory.split("public void ApplyArenaForWave")[1].split("public void SetHangarDressingVisible")[0]
+    assert swap.index("RetireArenaChild(") < swap.index("TryVisual(")
+    assert swap.count("FloorSurface.Invalidate()") >= 1
+    retire_body = factory.split("private static void RetireArenaChild")[1].split("private static void DestroyChild")[0]
+    assert "enabled = false" in retire_body
+    assert "SetActive(false)" in retire_body
+    assert "DestroyImmediate(child)" in retire_body
+    exposure = (root / "Assets/Scripts/Core/WorldFloorExposure.cs").read_text(encoding="utf-8")
+    blob = (root / "Assets/Scripts/Content/ContactBlob.cs").read_text(encoding="utf-8")
+    assert "TriangleHeight(" in exposure and "TrySurface(" in blob and "RememberSurface(" in blob
     retire = projectile.split("public void Retire()")[1].split("public void Launch(")[0]
     assert retire.index("SilenceTrail()") < retire.index("SetActive(false)")
     assert retire.index("SetActive(false)") < retire.index("Reclaim(")

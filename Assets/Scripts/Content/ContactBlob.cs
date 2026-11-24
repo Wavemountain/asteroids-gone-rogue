@@ -101,6 +101,15 @@ namespace AsteroidsGoneRogue
 
             return _plates;
         }
+
+        /// <summary>
+        /// Drop a cached list that still points at a floor retired this frame.
+        /// </summary>
+        public static void Invalidate()
+        {
+            _frame = -1;
+            _plates = null;
+        }
     }
 
     /// <summary>
@@ -115,6 +124,8 @@ namespace AsteroidsGoneRogue
         public float MinZ;
         public float MaxZ;
         public bool Ready;
+
+        private Vector3[] _surface;
 
         private const float FloorBand = 0.25f;
         private const float BoundsPad = 0.35f;
@@ -139,8 +150,69 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            worldY = transform.TransformPoint(new Vector3(local.x, LocalY, local.z)).y;
+            float localY = LocalY;
+            float sampled;
+            if (TrySurface(local.x, local.z, out sampled))
+            {
+                localY = sampled;
+            }
+
+            worldY = transform.TransformPoint(new Vector3(local.x, localY, local.z)).y;
             return true;
+        }
+
+        /// <summary>
+        /// Highest triangle under this local XZ. A curved plate is not one Y.
+        /// </summary>
+        private bool TrySurface(float x, float z, out float localY)
+        {
+            localY = 0f;
+            Vector3[] surface = _surface;
+            if (surface == null || surface.Length < 3)
+            {
+                return false;
+            }
+
+            bool hit = false;
+            for (int i = 0; i + 2 < surface.Length; i += 3)
+            {
+                float y;
+                if (!WorldFloorExposure.TriangleHeight(
+                    x,
+                    z,
+                    surface[i].x,
+                    surface[i].y,
+                    surface[i].z,
+                    surface[i + 1].x,
+                    surface[i + 1].y,
+                    surface[i + 1].z,
+                    surface[i + 2].x,
+                    surface[i + 2].y,
+                    surface[i + 2].z,
+                    out y))
+                {
+                    continue;
+                }
+
+                if (!hit || y > localY)
+                {
+                    localY = y;
+                    hit = true;
+                }
+            }
+
+            return hit;
+        }
+
+        private void RememberSurface(System.Collections.Generic.List<Vector3> triangles)
+        {
+            if (triangles == null || triangles.Count < 3)
+            {
+                _surface = null;
+                return;
+            }
+
+            _surface = triangles.ToArray();
         }
 
         public static void Adopt(GameObject visual)
@@ -210,6 +282,7 @@ namespace AsteroidsGoneRogue
             Transform xform = renderer.transform;
             float minWorld = 0f;
             bool any = false;
+            System.Collections.Generic.List<Vector3> surface = new System.Collections.Generic.List<Vector3>();
             for (int sub = 0; sub < subCount; sub++)
             {
                 if (SkipSubmesh(mats, sub))
@@ -265,59 +338,44 @@ namespace AsteroidsGoneRogue
                     continue;
                 }
 
-                for (int t = 0; t < tris.Length; t++)
+                for (int t = 0; t + 2 < tris.Length; t += 3)
                 {
-                    int index = tris[t];
-                    if (index < 0 || index >= verts.Length)
+                    int i0 = tris[t];
+                    int i1 = tris[t + 1];
+                    int i2 = tris[t + 2];
+                    if (i0 < 0 || i1 < 0 || i2 < 0 || i0 >= verts.Length || i1 >= verts.Length || i2 >= verts.Length)
                     {
                         continue;
                     }
 
-                    Vector3 local = verts[index];
-                    Vector3 world = xform.TransformPoint(local);
-                    if (world.y > minWorld + FloorBand)
+                    Vector3 v0 = verts[i0];
+                    Vector3 v1 = verts[i1];
+                    Vector3 v2 = verts[i2];
+                    float y0 = xform.TransformPoint(v0).y;
+                    float y1 = xform.TransformPoint(v1).y;
+                    float y2 = xform.TransformPoint(v2).y;
+                    float high = y0;
+                    if (y1 > high)
+                    {
+                        high = y1;
+                    }
+
+                    if (y2 > high)
+                    {
+                        high = y2;
+                    }
+
+                    if (high > minWorld + FloorBand)
                     {
                         continue;
                     }
 
-                    if (!picked)
-                    {
-                        topWorld = world.y;
-                        localY = local.y;
-                        minX = local.x;
-                        maxX = local.x;
-                        minZ = local.z;
-                        maxZ = local.z;
-                        picked = true;
-                    }
-                    else
-                    {
-                        if (world.y > topWorld)
-                        {
-                            topWorld = world.y;
-                            localY = local.y;
-                        }
-
-                        if (local.x < minX)
-                        {
-                            minX = local.x;
-                        }
-
-                        if (local.x > maxX)
-                        {
-                            maxX = local.x;
-                        }
-
-                        if (local.z < minZ)
-                        {
-                            minZ = local.z;
-                        }
-
-                        if (local.z > maxZ)
-                        {
-                            maxZ = local.z;
-                        }
-                    }
+                    surface.Add(v0);
+                    surface.Add(v1);
+                    surface.Add(v2);
+                    Consider(v0, y0, ref picked, ref topWorld, ref localY, ref minX, ref maxX, ref minZ, ref maxZ);
+                    Consider(v1, y1, ref picked, ref topWorld, ref localY, ref minX, ref maxX, ref minZ, ref maxZ);
+                    Consider(v2, y2, ref picked, ref topWorld, ref localY, ref minX, ref maxX, ref minZ, ref maxZ);
                 }
             }
 
@@ -332,7 +390,63 @@ namespace AsteroidsGoneRogue
             }
 
             Write(renderer, localY, minX - BoundsPad, maxX + BoundsPad, minZ - BoundsPad, maxZ + BoundsPad);
+            FloorPlate plate = renderer.GetComponent<FloorPlate>();
+            if (plate != null)
+            {
+                plate.RememberSurface(surface);
+            }
+
             return true;
+        }
+
+        private static void Consider(
+            Vector3 local,
+            float worldY,
+            ref bool picked,
+            ref float topWorld,
+            ref float localY,
+            ref float minX,
+            ref float maxX,
+            ref float minZ,
+            ref float maxZ)
+        {
+            if (!picked)
+            {
+                topWorld = worldY;
+                localY = local.y;
+                minX = local.x;
+                maxX = local.x;
+                minZ = local.z;
+                maxZ = local.z;
+                picked = true;
+                return;
+            }
+
+            if (worldY > topWorld)
+            {
+                topWorld = worldY;
+                localY = local.y;
+            }
+
+            if (local.x < minX)
+            {
+                minX = local.x;
+            }
+
+            if (local.x > maxX)
+            {
+                maxX = local.x;
+            }
+
+            if (local.z < minZ)
+            {
+                minZ = local.z;
+            }
+
+            if (local.z > maxZ)
+            {
+                maxZ = local.z;
+            }
         }
 
         private static bool ConfigureBounds(Renderer renderer)

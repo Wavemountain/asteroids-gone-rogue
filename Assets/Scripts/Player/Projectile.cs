@@ -69,8 +69,13 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            float time = _trail.time;
             _trail.emitting = false;
+            _trail.time = 0f;
             _trail.Clear();
+            _trail.time = time;
+            _trail.Clear();
+            _trail.emitting = false;
             _trailMute = 2;
         }
 

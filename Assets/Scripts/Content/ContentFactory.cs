@@ -492,8 +492,12 @@ namespace AsteroidsGoneRogue
                     continue;
                 }
 
-                Destroy(child.gameObject);
+                // Destroy waits until after this frame renders. The previous
+                // world's plates would still draw through the new floor.
+                RetireArenaChild(child.gameObject);
             }
+
+            FloorSurface.Invalidate();
 
             _arenaRoot.name = visualName;
             GameObject visual;
@@ -560,6 +564,7 @@ namespace AsteroidsGoneRogue
             _arenaLayout = layout;
             _arenaWorldNumber = worldNumber;
             _arenaApplied = true;
+            FloorSurface.Invalidate();
             DecorCameraStack.ApplyLayer(_arenaRoot);
             if (env != null && worldNumber == 1)
             {
@@ -1915,6 +1920,29 @@ namespace AsteroidsGoneRogue
         {
             DestroyChild(parent, "SpawnContrast");
             DestroyChild(parent, SpawnDiscObjectName);
+        }
+
+        /// <summary>
+        /// Hide and remove a previous floor or layout before the new mesh exists.
+        /// </summary>
+        private static void RetireArenaChild(GameObject child)
+        {
+            if (child == null)
+            {
+                return;
+            }
+
+            Renderer[] renderers = child.GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                if (renderers[i] != null)
+                {
+                    renderers[i].enabled = false;
+                }
+            }
+
+            child.SetActive(false);
+            DestroyImmediate(child);
         }
 
         private static void DestroyChild(Transform parent, string childName)
