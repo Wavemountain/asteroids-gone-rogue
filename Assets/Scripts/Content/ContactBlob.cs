@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace AsteroidsGoneRogue
@@ -559,8 +560,10 @@ namespace AsteroidsGoneRogue
         public const int RenderQueue = 2990;
 
         private Transform _host;
+        private EntityId _hostId;
         private static Material _shared;
         private static Mesh _quad;
+        private static readonly Dictionary<EntityId, ContactBlob> Live = new Dictionary<EntityId, ContactBlob>();
 
         static Mesh SharedQuad()
         {
@@ -593,14 +596,20 @@ namespace AsteroidsGoneRogue
 
         public static void Attach(Transform host)
         {
-            if (host == null || host.Find("ContactBlob") != null)
+            if (host == null)
+            {
+                return;
+            }
+
+            EntityId id = host.GetEntityId();
+            ContactBlob prior;
+            if (Live.TryGetValue(id, out prior) && prior != null)
             {
                 return;
             }
 
             GameObject quad = new GameObject("ContactBlob");
             quad.layer = DecorCameraStack.LayerIndex();
-            quad.transform.SetParent(host, false);
             MeshFilter filter = quad.AddComponent<MeshFilter>();
             filter.sharedMesh = SharedQuad();
             MeshRenderer renderer = quad.AddComponent<MeshRenderer>();
@@ -612,11 +621,15 @@ namespace AsteroidsGoneRogue
             }
 
             ContactBlob blob = quad.AddComponent<ContactBlob>();
-            if (blob != null)
+            if (blob == null)
             {
-                blob._host = host;
-                blob.Pin();
+                return;
             }
+
+            blob._host = host;
+            blob._hostId = id;
+            Live[id] = blob;
+            blob.Pin();
         }
 
         private void LateUpdate()
@@ -624,22 +637,32 @@ namespace AsteroidsGoneRogue
             Pin();
         }
 
+        private void OnDestroy()
+        {
+            ContactBlob current;
+            if (Live.TryGetValue(_hostId, out current) && current == this)
+            {
+                Live.Remove(_hostId);
+            }
+        }
+
         private void Pin()
         {
             Transform host = _host;
             if (host == null)
             {
-                host = transform.parent;
-            }
+                Renderer dead = GetComponent<Renderer>();
+                if (dead != null)
+                {
+                    dead.enabled = false;
+                }
 
-            if (host == null)
-            {
+                Destroy(gameObject);
                 return;
             }
 
-            // Decor camera, queue 2990. The floor, mines, and beams share that
-            // depth buffer. Y is the real floor top, so a mine or beam closer
-            // to the camera rejects the blob. Gameplay draws afterwards.
+            // World scale, not a child of a rotated body, so the quad stays a
+            // disc on the floor instead of a sheared parallelogram.
             gameObject.layer = DecorCameraStack.LayerIndex();
             float radius = Footprint(host) * RadiusPad;
             if (radius < MinRadius)
@@ -647,7 +670,6 @@ namespace AsteroidsGoneRogue
                 radius = MinRadius;
             }
 
-            ApplyScale(host, radius);
             float ceiling = host.position.y;
             float surface;
             float y;
@@ -664,35 +686,19 @@ namespace AsteroidsGoneRogue
                 }
             }
 
+            float clear = radius * 0.012f;
+            if (clear > 0.05f)
+            {
+                clear = 0.05f;
+            }
+
+            y += clear;
+            float diameter = radius * 2f;
+            transform.SetParent(null, false);
+            transform.localScale = new Vector3(diameter, diameter, 1f);
             transform.SetPositionAndRotation(
                 new Vector3(host.position.x, y, host.position.z),
                 Quaternion.Euler(90f, 0f, 0f));
-        }
-
-        private void ApplyScale(Transform host, float radius)
-        {
-            float axis = 1f;
-            if (host != null)
-            {
-                axis = host.lossyScale.x;
-                if (host.lossyScale.y > axis)
-                {
-                    axis = host.lossyScale.y;
-                }
-
-                if (host.lossyScale.z > axis)
-                {
-                    axis = host.lossyScale.z;
-                }
-            }
-
-            if (axis < 0.001f)
-            {
-                axis = 1f;
-            }
-
-            float local = (radius * 2f) / axis;
-            transform.localScale = new Vector3(local, local, 1f);
         }
 
         private static float Footprint(Transform host)

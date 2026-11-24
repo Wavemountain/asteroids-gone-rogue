@@ -25,6 +25,9 @@ namespace AsteroidsGoneRogue
         private float _springVy;
         private float _springVz;
         private bool _springReady;
+        private Vector3 _lastTarget;
+        private bool _hasLastTarget;
+        private float _glideUntil;
         private float _ox;
         private float _oy;
         private float _oz;
@@ -192,9 +195,40 @@ namespace AsteroidsGoneRogue
                 SeedSpring(desired);
             }
 
-            CameraFeel.SpringLimited(ref _springX, ref _springVx, desired.x, CameraFeel.FollowOmega, step, CameraFeel.MaxLag);
-            CameraFeel.SpringLimited(ref _springY, ref _springVy, desired.y, CameraFeel.FollowOmega, step, CameraFeel.MaxLag);
-            CameraFeel.SpringLimited(ref _springZ, ref _springVz, desired.z, CameraFeel.FollowOmega, step, CameraFeel.MaxLag);
+            float lag = CameraFeel.FollowLag(false);
+            if (_hasLastTarget)
+            {
+                Vector3 from = _lastTarget;
+                Vector3 to = _target.position;
+                float dx = to.x - from.x;
+                float dy = to.y - from.y;
+                float dz = to.z - from.z;
+                float jump = Mathf.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+                if (jump > CameraFeel.RespawnGlideJump)
+                {
+                    _glideUntil = Time.time + CameraFeel.RespawnGlideSeconds;
+                }
+            }
+
+            _lastTarget = _target.position;
+            _hasLastTarget = true;
+            float ex = _springX - desired.x;
+            float ey = _springY - desired.y;
+            float ez = _springZ - desired.z;
+            float remain = Mathf.Sqrt((ex * ex) + (ey * ey) + (ez * ez));
+            bool glide = _glideUntil > 0f && (Time.time < _glideUntil || remain > CameraFeel.MaxLag);
+            if (!glide)
+            {
+                _glideUntil = 0f;
+            }
+            else
+            {
+                lag = CameraFeel.FollowLag(true);
+            }
+
+            CameraFeel.SpringLimited(ref _springX, ref _springVx, desired.x, CameraFeel.FollowOmega, step, lag);
+            CameraFeel.SpringLimited(ref _springY, ref _springVy, desired.y, CameraFeel.FollowOmega, step, lag);
+            CameraFeel.SpringLimited(ref _springZ, ref _springVz, desired.z, CameraFeel.FollowOmega, step, lag);
 
             bool reduce = SettingsState.ReduceEffectsEnabled;
             if (SettingsState.ScreenShakeEnabled)
@@ -242,6 +276,9 @@ namespace AsteroidsGoneRogue
             DesiredPlay(out look, out desired, out speed);
             SeedSpring(desired);
             ClearShake();
+            _glideUntil = 0f;
+            _lastTarget = _target.position;
+            _hasLastTarget = true;
             transform.position = desired;
             transform.LookAt(look);
             ApplyPlayFov(speed);
