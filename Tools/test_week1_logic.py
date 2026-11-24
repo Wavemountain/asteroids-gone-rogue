@@ -19240,6 +19240,10 @@ def test_wave_start_pose_and_trail_clear() -> None:
     exposure = (root / "Assets/Scripts/Core/WorldFloorExposure.cs").read_text(encoding="utf-8")
     blob = (root / "Assets/Scripts/Content/ContactBlob.cs").read_text(encoding="utf-8")
     assert "TriangleHeight(" in exposure and "TrySurface(" in blob and "RememberSurface(" in blob
+    assert "FollowLag(" in follow and "_glideUntil = 0f" in follow
+    assert "SetParent(null, false)" in blob and "Live.Remove(" in blob
+    create_outside = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+    assert "new Vector3(outsideX, ArenaWrap.PlayY, outsideZ)" in create_outside
     retire = projectile.split("public void Retire()")[1].split("public void Launch(")[0]
     assert retire.index("SilenceTrail()") < retire.index("SetActive(false)")
     assert retire.index("SetActive(false)") < retire.index("Reclaim(")
@@ -19298,6 +19302,9 @@ class Program
         Need(!AsteroidsGoneRogue.CameraFeel.WaveStartPoseHeld(hx, hy, hz, px, py, pz), "near pose must not count as settled");
         Need(AsteroidsGoneRogue.CameraFeel.WaveStartPoseHeld(px, py, pz, px, py, pz), "play pose is within the wave-start limit");
         Need(AsteroidsGoneRogue.CameraFeel.PoseGap(px, py, pz, px, py, pz) <= AsteroidsGoneRogue.CameraFeel.WaveStartPoseLimit, "settled gap");
+        Need(AsteroidsGoneRogue.CameraFeel.FollowLag(false) == AsteroidsGoneRogue.CameraFeel.MaxLag, "play lag stays clamped");
+        Need(AsteroidsGoneRogue.CameraFeel.FollowLag(true) > 27.6f, "respawn glide is not clamped at 27.6 m");
+        Need(AsteroidsGoneRogue.CameraFeel.RespawnGlideSeconds >= 0.4f && AsteroidsGoneRogue.CameraFeel.RespawnGlideSeconds < 0.6f, "respawn glide window");
         Console.WriteLine("wave-start-pose-ok");
     }}
 }}
