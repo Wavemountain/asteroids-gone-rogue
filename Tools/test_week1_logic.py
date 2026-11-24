@@ -10140,6 +10140,7 @@ def main() -> int:
     test_shop_columns_inside_hangar_inner()
     test_enemy_bounds_within_048()
     test_hud_text_and_perk_clearance()
+    test_hud_world_wave_label()
     test_wave_summary_and_hangar_hud()
     test_premium_050_look()
     test_shader_warmup_cannot_block_boot()
@@ -18127,6 +18128,91 @@ def _map_band(parent, local):
         px0 + lx1 * width,
         py0 + ly1 * height,
     )
+
+
+def test_hud_world_wave_label() -> None:
+    """Campaign world/wave fraction, boss replacement, and uncapped endless/daily."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+    parts = loc.split("private static readonly Dictionary")
+    swedish = parts[1].split("};")[0]
+    english = parts[2].split("};")[0]
+
+    def entry(table: str, key: str) -> str:
+        match = re.search(r'\{\s*"' + re.escape(key) + r'"\s*,\s*"((?:\\.|[^"\\])*)"', table)
+        assert match, key
+        return match.group(1)
+
+    def paint(template: str, *args: object) -> str:
+        return template.format(*args)
+
+    def label(table: dict[str, str], world: int, wave: int, total: int, boss: bool, capped: bool) -> str:
+        shown_world = 1 if world < 1 else world
+        shown_wave = 1 if wave < 1 else wave
+        if not capped:
+            return paint(table["endless"], shown_wave)
+        if boss:
+            return paint(table["boss"], shown_world)
+        shown_total = 1 if total < 1 else total
+        return paint(table["world"], shown_world, shown_wave, shown_total)
+
+    keys = ("hud.world_wave", "hud.wave_endless", "hud.boss")
+    sv = {name: entry(swedish, key) for name, key in zip(("world", "endless", "boss"), keys)}
+    en = {name: entry(english, key) for name, key in zip(("world", "endless", "boss"), keys)}
+    assert sv["world"] == "Värld {0} · Våg {1}/{2}"
+    assert en["world"] == "World {0} · Wave {1}/{2}"
+    assert sv["endless"] == "Våg {0}"
+    assert en["endless"] == "Wave {0}"
+    assert sv["boss"] == "Värld {0} · BOSS"
+    assert en["boss"] == "World {0} · BOSS"
+    for key, fallback in (
+        ("hud.world_wave", en["world"]),
+        ("hud.wave_endless", en["endless"]),
+        ("hud.boss", en["boss"]),
+    ):
+        assert f'"{key}"' in ui and f'"{fallback}"' in ui
+
+    total = 35
+    assert label(en, 1, 3, total, False, True) == "World 1 · Wave 3/35"
+    assert label(sv, 2, 7, total, False, True) == "Värld 2 · Våg 7/35"
+    assert label(en, 1, 5, total, True, True) == "World 1 · BOSS"
+    assert label(sv, 7, 35, total, True, True) == "Värld 7 · BOSS"
+    assert label(en, 8, 36, total, False, False) == "Wave 36"
+    assert label(sv, 8, 40, total, True, False) == "Våg 40"
+    assert label(en, 1, 2, total, False, False) == "Wave 2"
+
+    sync = ui.split("private void SyncWorldWaveLabel()")[1].split("private void PlaceWorldWave(")[0]
+    assert "GamePhase.Playing" in sync
+    assert "_confirmOpen" in sync
+    assert "BossRules.IsBossWave" in sync
+    assert "CampaignCap.FinalWave" in sync
+    assert "ActiveDailySeed" in sync
+    assert sync.find("if (key == _worldWaveKey)") < sync.find("_worldWave.text")
+    update = ui.split("private void Update()")[1].split("PulseHangarLaunch();")[0]
+    assert "SyncWorldWaveLabel()" in update
+    assert "_worldWave.text" not in update
+
+    place = ui.split("private void PlaceWorldWave(")[1].split("private string PlayBestCompare(")[0]
+    assert "Screen.safeArea" in place
+    assert "PlayHudLayout.CaptionMinY" in place
+    assert "EffectiveHintSize" in place
+    assert "UiBody" in place
+    assert "0.47f" in place
+    caption_min = 0.946
+    top = caption_min - 0.008
+    bottom = top - 0.032
+    assert top < caption_min
+    assert bottom > 0.216
+    assert 0.47 < 0.490
+    assert 0.47 < 0.74
+    built = ui.split('CreateText("WorldWave"')[1].split("_deathFlash")[0]
+    assert "raycastTarget = false" in built
+    assert "AddReadability(_worldWave, false)" in built
+    assert "SetActive(false)" in built
 
 
 def test_hud_text_and_perk_clearance() -> None:
