@@ -178,6 +178,9 @@ namespace AsteroidsGoneRogue
             { "summary.time", "TID" },
             { "summary.damage", "SKADA" },
             { "hud.credits", "KREDIT" },
+            { "hud.world_wave", "Värld {0} · Våg {1}/{2}" },
+            { "hud.wave_endless", "Våg {0}" },
+            { "hud.boss", "Värld {0} · BOSS" },
             { "ui.new_best_dot", "  ·  NYTT REKORD" },
             { "session.empty", "Session —" },
             { "session.card", "Session {0}  ·  Våg {1}" },
@@ -534,6 +537,9 @@ namespace AsteroidsGoneRogue
             { "ui.locked", "LOCKED" },
             { "ui.mk2", "Mk II" },
             { "ui.off_path", "off-path" },
+            { "hud.world_wave", "World {0} · Wave {1}/{2}" },
+            { "hud.wave_endless", "Wave {0}" },
+            { "hud.boss", "World {0} · BOSS" },
         };
 
         private static bool _loaded;
