@@ -10145,6 +10145,7 @@ def main() -> int:
     test_shader_warmup_cannot_block_boot()
     test_hud_gate_measures_shown_panel()
     test_wave_entry_clearance_skips_inflight()
+    test_w2_floor_marks()
     test_wave_start_pose_and_trail_clear()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
@@ -19176,6 +19177,40 @@ def _vector3_tokens(src: str, field: str) -> list[str]:
     match = re.search(rf"(?<![A-Za-z]){field} = new Vector3\(([^)]+)\)", src)
     assert match, field
     return [part.strip() for part in match.group(1).split(",")]
+
+
+def test_w2_floor_marks() -> None:
+    """World 2 floor: dark-plate contact alpha, and spark quads that actually die."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    exposure = (root / "Assets/Scripts/Core/WorldFloorExposure.cs").read_text(encoding="utf-8")
+    blob = (root / "Assets/Scripts/Content/ContactBlob.cs").read_text(encoding="utf-8")
+    env = (root / "Assets/Scripts/Content/ArenaEnv.cs").read_text(encoding="utf-8")
+    kit = (root / "Assets/Scripts/Combat/VfxKit.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+
+    assert "public static float ContactAlpha(" in exposure
+    assert "fullAlpha * 0.47f" in exposure
+    assert "ContactAlpha(World, paintedR, paintedG, paintedB, 0.9f)" in exposure
+    assert "luma * (1f - softened) < 0.045f" in exposure
+    assert "ContactAlpha(1, paintedR, paintedG, paintedB, 0.9f) != 0.9f" in exposure
+    assert "Alpha = 0.9f" in blob
+    assert "public static void AdoptFloor(" in blob
+    assert "WorldFloorExposure.ContactAlpha" in blob
+    assert "activeInHierarchy" in blob
+    assert "ContactBlob.AdoptFloor(" in env
+    show = kit.split("private static void ShowParticle")[1].split("public static void Shock")[0]
+    assert "system.Play()" in show
+    assert "isPlaying" in show
+    quiet = kit.split("private static void QuietParticle")[1].split("private static void ShowParticle")[0]
+    assert "StopEmittingAndClear" in quiet
+    assert "public static void ClearWave()" in kit
+    retire = kit.split("private void Retire(")[1].split("private void ApplyTint")[0]
+    assert "slot.Live = 0" in retire
+    assert "SetActive(false)" in retire
+    despawn = waves.split("public void DespawnAll()")[1].split("private void Update()")[0]
+    assert "VfxKit.ClearWave()" in despawn
 
 
 def test_wave_start_pose_and_trail_clear() -> None:
