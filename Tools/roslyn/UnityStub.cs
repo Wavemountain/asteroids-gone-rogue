@@ -1039,6 +1039,8 @@ namespace UnityEngine
 
     public enum ParticleSystemShapeType { Sphere, Hemisphere, Cone, Box }
 
+    public enum ParticleSystemStopBehavior { StopEmitting = 0, StopEmittingAndClear = 1 }
+
     public class ParticleSystem : Component
     {
         public struct MainModule
@@ -1102,10 +1104,12 @@ namespace UnityEngine
         public EmissionModule emission { get { return new EmissionModule(); } }
         public ShapeModule shape { get { return new ShapeModule(); } }
         public VelocityOverLifetimeModule velocityOverLifetime { get { return new VelocityOverLifetimeModule(); } }
+        public bool isPlaying { get { return false; } }
         public void Emit(EmitParams emitParams, int count) { }
         public void Play() { }
         public void Clear() { }
         public void Stop() { }
+        public void Stop(bool withChildren, ParticleSystemStopBehavior stopBehavior) { }
         public int GetParticles(Particle[] particles) { return 0; }
         public void SetParticles(Particle[] particles, int size) { }
     }

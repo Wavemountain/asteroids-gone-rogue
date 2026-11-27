@@ -614,6 +614,22 @@ namespace AsteroidsGoneRogue
             blob.Pin();
         }
 
+        /// <summary>
+        /// Match the shared disc to the floor that was just painted.
+        /// A dark World 2 plate cannot take the full 0.9 alpha.
+        /// </summary>
+        public static void AdoptFloor(int world, float floorR, float floorG, float floorB)
+        {
+            float alpha = WorldFloorExposure.ContactAlpha(world, floorR, floorG, floorB, Alpha);
+            Material material = SharedMaterial();
+            if (material == null)
+            {
+                return;
+            }
+
+            material.color = new Color(0f, 0f, 0f, alpha);
+        }
+
         private void LateUpdate()
         {
             Pin();
@@ -641,6 +657,25 @@ namespace AsteroidsGoneRogue
 
                 Destroy(gameObject);
                 return;
+            }
+
+            // A pooled or despawned host is still a transform. Leave the disc
+            // off until that body is in the arena again.
+            if (!host.gameObject.activeInHierarchy)
+            {
+                Renderer hidden = GetComponent<Renderer>();
+                if (hidden != null)
+                {
+                    hidden.enabled = false;
+                }
+
+                return;
+            }
+
+            Renderer shown = GetComponent<Renderer>();
+            if (shown != null && !shown.enabled)
+            {
+                shown.enabled = true;
             }
 
             // World scale, not a child of a rotated body, so the quad stays a

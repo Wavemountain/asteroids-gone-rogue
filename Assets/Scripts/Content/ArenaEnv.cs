@@ -358,6 +358,8 @@ namespace AsteroidsGoneRogue
             {
                 paintedMat.SetFloat("_Metallic", PremiumLook.FloorMetallic);
             }
+
+            ContactBlob.AdoptFloor(_world, outR, outG, outB);
         }
 
         /// <summary>

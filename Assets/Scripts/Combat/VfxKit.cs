@@ -52,6 +52,19 @@ namespace AsteroidsGoneRogue
             QuietParticle(_live._smoke);
             QuietParticle(_live._chunks);
             QuietParticle(_live._sparks);
+            _live.Retire(_live._debris);
+            _live.Retire(_live._rings);
+            _live.Retire(_live._muzzles);
+        }
+
+        /// <summary>
+        /// Wave changes and despawn. Sparks are emitted into a system that
+        /// only simulates while playing, so a stopped system leaves the last
+        /// quads on the floor. Clear the buffers and the mesh slots.
+        /// </summary>
+        public static void ClearWave()
+        {
+            ClearHullPuff();
         }
 
         private static void QuietParticle(ParticleSystem system)
@@ -61,7 +74,9 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            system.Stop();
+            // StopEmitting leaves isPlaying true, so the next Emit never starts
+            // simulating and the quads stay on the floor.
+            system.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             system.Clear();
             ParticleSystemRenderer renderer = system.GetComponent<ParticleSystemRenderer>();
             if (renderer != null)
@@ -81,6 +96,12 @@ namespace AsteroidsGoneRogue
             if (renderer != null)
             {
                 renderer.enabled = true;
+            }
+
+            // Emit into a stopped system creates quads that never age.
+            if (!system.isPlaying)
+            {
+                system.Play();
             }
         }
 
@@ -453,6 +474,31 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        private void Retire(VfxSlot[] pool)
+        {
+            if (pool == null)
+            {
+                return;
+            }
+
+            int index = 0;
+            while (index < pool.Length)
+            {
+                VfxSlot slot = pool[index];
+                index++;
+                if (slot == null)
+                {
+                    continue;
+                }
+
+                slot.Live = 0;
+                if (slot.Root != null)
+                {
+                    slot.Root.SetActive(false);
+                }
+            }
+        }
+
         private void ApplyTint(VfxSlot slot, float alpha)
         {
             if (slot.Tint == null)
@@ -591,7 +637,7 @@ namespace AsteroidsGoneRogue
             emission.enabled = false;
             ParticleSystem.ShapeModule shape = system.shape;
             shape.enabled = false;
-            system.Stop();
+            system.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             system.Clear();
             ParticleSystemRenderer renderer = host.GetComponent<ParticleSystemRenderer>();
             if (renderer != null && material != null)
@@ -609,6 +655,7 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            ShowParticle(system);
             ParticleSystem.EmitParams emit = new ParticleSystem.EmitParams();
             emit.position = position;
             emit.velocity = velocity;
