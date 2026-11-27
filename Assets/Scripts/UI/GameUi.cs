@@ -532,7 +532,9 @@ namespace AsteroidsGoneRogue
 
             if (_hudPlate != null)
             {
-                _hudPlate.SetActive(playing);
+                // Empty header, rule, and blue outline above the world/wave label.
+                // Score text is a sibling and stays.
+                _hudPlate.SetActive(false);
             }
 
             if (_title != null)
@@ -7665,6 +7667,44 @@ namespace AsteroidsGoneRogue
             }
 
             PaintPlate(plate, alpha);
+            if (plate == null)
+            {
+                return;
+            }
+
+            // The corner plate is only a frame. Its header and blue outline
+            // sit above the world/wave label with no text of their own.
+            Image image = plate.GetComponent<Image>();
+            if (image != null)
+            {
+                image.color = new Color(0f, 0f, 0f, 0f);
+                image.enabled = false;
+            }
+
+            Outline ring = plate.GetComponent<Outline>();
+            if (ring != null)
+            {
+                ring.enabled = false;
+            }
+
+            for (int child = 0; child < plate.transform.childCount; child++)
+            {
+                Transform node = plate.transform.GetChild(child);
+                if (node == null)
+                {
+                    continue;
+                }
+
+                if (node.name.IndexOf("Header", System.StringComparison.Ordinal) < 0
+                    && node.name.IndexOf("Rule", System.StringComparison.Ordinal) < 0)
+                {
+                    continue;
+                }
+
+                node.gameObject.SetActive(false);
+            }
+
+            plate.SetActive(false);
         }
 
         private static void PaintBottomPlate(GameObject plate)
