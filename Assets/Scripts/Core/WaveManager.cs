@@ -406,6 +406,7 @@ namespace AsteroidsGoneRogue
 
             _factory.ClearProjectiles();
             _factory.ClearPickups();
+            VfxKit.ClearWave();
         }
 
         private void Update()
