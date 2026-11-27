@@ -487,6 +487,22 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        /// <summary>
+        /// Match the shared disc to the floor that was just painted.
+        /// A dark World 2 plate cannot take the full 0.9 alpha.
+        /// </summary>
+        public static void AdoptFloor(int world, float floorR, float floorG, float floorB)
+        {
+            float alpha = WorldFloorExposure.ContactAlpha(world, floorR, floorG, floorB, Alpha);
+            Material material = SharedMaterial();
+            if (material == null)
+            {
+                return;
+            }
+
+            material.color = new Color(0f, 0f, 0f, alpha);
+        }
+
         private void LateUpdate()
         {
             Pin();
@@ -508,6 +524,25 @@ namespace AsteroidsGoneRogue
             // Decor camera, queue 2990. The floor, mines, and beams share that
             // depth buffer. Y is the real floor top, so a mine or beam closer
             // to the camera rejects the blob. Gameplay draws afterwards.
+            // A pooled or despawned host is still a transform. Leave the disc
+            // off until that body is in the arena again.
+            if (!host.gameObject.activeInHierarchy)
+            {
+                Renderer hidden = GetComponent<Renderer>();
+                if (hidden != null)
+                {
+                    hidden.enabled = false;
+                }
+
+                return;
+            }
+
+            Renderer shown = GetComponent<Renderer>();
+            if (shown != null && !shown.enabled)
+            {
+                shown.enabled = true;
+            }
+
             gameObject.layer = DecorCameraStack.LayerIndex();
             float radius = Footprint(host) * RadiusPad;
             if (radius < MinRadius)

@@ -113,6 +113,39 @@ namespace AsteroidsGoneRogue
             outEmitB = 0f;
         }
 
+        /// <summary>
+        /// Full disc alpha on a lit floor. World 2's plate is dark and emits
+        /// nothing, so the same 0.9 disc leaves a near-black blotch. The
+        /// centre keeps most of that plate. Other worlds stay on
+        /// <paramref name="fullAlpha"/>.
+        /// </summary>
+        public static float ContactAlpha(int world, float floorR, float floorG, float floorB, float fullAlpha)
+        {
+            if (world != World)
+            {
+                return fullAlpha;
+            }
+
+            float luma = (0.2126f * floorR) + (0.7152f * floorG) + (0.0722f * floorB);
+            if (luma >= 0.22f)
+            {
+                return fullAlpha;
+            }
+
+            float softened = fullAlpha * 0.47f;
+            if (softened < 0.35f)
+            {
+                softened = 0.35f;
+            }
+
+            if (softened > 0.5f)
+            {
+                softened = 0.5f;
+            }
+
+            return softened;
+        }
+
         public static void ContourBand(int world, out float lead, out float span)
         {
             if (world == World)
@@ -202,6 +235,41 @@ namespace AsteroidsGoneRogue
 
             Cap(3, refR, refG, refB, 0.25f, 0.1f, 0.05f, out albedoR, out albedoG, out albedoB, out emitR, out emitG, out emitB);
             if (emitR != 0.25f || albedoR != refR)
+            {
+                return false;
+            }
+
+            float paintedR = refR * PlateLift;
+            float paintedG = refG * PlateLift;
+            float paintedB = refB * PlateLift;
+            if (paintedR > 1f)
+            {
+                paintedR = 1f;
+            }
+
+            if (paintedG > 1f)
+            {
+                paintedG = 1f;
+            }
+
+            if (paintedB > 1f)
+            {
+                paintedB = 1f;
+            }
+
+            float softened = ContactAlpha(World, paintedR, paintedG, paintedB, 0.9f);
+            if (softened > 0.55f || softened < 0.35f)
+            {
+                return false;
+            }
+
+            float luma = (0.2126f * paintedR) + (0.7152f * paintedG) + (0.0722f * paintedB);
+            if (luma * (1f - softened) < 0.045f)
+            {
+                return false;
+            }
+
+            if (ContactAlpha(1, paintedR, paintedG, paintedB, 0.9f) != 0.9f)
             {
                 return false;
             }
