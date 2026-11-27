@@ -10141,6 +10141,7 @@ def main() -> int:
     test_enemy_bounds_within_048()
     test_hud_text_and_perk_clearance()
     test_hud_world_wave_label()
+    test_w2_floor_marks()
     test_wave_summary_and_hangar_hud()
     test_premium_050_look()
     test_shader_warmup_cannot_block_boot()
@@ -18213,6 +18214,49 @@ def test_hud_world_wave_label() -> None:
     assert "raycastTarget = false" in built
     assert "AddReadability(_worldWave, false)" in built
     assert "SetActive(false)" in built
+
+
+def test_w2_floor_marks() -> None:
+    """World 2 floor: dark-plate contact alpha, spark quads that actually die, no empty HUD frame."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    exposure = (root / "Assets/Scripts/Core/WorldFloorExposure.cs").read_text(encoding="utf-8")
+    blob = (root / "Assets/Scripts/Content/ContactBlob.cs").read_text(encoding="utf-8")
+    env = (root / "Assets/Scripts/Content/ArenaEnv.cs").read_text(encoding="utf-8")
+    kit = (root / "Assets/Scripts/Combat/VfxKit.cs").read_text(encoding="utf-8")
+    waves = (root / "Assets/Scripts/Core/WaveManager.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.cs").read_text(encoding="utf-8")
+
+    assert "public static float ContactAlpha(" in exposure
+    assert "fullAlpha * 0.47f" in exposure
+    assert "ContactAlpha(World, paintedR, paintedG, paintedB, 0.9f)" in exposure
+    assert "luma * (1f - softened) < 0.045f" in exposure
+    assert "ContactAlpha(1, paintedR, paintedG, paintedB, 0.9f) != 0.9f" in exposure
+    assert "Alpha = 0.9f" in blob
+    assert "public static void AdoptFloor(" in blob
+    assert "WorldFloorExposure.ContactAlpha" in blob
+    assert "activeInHierarchy" in blob
+    assert "ContactBlob.AdoptFloor(" in env
+    show = kit.split("private static void ShowParticle")[1].split("public static void Shock")[0]
+    assert "system.Play()" in show
+    assert "isPlaying" in show
+    quiet = kit.split("private static void QuietParticle")[1].split("private static void ShowParticle")[0]
+    assert "StopEmittingAndClear" in quiet
+    assert "public static void ClearWave()" in kit
+    retire = kit.split("private void Retire(")[1].split("private void ApplyTint")[0]
+    assert "slot.Live = 0" in retire
+    assert "SetActive(false)" in retire
+    despawn = waves.split("public void DespawnAll()")[1].split("private void Update()")[0]
+    assert "VfxKit.ClearWave()" in despawn
+    refresh = ui.split("public void Refresh()")[1].split("private void")[0]
+    assert "_hudPlate.SetActive(false)" in refresh
+    assert "_hudPlate.SetActive(playing)" not in refresh
+    ghost = ui.split("private static void PaintGhostPlate")[1].split("private static void PaintBottomPlate")[0]
+    assert "image.enabled = false" in ghost
+    assert "ring.enabled = false" in ghost
+    assert 'IndexOf("Header"' in ghost
+    assert "SetActive(false)" in ghost
 
 
 def test_hud_text_and_perk_clearance() -> None:
