@@ -406,6 +406,7 @@ namespace AsteroidsGoneRogue
 
             _factory.ClearProjectiles();
             _factory.ClearPickups();
+            VfxKit.ClearWave();
         }
 
         private void Update()
@@ -637,7 +638,7 @@ namespace AsteroidsGoneRogue
                 out crossX,
                 out crossZ);
             _factory.SetSpawnOutside(true);
-            Vector3 spawn = new Vector3(outsideX, 0f, outsideZ);
+            Vector3 spawn = new Vector3(outsideX, ArenaWrap.PlayY, outsideZ);
             return _factory.CreateEnemy(spawn, _player, this, EnemyCatalog.VisualName(kind));
         }
 

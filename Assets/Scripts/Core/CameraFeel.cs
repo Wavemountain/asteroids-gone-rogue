@@ -16,6 +16,9 @@ namespace AsteroidsGoneRogue
         public const float SafeMargin = 0.18f;
         public const float FairHalfExtent = 18f;
         public const float MaxLag = 4f;
+        public const float RespawnGlideSeconds = 0.4f;
+        public const float RespawnGlideJump = 6f;
+        public const float RespawnGlideLag = 64f;
         public const float MaxZoomDegrees = 2.2f;
         public const float FullSpeed = 16f;
         public const float FullPressure = 10f;
@@ -377,6 +380,35 @@ namespace AsteroidsGoneRogue
                 vy *= scale;
                 vz *= scale;
             }
+        }
+
+        /// <summary>
+        /// A wave-start camera is settled when it is already on the play pose.
+        /// The hangar shot sits farther away than <see cref="MaxLag"/>, so the
+        /// follow spring cannot ease across that gap without a hard clamp.
+        /// </summary>
+        public const float WaveStartPoseLimit = 0.05f;
+
+        public static float PoseGap(float ax, float ay, float az, float bx, float by, float bz)
+        {
+            float dx = ax - bx;
+            float dy = ay - by;
+            float dz = az - bz;
+            return (float)System.Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+        }
+
+        public static bool WaveStartPoseHeld(float camX, float camY, float camZ, float playX, float playY, float playZ)
+        {
+            return PoseGap(camX, camY, camZ, playX, playY, playZ) <= WaveStartPoseLimit;
+        }
+
+        /// <summary>
+        /// Play keeps <see cref="MaxLag"/>. A respawn teleport eases with the
+        /// same spring and a limit past the jump, so the clamp cannot pop.
+        /// </summary>
+        public static float FollowLag(bool respawnGlide)
+        {
+            return respawnGlide ? RespawnGlideLag : MaxLag;
         }
     }
 }
