@@ -153,6 +153,14 @@ namespace AsteroidsGoneRogue
         public const string FilmGrainKey = "agr.settings.filmGrain";
         public const string TurnSpeedKey = "agr.settings.turnSpeed";
 
+        /// <summary>
+        /// Cosmetic feel scales. Stored outside the versioned blob, same as
+        /// turn speed, so a v7 save still loads. Missing keys stay at the defaults.
+        /// </summary>
+        public const string ShakeIntensityKey = "agr.settings.shakeIntensity";
+        public const string HitstopKey = "agr.settings.hitstop";
+        public const string FlashLevelKey = "agr.settings.flashLevel";
+
         public bool ScreenShake;
         public bool AssistMode;
         public bool ReduceEffects;
@@ -171,6 +179,9 @@ namespace AsteroidsGoneRogue
         public int TutorialCards;
         public bool FilmGrain;
         public float TurnSpeed = 1f;
+        public float ShakeIntensity = 1f;
+        public bool Hitstop = true;
+        public int FlashLevel;
 
         public static SettingsState CreateDefault()
         {
@@ -193,6 +204,9 @@ namespace AsteroidsGoneRogue
             state.TutorialCards = 0;
             state.FilmGrain = false;
             state.TurnSpeed = 1f;
+            state.ShakeIntensity = FeelScale.IntensityDefault;
+            state.Hitstop = true;
+            state.FlashLevel = FeelScale.FlashFull;
             return state;
         }
 
@@ -229,6 +243,12 @@ namespace AsteroidsGoneRogue
         private static bool _grainReady;
         private static float _turnCached = 1f;
         private static bool _turnReady;
+        private static float _shakeIntensityCached = 1f;
+        private static bool _shakeIntensityReady;
+        private static bool _hitstopCached = true;
+        private static bool _hitstopReady;
+        private static int _flashLevelCached;
+        private static bool _flashLevelReady;
 
         public static bool FilmGrainEnabled
         {
@@ -259,6 +279,60 @@ namespace AsteroidsGoneRogue
                 }
 
                 return _turnCached;
+            }
+        }
+
+        /// <summary>
+        /// Screen-shake multiplier, 0–1 in steps of 0.1. 0 is shake off.
+        /// The screen-shake toggle still wins when it is off.
+        /// </summary>
+        public static float ShakeIntensityScale
+        {
+            get
+            {
+                if (!_shakeIntensityReady)
+                {
+                    _shakeIntensityCached = SettingsRows.ClampShakeIntensity(
+                        UnityEngine.PlayerPrefs.GetFloat(ShakeIntensityKey, FeelScale.IntensityDefault));
+                    _shakeIntensityReady = true;
+                }
+
+                return _shakeIntensityCached;
+            }
+        }
+
+        /// <summary>
+        /// Separate hitstop toggle. Reduce effects still grants nothing.
+        /// </summary>
+        public static bool HitstopEnabled
+        {
+            get
+            {
+                if (!_hitstopReady)
+                {
+                    _hitstopCached = UnityEngine.PlayerPrefs.GetInt(HitstopKey, 1) != 0;
+                    _hitstopReady = true;
+                }
+
+                return _hitstopCached;
+            }
+        }
+
+        /// <summary>
+        /// Screen and mesh flash level: full, half, or off.
+        /// </summary>
+        public static int FlashLevelValue
+        {
+            get
+            {
+                if (!_flashLevelReady)
+                {
+                    _flashLevelCached = SettingsRows.ClampFlashLevel(
+                        UnityEngine.PlayerPrefs.GetInt(FlashLevelKey, FeelScale.FlashFull));
+                    _flashLevelReady = true;
+                }
+
+                return _flashLevelCached;
             }
         }
 
@@ -335,6 +409,12 @@ namespace AsteroidsGoneRogue
             _grainReady = true;
             _turnCached = SettingsRows.ClampTurn(source.TurnSpeed);
             _turnReady = true;
+            _shakeIntensityCached = SettingsRows.ClampShakeIntensity(source.ShakeIntensity);
+            _shakeIntensityReady = true;
+            _hitstopCached = source.Hitstop;
+            _hitstopReady = true;
+            _flashLevelCached = SettingsRows.ClampFlashLevel(source.FlashLevel);
+            _flashLevelReady = true;
             _reduceReady = true;
             _promptSchemeCached = source.PromptScheme;
             _promptSchemeReady = true;
@@ -693,6 +773,8 @@ namespace AsteroidsGoneRogue
             FpsCap = DisplaySettings.NormalizeFps(FpsCap);
             PromptScheme = (int)InputSchemeRules.Normalize(PromptScheme);
             TurnSpeed = SettingsRows.ClampTurn(TurnSpeed);
+            ShakeIntensity = SettingsRows.ClampShakeIntensity(ShakeIntensity);
+            FlashLevel = SettingsRows.ClampFlashLevel(FlashLevel);
             ResolutionWidth = DisplaySettings.ClampDimension(
                 ResolutionWidth,
                 DisplaySettings.MinWidth,
@@ -905,6 +987,11 @@ namespace AsteroidsGoneRogue
             state.TutorialCards = TutorialPrompt.Migrate(version, cardsPresent, storedCards);
             state.FilmGrain = UnityEngine.PlayerPrefs.GetInt(FilmGrainKey, LookPolish.FilmGrainDefault) != 0;
             state.TurnSpeed = SettingsRows.ClampTurn(UnityEngine.PlayerPrefs.GetFloat(TurnSpeedKey, 1f));
+            state.ShakeIntensity = SettingsRows.ClampShakeIntensity(
+                UnityEngine.PlayerPrefs.GetFloat(ShakeIntensityKey, FeelScale.IntensityDefault));
+            state.Hitstop = UnityEngine.PlayerPrefs.GetInt(HitstopKey, 1) != 0;
+            state.FlashLevel = SettingsRows.ClampFlashLevel(
+                UnityEngine.PlayerPrefs.GetInt(FlashLevelKey, FeelScale.FlashFull));
             Publish(state);
             if (version != CurrentVersion)
             {
@@ -936,6 +1023,9 @@ namespace AsteroidsGoneRogue
             UnityEngine.PlayerPrefs.SetInt(TutorialCardsKey, TutorialPrompt.Normalize(TutorialCards));
             UnityEngine.PlayerPrefs.SetInt(FilmGrainKey, FilmGrain ? 1 : 0);
             UnityEngine.PlayerPrefs.SetFloat(TurnSpeedKey, SettingsRows.ClampTurn(TurnSpeed));
+            UnityEngine.PlayerPrefs.SetFloat(ShakeIntensityKey, SettingsRows.ClampShakeIntensity(ShakeIntensity));
+            UnityEngine.PlayerPrefs.SetInt(HitstopKey, Hitstop ? 1 : 0);
+            UnityEngine.PlayerPrefs.SetInt(FlashLevelKey, SettingsRows.ClampFlashLevel(FlashLevel));
             UnityEngine.PlayerPrefs.Save();
             Publish(this);
         }

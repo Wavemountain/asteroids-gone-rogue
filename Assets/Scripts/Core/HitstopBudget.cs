@@ -13,9 +13,11 @@ namespace AsteroidsGoneRogue
         public const float WindowSeconds = 1f;
         public const float CapSeconds = 0.12f;
         public const int SlotCount = 8;
-        public const float HullSeconds = 0.04f;
+        public const float HullSeconds = 0.045f;
         public const float HeavySeconds = 0.06f;
         public const float BossSeconds = 0.045f;
+        public const float ShieldBreakSeconds = 0.03f;
+        public const float KillMidSeconds = 0.03f;
 
         private readonly float[] _stamp = new float[SlotCount];
         private readonly float[] _grant = new float[SlotCount];
@@ -58,7 +60,12 @@ namespace AsteroidsGoneRogue
 
         public float Request(float now, float requested, bool reduce)
         {
-            if (reduce || !EffectScale.AllowsHitstop(reduce) || requested <= 0f)
+            return Request(now, requested, reduce, true);
+        }
+
+        public float Request(float now, float requested, bool reduce, bool hitstopOn)
+        {
+            if (!hitstopOn || reduce || !EffectScale.AllowsHitstop(reduce) || requested <= 0f)
             {
                 return 0f;
             }

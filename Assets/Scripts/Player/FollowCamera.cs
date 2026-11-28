@@ -110,7 +110,11 @@ namespace AsteroidsGoneRogue
             }
 
             float applied = SettingsState.ShakeAmplitude(true, amplitude);
-            applied = EffectScale.ShakeAdd(true, SettingsState.ReduceEffectsEnabled, applied);
+            applied = EffectScale.ShakeAdd(
+                true,
+                SettingsState.ReduceEffectsEnabled,
+                applied,
+                SettingsState.ShakeIntensityScale);
             if (applied <= 0f)
             {
                 return;
@@ -124,12 +128,14 @@ namespace AsteroidsGoneRogue
         public void AddShakeWorld(float amplitude, Vector3 worldPosition)
         {
             Vector3 direction = worldPosition;
+            float dist = 0f;
             if (_target != null)
             {
                 direction = worldPosition - _target.position;
+                dist = direction.magnitude;
             }
 
-            AddShake(amplitude, direction);
+            AddShake(amplitude * FeelScale.DistanceFalloff(dist), direction);
         }
 
         private void ClearShake()

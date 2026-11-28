@@ -9,16 +9,17 @@ namespace AsteroidsGoneRogue
     {
         public const float PlayerHitShake = 0.14f;
         public const float ShieldHitShake = 0.07f;
-        public const float ThreatHitShake = 0.05f;
+        public const float ThreatHitShake = FeelScale.ThreatHitShake;
         public const float ExplosionShake = 0.22f;
         public const float PlayerHitFlash = 0.2f;
         public const float ShieldBreakFlash = 0.16f;
         public const float HeavyKillFlash = 0.12f;
         public const float ExtraLifeFlash = 0.20f;
         public const float ExtraLifeShake = 0.12f;
-        public const float BossPhaseShake = 0.08f;
+        public const float BossPhaseShake = FeelScale.BossPhaseShake;
 
         private static Vector3 _hitDir;
+        private static float _lastHitShake;
 
         public static void NoteHitDirection(Vector3 direction)
         {
@@ -79,7 +80,8 @@ namespace AsteroidsGoneRogue
         public static void PlayerShieldBreak(Transform ship)
         {
             _hitDir = Vector3.zero;
-            Shake(PlayerHitShake);
+            Shake(FeelScale.ShieldBreakShake);
+            RequestStop(HitstopBudget.ShieldBreakSeconds);
             FlashScreen(ShieldBreakFlash, UiTheme.Secondary, 0.14f, false);
             if (ship != null)
             {
@@ -93,12 +95,31 @@ namespace AsteroidsGoneRogue
 
         public static void HeavyKill(Vector3 position, float shake)
         {
+            HeavyKill(position, shake, true);
+        }
+
+        public static void HeavyKill(Vector3 position, float shake, bool flash)
+        {
             ProjectileLightPool.Pulse(position, ProjectileLightBudget.KindKill, EmissionTargets.Danger, null);
             JuiceBurst.KillBloom(position, true);
             VfxKit.Explode(position, VfxBudget.Large, SettingsState.ReduceEffectsEnabled);
             ShakeWorld(shake, position);
             RequestStop(HitstopBudget.HeavySeconds);
-            FlashScreen(HeavyKillFlash, UiTheme.Primary, HitFlashLimiter.DefaultDecay, true);
+            if (flash)
+            {
+                FlashScreen(HeavyKillFlash, UiTheme.Primary, HitFlashLimiter.DefaultDecay, true);
+            }
+        }
+
+        /// <summary>
+        /// Cosmetic boss death. The wave is already notified; this object
+        /// outlives the destroyed boss. One hitstop, on the killing blow.
+        /// </summary>
+        public static void BossKill(Vector3 position)
+        {
+            HeavyKill(position, FeelScale.BossKillShake, false);
+            float radius = LookPolish.EnemyBossDiameter * BossRules.VisualScale;
+            BossKillSequence.Begin(position, radius);
         }
 
         public static void BossPhase(Vector3 origin, Vector3 direction)
@@ -113,6 +134,7 @@ namespace AsteroidsGoneRogue
             }
 
             RequestStop(HitstopBudget.BossSeconds);
+            FlashScreen(FeelScale.BossPhaseFlash, UiTheme.Secondary, HitFlashLimiter.DefaultDecay, false);
         }
 
         public static void Ripple(Vector3 position, Color color, float seconds)
@@ -174,6 +196,13 @@ namespace AsteroidsGoneRogue
                 else
                 {
                     MeshHitFlash.Play(target);
+                    MeshHitFlash.Pop(target);
+                }
+
+                EnemySeeker bossHit = target.GetComponent<EnemySeeker>();
+                if (bossHit != null && bossHit.IsBoss && GameUi.Instance != null)
+                {
+                    GameUi.Instance.PulseBossBar();
                 }
 
                 JuiceBurst.HitSpark(target.position);
@@ -193,17 +222,19 @@ namespace AsteroidsGoneRogue
 
             if (target != null && !(exploded && reduce))
             {
-                float amp = exploded ? ExplosionShake : ThreatHitShake;
-                if (exploded && tier == LookPolish.TierLarge)
+                float amp = ThreatShake(exploded, tier, armor);
+                if (PassShakeGate(exploded))
                 {
-                    amp = LookPolish.LargeShake;
+                    ShakeWorld(amp, target.position);
                 }
-
-                ShakeWorld(amp, target.position);
             }
             else if (!(exploded && reduce))
             {
-                Shake(exploded ? ExplosionShake : ThreatHitShake);
+                float amp = ThreatShake(exploded, tier, armor);
+                if (PassShakeGate(exploded))
+                {
+                    Shake(amp);
+                }
             }
 
             if (exploded && tier == LookPolish.TierLarge)
@@ -211,6 +242,13 @@ namespace AsteroidsGoneRogue
                 if (EffectScale.AllowsHitstop(reduce))
                 {
                     RequestStop(LookPolish.LargeHitstop);
+                }
+            }
+            else if (exploded && tier == LookPolish.TierMid)
+            {
+                if (EffectScale.AllowsHitstop(reduce))
+                {
+                    RequestStop(HitstopBudget.KillMidSeconds);
                 }
             }
             else if (exploded && heavy)
@@ -242,6 +280,43 @@ namespace AsteroidsGoneRogue
         public static void PickupBloom(Vector3 position, Color color)
         {
             JuiceBurst.ColoredBloom(position, color, 0.42f, 0.2f, 1.15f);
+        }
+
+        private static float ThreatShake(bool exploded, int tier, bool armor)
+        {
+            if (!exploded)
+            {
+                return armor ? FeelScale.ArmorHitShake : FeelScale.ThreatHitShake;
+            }
+
+            if (tier == LookPolish.TierLarge)
+            {
+                return FeelScale.LargeKillShake;
+            }
+
+            if (tier == LookPolish.TierMid)
+            {
+                return FeelScale.MidKillShake;
+            }
+
+            return FeelScale.SmallKillShake;
+        }
+
+        private static bool PassShakeGate(bool exploded)
+        {
+            if (exploded)
+            {
+                return true;
+            }
+
+            float now = Time.unscaledTime;
+            if (now - _lastHitShake < FeelScale.HitShakeGateSeconds)
+            {
+                return false;
+            }
+
+            _lastHitShake = now;
+            return true;
         }
 
         private static int ExplosionSize(Transform target)
@@ -344,6 +419,87 @@ namespace AsteroidsGoneRogue
             if (GameUi.Instance != null)
             {
                 GameUi.Instance.FlashHit(strength, color, decay);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Boss-death cosmetics on their own object. The boss is already destroyed
+    /// and the wave has been notified. Offsets are fixed so a run stays reproducible.
+    /// </summary>
+    public sealed class BossKillSequence : MonoBehaviour
+    {
+        private static readonly float[] Angles = new float[] { 0.4f, 1.7f, 3.0f, 4.3f, 5.5f };
+
+        private Vector3 _position;
+        private float _radius;
+        private float _born;
+        private int _fired;
+        private bool _finale;
+        private bool _reduce;
+
+        public static void Begin(Vector3 position, float radius)
+        {
+            GameObject root = new GameObject("BossKillSequence");
+            root.transform.position = position;
+            BossKillSequence sequence = root.AddComponent<BossKillSequence>();
+            sequence._position = position;
+            sequence._radius = radius > 0f ? radius : 0.5f;
+            sequence._born = Time.unscaledTime;
+            sequence._reduce = SettingsState.ReduceEffectsEnabled;
+        }
+
+        private void Update()
+        {
+            float elapsed = Time.unscaledTime - _born;
+            if (!_reduce)
+            {
+                int count = Angles.Length;
+                if (count > FeelScale.BossKillBursts)
+                {
+                    count = FeelScale.BossKillBursts;
+                }
+
+                float span = 0.42f;
+                while (_fired < count)
+                {
+                    float when = 0.08f;
+                    if (count > 1)
+                    {
+                        when = 0.08f + (span * _fired / (count - 1));
+                    }
+
+                    if (elapsed < when)
+                    {
+                        break;
+                    }
+
+                    float angle = Angles[_fired];
+                    float reach = _radius * 0.65f;
+                    Vector3 at = _position + new Vector3(Mathf.Cos(angle) * reach, 0f, Mathf.Sin(angle) * reach);
+                    VfxKit.Explode(at, VfxBudget.Mid, false);
+                    CombatJuice.ShakeWorld(FeelScale.SecondaryKillShake, at);
+                    _fired++;
+                }
+            }
+
+            if (!_finale && elapsed >= 0.55f)
+            {
+                _finale = true;
+                VfxKit.Explode(_position, VfxBudget.Large, _reduce);
+                if (!_reduce)
+                {
+                    CombatJuice.FlashScreen(
+                        FeelScale.BossKillFlash,
+                        UiTheme.Primary,
+                        HitFlashLimiter.DefaultDecay,
+                        true);
+                }
+            }
+
+            if (elapsed >= 0.75f)
+            {
+                Destroy(gameObject);
             }
         }
     }

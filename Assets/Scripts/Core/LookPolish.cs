@@ -123,8 +123,8 @@ namespace AsteroidsGoneRogue
         public const int TierSmall = 0;
         public const int TierMid = 1;
         public const int TierLarge = 2;
-        public const float LargeShake = 0.15f;
-        public const float LargeHitstop = 0.04f;
+        public const float LargeShake = 0.28f;
+        public const float LargeHitstop = 0.05f;
         public const float BoltMuzzle = 0.06f;
         public const float RailMuzzle = 0.09f;
 
@@ -422,11 +422,11 @@ namespace AsteroidsGoneRogue
             int clamped = ClampTier(tier);
             if (clamped == TierMid)
             {
-                count = 4;
+                count = 16;
             }
             else if (clamped == TierLarge)
             {
-                count = 10;
+                count = 32;
             }
 
             if (!reduce)
@@ -516,6 +516,43 @@ namespace AsteroidsGoneRogue
             }
 
             return 4;
+        }
+
+        public static int EmberSparks(int tier, bool reduce)
+        {
+            if (ClampTier(tier) != TierLarge)
+            {
+                return 0;
+            }
+
+            if (reduce)
+            {
+                return 2;
+            }
+
+            return 14;
+        }
+
+        public static void ExplosionShock(int tier, out float start, out float end, out float seconds)
+        {
+            int clamped = ClampTier(tier);
+            start = 1f;
+            if (clamped == TierLarge)
+            {
+                end = 4.5f;
+                seconds = 0.35f;
+                return;
+            }
+
+            if (clamped == TierMid)
+            {
+                end = 3f;
+                seconds = 0.25f;
+                return;
+            }
+
+            end = 2.2f;
+            seconds = 0.20f;
         }
 
         public static float ExplosionFlash(int tier)
@@ -779,7 +816,25 @@ namespace AsteroidsGoneRogue
 
             int midChunks = ExplosionChunks(TierMid, false);
             int largeChunks = ExplosionChunks(TierLarge, false);
-            if (midChunks < 3 || midChunks > 5 || largeChunks < 8 || largeChunks > 12)
+            if (midChunks != 16 || largeChunks != 32 || largeChunks < midChunks)
+            {
+                return false;
+            }
+
+            if (EmberSparks(TierLarge, false) != 14 || EmberSparks(TierMid, false) != 0)
+            {
+                return false;
+            }
+
+            float smallEnd;
+            float midEnd;
+            float largeEnd;
+            float ignoredStart;
+            float ignoredSeconds;
+            ExplosionShock(TierSmall, out ignoredStart, out smallEnd, out ignoredSeconds);
+            ExplosionShock(TierMid, out ignoredStart, out midEnd, out ignoredSeconds);
+            ExplosionShock(TierLarge, out ignoredStart, out largeEnd, out ignoredSeconds);
+            if (smallEnd >= midEnd || midEnd >= largeEnd)
             {
                 return false;
             }

@@ -314,7 +314,7 @@ namespace AsteroidsGoneRogue
                     AudioCues.Instance.PlayBossFinale(transform.position);
                 }
 
-                CombatJuice.HeavyKill(transform.position, CombatJuice.ExplosionShake);
+                CombatJuice.BossKill(transform.position);
             }
             else
             {

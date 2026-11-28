@@ -16,13 +16,13 @@ namespace AsteroidsGoneRogue
         public const int SmokeParticles = 180;
         public const int SparkParticles = 140;
 
-        public const int DebrisCap = 24;
+        public const int DebrisCap = 36;
         public const int ShockCap = 8;
         public const int MuzzleCap = 12;
 
         public const int ChunkSmall = 6;
-        public const int ChunkMid = 12;
-        public const int ChunkLarge = 24;
+        public const int ChunkMid = 16;
+        public const int ChunkLarge = 32;
         public const int SmokeSmall = 2;
         public const int SmokeMid = 4;
         public const int SmokeLarge = 8;
@@ -297,7 +297,7 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (Chunks(Small, false) != 6 || Chunks(Large, false) != 24 || Chunks(Large, true) != 10)
+            if (Chunks(Small, false) != 6 || Chunks(Mid, false) != 16 || Chunks(Large, false) != 32 || Chunks(Large, true) != 13)
             {
                 return false;
             }
