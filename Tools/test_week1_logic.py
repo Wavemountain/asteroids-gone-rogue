@@ -19602,11 +19602,13 @@ def test_longrun_harness() -> None:
     factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
     attach = blob_src.split("public static void Attach")[1].split("private void LateUpdate")[0]
     # Runtime blob is the feel-boss disc: one live quad per EntityId, unparented
-    # at world scale, collider stripped before the next physics step.
+    # at world scale. The quad is a cached mesh, so a split spawned inside a
+    # physics callback never DestroyImmediate's a primitive collider.
     assert "GetEntityId()" in attach
     assert "Live.TryGetValue" in attach
-    assert "CreatePrimitive(PrimitiveType.Quad)" in attach
-    assert "DestroyImmediate(collider)" in attach
+    assert "CreatePrimitive" not in attach
+    assert "DestroyImmediate" not in attach
+    assert "SharedQuad()" in attach
     assert "AddComponent<Collider>" not in attach
     assert "SetParent(null, false)" in blob_src
     assert "WorldFloorExposure.ContactAlpha" in blob_src
@@ -20179,6 +20181,27 @@ class Program
     assert "boss-phases-ok" in result.stdout
 
 
+
+
+def test_contact_blob_physics_path_has_no_immediate_destroy() -> None:
+    """Split asteroids call CastFormShadow from a physics callback. That path must not DestroyImmediate."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    blob = (root / "Assets/Scripts/Content/ContactBlob.cs").read_text(encoding="utf-8")
+    factory = (root / "Assets/Scripts/Content/ContentFactory.cs").read_text(encoding="utf-8")
+    attach = blob.split("public static void Attach")[1].split("public static void AdoptFloor")[0]
+    shadow = factory.split("private static void CastFormShadow")[1].split("private Material MakeShipRim")[0]
+    create = factory.split("private Asteroid CreateAsteroid")[1].split("public GameObject CreatePickup")[0]
+    assert "DestroyImmediate" not in attach
+    assert "CreatePrimitive" not in attach
+    assert "SharedQuad()" in attach
+    assert "AddComponent<MeshFilter>" in attach
+    assert "AddComponent<MeshRenderer>" in attach
+    assert "new Vector3(-0.5f, -0.5f, 0f)" in blob
+    assert "DestroyImmediate" not in shadow
+    assert "ContactBlob.Attach" in shadow
+    assert "DestroyImmediate" not in create
 
 
 if __name__ == "__main__":
