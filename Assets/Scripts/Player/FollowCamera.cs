@@ -25,6 +25,9 @@ namespace AsteroidsGoneRogue
         private float _springVy;
         private float _springVz;
         private bool _springReady;
+        private Vector3 _lastTarget;
+        private bool _hasLastTarget;
+        private float _glideUntil;
         private float _ox;
         private float _oy;
         private float _oz;
@@ -73,12 +76,23 @@ namespace AsteroidsGoneRogue
 
         public void SetHangarFraming(bool hangar)
         {
+            bool leaving = _hangarFraming && !hangar;
             _hangarFraming = hangar;
             if (hangar)
             {
                 transform.position = HangarLook + HangarOffset;
                 transform.LookAt(HangarLook);
                 _springReady = false;
+                return;
+            }
+
+            // Hangar is the near shot. The follow spring clamps lag to MaxLag,
+            // which is shorter than this gap, so seeding the spring there still
+            // hard-snaps. Write the play pose before this returns. ResetForWave
+            // has already moved the ship, so the pose matches that origin.
+            if (leaving && !_captureHold)
+            {
+                PlacePlayPose();
             }
         }
 
@@ -171,9 +185,121 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            Vector3 look;
+            Vector3 desired;
+            float speed;
+            DesiredPlay(out look, out desired, out speed);
+            float step = Time.deltaTime;
+            if (!_springReady)
+            {
+                SeedSpring(desired);
+            }
+
+            float lag = CameraFeel.FollowLag(false);
+            if (_hasLastTarget)
+            {
+                Vector3 from = _lastTarget;
+                Vector3 to = _target.position;
+                float dx = to.x - from.x;
+                float dy = to.y - from.y;
+                float dz = to.z - from.z;
+                float jump = Mathf.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+                if (jump > CameraFeel.RespawnGlideJump)
+                {
+                    _glideUntil = Time.time + CameraFeel.RespawnGlideSeconds;
+                }
+            }
+
+            _lastTarget = _target.position;
+            _hasLastTarget = true;
+            float ex = _springX - desired.x;
+            float ey = _springY - desired.y;
+            float ez = _springZ - desired.z;
+            float remain = Mathf.Sqrt((ex * ex) + (ey * ey) + (ez * ez));
+            bool glide = _glideUntil > 0f && (Time.time < _glideUntil || remain > CameraFeel.MaxLag);
+            if (!glide)
+            {
+                _glideUntil = 0f;
+            }
+            else
+            {
+                lag = CameraFeel.FollowLag(true);
+            }
+
+            CameraFeel.SpringLimited(ref _springX, ref _springVx, desired.x, CameraFeel.FollowOmega, step, lag);
+            CameraFeel.SpringLimited(ref _springY, ref _springVy, desired.y, CameraFeel.FollowOmega, step, lag);
+            CameraFeel.SpringLimited(ref _springZ, ref _springVz, desired.z, CameraFeel.FollowOmega, step, lag);
+
+            bool reduce = SettingsState.ReduceEffectsEnabled;
+            if (SettingsState.ScreenShakeEnabled)
+            {
+                float shakeCap = EffectScale.ShakeCap(reduce, MaxShake);
+                CameraFeel.DecayShake(
+                    ref _ox,
+                    ref _oy,
+                    ref _oz,
+                    ref _vx,
+                    ref _vy,
+                    ref _vz,
+                    CameraFeel.ShakeOmega,
+                    step,
+                    shakeCap);
+                _shake = Mathf.Sqrt((_ox * _ox) + (_oy * _oy) + (_oz * _oz));
+            }
+            else
+            {
+                ClearShake();
+            }
+
+            transform.position = new Vector3(_springX + _ox, _springY + _oy, _springZ + _oz);
+            transform.LookAt(look);
+            ApplyPlayFov(speed);
+            ApplyPlayViewport();
+        }
+
+        /// <summary>
+        /// Same play pose LateUpdate would settle on. Called when hangar
+        /// framing ends so the frame that starts the wave never draws the
+        /// near hangar offset.
+        /// </summary>
+        private void PlacePlayPose()
+        {
+            if (_target == null)
+            {
+                _springReady = false;
+                return;
+            }
+
+            Vector3 look;
+            Vector3 desired;
+            float speed;
+            DesiredPlay(out look, out desired, out speed);
+            SeedSpring(desired);
+            ClearShake();
+            _glideUntil = 0f;
+            _lastTarget = _target.position;
+            _hasLastTarget = true;
+            transform.position = desired;
+            transform.LookAt(look);
+            ApplyPlayFov(speed);
+            ApplyPlayViewport();
+        }
+
+        private void SeedSpring(Vector3 desired)
+        {
+            _springX = desired.x;
+            _springY = desired.y;
+            _springZ = desired.z;
+            _springVx = 0f;
+            _springVy = 0f;
+            _springVz = 0f;
+            _springReady = true;
+        }
+
+        private void DesiredPlay(out Vector3 look, out Vector3 desired, out float speed)
+        {
             float aimX;
             float aimZ;
-            float speed;
             ReadAim(out aimX, out aimZ, out speed);
             bool reduce = SettingsState.ReduceEffectsEnabled;
             float leadX;
@@ -200,62 +326,30 @@ namespace AsteroidsGoneRogue
                 leadX = edgeX - _target.position.x;
                 leadZ = edgeZ - _target.position.z;
             }
-            Vector3 look = _target.position + new Vector3(leadX, 0f, leadZ);
-            Vector3 desired = look + PlayOffset();
-            float step = Time.deltaTime;
-            if (!_springReady)
-            {
-                _springX = desired.x;
-                _springY = desired.y;
-                _springZ = desired.z;
-                _springVx = 0f;
-                _springVy = 0f;
-                _springVz = 0f;
-                _springReady = true;
-            }
 
-            CameraFeel.SpringLimited(ref _springX, ref _springVx, desired.x, CameraFeel.FollowOmega, step, CameraFeel.MaxLag);
-            CameraFeel.SpringLimited(ref _springY, ref _springVy, desired.y, CameraFeel.FollowOmega, step, CameraFeel.MaxLag);
-            CameraFeel.SpringLimited(ref _springZ, ref _springVz, desired.z, CameraFeel.FollowOmega, step, CameraFeel.MaxLag);
+            look = _target.position + new Vector3(leadX, 0f, leadZ);
+            desired = look + PlayOffset();
+        }
 
-            if (SettingsState.ScreenShakeEnabled)
-            {
-                float shakeCap = EffectScale.ShakeCap(reduce, MaxShake);
-                CameraFeel.DecayShake(
-                    ref _ox,
-                    ref _oy,
-                    ref _oz,
-                    ref _vx,
-                    ref _vy,
-                    ref _vz,
-                    CameraFeel.ShakeOmega,
-                    step,
-                    shakeCap);
-                _shake = Mathf.Sqrt((_ox * _ox) + (_oy * _oy) + (_oz * _oz));
-            }
-            else
-            {
-                ClearShake();
-            }
-
-            transform.position = new Vector3(_springX + _ox, _springY + _oy, _springZ + _oz);
-            transform.LookAt(look);
+        private void ApplyPlayFov(float speed)
+        {
             Camera playCam = GetComponent<Camera>();
-            if (playCam != null)
+            if (playCam == null || _target == null)
             {
-                ArenaShape zoomShape = ArenaShapeCatalog.Active;
-                float edge = zoomShape.DistanceToEdge(_target.position.x, _target.position.z);
-                float bound = zoomShape.BoundingRadius;
-                if (bound < 1f)
-                {
-                    bound = 1f;
-                }
-
-                float zoom = CameraFeel.ZoomAdd(speed, ReadPressure(), bound - edge, bound, reduce);
-                playCam.fieldOfView = ArenaFraming.BaseFov + zoom;
+                return;
             }
 
-            ApplyPlayViewport();
+            ArenaShape zoomShape = ArenaShapeCatalog.Active;
+            float edge = zoomShape.DistanceToEdge(_target.position.x, _target.position.z);
+            float bound = zoomShape.BoundingRadius;
+            if (bound < 1f)
+            {
+                bound = 1f;
+            }
+
+            bool reduce = SettingsState.ReduceEffectsEnabled;
+            float zoom = CameraFeel.ZoomAdd(speed, ReadPressure(), bound - edge, bound, reduce);
+            playCam.fieldOfView = ArenaFraming.BaseFov + zoom;
         }
 
         private void ReadAim(out float aimX, out float aimZ, out float speed)

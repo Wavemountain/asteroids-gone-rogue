@@ -159,6 +159,49 @@ namespace AsteroidsGoneRogue
             span = OtherFadeSpan;
         }
 
+        /// <summary>
+        /// Height of a floor triangle at XZ. A single plane Y puts contact
+        /// quads through a curved plate. Outside the triangle returns false.
+        /// </summary>
+        public static bool TriangleHeight(
+            float x,
+            float z,
+            float ax,
+            float ay,
+            float az,
+            float bx,
+            float by,
+            float bz,
+            float cx,
+            float cy,
+            float cz,
+            out float y)
+        {
+            y = 0f;
+            float abx = bx - ax;
+            float abz = bz - az;
+            float acx = cx - ax;
+            float acz = cz - az;
+            float area = (abx * acz) - (abz * acx);
+            if (area < 0.000001f && area > -0.000001f)
+            {
+                return false;
+            }
+
+            float px = x - ax;
+            float pz = z - az;
+            float weightB = ((px * acz) - (pz * acx)) / area;
+            float weightC = ((abx * pz) - (abz * px)) / area;
+            float weightA = 1f - weightB - weightC;
+            if (weightA < -0.0001f || weightB < -0.0001f || weightC < -0.0001f)
+            {
+                return false;
+            }
+
+            y = (weightA * ay) + (weightB * by) + (weightC * cy);
+            return true;
+        }
+
         public static bool ProductWithinReference(float albedoR, float albedoG, float albedoB, float emitR, float emitG, float emitB)
         {
             float refR;
@@ -235,6 +278,22 @@ namespace AsteroidsGoneRogue
 
             Cap(3, refR, refG, refB, 0.25f, 0.1f, 0.05f, out albedoR, out albedoG, out albedoB, out emitR, out emitG, out emitB);
             if (emitR != 0.25f || albedoR != refR)
+            {
+                return false;
+            }
+
+            float height;
+            if (!TriangleHeight(1f, 0f, 0f, 0f, 0f, 2f, 2f, 0f, 0f, 0f, 2f, out height))
+            {
+                return false;
+            }
+
+            if (height < 0.999f || height > 1.001f)
+            {
+                return false;
+            }
+
+            if (TriangleHeight(-1f, -1f, 0f, 0f, 0f, 2f, 2f, 0f, 0f, 0f, 2f, out height))
             {
                 return false;
             }
