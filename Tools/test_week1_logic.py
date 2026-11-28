@@ -10149,6 +10149,7 @@ def main() -> int:
     test_wave_entry_clearance_skips_inflight()
     test_w2_floor_marks_contact()
     test_wave_start_pose_and_trail_clear()
+    test_feel_scale()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -17074,7 +17075,7 @@ def test_p8_vfx_pool() -> None:
     art = (root / "Assets/Scripts/Content/ArtImport.cs").read_text(encoding="utf-8")
 
     assert "MaxParticles = 600" in budget
-    assert "DebrisCap = 24" in budget
+    assert "DebrisCap = 36" in budget
     assert "ShockCap = 8" in budget
     assert "MuzzleCap = 12" in budget
     assert "RingMaterial = \"Mat_FX_Ring\"" in budget
@@ -19512,6 +19513,164 @@ class Program
     )
     assert result.returncode == 0, result.stdout
     assert "wave-start-pose-ok" in result.stdout
+
+
+def test_feel_scale() -> None:
+    """Feel pass: shake composition, hitstop cap, debris invariant, settings rows."""
+    import os
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    feel = (root / "Assets/Scripts/Core/FeelScale.cs").read_text(encoding="utf-8")
+    budget = (root / "Assets/Scripts/Core/VfxBudget.cs").read_text(encoding="utf-8")
+    hitstop = (root / "Assets/Scripts/Core/HitstopBudget.cs").read_text(encoding="utf-8")
+    rows = (root / "Assets/Scripts/Core/SettingsRows.cs").read_text(encoding="utf-8")
+    state = (root / "Assets/Scripts/Core/SettingsState.cs").read_text(encoding="utf-8")
+    juice = (root / "Assets/Scripts/Combat/CombatJuice.cs").read_text(encoding="utf-8")
+    follow = (root / "Assets/Scripts/Player/FollowCamera.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.Feel.cs").read_text(encoding="utf-8")
+
+    assert "public static bool SelfCheck()" in feel
+    assert "LargeKillShake" in feel and "MidKillShake" in feel and "SmallKillShake" in feel
+    assert "HitstopAllowed" in feel and "FlashAlpha" in feel and "DistanceFalloff" in feel
+    assert "ShieldBreakSeconds" in hitstop and "KillMidSeconds" in hitstop
+    assert "HullSeconds = 0.045f" in hitstop
+    assert "DebrisCap = 36" in budget and "ChunkLarge = 32" in budget and "ChunkMid = 16" in budget
+    assert "MaxParticles = 600" in budget
+    assert "ChunkParticles + SmokeParticles + SparkParticles != MaxParticles" in budget
+    assert "DebrisCap < ChunkLarge" in budget
+
+    order = rows.split("Order =")[1].split(";")[0]
+    assert "ShakeIntensity" in order and "Hitstop" in order and "FlashLevel" in order
+    assert order.index("TurnSpeed") < order.index("ShakeIntensity") < order.index("Hitstop") < order.index("FlashLevel")
+    prefs = state.split("public struct SettingsPrefs")[1]
+    assert "ShakeIntensity" not in prefs
+    assert "FlashLevel" not in prefs
+    assert "CurrentVersion = 7" in state
+    capture = state.split("public SettingsPrefs Capture()")[1].split("public static SettingsState FromInts")[0]
+    assert "ShakeIntensityKey" not in capture
+    assert "HitstopKey" not in capture
+    assert "FlashLevelKey" not in capture
+    assert 'ShakeIntensityKey = "agr.settings.shakeIntensity"' in state
+    assert 'HitstopKey = "agr.settings.hitstop"' in state
+    assert 'FlashLevelKey = "agr.settings.flashLevel"' in state
+    assert "SetFloat(ShakeIntensityKey" in state
+    assert "SetInt(HitstopKey" in state
+    assert "SetInt(FlashLevelKey" in state
+
+    assert "BossKill(" in juice and "PassShakeGate" in juice
+    assert "FeelScale.LargeKillShake" in juice
+    assert "FeelScale.DistanceFalloff" in follow
+    assert "ShakeIntensityScale" in follow
+    assert '"ui.settings.shake_intensity", "Skakintensitet"' in loc
+    assert '"ui.settings.hitstop", "Träfffrys"' in loc
+    assert '"ui.settings.flash", "Blixt"' in loc
+    assert 'Loc.T("ui.settings.shake_intensity", "Shake intensity")' in ui
+    assert 'Loc.T("ui.settings.hitstop", "Hitstop")' in ui
+    assert 'Loc.T("ui.settings.flash", "Flash")' in ui
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    from roslyn_core_check import find_dotnet
+
+    dotnet = find_dotnet()
+    assert dotnet, "feel scale tests need dotnet"
+    work = Path(os.environ.get("TMPDIR", "/tmp")) / "agr-feel-scale"
+    if work.exists():
+        shutil.rmtree(work)
+    work.mkdir(parents=True)
+    for name in ("FeelScale.cs", "EffectScale.cs", "HitstopBudget.cs", "VfxBudget.cs"):
+        shutil.copyfile(root / "Assets/Scripts/Core" / name, work / name)
+    program = """
+using System;
+namespace AsteroidsGoneRogue
+{
+    public static class HitFlashLimiter
+    {
+        public const float MinGapSeconds = 0.333f;
+        public const float MaxAlpha = 0.20f;
+        public const float DefaultDecay = 0.18f;
+    }
+}
+class Program
+{
+    static void Need(bool ok, string message)
+    {
+        if (!ok) throw new Exception(message);
+    }
+
+    static void Main()
+    {
+        Need(AsteroidsGoneRogue.FeelScale.SelfCheck(), "feel");
+        Need(AsteroidsGoneRogue.VfxBudget.SelfCheck(), "vfx");
+        Need(AsteroidsGoneRogue.VfxBudget.DebrisCap >= AsteroidsGoneRogue.VfxBudget.ChunkLarge, "debris");
+        int sum = AsteroidsGoneRogue.VfxBudget.ChunkParticles
+            + AsteroidsGoneRogue.VfxBudget.SmokeParticles
+            + AsteroidsGoneRogue.VfxBudget.SparkParticles;
+        Need(sum == AsteroidsGoneRogue.VfxBudget.MaxParticles, "particles");
+        Need(AsteroidsGoneRogue.FeelScale.LargeKillShake >= AsteroidsGoneRogue.FeelScale.MidKillShake, "large");
+        Need(AsteroidsGoneRogue.FeelScale.MidKillShake >= AsteroidsGoneRogue.FeelScale.SmallKillShake, "mid");
+        Need(AsteroidsGoneRogue.FeelScale.FinalShake(0.2f, 0f, false) == 0f, "intensity zero");
+        Need(AsteroidsGoneRogue.FeelScale.FinalShake(0.2f, 1f, false) == 0.2f, "intensity full");
+        float reduced = AsteroidsGoneRogue.FeelScale.FinalShake(0.2f, 1f, true);
+        Need(reduced < 0.2f && reduced > 0f, "reduce wins");
+        AsteroidsGoneRogue.HitstopBudget chain = new AsteroidsGoneRogue.HitstopBudget();
+        float granted = 0f;
+        for (int i = 0; i < 6; i++)
+        {
+            granted += chain.Request(0.01f * i, 0.06f, false, true);
+        }
+        Need(granted <= AsteroidsGoneRogue.HitstopBudget.CapSeconds + 0.0001f, "six hitstops");
+        Need(chain.Request(0.2f, 0.06f, false, false) == 0f, "hitstop off");
+        Need(chain.Request(0.3f, 0.06f, true, true) == 0f, "reduce hitstop");
+        Console.WriteLine("feel-scale-ok");
+    }
+}
+"""
+    (work / "Program.cs").write_text(program, encoding="utf-8")
+    (work / "feel.csproj").write_text(
+        "\n".join(
+            (
+                '<Project Sdk="Microsoft.NET.Sdk">',
+                "  <PropertyGroup>",
+                "    <OutputType>Exe</OutputType>",
+                "    <TargetFramework>net8.0</TargetFramework>",
+                "    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>",
+                "    <Nullable>disable</Nullable>",
+                "    <ImplicitUsings>disable</ImplicitUsings>",
+                "  </PropertyGroup>",
+                "  <ItemGroup>",
+                '    <Compile Include="FeelScale.cs" />',
+                '    <Compile Include="EffectScale.cs" />',
+                '    <Compile Include="HitstopBudget.cs" />',
+                '    <Compile Include="VfxBudget.cs" />',
+                '    <Compile Include="Program.cs" />',
+                "  </ItemGroup>",
+                "</Project>",
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
+    env["DOTNET_NOLOGO"] = "1"
+    env["DOTNET_ROOT"] = str(Path(dotnet).resolve().parent)
+    result = subprocess.run(
+        [dotnet, "run", "--project", str(work / "feel.csproj"), "-v", "q"],
+        cwd=work,
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout
+    assert "feel-scale-ok" in result.stdout
 
 
 if __name__ == "__main__":

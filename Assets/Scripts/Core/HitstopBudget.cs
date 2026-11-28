@@ -65,7 +65,7 @@ namespace AsteroidsGoneRogue
 
         public float Request(float now, float requested, bool reduce, bool hitstopOn)
         {
-            if (!FeelScale.HitstopAllowed(hitstopOn, reduce) || !EffectScale.AllowsHitstop(reduce) || requested <= 0f)
+            if (!hitstopOn || reduce || !EffectScale.AllowsHitstop(reduce) || requested <= 0f)
             {
                 return 0f;
             }

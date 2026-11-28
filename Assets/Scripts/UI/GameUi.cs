@@ -4326,6 +4326,12 @@ namespace AsteroidsGoneRogue
             float minGap;
             float usedDecay;
             EffectScale.FlashWindow(SettingsState.ReduceEffectsEnabled, decay, out maxAlpha, out minGap, out usedDecay);
+            strength = FeelScale.FlashAlpha(strength, SettingsState.FlashLevelValue, maxAlpha);
+            if (strength <= 0.0001f)
+            {
+                return;
+            }
+
             if (!HitFlashLimiter.TryBegin(
                 Time.unscaledTime,
                 _hitFlashStart,
@@ -4980,6 +4986,7 @@ namespace AsteroidsGoneRogue
             RefreshSettingsReduce();
             RefreshSettingsGrain();
             RefreshSettingsTurn();
+            RefreshSettingsFeel();
             RefreshSettingsAssist();
             RefreshSettingsHint();
             RefreshSettingsConfirm();
@@ -7286,7 +7293,7 @@ namespace AsteroidsGoneRogue
             if (_bossFill != null)
             {
                 _bossFill.fillAmount = Mathf.Clamp01(bossHp / (float)bossMax);
-                _bossFill.color = UiTheme.Danger;
+                _bossFill.color = BossBarColor();
             }
 
             if (_bossCount != null)
@@ -8574,6 +8581,24 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.TurnSpeed)
             {
                 BuildSettingsTurnRow(rowIndex, body, y0, y1);
+                return;
+            }
+
+            if (rowId == SettingsRowId.ShakeIntensity)
+            {
+                BuildSettingsShakeIntensityRow(rowIndex, body, y0, y1);
+                return;
+            }
+
+            if (rowId == SettingsRowId.Hitstop)
+            {
+                BuildSettingsHitstopRow(rowIndex, body, y0, y1);
+                return;
+            }
+
+            if (rowId == SettingsRowId.FlashLevel)
+            {
+                BuildSettingsFlashRow(rowIndex, body, y0, y1);
                 return;
             }
 
@@ -11007,6 +11032,24 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
+            if (rowId == SettingsRowId.ShakeIntensity)
+            {
+                StepSettingsShakeIntensity(direction);
+                return;
+            }
+
+            if (rowId == SettingsRowId.Hitstop)
+            {
+                ToggleSettingsHitstop();
+                return;
+            }
+
+            if (rowId == SettingsRowId.FlashLevel)
+            {
+                StepSettingsFlash(direction);
+                return;
+            }
+
             if (rowId == SettingsRowId.AssistMode)
             {
                 ToggleAssistMode();
@@ -11115,6 +11158,24 @@ namespace AsteroidsGoneRogue
             if (rowId == SettingsRowId.TurnSpeed)
             {
                 StepSettingsTurn(1);
+                return;
+            }
+
+            if (rowId == SettingsRowId.ShakeIntensity)
+            {
+                StepSettingsShakeIntensity(1);
+                return;
+            }
+
+            if (rowId == SettingsRowId.Hitstop)
+            {
+                ToggleSettingsHitstop();
+                return;
+            }
+
+            if (rowId == SettingsRowId.FlashLevel)
+            {
+                StepSettingsFlash(1);
                 return;
             }
 

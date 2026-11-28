@@ -235,17 +235,20 @@ namespace AsteroidsGoneRogue
                 return false;
             }
 
-            if (DistanceFalloff(0f) != FalloffNear || DistanceFalloff(FalloffDistance) != FalloffFar)
+            if (!Near(DistanceFalloff(0f), FalloffNear) || !Near(DistanceFalloff(FalloffDistance), FalloffFar))
             {
                 return false;
             }
 
-            if (LargeKillShake < MidKillShake || MidKillShake < SmallKillShake)
+            float large = LargeKillShake;
+            float mid = MidKillShake;
+            float small = SmallKillShake;
+            if (large < mid || mid < small)
             {
                 return false;
             }
 
-            if (ClampIntensity(0.94f) != 0.9f || ClampIntensity(1.5f) != 1f || ClampIntensity(-1f) != 0f)
+            if (!Near(ClampIntensity(0.94f), 0.9f) || !Near(ClampIntensity(1.5f), 1f) || !Near(ClampIntensity(-1f), 0f))
             {
                 return false;
             }
@@ -256,6 +259,17 @@ namespace AsteroidsGoneRogue
             }
 
             return BossKillShake <= 0.36f && HitShakeGateSeconds >= 0.12f;
+        }
+
+        private static bool Near(float a, float b)
+        {
+            float delta = a - b;
+            if (delta < 0f)
+            {
+                delta = -delta;
+            }
+
+            return delta < 0.0001f;
         }
     }
 }

@@ -39,7 +39,18 @@ namespace AsteroidsGoneRogue
                 return 0f;
             }
 
-            float scaled = amplitude * FeelScale.ClampIntensity(intensity);
+            float scaledIntensity = intensity;
+            if (scaledIntensity < 0f)
+            {
+                scaledIntensity = 0f;
+            }
+
+            if (scaledIntensity > 1f)
+            {
+                scaledIntensity = 1f;
+            }
+
+            float scaled = amplitude * scaledIntensity;
             if (reduce)
             {
                 return scaled * ShakeMul;

@@ -802,7 +802,6 @@ namespace AsteroidsGoneRogue
 
         private IEnumerator BossFinaleRoutine(Vector3 position)
         {
-            CombatJuice.HeavyKill(position, CombatJuice.ExplosionShake);
             UseVoice(VoiceRoster.CatDeath, true);
             Play(_bruteDeath != null ? _bruteDeath : _enemyDeath, BruteDeathScale);
             if (_bruteDeathLayer != null)
@@ -813,7 +812,6 @@ namespace AsteroidsGoneRogue
 
             DuckMusic(0.9f, 0.25f);
             yield return new WaitForSeconds(0.18f);
-            CombatJuice.HeavyKill(position, 0.36f);
             UseVoice(VoiceRoster.CatDeath, true);
             Play(_bruteDeath != null ? _bruteDeath : _enemyDeath, BruteDeathScale);
             yield return new WaitForSeconds(0.72f);

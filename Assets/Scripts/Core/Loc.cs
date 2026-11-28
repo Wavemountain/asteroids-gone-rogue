@@ -71,6 +71,12 @@ namespace AsteroidsGoneRogue
             { "ui.settings.reduce", "Minska effekter: mindre skärmskak, blixtar och partiklar" },
             { "ui.settings.grain", "Filmkorn" },
             { "ui.settings.turn", "Svänghastighet" },
+            { "ui.settings.shake_intensity", "Skakintensitet" },
+            { "ui.settings.hitstop", "Träfffrys" },
+            { "ui.settings.flash", "Blixt" },
+            { "ui.settings.flash.full", "Fullt" },
+            { "ui.settings.flash.half", "Halv" },
+            { "ui.settings.flash.off", "Av" },
             { "ui.settings.assist", "Assistläge: extra sköld, mindre fiendeskada" },
             { "ui.hud.assist", "Assist" },
             { "ui.settings.hint", "Tipsrad" },
@@ -540,6 +546,12 @@ namespace AsteroidsGoneRogue
             { "hud.world_wave", "World {0} · Wave {1}/{2}" },
             { "hud.wave_endless", "Wave {0}" },
             { "hud.boss", "World {0} · BOSS" },
+            { "ui.settings.shake_intensity", "Shake intensity" },
+            { "ui.settings.hitstop", "Hitstop" },
+            { "ui.settings.flash", "Flash" },
+            { "ui.settings.flash.full", "Full" },
+            { "ui.settings.flash.half", "Half" },
+            { "ui.settings.flash.off", "Off" },
         };
 
         private static bool _loaded;
