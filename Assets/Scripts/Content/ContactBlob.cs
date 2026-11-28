@@ -553,6 +553,13 @@ namespace AsteroidsGoneRogue
         public const float MinRadius = 0.45f;
 
         /// <summary>
+        /// Hard cap on the disc radius. Footprint already uses world bounds,
+        /// so a second multiply by lossy scale must not run, and a bad bounds
+        /// read cannot paint a floor-sized quad.
+        /// </summary>
+        public const float MaxRadius = 8f;
+
+        /// <summary>
         /// Below transparent gameplay and decor beams (3000) and above the grid
         /// (2900). Opaque mines write depth first, so the blob fails the depth
         /// test where a mine or raised strip is closer than the floor.
@@ -563,6 +570,7 @@ namespace AsteroidsGoneRogue
         private EntityId _hostId;
         private static Material _shared;
         private static Mesh _quad;
+        private static Texture2D _radial;
         private static readonly Dictionary<EntityId, ContactBlob> Live = new Dictionary<EntityId, ContactBlob>();
 
         /// <summary>
@@ -716,6 +724,11 @@ namespace AsteroidsGoneRogue
                 radius = MinRadius;
             }
 
+            if (radius > MaxRadius)
+            {
+                radius = MaxRadius;
+            }
+
             float ceiling = host.position.y;
             float surface;
             float y;
@@ -799,6 +812,7 @@ namespace AsteroidsGoneRogue
                     continue;
                 }
 
+                // bounds are already in world space. Do not multiply by lossyScale.
                 float wide = renderer.bounds.extents.x;
                 if (renderer.bounds.extents.z > wide)
                 {
@@ -839,9 +853,65 @@ namespace AsteroidsGoneRogue
 
             _shared = new Material(shader);
             _shared.name = "Mat_ContactBlob";
+            _shared.mainTexture = RadialTexture();
             _shared.color = new Color(0f, 0f, 0f, Alpha);
             _shared.renderQueue = RenderQueue;
+            // Fallback shaders (Unlit/Transparent, Standard) otherwise draw the
+            // unit quad as a solid square. The blob shader fades in the fragment.
+            if (_shared.HasProperty("_ZWrite"))
+            {
+                _shared.SetFloat("_ZWrite", 0f);
+            }
+
+            _shared.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            _shared.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
             return _shared;
+        }
+
+        /// <summary>
+        /// White RGB, alpha 1 at the centre and 0 at the rim. A fallback shader
+        /// that samples _MainTex stays a disc instead of a grey square.
+        /// </summary>
+        private static Texture2D RadialTexture()
+        {
+            if (_radial != null)
+            {
+                return _radial;
+            }
+
+            const int Size = 64;
+            Texture2D tex = new Texture2D(Size, Size, TextureFormat.RGBA32, false);
+            tex.name = "Tex_ContactBlob";
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+            tex.hideFlags = HideFlags.HideAndDontSave;
+            float half = (Size - 1) * 0.5f;
+            for (int y = 0; y < Size; y++)
+            {
+                for (int x = 0; x < Size; x++)
+                {
+                    float dx = (x - half) / half;
+                    float dy = (y - half) / half;
+                    float dist = Mathf.Sqrt((dx * dx) + (dy * dy));
+                    float edge = dist;
+                    if (edge < 0f)
+                    {
+                        edge = 0f;
+                    }
+
+                    if (edge > 1f)
+                    {
+                        edge = 1f;
+                    }
+
+                    float band = edge * edge * (3f - (2f * edge));
+                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, 1f - band));
+                }
+            }
+
+            tex.Apply(false, true);
+            _radial = tex;
+            return _radial;
         }
     }
 }

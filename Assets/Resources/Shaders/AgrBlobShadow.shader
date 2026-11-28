@@ -1,6 +1,7 @@
 // Soft contact shadow. RGB is black, so a normal alpha blend only darkens
-// the floor (result luma is never above the floor). Alpha falls smoothly
-// from the centre to 0 at the quad edge. There is no rim and no ring.
+// the floor (result luma is never above the floor). Alpha falls from the
+// centre across the whole quad, so the full-strength core is a point and
+// the corners are clear. There is no rim and no ring.
 // Reduce does not recolour it. Shader.Find("AGR/BlobShadow").
 // No polygon offset. ContactBlob sits on FloorSurface.PlaceY, 0.02–0.05 m
 // above the plate (Lift 0.035). At the play camera (near 0.1, far 280) that
@@ -11,6 +12,7 @@ Shader "AGR/BlobShadow"
     Properties
     {
         _Color ("Color", Color) = (0,0,0,0.9)
+        _MainTex ("Radial", 2D) = "white" {}
     }
     SubShader
     {
@@ -26,6 +28,7 @@ Shader "AGR/BlobShadow"
             #pragma fragment frag
             #include "UnityCG.cginc"
             fixed4 _Color;
+            sampler2D _MainTex;
             struct v2f
             {
                 float4 pos : SV_POSITION;
@@ -43,8 +46,9 @@ Shader "AGR/BlobShadow"
                 float2 centered = i.uv * 2.0 - 1.0;
                 float dist = length(centered);
                 float edge = saturate(dist);
-                float band = smoothstep(0.55, 1.0, edge);
-                float alpha = _Color.a * (1.0 - band);
+                float band = smoothstep(0.0, 1.0, edge);
+                float texA = tex2D(_MainTex, i.uv).a;
+                float alpha = _Color.a * (1.0 - band) * texA;
                 return fixed4(0.0, 0.0, 0.0, alpha);
             }
             ENDCG

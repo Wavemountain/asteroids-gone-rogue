@@ -10152,6 +10152,8 @@ def main() -> int:
     test_feel_scale()
     test_boss_phases()
     test_longrun_harness()
+    test_contact_blob_physics_path_has_no_immediate_destroy()
+    test_contact_blob_is_one_soft_disc()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -20202,6 +20204,36 @@ def test_contact_blob_physics_path_has_no_immediate_destroy() -> None:
     assert "DestroyImmediate" not in shadow
     assert "ContactBlob.Attach" in shadow
     assert "DestroyImmediate" not in create
+
+
+def test_contact_blob_is_one_soft_disc() -> None:
+    """One radial, alpha-blended disc per owner, capped in size, removed when the host is gone."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    blob = (root / "Assets/Scripts/Content/ContactBlob.cs").read_text(encoding="utf-8")
+    shader = (root / "Assets/Resources/Shaders/AgrBlobShadow.shader").read_text(encoding="utf-8")
+    attach = blob.split("public static void Attach")[1].split("public static void AdoptFloor")[0]
+    pin = blob.split("private void Pin()")[1].split("private static float Footprint")[0]
+    foot = blob.split("private static float Footprint")[1].split("private static Material SharedMaterial")[0]
+    assert "Alpha = 0.9f" in blob
+    assert "MaxRadius = 8f" in blob
+    assert "if (radius > MaxRadius)" in pin
+    assert "RadialTexture()" in blob
+    assert "BlendMode.SrcAlpha" in blob
+    assert "BlendMode.OneMinusSrcAlpha" in blob
+    assert "_ZWrite" in blob
+    assert attach.index("Live.TryGetValue") < attach.index('new GameObject("ContactBlob")')
+    assert "SetParent(null, false)" in pin
+    assert pin.index("host == null") < pin.index("Destroy(gameObject)")
+    assert "bounds.extents.x * scale" not in foot
+    assert "bounds are already in world space" in foot
+    assert "Blend SrcAlpha OneMinusSrcAlpha" in shader
+    assert "ZWrite Off" in shader
+    assert "smoothstep(0.0, 1.0, edge)" in shader
+    assert "smoothstep(0.55" not in shader
+    assert "tex2D(_MainTex" in shader
+    assert "return fixed4(0.0, 0.0, 0.0, alpha);" in shader
 
 
 if __name__ == "__main__":
