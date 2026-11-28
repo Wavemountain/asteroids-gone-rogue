@@ -37,6 +37,21 @@ namespace AsteroidsGoneRogue
         private Vector3 _aimedDir;
         private bool _aimedWinding;
         private float _bossBaseScale;
+        private float _bossCruise;
+        private int _phase;
+        private int _stepIndex;
+        private int _layoutWorld = 1;
+        private int _grade = 1;
+        private float _staggerUntil;
+        private bool _staggerEndShook;
+        private bool _phase3Speed;
+        private int _liveStep;
+        private int _extraBurst;
+        private bool _secondWind;
+        private float _ringOffset;
+        private bool _ringSpin;
+        private GameObject _gapMine;
+        private bool _gapMineUsed;
         private float _windupUntil;
         private float _boltWindupUntil;
         private Vector3 _boltAim;
@@ -284,6 +299,24 @@ namespace AsteroidsGoneRogue
             }
 
             _bossNext = Time.time + 1.35f;
+            _bossCruise = _speed;
+            _phase = 0;
+            _stepIndex = 0;
+            _layoutWorld = 1;
+            if (_waves != null)
+            {
+                _layoutWorld = WorldCatalog.LayoutForWave(_waves.ActiveWave);
+            }
+
+            _grade = 1;
+            if (DifficultySettings.Current == DifficultyGrade.Easy)
+            {
+                _grade = 0;
+            }
+            else if (DifficultySettings.Current == DifficultyGrade.Hard)
+            {
+                _grade = 2;
+            }
         }
 
         public void ApplyDamage(int amount)
@@ -294,7 +327,15 @@ namespace AsteroidsGoneRogue
             }
 
             amount = MutatorRules.ScaleDamage(amount, MutatorRuntime.Mask, ref _glassRemainder.Value);
-            _hp -= amount;
+            if (_boss)
+            {
+                ApplyBossDamage(amount);
+            }
+            else
+            {
+                _hp -= amount;
+            }
+
             if (_hp > 0)
             {
                 CombatJuice.ThreatDamaged(transform, false);
@@ -329,6 +370,12 @@ namespace AsteroidsGoneRogue
                     _factory.MaybeDropPickup(transform.position);
                     _factory.MaybeDropExtraLife(transform.position, _kind);
                 }
+            }
+
+            if (_gapMine != null)
+            {
+                Destroy(_gapMine);
+                _gapMine = null;
             }
 
             if (_waves != null)
@@ -829,6 +876,96 @@ namespace AsteroidsGoneRogue
             shot.NoteHostileSource(_boss, _elite, eliteName);
         }
 
+        private void ApplyBossDamage(int amount)
+        {
+            int next = _hp - amount;
+            if (next < 0)
+            {
+                next = 0;
+            }
+
+            bool gate = BossPhases.GateActive(Time.time, _staggerUntil);
+            if (gate)
+            {
+                int floor = _phase >= (int)BossPhase.Three
+                    ? 1
+                    : BossPhases.ThresholdHp(_maxHp, BossPhase.Three);
+                _hp = BossPhases.GateHp(next, floor, true);
+                return;
+            }
+
+            BossPhase dest = BossPhases.PhaseForHp(next, _maxHp);
+            if ((int)dest > _phase)
+            {
+                int entering = _phase + 1;
+                if (entering > (int)BossPhase.Three)
+                {
+                    entering = (int)BossPhase.Three;
+                }
+
+                int floor = entering >= (int)BossPhase.Three
+                    ? 1
+                    : BossPhases.ThresholdHp(_maxHp, BossPhase.Three);
+                if (next < floor)
+                {
+                    next = floor;
+                }
+
+                _hp = next;
+                BeginStagger(entering);
+                return;
+            }
+
+            _hp = next;
+        }
+
+        private void BeginStagger(int entering)
+        {
+            _phase = entering;
+            _stepIndex = 0;
+            _extraBurst = 0;
+            _secondWind = false;
+            _aimedWinding = false;
+            _radialAt = 0f;
+            _staggerEndShook = false;
+            transform.localScale = Vector3.one * _bossBaseScale;
+            float stagger = BossRules.StaggerSeconds;
+            _staggerUntil = Time.time + stagger;
+            _bossNext = _staggerUntil;
+            if (entering >= (int)BossPhase.Three && !_phase3Speed)
+            {
+                _phase3Speed = true;
+                _speed = _bossCruise * BossRules.Phase3SpeedMul;
+            }
+
+            Color color = entering >= (int)BossPhase.Three ? UiTheme.Danger : UiTheme.Focus;
+            if (_factory != null)
+            {
+                _factory.SpawnTelegraphRing(
+                    transform.position,
+                    color,
+                    stagger,
+                    TelegraphShape.DoubleRing,
+                    transform.forward);
+            }
+
+            if (!SettingsState.ReduceEffectsEnabled)
+            {
+                MeshHitFlash.Play(transform, color, stagger);
+            }
+
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayBossPhaseTell(entering >= (int)BossPhase.Three);
+            }
+
+            CombatJuice.BossPhaseChange(transform.position, transform.forward);
+            if (GameUi.Instance != null)
+            {
+                GameUi.Instance.AnnounceBossPhase(entering + 1);
+            }
+        }
+
         private void TickBoss(Vector3 toPlayerDir)
         {
             if (_factory == null || !CanHarm)
@@ -837,6 +974,30 @@ namespace AsteroidsGoneRogue
             }
 
             float now = Time.time;
+            if (BossPhases.GateActive(now, _staggerUntil))
+            {
+                if (!SettingsState.ReduceEffectsEnabled)
+                {
+                    float u = (_staggerUntil - now) / BossRules.StaggerSeconds;
+                    if (u < 0f)
+                    {
+                        u = 0f;
+                    }
+
+                    float pulse = 1f + (0.20f * Mathf.Sin(u * Mathf.PI));
+                    transform.localScale = Vector3.one * (_bossBaseScale * pulse);
+                }
+
+                return;
+            }
+
+            if (_staggerUntil > 0f && !_staggerEndShook)
+            {
+                _staggerEndShook = true;
+                transform.localScale = Vector3.one * _bossBaseScale;
+                CombatJuice.ShakeWorld(0.08f, transform.position);
+            }
+
             if (_radialAt > 0f)
             {
                 if (now < _radialAt)
@@ -845,16 +1006,22 @@ namespace AsteroidsGoneRogue
                 }
 
                 FireRadialRing();
+                if (_extraBurst > 0)
+                {
+                    _extraBurst--;
+                    _ringOffset += BossWorldTwist.RotateRadians;
+                    _radialAt = now + BossRules.RadialPairSeconds;
+                    return;
+                }
+
                 _radialAt = 0f;
-                _bossPattern = 0;
-                _bossNext = now + BossRules.RadialGapSeconds;
-                CombatJuice.BossPhase(transform.position, toPlayerDir);
+                FinishBossStep(now);
                 return;
             }
 
             if (_aimedWinding)
             {
-                float wind = BossRules.AimedWindupSeconds;
+                float wind = BossWorldTwist.LeadMs(_layoutWorld, _liveStep) / 1000f;
                 float elapsed = wind <= 0.0001f ? 1f : 1f - ((_aimedFireAt - now) / wind);
                 if (elapsed < 0f)
                 {
@@ -878,10 +1045,22 @@ namespace AsteroidsGoneRogue
                 _aimedWinding = false;
                 transform.localScale = Vector3.one * _bossBaseScale;
                 FireAimedBurst(_aimedDir);
-                _bossPattern = 1;
-                _bossNext = now + BossRules.AimedGapSeconds;
-                CombatJuice.BossPhase(transform.position, _aimedDir);
+                if (_extraBurst > 0)
+                {
+                    _extraBurst--;
+                    _secondWind = true;
+                    _bossNext = now + BossRules.AimedPairSeconds;
+                    return;
+                }
+
+                FinishBossStep(now);
                 return;
+            }
+
+            if (_phase >= (int)BossPhase.Three && !SettingsState.ReduceEffectsEnabled && now < _bossNext)
+            {
+                float idle = 1f + (0.06f * Mathf.Sin(now * 6f));
+                transform.localScale = Vector3.one * (_bossBaseScale * idle);
             }
 
             if (now < _bossNext)
@@ -889,55 +1068,191 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            if (_bossPattern == 0)
+            if (_secondWind)
             {
-                Vector3 locked = toPlayerDir;
-                if (locked.sqrMagnitude < 0.01f)
-                {
-                    locked = transform.forward;
-                }
-
-                _aimedDir = locked.normalized;
-                _aimedFireAt = now + BossRules.AimedWindupSeconds;
-                _aimedWinding = true;
-                Vector3 windOrigin = transform.position + _aimedDir * 2.4f;
-                _factory.SpawnTelegraphRing(
-                    windOrigin,
-                    UiTheme.Focus,
-                    BossRules.AimedWindupSeconds,
-                    TelegraphShape.Wedge,
-                    _aimedDir);
-                if (AudioCues.Instance != null)
-                {
-                    AudioCues.Instance.PlayBossAimedTell();
-                }
-
+                _secondWind = false;
+                Vector3 relock = toPlayerDir.sqrMagnitude > 0.01f ? toPlayerDir.normalized : transform.forward;
+                BeginAimed(relock, now);
                 return;
             }
 
-            Vector3 telegraphAt = transform.position;
+            int step = BossWorldTwist.PatternStep(_phase, _grade, _stepIndex);
+            _liveStep = step;
+            if (step == BossWorldTwist.StepAimed
+                || step == BossWorldTwist.StepFan
+                || step == BossWorldTwist.StepAimed2)
+            {
+                Vector3 locked = AimDirection(toPlayerDir, step);
+                if (step == BossWorldTwist.StepAimed2)
+                {
+                    _extraBurst = 1;
+                }
+
+                BeginAimed(locked, now);
+                return;
+            }
+
+            BeginRadial(step, now);
+        }
+
+        private Vector3 AimDirection(Vector3 toPlayerDir, int step)
+        {
+            Vector3 locked = toPlayerDir.sqrMagnitude > 0.01f ? toPlayerDir.normalized : transform.forward;
+            if (!BossWorldTwist.ShowsTrenchLaser(_layoutWorld) || _target == null)
+            {
+                return locked;
+            }
+
+            if (!BossWorldTwist.FarDriftInTrench(_target.position.x))
+            {
+                return locked;
+            }
+
+            float dz = _target.position.z - transform.position.z;
+            if (dz < 0f)
+            {
+                return new Vector3(0f, 0f, -1f);
+            }
+
+            return new Vector3(0f, 0f, 1f);
+        }
+
+        private void BeginAimed(Vector3 locked, float now)
+        {
+            _aimedDir = locked.sqrMagnitude > 0.01f ? locked.normalized : transform.forward;
+            float wind = BossWorldTwist.LeadMs(_layoutWorld, _liveStep) / 1000f;
+            _aimedFireAt = now + wind;
+            _aimedWinding = true;
+            Vector3 windOrigin = transform.position + _aimedDir * 2.4f;
             _factory.SpawnTelegraphRing(
-                telegraphAt,
-                UiTheme.Danger,
-                BossRules.TelegraphSeconds,
-                TelegraphShape.Spokes,
-                transform.forward);
+                windOrigin,
+                UiTheme.Focus,
+                wind,
+                TelegraphShape.Wedge,
+                _aimedDir);
+            if (BossWorldTwist.ShowsTrenchLaser(_layoutWorld))
+            {
+                Vector3 from = transform.position;
+                Vector3 to = from + (_aimedDir * 18f);
+                _factory.SpawnTelegraphLaser(from, to, UiTheme.Focus, 0.45f, wind);
+            }
+
+            if (AudioCues.Instance != null)
+            {
+                AudioCues.Instance.PlayBossAimedTell();
+            }
+        }
+
+        private void BeginRadial(int step, float now)
+        {
+            float lead = BossWorldTwist.LeadMs(_layoutWorld, step) / 1000f;
+            _ringOffset = BossWorldTwist.AlignRadians(_layoutWorld);
+            if (step == BossWorldTwist.StepRadialRot && _ringSpin)
+            {
+                _ringOffset += BossWorldTwist.RotateRadians;
+            }
+
+            if (step == BossWorldTwist.StepRadialRot || step == BossWorldTwist.StepRadial)
+            {
+                _ringSpin = !_ringSpin;
+            }
+
+            _extraBurst = step == BossWorldTwist.StepRadial2 ? 1 : 0;
+            Vector3 spokeAim = new Vector3(Mathf.Cos(_ringOffset), 0f, Mathf.Sin(_ringOffset));
+            if (step == BossWorldTwist.StepGap)
+            {
+                _factory.SpawnTelegraphRing(
+                    transform.position,
+                    UiTheme.Danger,
+                    lead,
+                    TelegraphShape.DoubleRing,
+                    spokeAim);
+            }
+            else
+            {
+                _factory.SpawnTelegraphRing(
+                    transform.position,
+                    UiTheme.Danger,
+                    lead,
+                    TelegraphShape.Spokes,
+                    step == BossWorldTwist.StepRadial ? transform.forward : spokeAim);
+            }
             if (AudioCues.Instance != null)
             {
                 AudioCues.Instance.PlayBossRadialTell();
             }
 
-            _radialAt = now + BossRules.TelegraphSeconds;
+            _radialAt = now + lead;
+        }
+
+        private void FinishBossStep(float now)
+        {
+            int gapMs = BossWorldTwist.GapMs(_layoutWorld, _phase, _grade, _liveStep);
+            _bossNext = now + (gapMs / 1000f);
+            _stepIndex++;
+            _bossPattern = _stepIndex % 2;
+            MaybeArmGapMine();
+        }
+
+        private void MaybeArmGapMine()
+        {
+            if (_gapMineUsed || _liveStep != BossWorldTwist.StepGap)
+            {
+                return;
+            }
+
+            if (!BossWorldTwist.ArmsGapMine(_layoutWorld, _phase))
+            {
+                return;
+            }
+
+            _gapMineUsed = true;
+            float angle = _ringOffset + ((Mathf.PI * 2f * BossWorldTwist.GapSpokeIndex(_layoutWorld)) / 8f);
+            Vector3 at = transform.position + new Vector3(Mathf.Cos(angle) * BossWorldTwist.MineRadius, 0f, Mathf.Sin(angle) * BossWorldTwist.MineRadius);
+            _factory.SpawnTelegraphRing(at, UiTheme.Danger, 0.4f, TelegraphShape.Ring, Vector3.forward);
+            _gapMine = _factory.SpawnBossGapMine(at);
         }
 
         private void FireAimedBurst(Vector3 toPlayerDir)
         {
             int burstDamage = BossBoltDamage();
             float burstSpeed = EnemyCatalog.BoltSpeed(EnemyKind.Gunner);
-            for (int shot = 0; shot < BossRules.AimedBurstCount; shot++)
+            int count = 3;
+            if (_liveStep == BossWorldTwist.StepFan)
+            {
+                count = 5;
+            }
+
+            bool cross = BossWorldTwist.NormalizeLayout(_layoutWorld) == 5;
+            float aim = Mathf.Atan2(toPlayerDir.z, toPlayerDir.x);
+            for (int shot = 0; shot < count; shot++)
             {
                 float yaw = (shot - 1) * 14f;
-                Vector3 shotDir = Quaternion.Euler(0f, yaw, 0f) * toPlayerDir;
+                if (count == 5)
+                {
+                    yaw = (shot - 2) * 14f;
+                }
+
+                Vector3 shotDir;
+                if (cross && count == 3)
+                {
+                    int slot = NearestCorridor(aim) + (shot - 1);
+                    float degrees = BossWorldTwist.CorridorDegrees(slot);
+                    float rad = degrees * Mathf.Deg2Rad;
+                    shotDir = new Vector3(Mathf.Cos(rad), 0f, Mathf.Sin(rad));
+                }
+                else if (cross && count == 5 && (shot == 0 || shot == 4))
+                {
+                    int side = shot == 0 ? -1 : 1;
+                    float degrees = BossWorldTwist.CorridorDegrees(NearestCorridor(aim) + side);
+                    float rad = degrees * Mathf.Deg2Rad;
+                    shotDir = new Vector3(Mathf.Cos(rad), 0f, Mathf.Sin(rad));
+                }
+                else
+                {
+                    shotDir = Quaternion.Euler(0f, yaw, 0f) * toPlayerDir;
+                }
+
                 if (shotDir.sqrMagnitude < 0.01f)
                 {
                     shotDir = transform.forward;
@@ -954,14 +1269,64 @@ namespace AsteroidsGoneRogue
             }
         }
 
+        private static int NearestCorridor(float aimRadians)
+        {
+            float degrees = aimRadians * Mathf.Rad2Deg;
+            int best = 0;
+            float bestGap = 999f;
+            for (int slot = 0; slot < 4; slot++)
+            {
+                float corridor = BossWorldTwist.CorridorDegrees(slot);
+                float gap = degrees - corridor;
+                while (gap > 180f)
+                {
+                    gap -= 360f;
+                }
+
+                while (gap < -180f)
+                {
+                    gap += 360f;
+                }
+
+                if (gap < 0f)
+                {
+                    gap = -gap;
+                }
+
+                if (gap < bestGap)
+                {
+                    bestGap = gap;
+                    best = slot;
+                }
+            }
+
+            return best;
+        }
+
         private void FireRadialRing()
         {
             int ringDamage = BossBoltDamage();
             float ringSpeed = EnemyCatalog.BoltSpeed(EnemyKind.Gunner) * 0.85f;
             int ringCount = BossRules.RadialCount;
+            int omitA = -1;
+            int omitB = -1;
+            if (_liveStep == BossWorldTwist.StepGap)
+            {
+                omitA = BossWorldTwist.GapSpokeIndex(_layoutWorld);
+                if (BossWorldTwist.GapCount(_layoutWorld, _phase, _grade) > 1)
+                {
+                    omitB = (omitA + 1) % ringCount;
+                }
+            }
+
             for (int spoke = 0; spoke < ringCount; spoke++)
             {
-                float spokeAngle = (Mathf.PI * 2f * spoke) / ringCount;
+                if (spoke == omitA || spoke == omitB)
+                {
+                    continue;
+                }
+
+                float spokeAngle = ((Mathf.PI * 2f * spoke) / ringCount) + _ringOffset;
                 Vector3 spokeDir = new Vector3(Mathf.Cos(spokeAngle), 0f, Mathf.Sin(spokeAngle));
                 Vector3 ringOrigin = transform.position + spokeDir * 2.2f;
                 Projectile ringShot = _factory.SpawnEnemyProjectile(ringOrigin, spokeDir, ringSpeed, ringDamage, _kind, _boss);

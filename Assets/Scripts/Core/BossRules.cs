@@ -21,6 +21,11 @@ namespace AsteroidsGoneRogue
         public const float AimedWindupMax = 0.5f;
         public const float AimedGapSeconds = 1.7f;
         public const float RadialGapSeconds = 2.6f;
+        public const float StaggerSeconds = 1f;
+        public const float Phase3RadialGapSeconds = 2.85f;
+        public const float Phase3SpeedMul = 1.10f;
+        public const float RadialPairSeconds = 0.4f;
+        public const float AimedPairSeconds = 0.35f;
 
         public static bool IsBossWave(int waveIndex)
         {
@@ -64,6 +69,31 @@ namespace AsteroidsGoneRogue
         public static bool WindupInBand()
         {
             return AimedWindupSeconds >= AimedWindupMin && AimedWindupSeconds <= AimedWindupMax;
+        }
+
+        public static float AimedWindupFor(int layoutWorld)
+        {
+            return BossWorldTwist.AimedWindupSeconds(layoutWorld);
+        }
+
+        public static float TelegraphFor(int layoutWorld)
+        {
+            return BossWorldTwist.RadialTelegraphSeconds(layoutWorld);
+        }
+
+        public static int GapCount(int layoutWorld, int phase, int grade)
+        {
+            return BossWorldTwist.GapCount(layoutWorld, phase, grade);
+        }
+
+        public static int PatternStep(int phase, int grade, int index)
+        {
+            return BossWorldTwist.PatternStep(phase, grade, index);
+        }
+
+        public static bool PhaseTelegraphsFair()
+        {
+            return WindupInBand() && BossWorldTwist.PhaseTelegraphsFair();
         }
 
         public static string Label()

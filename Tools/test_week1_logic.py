@@ -10149,6 +10149,7 @@ def main() -> int:
     test_wave_entry_clearance_skips_inflight()
     test_w2_floor_marks_contact()
     test_wave_start_pose_and_trail_clear()
+    test_boss_phases()
     print("Week 1 logic tests passed (Hangar → Play → Clear/Fail + shop persist)")
     return 0
 
@@ -19512,6 +19513,111 @@ class Program
     )
     assert result.returncode == 0, result.stdout
     assert "wave-start-pose-ok" in result.stdout
+
+
+def test_boss_phases() -> None:
+    """Boss phases: HP gate, pattern order, and per-world fire-rate caps."""
+    import os
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    phases = (root / "Assets/Scripts/Core/BossPhases.cs").read_text(encoding="utf-8")
+    twist = (root / "Assets/Scripts/Core/BossWorldTwist.cs").read_text(encoding="utf-8")
+    rules = (root / "Assets/Scripts/Core/BossRules.cs").read_text(encoding="utf-8")
+    seeker = (root / "Assets/Scripts/Combat/EnemySeeker.cs").read_text(encoding="utf-8")
+    juice = (root / "Assets/Scripts/Combat/CombatJuice.cs").read_text(encoding="utf-8")
+    loc = (root / "Assets/Scripts/Core/Loc.cs").read_text(encoding="utf-8")
+    ui = (root / "Assets/Scripts/UI/GameUi.Boss.cs").read_text(encoding="utf-8")
+
+    assert "enum BossPhase" in phases
+    assert "StaggerMs = 1000" in phases
+    assert "GateHp" in phases and "PhaseForHp" in phases
+    assert "StaggerSeconds = 1f" in rules
+    assert "Phase3RadialGapSeconds = 2.85f" in rules
+    assert "Phase3SpeedMul = 1.10f" in rules
+    assert "AimedWindupFor" in rules and "TelegraphFor" in rules and "GapCount" in rules
+    assert "return BossWorldTwist" in rules
+    assert "AimedBurstCount = 3" in rules and "RadialCount = 8" in rules
+    assert "AimedWindupSeconds = 0.4f" in rules and "WindupInBand" in rules
+    assert "TotalCapPermille = 1300" in twist and "AimedCapPermille = 1350" in twist
+    assert "StepRadial2" in twist and "StepAimed2" in twist
+    assert "BeginStagger" in seeker and "ApplyBossDamage" in seeker
+    assert "FireAimedBurst(_aimedDir)" in seeker
+    assert "SpawnTelegraphRing" in seeker
+    assert "BossPhaseChange" in juice
+    assert '"ui.boss.phase2", "FAS 2"' in loc
+    assert '"ui.boss.phase3", "FAS 3"' in loc
+    assert 'Loc.T("ui.boss.phase2", "PHASE 2")' in ui or 'Loc.T(key, fallback)' in ui
+    assert _boss_hp(5, "normal") == 180
+
+    tools = Path(__file__).resolve().parent
+    if str(tools) not in sys.path:
+        sys.path.insert(0, str(tools))
+    from roslyn_core_check import find_dotnet
+
+    dotnet = find_dotnet()
+    assert dotnet, "boss phase tests need dotnet"
+    work = Path(os.environ.get("TMPDIR", "/tmp")) / "agr-boss-phases"
+    if work.exists():
+        shutil.rmtree(work)
+    work.mkdir(parents=True)
+    shutil.copyfile(root / "Assets/Scripts/Core/BossPhases.cs", work / "BossPhases.cs")
+    shutil.copyfile(root / "Assets/Scripts/Core/BossWorldTwist.cs", work / "BossWorldTwist.cs")
+    program = """
+using System;
+class Program
+{
+    static void Main()
+    {
+        if (!AsteroidsGoneRogue.BossPhases.SelfCheck()) throw new Exception("phases");
+        if (!AsteroidsGoneRogue.BossWorldTwist.SelfCheck()) throw new Exception("twist");
+        if (!AsteroidsGoneRogue.BossRulesWouldFail()) { }
+        Console.WriteLine("boss-phases-ok");
+    }
+}
+"""
+    # BossRules is not compiled here; the twist self-check owns the caps.
+    program = program.replace("if (!AsteroidsGoneRogue.BossRulesWouldFail()) { }\n        ", "")
+    (work / "Program.cs").write_text(program, encoding="utf-8")
+    (work / "boss.csproj").write_text(
+        "\n".join(
+            (
+                '<Project Sdk="Microsoft.NET.Sdk">',
+                "  <PropertyGroup>",
+                "    <OutputType>Exe</OutputType>",
+                "    <TargetFramework>net8.0</TargetFramework>",
+                "    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>",
+                "    <Nullable>disable</Nullable>",
+                "    <ImplicitUsings>disable</ImplicitUsings>",
+                "  </PropertyGroup>",
+                "  <ItemGroup>",
+                '    <Compile Include="BossPhases.cs" />',
+                '    <Compile Include="BossWorldTwist.cs" />',
+                '    <Compile Include="Program.cs" />',
+                "  </ItemGroup>",
+                "</Project>",
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
+    env["DOTNET_NOLOGO"] = "1"
+    env["DOTNET_ROOT"] = str(Path(dotnet).resolve().parent)
+    result = subprocess.run(
+        [dotnet, "run", "--project", str(work / "boss.csproj"), "-v", "q"],
+        cwd=work,
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout
+    assert "boss-phases-ok" in result.stdout
 
 
 if __name__ == "__main__":
