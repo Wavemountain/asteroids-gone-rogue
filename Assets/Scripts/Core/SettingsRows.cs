@@ -25,6 +25,9 @@ namespace AsteroidsGoneRogue
         ResetTutorial = 20,
         FilmGrain = 21,
         TurnSpeed = 22,
+        ShakeIntensity = 23,
+        Hitstop = 24,
+        FlashLevel = 25,
     }
 
     public enum SettingsRowRole
@@ -72,6 +75,9 @@ namespace AsteroidsGoneRogue
             SettingsRowId.Close,
             SettingsRowId.FilmGrain,
             SettingsRowId.TurnSpeed,
+            SettingsRowId.ShakeIntensity,
+            SettingsRowId.Hitstop,
+            SettingsRowId.FlashLevel,
         };
 
         public static int Count
@@ -108,7 +114,10 @@ namespace AsteroidsGoneRogue
 
         public static bool IsSlider(SettingsRowId id)
         {
-            return id == SettingsRowId.Music || id == SettingsRowId.Sfx || id == SettingsRowId.TurnSpeed;
+            return id == SettingsRowId.Music
+                || id == SettingsRowId.Sfx
+                || id == SettingsRowId.TurnSpeed
+                || id == SettingsRowId.ShakeIntensity;
         }
 
         public static int ClampIndex(int index)
@@ -166,7 +175,11 @@ namespace AsteroidsGoneRogue
             // short shares. Film grain is a scroll row and takes no packed share:
             // one more gap is enough to miss that floor. RowGap is 0.0113 so the
             // two short rows still clear it.
-            if (id == SettingsRowId.FilmGrain || id == SettingsRowId.TurnSpeed)
+            if (id == SettingsRowId.FilmGrain
+                || id == SettingsRowId.TurnSpeed
+                || id == SettingsRowId.ShakeIntensity
+                || id == SettingsRowId.Hitstop
+                || id == SettingsRowId.FlashLevel)
             {
                 return 0f;
             }
@@ -217,6 +230,29 @@ namespace AsteroidsGoneRogue
         public const float TurnMax = 1.30f;
         public const float TurnStep = 0.05f;
         public const bool TurnAllowedInDaily = true;
+        public const bool ShakeIntensityAllowedInDaily = true;
+        public const bool HitstopAllowedInDaily = true;
+        public const bool FlashAllowedInDaily = true;
+
+        public static float ClampShakeIntensity(float scale)
+        {
+            return FeelScale.ClampIntensity(scale);
+        }
+
+        public static float StepShakeIntensity(float current, int direction)
+        {
+            return FeelScale.StepIntensity(current, direction);
+        }
+
+        public static int ClampFlashLevel(int level)
+        {
+            return FeelScale.ClampFlashLevel(level);
+        }
+
+        public static int StepFlashLevel(int current, int direction)
+        {
+            return FeelScale.StepFlashLevel(current, direction);
+        }
 
         public static float ClampTurn(float scale)
         {

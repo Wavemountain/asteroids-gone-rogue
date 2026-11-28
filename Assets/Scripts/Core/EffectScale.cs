@@ -29,17 +29,23 @@ namespace AsteroidsGoneRogue
 
         public static float ShakeAdd(bool shakeEnabled, bool reduce, float amplitude)
         {
+            return ShakeAdd(shakeEnabled, reduce, amplitude, 1f);
+        }
+
+        public static float ShakeAdd(bool shakeEnabled, bool reduce, float amplitude, float intensity)
+        {
             if (!shakeEnabled || amplitude <= 0f)
             {
                 return 0f;
             }
 
+            float scaled = amplitude * FeelScale.ClampIntensity(intensity);
             if (reduce)
             {
-                return amplitude * ShakeMul;
+                return scaled * ShakeMul;
             }
 
-            return amplitude;
+            return scaled;
         }
 
         public static float ShakeCap(bool reduce, float fullCap)
