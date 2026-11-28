@@ -761,6 +761,21 @@ namespace AsteroidsGoneRogue
             PlayTell(_tellBossRadial, BossRadialTellScale);
         }
 
+        public void PlayBossPhaseTell(bool finalPhase)
+        {
+            if (!CueVoiceBudget.AllowTell(Time.unscaledTime, _tellAnyT, _radTellT, 1f))
+            {
+                return;
+            }
+
+            _radTellT = Time.unscaledTime;
+            _tellAnyT = _radTellT;
+            PlayTellAtPitch(
+                _tellBossRadial != null ? _tellBossRadial : _tellBossAimed,
+                BossRadialTellScale,
+                finalPhase ? 0.82f : 1f);
+        }
+
         public void PlaySpikeNearTick(float p01)
         {
             if (_tick == null || _tellSpikeNear == null || _muted)
@@ -819,6 +834,11 @@ namespace AsteroidsGoneRogue
 
         private void PlayTell(AudioClip clip, float scale)
         {
+            PlayTellAtPitch(clip, scale, 1f);
+        }
+
+        private void PlayTellAtPitch(AudioClip clip, float scale, float pitch)
+        {
             if (_tell == null || clip == null || _muted)
             {
                 ClearVoice();
@@ -831,7 +851,18 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            _tell.pitch = 1f;
+            float used = pitch;
+            if (used < 0.5f)
+            {
+                used = 0.5f;
+            }
+
+            if (used > 1.5f)
+            {
+                used = 1.5f;
+            }
+
+            _tell.pitch = used;
             _tell.PlayOneShot(clip, Mathf.Clamp(scale, 0f, 1.4f));
         }
 

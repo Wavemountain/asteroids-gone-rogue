@@ -137,6 +137,17 @@ namespace AsteroidsGoneRogue
             FlashScreen(FeelScale.BossPhaseFlash, UiTheme.Secondary, HitFlashLimiter.DefaultDecay, false);
         }
 
+        /// <summary>
+        /// Phase-cross juice. Boss phases added this beside the feel path;
+        /// it uses the same shake, hitstop budget, and flash as
+        /// <see cref="BossPhase"/> so intensity, falloff, the shake gate,
+        /// the hitstop toggle, flash level, and reduce effects apply.
+        /// </summary>
+        public static void BossPhaseChange(Vector3 origin, Vector3 direction)
+        {
+            BossPhase(origin, direction);
+        }
+
         public static void Ripple(Vector3 position, Color color, float seconds)
         {
             GameObject root = new GameObject("ShieldRipple");

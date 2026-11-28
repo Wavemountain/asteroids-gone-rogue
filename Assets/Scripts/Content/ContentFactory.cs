@@ -2708,7 +2708,27 @@ namespace AsteroidsGoneRogue
                 Quaternion.identity);
         }
 
-        private void PlaceHazardSpike(Transform parent, Vector3 position, float scale, bool damaging, float yaw)
+        public GameObject SpawnBossGapMine(Vector3 position)
+        {
+            Transform parent = _arenaRoot != null ? _arenaRoot.transform : transform;
+            GameObject mine = PlaceHazardSpike(parent, position, 1.15f, true, 0f);
+            if (mine == null)
+            {
+                return null;
+            }
+
+            ArenaHazard hazard = mine.GetComponent<ArenaHazard>();
+            if (hazard != null)
+            {
+                hazard.Damaging = false;
+                BossGapMine arm = mine.AddComponent<BossGapMine>();
+                arm.Begin(hazard, 0.4f);
+            }
+
+            return mine;
+        }
+
+        private GameObject PlaceHazardSpike(Transform parent, Vector3 position, float scale, bool damaging, float yaw)
         {
             GameObject root = new GameObject(damaging ? "Arena_Hazard_Spike" : "Arena_Pylon_Spike");
             root.transform.SetParent(parent, false);
@@ -2743,6 +2763,7 @@ namespace AsteroidsGoneRogue
             hazard.Damaging = damaging;
             hazard.Damage = damaging ? ArenaHazard.DamagingSpikeDamage : 1;
             DressHazardSpike(root, hazard, damaging);
+            return root;
         }
 
         private static Vector3 Ring(float radius, float angle)
