@@ -57,6 +57,7 @@ namespace UnityEditor
         public static void EnterPlaymode() { }
         public static void ExitPlaymode() { }
         public static void Exit(int returnValue) { }
+        public static bool ExecuteMenuItem(string menuItemPath) { return false; }
         public static void Step() { }
     }
 

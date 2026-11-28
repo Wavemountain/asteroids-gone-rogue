@@ -55,6 +55,12 @@ namespace AsteroidsGoneRogue
 
         public static bool FireHeld()
         {
+#if UNITY_EDITOR
+            if (EditorPumpEngaged)
+            {
+                return EditorPumpFire;
+            }
+#endif
             BindingMap map = BindingMap.ActiveOrDefault();
             if (map.UsesLegacyFire())
             {
@@ -78,6 +84,12 @@ namespace AsteroidsGoneRogue
 
         public static bool UtilityHeld()
         {
+#if UNITY_EDITOR
+            if (EditorPumpEngaged)
+            {
+                return EditorPumpUtility;
+            }
+#endif
             BindingMap map = BindingMap.ActiveOrDefault();
             if (map.UsesLegacyUtility())
             {
@@ -132,6 +144,12 @@ namespace AsteroidsGoneRogue
 
         public static bool PausePressed()
         {
+#if UNITY_EDITOR
+            if (EditorPumpEngaged && EditorStart)
+            {
+                return true;
+            }
+#endif
             BindingMap map = BindingMap.ActiveOrDefault();
             if (map.UsesLegacyPause())
             {
@@ -143,6 +161,12 @@ namespace AsteroidsGoneRogue
 
         public static bool ConfirmPressed()
         {
+#if UNITY_EDITOR
+            if (EditorPumpEngaged && EditorConfirm)
+            {
+                return true;
+            }
+#endif
             BindingMap map = BindingMap.ActiveOrDefault();
             if (map.UsesLegacyConfirm())
             {
@@ -154,6 +178,12 @@ namespace AsteroidsGoneRogue
 
         public static bool CancelPressed()
         {
+#if UNITY_EDITOR
+            if (EditorPumpEngaged && EditorCancel)
+            {
+                return true;
+            }
+#endif
             BindingMap map = BindingMap.ActiveOrDefault();
             if (map.UsesLegacyCancel())
             {
@@ -180,6 +210,12 @@ namespace AsteroidsGoneRogue
         /// </summary>
         public static Vector2 UiNavDpad()
         {
+#if UNITY_EDITOR
+            if (EditorPumpEngaged && (EditorNavX != 0 || EditorNavY != 0))
+            {
+                return new Vector2(EditorNavX, EditorNavY);
+            }
+#endif
             float x = 0f;
             float y = 0f;
             if (ButtonHeld(DpadRight) || Input.GetKey(KeyCode.JoystickButton12))
@@ -260,6 +296,13 @@ namespace AsteroidsGoneRogue
 
         private static float Axis(string name)
         {
+#if UNITY_EDITOR
+            float pumped;
+            if (TryEditorAxis(name, out pumped))
+            {
+                return pumped;
+            }
+#endif
             try
             {
                 return Input.GetAxisRaw(name);
@@ -446,5 +489,88 @@ namespace AsteroidsGoneRogue
                 return -1;
             }
         }
+
+#if UNITY_EDITOR
+        static bool EditorPumpEngaged;
+        static float EditorPumpHorizontal;
+        static float EditorPumpVertical;
+        static float EditorPumpAimX;
+        static float EditorPumpAimY;
+        static bool EditorPumpFire;
+        static bool EditorPumpUtility;
+        static int EditorNavX;
+        static int EditorNavY;
+        static bool EditorConfirm;
+        static bool EditorCancel;
+        static bool EditorStart;
+
+        /// <summary>
+        /// One frame of the same menu buttons the hangar already reads:
+        /// d-pad nav, Confirm, Cancel, and Start. Player builds strip it.
+        /// </summary>
+        public static void SetEditorMenu(int navX, int navY, bool confirm, bool cancel, bool start)
+        {
+            EditorNavX = navX;
+            EditorNavY = navY;
+            EditorConfirm = confirm;
+            EditorCancel = cancel;
+            EditorStart = start;
+        }
+
+        public static void SetEditorUtility(bool held)
+        {
+            EditorPumpUtility = held;
+        }
+
+        /// <summary>
+        /// Batch sessions have no focused game view, so the long-run harness
+        /// writes the same legacy axes the Input Manager already owns. Off
+        /// unless that harness calls this. Player builds strip the method.
+        /// </summary>
+        public static void SetEditorPump(bool engaged, float horizontal, float vertical, float aimX, float aimY, bool fire)
+        {
+            EditorPumpEngaged = engaged;
+            EditorPumpHorizontal = horizontal;
+            EditorPumpVertical = vertical;
+            EditorPumpAimX = aimX;
+            EditorPumpAimY = aimY;
+            EditorPumpFire = fire;
+        }
+
+        static bool TryEditorAxis(string name, out float value)
+        {
+            value = 0f;
+            if (!EditorPumpEngaged)
+            {
+                return false;
+            }
+
+            if (name == MoveX || name == "Horizontal")
+            {
+                value = EditorPumpHorizontal;
+                return true;
+            }
+
+            if (name == MoveY || name == "Vertical")
+            {
+                value = EditorPumpVertical;
+                return true;
+            }
+
+            if (name == AimX)
+            {
+                value = EditorPumpAimX;
+                return true;
+            }
+
+            if (name == AimY)
+            {
+                value = EditorPumpAimY;
+                return true;
+            }
+
+            return true;
+        }
+#endif
     }
 }

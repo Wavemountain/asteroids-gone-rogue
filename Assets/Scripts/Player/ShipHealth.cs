@@ -273,6 +273,9 @@ namespace AsteroidsGoneRogue
         {
             if (_dead || amount <= 0 || IsInvulnerable)
             {
+#if UNITY_EDITOR
+                LongRunTrace.Damage(false, cause, enemyKind, elite, modifier, _hull, _shield, _hull, _shield, IsInvulnerable);
+#endif
                 return;
             }
 
@@ -335,6 +338,9 @@ namespace AsteroidsGoneRogue
                 _hull -= remaining;
             }
 
+#if UNITY_EDITOR
+            LongRunTrace.Damage(true, cause, enemyKind, elite, modifier, hullBefore, shieldBefore, _hull, _shield, false);
+#endif
             int hullLost = hullBefore - _hull;
             if (hullLost < 0)
             {
