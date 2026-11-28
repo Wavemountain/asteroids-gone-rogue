@@ -1115,7 +1115,11 @@ namespace AsteroidsGoneRogue
                 return;
             }
 
-            _hitstop.Request(Time.unscaledTime, seconds, SettingsState.ReduceEffectsEnabled);
+            _hitstop.Request(
+                Time.unscaledTime,
+                seconds,
+                SettingsState.ReduceEffectsEnabled,
+                SettingsState.HitstopEnabled);
         }
 
         public void HoldFeelInput()

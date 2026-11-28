@@ -234,45 +234,18 @@ namespace AsteroidsGoneRogue
 
             int sparks = LookPolish.ExplosionSparks(tier, reduce);
             Emit(_sparks, position, Vector3.up, LookPolish.ExplosionSparkLife(tier), 0.08f, hot, sparks);
-            float flash = LookPolish.ExplosionFlash(tier);
-            PlayShock(position, 0.2f, tier == LookPolish.TierMid ? 1.5f : 0.8f, flash, reduce);
-            if (tier == LookPolish.TierMid)
+            int embers = LookPolish.EmberSparks(tier, reduce);
+            if (embers > 0)
             {
-                PlayShock(position, 0.05f, 3f, 0.25f, reduce);
-            }
-            else if (tier == LookPolish.TierLarge)
-            {
-                PlayShock(position, 0.05f, 6f, 0.25f, reduce);
-                PlayShockDelayed(position, 0.05f, 6f, 0.25f, 0.12f, reduce);
-            }
-        }
-
-        private void PlayShockDelayed(Vector3 position, float startScale, float endScale, float seconds, float delay, bool reduce)
-        {
-            PlayShock(position, startScale, endScale, seconds, reduce);
-            if (_rings == null)
-            {
-                return;
+                Color ember = new Color(VfxBudget.EmberR, VfxBudget.EmberG, VfxBudget.EmberB, 1f);
+                Emit(_sparks, position, Vector3.up, LookPolish.ExplosionSparkLife(tier), 0.08f, ember, embers);
             }
 
-            int index = 0;
-            while (index < _rings.Length)
-            {
-                VfxSlot slot = _rings[index];
-                index++;
-                if (slot == null || slot.Live == 0)
-                {
-                    continue;
-                }
-
-                if (slot.Born > Time.time - 0.02f)
-                {
-                    slot.Born += delay;
-                    slot.Until += delay;
-                    slot.Root.transform.localScale = Vector3.zero;
-                    break;
-                }
-            }
+            float shockStart;
+            float shockEnd;
+            float shockSeconds;
+            LookPolish.ExplosionShock(tier, out shockStart, out shockEnd, out shockSeconds);
+            PlayShock(position, shockStart, shockEnd, shockSeconds, reduce);
         }
 
         private void PlayShock(Vector3 position, float startScale, float endScale, float seconds, bool reduce)
