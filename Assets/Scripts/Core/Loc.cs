@@ -430,6 +430,8 @@ namespace AsteroidsGoneRogue
             { "wave.mod.shielded", "Sköldade asteroider" },
             { "wave.mod.dense", "Tät svärm" },
             { "ui.boss", "VÄRLDSVÄKTARE" },
+            { "ui.boss.phase2", "FAS 2" },
+            { "ui.boss.phase3", "FAS 3" },
             { "world.rule", "Världsregel: {0}" },
             { "world.rule.1", "Extra plock" },
             { "world.rule.2", "Snabbare asteroider" },
@@ -540,6 +542,8 @@ namespace AsteroidsGoneRogue
             { "hud.world_wave", "World {0} · Wave {1}/{2}" },
             { "hud.wave_endless", "Wave {0}" },
             { "hud.boss", "World {0} · BOSS" },
+            { "ui.boss.phase2", "PHASE 2" },
+            { "ui.boss.phase3", "PHASE 3" },
         };
 
         private static bool _loaded;

@@ -170,4 +170,47 @@ namespace AsteroidsGoneRogue
             }
         }
     }
+
+    /// <summary>
+    /// One boss gap-mine. The spike uses the world's mine damage and arms
+    /// after a short ring telegraph. The boss destroys it when it dies.
+    /// </summary>
+    public sealed class BossGapMine : MonoBehaviour
+    {
+        private ArenaHazard _hazard;
+        private float _armAt;
+
+        public void Begin(ArenaHazard hazard, float delay)
+        {
+            _hazard = hazard;
+            if (_hazard != null)
+            {
+                _hazard.Damaging = false;
+            }
+
+            float wait = delay;
+            if (wait < 0f)
+            {
+                wait = 0f;
+            }
+
+            _armAt = Time.time + wait;
+        }
+
+        private void Update()
+        {
+            if (_hazard == null)
+            {
+                return;
+            }
+
+            if (Time.time < _armAt)
+            {
+                return;
+            }
+
+            _hazard.Damaging = true;
+            enabled = false;
+        }
+    }
 }

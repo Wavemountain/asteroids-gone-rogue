@@ -115,6 +115,22 @@ namespace AsteroidsGoneRogue
             RequestStop(HitstopBudget.BossSeconds);
         }
 
+        public static void BossPhaseChange(Vector3 origin, Vector3 direction)
+        {
+            const float shake = 0.20f;
+            if (direction.sqrMagnitude > 0.0001f)
+            {
+                Shake(shake, direction);
+            }
+            else
+            {
+                ShakeWorld(shake, origin);
+            }
+
+            RequestStop(HitstopBudget.BossSeconds);
+            FlashScreen(0.14f, UiTheme.Secondary, HitFlashLimiter.DefaultDecay, false);
+        }
+
         public static void Ripple(Vector3 position, Color color, float seconds)
         {
             GameObject root = new GameObject("ShieldRipple");

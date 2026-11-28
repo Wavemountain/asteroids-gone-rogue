@@ -7287,6 +7287,7 @@ namespace AsteroidsGoneRogue
             {
                 _bossFill.fillAmount = Mathf.Clamp01(bossHp / (float)bossMax);
                 _bossFill.color = UiTheme.Danger;
+                RefreshBossPhaseMarks();
             }
 
             if (_bossCount != null)
