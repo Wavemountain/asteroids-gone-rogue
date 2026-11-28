@@ -144,6 +144,8 @@ namespace AsteroidsGoneRogue
         private CanvasGroup _menuGroup;
         private GameObject _hudPlate;
         private Text _hudCaption;
+        private Text _worldWave;
+        private int _worldWaveKey = int.MinValue;
         private Image _deathFlash;
         private Image _deathEdge;
         private static Sprite _deathFlashSprite;
@@ -526,9 +528,13 @@ namespace AsteroidsGoneRogue
                 _hudCaption.gameObject.SetActive(playing);
             }
 
+            SyncWorldWaveLabel();
+
             if (_hudPlate != null)
             {
-                _hudPlate.SetActive(playing);
+                // Empty header, rule, and blue outline above the world/wave label.
+                // Score text is a sibling and stays.
+                _hudPlate.SetActive(false);
             }
 
             if (_title != null)
@@ -848,6 +854,12 @@ namespace AsteroidsGoneRogue
             _hudCaption.verticalOverflow = VerticalWrapMode.Overflow;
             AddReadability(_hudCaption, false);
             _hudCaption.gameObject.SetActive(false);
+            _worldWave = CreateText("WorldWave", transform, body, (int)PremiumLook.HudLabel, TextAnchor.UpperLeft, FontStyle.Bold);
+            _worldWave.color = UiBody;
+            _worldWave.raycastTarget = false;
+            ClampOneLine(_worldWave);
+            AddReadability(_worldWave, false);
+            _worldWave.gameObject.SetActive(false);
             _deathFlash = CreateFill("DeathFlash", transform, new Color(1f, 1f, 1f, 0f), Vector2.zero, Vector2.one).GetComponent<Image>();
             _deathFlash.raycastTarget = false;
             EnsureDeathFlashSprite(_deathFlash);
@@ -5641,6 +5653,7 @@ namespace AsteroidsGoneRogue
                 ApplyBottomHint(true);
             }
 
+            SyncWorldWaveLabel();
             PulseHangarLaunch();
             PulseRecommendedUpgrade();
             PulseAbortIfUrgent();
@@ -6927,6 +6940,123 @@ namespace AsteroidsGoneRogue
             return line;
         }
 
+        /// <summary>
+        /// Campaign copy uses the wave cap. A boss wave replaces the fraction.
+        /// Endless and daily runs have no cap, so they show the wave alone.
+        /// </summary>
+        public static string FormatWorldWave(int world, int wave, int total, bool boss, bool capped)
+        {
+            int shownWorld = world < 1 ? 1 : world;
+            int shownWave = wave < 1 ? 1 : wave;
+            if (!capped)
+            {
+                return Loc.Tf("hud.wave_endless", "Wave {0}", shownWave);
+            }
+
+            if (boss)
+            {
+                return Loc.Tf("hud.boss", "World {0} · BOSS", shownWorld);
+            }
+
+            int shownTotal = total < 1 ? 1 : total;
+            return Loc.Tf(
+                "hud.world_wave",
+                "World {0} · Wave {1}/{2}",
+                shownWorld,
+                shownWave,
+                shownTotal);
+        }
+
+        private void SyncWorldWaveLabel()
+        {
+            if (_worldWave == null)
+            {
+                return;
+            }
+
+            bool playing = _session != null && _session.Phase == GamePhase.Playing;
+            bool menu = _confirmOpen || _settingsOpen || _creditsVisible || _setupOpen || _sinkOpen;
+            bool show = playing && !menu;
+            if (_worldWave.gameObject.activeSelf != show)
+            {
+                _worldWave.gameObject.SetActive(show);
+            }
+
+            if (!show)
+            {
+                _worldWaveKey = int.MinValue;
+                return;
+            }
+
+            int wave = _session.WaveIndex < 1 ? 1 : _session.WaveIndex;
+            int world = WorldCatalog.NumberForWave(wave);
+            int key = (world * 100000) + wave;
+            if (key == _worldWaveKey)
+            {
+                return;
+            }
+
+            _worldWaveKey = key;
+            bool daily = _game != null && _game.ActiveDailySeed > 0;
+            bool capped = !daily && wave <= CampaignCap.FinalWave;
+            bool boss = BossRules.IsBossWave(wave);
+            _worldWave.text = FormatWorldWave(world, wave, CampaignCap.FinalWave, boss, capped);
+        }
+
+        private void PlaceWorldWave(int width, int height)
+        {
+            if (_worldWave == null)
+            {
+                return;
+            }
+
+            float safeLeft = 0f;
+            float safeTop = 1f;
+            float safeRight = 1f;
+            if (width > 0 && height > 0 && Screen.width == width && Screen.height == height)
+            {
+                Rect area = Screen.safeArea;
+                safeLeft = area.x / width;
+                safeTop = (area.y + area.height) / height;
+                safeRight = (area.x + area.width) / width;
+            }
+
+            float left = safeLeft + PlayHudLayout.Left;
+            if (left < PlayHudLayout.Left)
+            {
+                left = PlayHudLayout.Left;
+            }
+
+            // Left of the medal ticker (0.490) and the right-hand column (0.74).
+            float right = 0.47f;
+            float safeLimit = safeRight - 0.012f;
+            if (right > safeLimit)
+            {
+                right = safeLimit;
+            }
+
+            if (right < left + 0.08f && left + 0.08f <= 0.47f)
+            {
+                right = left + 0.08f;
+            }
+
+            // Under the score plate so the caption and the top-centre medals stay clear.
+            float top = PlayHudLayout.CaptionMinY - 0.008f;
+            float safeCap = safeTop - 0.004f;
+            if (top > safeCap)
+            {
+                top = safeCap;
+            }
+
+            float bottom = top - 0.032f;
+            Stretch(_worldWave.rectTransform, new Vector2(left, bottom), new Vector2(right, top));
+            int step = _settings != null ? _settings.HintSizeStep : SettingsState.DefaultHintSizeStep;
+            int floor = UiTheme.HintSize(width);
+            _worldWave.fontSize = SettingsState.EffectiveHintSize(step, width, floor);
+            _worldWave.color = UiBody;
+            _worldWave.alignment = TextAnchor.UpperLeft;
+        }
+
         private string PlayBestCompare()
         {
             LocalBest best = _game != null && _game.Best != null ? _game.Best : LocalBest.Load();
@@ -7472,6 +7602,7 @@ namespace AsteroidsGoneRogue
             PlaceAbortButton(width, height);
             PlaceSummaryCard();
             FitRunSummaryText();
+            PlaceWorldWave(width, height);
         }
 
         /// <summary>
@@ -7536,6 +7667,44 @@ namespace AsteroidsGoneRogue
             }
 
             PaintPlate(plate, alpha);
+            if (plate == null)
+            {
+                return;
+            }
+
+            // The corner plate is only a frame. Its header and blue outline
+            // sit above the world/wave label with no text of their own.
+            Image image = plate.GetComponent<Image>();
+            if (image != null)
+            {
+                image.color = new Color(0f, 0f, 0f, 0f);
+                image.enabled = false;
+            }
+
+            Outline ring = plate.GetComponent<Outline>();
+            if (ring != null)
+            {
+                ring.enabled = false;
+            }
+
+            for (int child = 0; child < plate.transform.childCount; child++)
+            {
+                Transform node = plate.transform.GetChild(child);
+                if (node == null)
+                {
+                    continue;
+                }
+
+                if (node.name.IndexOf("Header", System.StringComparison.Ordinal) < 0
+                    && node.name.IndexOf("Rule", System.StringComparison.Ordinal) < 0)
+                {
+                    continue;
+                }
+
+                node.gameObject.SetActive(false);
+            }
+
+            plate.SetActive(false);
         }
 
         private static void PaintBottomPlate(GameObject plate)
@@ -8025,6 +8194,11 @@ namespace AsteroidsGoneRogue
             if (_hint != null)
             {
                 _hint.fontSize = footerSize;
+            }
+
+            if (_worldWave != null)
+            {
+                _worldWave.fontSize = footerSize;
             }
 
             if (_firstFlightBody != null)
